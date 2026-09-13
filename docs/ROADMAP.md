@@ -36,8 +36,7 @@ the CHANGELOG's *Roadmap narrative archive* appendices.)
 | **P2 — Product value** | 🟡 rolling | periodic sync · IA redesign pass 2 · trust indicators · polish *(light/dark contrast done 2026-08-24; Dracula/Nord/Solarized/Tokyo Night themes done 2026-09-04/05)* |
 | **P3 — Expansion** | 🟡 underway | POSIX agent · repair verbs · remote-access polish *(installers **cancelled** 2026-09-11 — Cronsole ships as source)* |
 | **Sources** | 🟡 6 of ~9 built | Gemini usability *(A–C done, D–E open)* · POSIX agent (the big one) · Supabase observer |
-| **Go-public — repo** | 🟢 cleared | every gate closed 2026-09-10 — branch protection, Discussions and dependency alerts all verified live. Optional polish only: a GIF (the stale-claims sweep ran 2026-09-11) |
-| **Go-public — application** | 🟢 cleared | ~~versioning~~ **done 2026-09-11** — scheme, and the first three tags cut at `0.9.0`. **Ops and legal were narrowed 2026-09-11**, and everything that survived the narrowing shipped the same day: the [trust](TRUST.md) and [privacy](PRIVACY.md) pages, and a [backup routine whose restore was actually run](user-guides/guides/Backup_Restore_Guide.md). **What is left is polish** — structured logs, a GIF, richer marketing copy. **Code signing, installers and error tracking are cancelled** — Cronsole ships as source and phones home to nobody, which removed the longest-lead item on the list |
+| **Go-public** | 🟢 **shipped 2026-09-13** | [**The repo is public.**](https://github.com/ai-automation-tools/cronsole) Anonymous clone verified, and branch protection plus the GitHub-owned-actions policy re-checked *after* the flip rather than assumed — a visibility change is exactly the event that silently drops them. The pre-flight scanned all 767 tracked files with the repo's own patterns and found nothing new. The whole checklist, reasons included, is in [Part II](#completed--go-public); what outlived it is [Post-launch](#post-launch). **Cancelled along the way, not deferred:** code signing, installers, and error tracking — Cronsole ships as source and phones home to nobody |
 
 **Leading the queue as of 2026-09-08:** the [2026-08-13 follow-ups](#follow-ups-2026-08-13) —
 the last block in *Next up* with anything open in it, now that **the Monthly trigger shipped
@@ -991,288 +990,28 @@ Shipped P3 work is in [Part II](#completed--p3-expansion).
 
 ---
 
-## 🚀 Go-public checklist
+<a id="post-launch"></a>
 
-Everything required before the repo flips public and Cronsole is promoted beyond personal use.
-**Cronsole launches local-first** — each user runs the whole stack on their own machine, so these
-cover the repo and product going public, not standing up a multi-tenant cloud service.
+## 🛠️ Post-launch
 
-### Repo goes public
+The go-public checklist is **done** — [the repo went public on 2026-09-13](#completed--go-public),
+and the whole of it, item by item, is preserved in Part II. What follows is what outlived it: real
+work, none of it a gate on anybody using Cronsole.
 
-- [x] **Secret & history audit** — **closed 2026-09-09.** The 2026-07-13 pass called history clean;
-      a full scan of all 9,269 objects with the repo's own `scripts/secret-patterns.mjs` found **two
-      real credentials** it had missed, both now dead:
-      a Google API key inside an abandoned AI-Studio zip committed at the initial commit (deleted in
-      its GCP project — Firebase-scoped, no Gemini API, application restrictions **None**), and a dev
-      JWT hardcoded in `Dashboard.tsx` with a **2036** expiry (answers `403` against the live backend,
-      whose `JWT_SECRET` is not the compose dev default it was signed with). Everything else that
-      matched was a test fixture or prose naming a header line.
-      Personal machine paths were scrubbed from all nine tracked files that held them, and the repo was
-      **squashed to a single public root** (633 commits → 1; full history preserved locally at
-      `cronsole-pre-squash-2026-09-09.bundle`, verified complete).
-      **The squash does not remove the old history from GitHub** and nothing says so: 231
-      `refs/pull/*/head` refs still serve it, and every check you would run — commit count, branch
-      list, `git log` — reports success
-      ([#89](troubleshooting/README.md#89-you-squash-the-repo-to-a-fresh-public-root-and-the-old-history-is-still-downloadable)).
-      That is acceptable **only because both credentials are revoked**, which was always the step that
-      mattered. Dropping those refs would mean deleting and recreating the repo; not worth 231 PRs.
-- [x] **Repo hygiene for outsiders** — done *(2026-07-13)*. Branch protection on `main` **verified
-      live 2026-09-10**: no force-push, no deletion, zero required reviews (the zero is deliberate —
-      requiring approvals would break `pr-sweep`'s auto-merge of routine PRs), `enforce_admins`
-      false to keep an escape hatch. Nothing left here.
-- [x] **Community scaffolding** — `SECURITY.md`, `CODE_OF_CONDUCT.md`, issue/PR templates and the
-      CI badge shipped *(2026-07-13)*. **Discussions verified enabled 2026-09-10** — the checklist
-      had carried it as an open "do it at publish" item after it was already on.
-- [x] **Dependency alerts** — **closed 2026-09-10.** Enabling Dependabot during the org hardening
-      pass surfaced **47 open alerts (20 high, 26 moderate, 1 low)** across all four npm workspaces,
-      which nothing had reported before because nothing was watching. Cleared **44 of 47**:
-      `frontend`, `mcp-server` and `agent/test-server` are clean, `backend` holds 3.
-      The three that remain are one upstream issue with **no forward fix** — `deepmerge-ts <8.0.0`
-      ([GHSA-ggr8-5vv4-36mx](https://github.com/advisories/GHSA-ggr8-5vv4-36mx)) reached only
-      through `@prisma/config`, which still pins `deepmerge-ts 7.1.5` at `@latest`. npm's proposed
-      remediation is `prisma@6.12.0`, a **downgrade** from the installed 6.19.3, so taking it would
-      trade a dev-only advisory for real CLI and schema risk. `prisma` is a **devDependency**; the
-      runtime `@prisma/client` is not in the chain, so nothing here ships in the running backend.
-      Revisit when `@prisma/config` picks up `deepmerge-ts 8`.
-- [~] **Final README/docs pass for a stranger audience** — the CLAUDE.md cloud-hosting row is fixed
-      *(2026-07-31)*, four false README claims were corrected *(2026-08-17)*, and the **quick start
-      now actually starts the stack** *(2026-09-09)*: it said `docker compose up --build` brought up
-      backend and frontend, which sit behind `profiles: ["docker"]`, so a plain `up` started db and
-      redis only and step 4 sent the reader to an empty `:7373`. Screenshots are in and tracked.
-      An **honest feature-status table** landed 2026-09-09: OS support (the Windows-only agent is
-      the biggest thing a stranger needs to know), and a *what isn't there yet* table naming the
-      missing installer, the single-user model, the absent hosted version and the pre-1.0 release
-      posture. It deliberately **does not** restate per-source capability — the *What it connects to*
-      table already does that, from the same declaration the Platforms tab renders. The stale
-      `72 templates / 8 packs` claim was corrected to `90+ / 9` in the same pass (real count: 93).
-      **The quick start was verified from a clean clone on 2026-09-11** — a real `git clone` into a
-      throwaway directory, `docker compose --profile docker up --build`, then the owner-account
-      creation, every authenticated read, a task create and a run. **It did not work**, and had never
-      worked: nothing applied the migrations, so the backend exited on `The table public.User does
-      not exist`
-      ([#90](troubleshooting/README.md#90-a-fresh-clones-docker-quick-start-dies-with-the-table-publicuser-does-not-exist)).
-      The *manual* path spelled the migrate step out and so worked; the Docker path — the one marked
-      **fastest** — never created a table. Fixed with `predev`/`prestart` hooks and re-verified end to
-      end. **That is the whole argument for this item**: 1,192 green backend tests could not see it,
-      because every one of them ran against a database somebody had already migrated by hand. A
-      suite cannot catch a setup step, and the docs pass is the only thing that looks.
-
-      **The stale-claims sweep ran 2026-09-11, and it was worth running.** The
-      missing-`--profile docker` claim the README was corrected for on 2026-09-09 was still live in
-      **five** other places, including both install guides and — worst — the **public gallery page's
-      copy-paste quick start**, which is the first command a stranger runs and which would have left
-      them at an empty `:7373` exactly as [#90](troubleshooting/README.md#90-a-fresh-clones-docker-quick-start-dies-with-the-table-publicuser-does-not-exist)
-      describes. Also fixed: `CONTRIBUTING.md`, the CLI reference's claim that a bare `up` brings up
-      backend and frontend, and an integration-test row asserting the same.
-
-      **Stale counts were removed rather than corrected** — 66 templates (really 97), 8 packs
-      (really 9), 40 templates in two more places, 36 MCP tools (really 38). Writing today's number
-      recreates the same debt next week, and the repo had already reached that conclusion twice
-      (`functional-testing/README.md`, `skills/cronsole/references/workflows.md` both say so), so
-      these now point at `registry/index.json` and `grep -c 'server.registerTool'` the way
-      `CLAUDE.md` instructs. Two stale lines in `DESIGN_NOTES.md` were corrected too.
-
-      **Left:** a GIF.
-
-- [x] **Flip the six "this repo is private" claims** *(noted 2026-08-24, done 2026-09-09)*. Each
-      was true at the time and became false the moment the repo flipped, and **none of them would
-      have failed a test or a build** — they are prose. Flipped in `README.md`, `CONTRIBUTING.md`,
-      `CLAUDE.md`, `docs/DESIGN_NOTES.md`, `docs/resources/repos/README.md` and
-      `frontend/src/data/docs.ts`.
-
-      `docs/CHANGELOG.md` was **deliberately left alone**: its private-repo mentions are dated
-      historical entries, and that file's own header says rewriting them to match today is the one
-      thing a changelog must never do. The same goes for the 2026-07-13 audit note recording *why*
-      the squash-to-a-fresh-public-root decision was made.
-
-      Two were more than wording. `docs.ts` explained why a `?` button might not resolve for a
-      reader — once public that caveat was not merely stale but **backwards**, since the deep-links
-      point at the repo on GitHub and now resolve for everyone; it was rewritten to say a rendered
-      docs site is still pending and GitHub's Markdown view is the interim. And `SECURITY.md`'s
-      *"do not expose Cronsole directly to the public internet"* was re-read and **kept**: it is a
-      statement about the product's single-user posture, not about the repo's visibility, and it is
-      still true.
-
-### Application goes public
-
-- [~] **Versioning & releases** — **the scheme landed 2026-09-11**
-      ([`docs/contributing/Versioning.md`](contributing/Versioning.md)). Four components, three
-      release trains, prefixed tags (`app/v…`, `agent/v…`, `mcp/v…`); the registry is **not** on a
-      release train, which is the whole point of decoupling it. Everything is `0.9.0` — pre-1.0, and
-      the manifests said `1.0.0`/`0.0.0` while zero tags existed, so nothing was advertised and
-      nothing goes backwards.
-
-      The decision that matters is **the agent's wire protocol versions separately from the agent**,
-      because it is the one contract with software we do not control: a user's agent from June talks
-      to today's backend. `PROTOCOL_VERSION` is now stamped at both ends and reported in
-      `agent:hello`.
-
-      It is **reported, not enforced**, deliberately — there is exactly one protocol version in
-      existence, so a mismatch cannot occur yet and refusal machinery would be guarding nothing.
-      The honest refusal is the *first* thing to build the day `SignableCommand` moves; until then a
-      version nothing can disagree with is a fact, not a gate.
-
-      **Two already-logged items closed with it**, both waiting on the same missing fact — the agent
-      hardcoded `agentVersion = "1.0.0"`, so it was identical on a build from today and one from
-      June. `AgentManager` captured it and diagnostics *deliberately refused to render it* (the
-      comment said "render it the day the agent stamps a real build id"); it now stamps one, read
-      from the assembly so there is no second string to drift.
-
-      **The first tags were cut 2026-09-11** — `app/v0.9.0`, `agent/v0.9.0`, `mcp/v0.9.0`, all on
-      `main` at `7a60562`, with GitHub releases carrying **zero assets** each, per the source-only
-      rule. The repo had no tag before this and `docs/CHANGELOG.md` had no version heading, so
-      `[Unreleased]` became `[0.9.0]` with a fresh empty one above it. The checklist ran first:
-      backend 1192 + 267 integration, frontend 1166 + lint, agent 164, mcp-server 211 — ~2,800
-      tests — plus all five hygiene scripts and the registry drift check.
-
-      **Left:** release notes generated from real commits rather than written by hand. That is the
-      whole of this item now.
-- [~] **Operations — for the machine the user runs it on** *(narrowed 2026-09-11)*. The original item
-      named error tracking, uptime monitoring, a status page, staging and a deploy pipeline. Those
-      describe a **hosted service**, and Cronsole does not have one: there is nothing to monitor,
-      nothing to deploy, and no incident anybody but the user can see. Rewritten against the product
-      this actually is, the item is much smaller — and one part of it is cancelled outright.
-
-      **Error tracking is cancelled, not deferred.** Posting a local-first tool's stack traces to a
-      third party contradicts the one thing it claims. A default install today initiates **zero
-      outbound calls of its own** — verified, not assumed: there is no telemetry or analytics SDK
-      anywhere in the four workspaces, and `TEMPLATE_REGISTRY_URL` is commented out in
-      `backend/.env.example`, so the catalog a fresh install reads is the compiled-in snapshot and
-      not a fetch. That property is worth more than aggregate crash data, and this is the same shape
-      as the certificate decision: reopening it means re-answering *what leaves the machine*, in
-      public, having already said it leaves nothing.
-
-      **Uptime monitoring, status page, staging, deploy pipeline: dissolved.** The real question
-      underneath them — *is my install healthy* — is already answered by `/doctor` and the
-      diagnostics screen, which report on the machine the user is standing at. A status page would
-      describe the availability of a service nobody connects to.
-
-      **Postgres backups with a tested restore — done 2026-09-11**
-      ([`Backup_Restore_Guide.md`](user-guides/guides/Backup_Restore_Guide.md)). It ships as a
-      documented routine rather than infrastructure, because the volume is the user's, and it can be
-      scheduled as a Cronsole native `SCRIPT` job — with the caveat stated, since a native job runs
-      where the *backend* runs and on the Dockerized stack that is a container with no Docker socket.
-      The guide opens with the scope, because it cuts both ways: the volume holds Cronsole's *view*
-      and **not the tasks themselves**, so losing it loses the dashboard rather than the jobs — with
-      the pre-delete archive called out as the exception, being the only copy of a task that is gone.
-
-      **The restore was run, not described.** Against the live stack: PostgreSQL 16.14, 404 tasks and
-      143 execution logs across 17 tables, a 130 KB dump, `pg_restore` exit 0, all 17 tables matching
-      on real counts, scratch database dropped and the live stack verified intact.
-
-      **It found two things worth publishing.** First, **a backup without `ENCRYPTION_KEY` is half a
-      backup** — stored credentials are AES-256-GCM ciphertext, so a restore onto a machine with a
-      different key *succeeds*, every count matches, and every platform connection is permanently
-      unreadable; the key therefore belongs in the backup plan and **not** beside the dump, since it
-      is the only thing making that ciphertext safe to keep. Second, **the obvious way to verify a
-      restore is wrong in both directions**: `pg_stat_user_tables.n_live_tup` is an estimate, and run
-      that way this very test reported a false mismatch (0 users and 18 logs against the restored
-      copy's 1 and 143) on a restore that was perfect. A check that can be wrong in both directions
-      is not one, so the guide generates real `count(*)` queries.
-
-      **Left:**
-      - **Structured logs**, narrowed to their real audience: the user debugging their own install,
-        and pasting the result into an issue.
-      - **Broader API rate limiting**, small — the only caller is the user and their MCP session, so
-        the case is defence-in-depth *behind* Cloudflare Access on the opt-in remote path, not
-        protection from a crowd that cannot reach the port. *(Auth rate limiting shipped 2026-07-16.)*
-- [x] **Agent distribution & trust** — **signing and installers dropped 2026-09-11; the trust page
-      is what survives, and it matters more now.**
-
-      **Cronsole ships as source.** Clone the repo, or run the Docker stack; the agent is built on
-      the machine that runs it. The signed MSI, the code-signing certificate, the update channel and
-      the whole-stack `.exe` are **cancelled, not deferred** — see *Distribution* under
-      [Open decisions](#open-decisions) for the argument.
-
-      Why this actually removes the problem rather than postponing it: **SmartScreen keys off
-      Mark-of-the-Web**, the tag Windows attaches to *downloaded* files. A binary the user compiled
-      locally carries none, so the wall that made the certificate a hard prerequisite never appears.
-      Authenticode was never protecting the user from Cronsole — it was protecting them from a
-      binary they could not inspect, and the answer to that is now *inspect it*.
-
-      **The rule that replaces it: no prebuilt binary in a GitHub Release, ever.** The moment an
-      `.exe` or `.msi` is attached to a release, it is downloaded, it carries MOTW, and the
-      certificate is a hard prerequisite again. This is the one way the decision gets quietly undone,
-      and nothing enforces it.
-
-      **The trust page shipped 2026-09-11** — [`docs/TRUST.md`](TRUST.md). It was the smallest line
-      of the old item and became the whole of it, because "read the source" is only a real answer if
-      something tells you what to read. It names the elevation **and why it is genuinely required**
-      (#74's 86 invisible tasks), lists the agent's capabilities as the **complete** verb list rather
-      than a summary — the point being that a reader can check the interface and know there is no
-      sixteenth verb — and states the uncomfortable half out loud: a task Cronsole registers runs a
-      program, so the honest description of its power is *anything you can schedule by hand, Cronsole
-      can schedule for you*. Then what is enforced against that (no file-write verb, never binds a
-      port, `\Microsoft\` refused twice, signed commands with a replay guard, no self-update), the
-      full inventory of what runs after an install, and the removal sequence.
-
-      **The removal section is the part that earns the page.** `docker compose down -v` removes
-      Cronsole's database and **not the tasks Cronsole created** — they are ordinary Windows tasks
-      and keep running. That is correct behavior, it is the product's own premise turned to face its
-      uninstall, and nobody would guess it. The sequence also notes the `\Cronsole-Stack\` sweep
-      needs elevation (those tasks carry an administrator ACE), and deliberately does **not**
-      automate deleting the user's own scheduled jobs.
-
-      This item is now **closed**.
-- [x] **Legal minimum** *(narrowed and closed 2026-09-11)*. Most of this item described obligations that attach
-      to **operating a service**, and Cronsole operates none. What is actually owed to a stranger is
-      smaller, and part of it already shipped.
-
-      **`LICENSE` is in the repo** — the actual legal relationship, and the only one that exists.
-
-      **Terms of service: dissolved.** A ToS governs a service you run — access, acceptable use,
-      suspension, termination. There is no server, no account held by anyone else, and nothing to
-      terminate. The LICENSE already covers use and reuse; a ToS layered on top would set terms for a
-      relationship that does not exist.
-
-      **Account deletion and data export: reframed as *uninstall*, and folded into the trust page
-      above.** No account exists anywhere but the user's own Postgres, so "delete my account" is
-      really "remove Cronsole" — and that has an edge worth stating plainly, because nothing else
-      will say it: **`docker compose down -v` removes Cronsole's database, not the tasks Cronsole
-      created.** The `\Cronsole` tasks and the `\Cronsole-Stack\` launcher tasks survive it, by
-      design — Cronsole never owned them, which is the product's whole premise pointed back at its
-      own uninstall. Per-task export already exists in both formats (`native` and `template`).
-
-      **Cookie handling: nothing to handle.** The one public page sets **no cookies** and loads no
-      third-party analytics — verified: a single `localStorage` key for the theme toggle, and
-      outbound links to GitHub.
-
-      **Third-party notices: dissolved under source-only distribution** *(added 2026-09-11, found by
-      sweeping the `release-engineering` skill against reality)*. A NOTICE file exists because you
-      **redistribute** someone else's code inside your artifact. Cronsole ships no artifact —
-      dependencies are fetched from npm and NuGet by the user's own tooling, from manifests they can
-      read. `LICENSE` is Apache-2.0 and in place. **This returns the day a binary ships**, alongside
-      the certificate and for the same underlying reason.
-
-      **The privacy page shipped 2026-09-11** — [`docs/PRIVACY.md`](PRIVACY.md), written in the same
-      sitting as the trust page because they are the same act. It opens by saying why it is *not* a
-      policy (a policy documents a service that collects your data; there is no service), then states
-      the claim that matters — **a default install initiates no outbound connection of its own** —
-      and backs it with three checkable facts: no telemetry SDK in any of the four workspaces,
-      `TEMPLATE_REGISTRY_URL` commented out so the catalog is compiled in, and a dashboard that loads
-      no CDN, font or remote script. Then the per-source table of who gets contacted **when you
-      connect them**, naming Gemini as the one platform that ends up holding a credential of yours
-      and Claude as the one read at call time and never stored. It ends with the commands to verify
-      each claim, because the whole value of shipping as source is that a reader can settle this
-      rather than believe it.
-
-      This item is now **closed**.
-- [ ] **Multi-user / hosted account system** *(deferred — not a local-first launch requirement)*:
-      password reset (needs email infra), open registration as a *designed* invite/approval flow,
-      JWT refresh tokens, per-user agent pairing, account management and roles.
-- [~] **Launch surface** — one public page shipped *(2026-07-28, consolidated from two)*.
-
-      **Install links are live and correct as of 2026-09-11.** The repo is public, so the page's
-      *Get Cronsole* panel links it directly and the copy-paste quick start is a real `git clone`.
-      There are no *download* links and there never will be — a released binary is the one thing
-      that reinstates the code-signing certificate, so the install link **is** the clone.
-
-      That quick start was **wrong until the sweep found it**: it read `docker compose up -d`, which
-      starts Postgres and Redis only. The front door was handing every visitor the exact failure of
-      [#90](troubleshooting/README.md#90-a-fresh-clones-docker-quick-start-dies-with-the-table-publicuser-does-not-exist).
-      It now matches the README verbatim and carries a comment saying it must.
-
-      **Left:** richer marketing content, and a GIF.
+- [ ] **A GIF, and richer copy for the front door.** The single most-requested thing a stranger
+      wants from a dashboard project is to see it move, and a README screenshot does not. Nothing
+      blocks on it; it is the highest-leverage cosmetic item left.
+- [ ] **Structured logs**, narrowed to their real audience: the user debugging their own install
+      and pasting the result into an issue. *(The rest of the old "production operations" item was
+      cancelled or dissolved — see [Operations](#completed--go-public) in Part II for why an
+      error-tracking service is the one thing this product must not ship.)*
+- [ ] **Release notes generated from real commits** rather than written by hand. Low value until
+      releases are frequent; the [versioning scheme](contributing/Versioning.md) and the first three
+      tags are already in place.
+- [ ] **Multi-user / hosted account system** *(deferred — explicitly not a local-first launch
+      requirement)*: password reset (needs email infra), open registration as a *designed*
+      invite/approval flow, JWT refresh tokens, per-user agent pairing, account management and
+      roles.
 
 ---
 
@@ -2275,6 +2014,310 @@ verification pass — is still open above, narrowed to the half that needs a tok
       Deliberately **not** renamed: `PlatformType.TASKHUB_NATIVE` (a stored Postgres enum) and the
       historical CHANGELOG/ROADMAP entries.
 - [x] Account/login system — single-user local login *(2026-07-16)*
+
+### The checklist, as it was closed
+
+**Cronsole went public on 2026-09-13.** Everything below is the checklist that guarded that flip,
+moved here verbatim on the day it was passed rather than summarised — the *reasons* are the
+valuable part, and several of them (why there is no installer, why error tracking is cancelled, why
+a backup without `ENCRYPTION_KEY` is half a backup) are arguments someone will want to reopen.
+
+Two things were true at the flip and are worth stating once, here, where the record lives:
+
+- **The pre-flight found nothing new.** All 767 tracked files were scanned with the repo's own
+  `secret-patterns.mjs`; the seven matches were dummy fixtures (`ghp_abcdefghijklmnopqrst`,
+  `sk-ant-oat01-not-a-real-…`) and one line of prose naming a PEM header. That is the same
+  conclusion the 2026-09-09 audit reached, re-derived independently.
+- **Branch protection and the Actions policy survived the visibility change**, verified after the
+  fact rather than assumed — 6 required checks, no force-push, no deletion, and actions restricted
+  to GitHub-owned. A visibility flip is exactly the kind of event that silently drops settings.
+
+The one accepted residual is unchanged: the pre-squash history is still reachable through 231
+`refs/pull/*/head` refs, which is acceptable **only** because both credentials it contained are
+revoked — always the step that actually mattered
+([#89](troubleshooting/README.md#89-you-squash-the-repo-to-a-fresh-public-root-and-the-old-history-is-still-downloadable)).
+
+
+Everything required before the repo flips public and Cronsole is promoted beyond personal use.
+**Cronsole launches local-first** — each user runs the whole stack on their own machine, so these
+cover the repo and product going public, not standing up a multi-tenant cloud service.
+
+### Repo goes public
+
+- [x] **Secret & history audit** — **closed 2026-09-09.** The 2026-07-13 pass called history clean;
+      a full scan of all 9,269 objects with the repo's own `scripts/secret-patterns.mjs` found **two
+      real credentials** it had missed, both now dead:
+      a Google API key inside an abandoned AI-Studio zip committed at the initial commit (deleted in
+      its GCP project — Firebase-scoped, no Gemini API, application restrictions **None**), and a dev
+      JWT hardcoded in `Dashboard.tsx` with a **2036** expiry (answers `403` against the live backend,
+      whose `JWT_SECRET` is not the compose dev default it was signed with). Everything else that
+      matched was a test fixture or prose naming a header line.
+      Personal machine paths were scrubbed from all nine tracked files that held them, and the repo was
+      **squashed to a single public root** (633 commits → 1; full history preserved locally at
+      `cronsole-pre-squash-2026-09-09.bundle`, verified complete).
+      **The squash does not remove the old history from GitHub** and nothing says so: 231
+      `refs/pull/*/head` refs still serve it, and every check you would run — commit count, branch
+      list, `git log` — reports success
+      ([#89](troubleshooting/README.md#89-you-squash-the-repo-to-a-fresh-public-root-and-the-old-history-is-still-downloadable)).
+      That is acceptable **only because both credentials are revoked**, which was always the step that
+      mattered. Dropping those refs would mean deleting and recreating the repo; not worth 231 PRs.
+- [x] **Repo hygiene for outsiders** — done *(2026-07-13)*. Branch protection on `main` **verified
+      live 2026-09-10**: no force-push, no deletion, zero required reviews (the zero is deliberate —
+      requiring approvals would break `pr-sweep`'s auto-merge of routine PRs), `enforce_admins`
+      false to keep an escape hatch. Nothing left here.
+- [x] **Community scaffolding** — `SECURITY.md`, `CODE_OF_CONDUCT.md`, issue/PR templates and the
+      CI badge shipped *(2026-07-13)*. **Discussions verified enabled 2026-09-10** — the checklist
+      had carried it as an open "do it at publish" item after it was already on.
+- [x] **Dependency alerts** — **closed 2026-09-10.** Enabling Dependabot during the org hardening
+      pass surfaced **47 open alerts (20 high, 26 moderate, 1 low)** across all four npm workspaces,
+      which nothing had reported before because nothing was watching. Cleared **44 of 47**:
+      `frontend`, `mcp-server` and `agent/test-server` are clean, `backend` holds 3.
+      The three that remain are one upstream issue with **no forward fix** — `deepmerge-ts <8.0.0`
+      ([GHSA-ggr8-5vv4-36mx](https://github.com/advisories/GHSA-ggr8-5vv4-36mx)) reached only
+      through `@prisma/config`, which still pins `deepmerge-ts 7.1.5` at `@latest`. npm's proposed
+      remediation is `prisma@6.12.0`, a **downgrade** from the installed 6.19.3, so taking it would
+      trade a dev-only advisory for real CLI and schema risk. `prisma` is a **devDependency**; the
+      runtime `@prisma/client` is not in the chain, so nothing here ships in the running backend.
+      Revisit when `@prisma/config` picks up `deepmerge-ts 8`.
+- [~] **Final README/docs pass for a stranger audience** — the CLAUDE.md cloud-hosting row is fixed
+      *(2026-07-31)*, four false README claims were corrected *(2026-08-17)*, and the **quick start
+      now actually starts the stack** *(2026-09-09)*: it said `docker compose up --build` brought up
+      backend and frontend, which sit behind `profiles: ["docker"]`, so a plain `up` started db and
+      redis only and step 4 sent the reader to an empty `:7373`. Screenshots are in and tracked.
+      An **honest feature-status table** landed 2026-09-09: OS support (the Windows-only agent is
+      the biggest thing a stranger needs to know), and a *what isn't there yet* table naming the
+      missing installer, the single-user model, the absent hosted version and the pre-1.0 release
+      posture. It deliberately **does not** restate per-source capability — the *What it connects to*
+      table already does that, from the same declaration the Platforms tab renders. The stale
+      `72 templates / 8 packs` claim was corrected to `90+ / 9` in the same pass (real count: 93).
+      **The quick start was verified from a clean clone on 2026-09-11** — a real `git clone` into a
+      throwaway directory, `docker compose --profile docker up --build`, then the owner-account
+      creation, every authenticated read, a task create and a run. **It did not work**, and had never
+      worked: nothing applied the migrations, so the backend exited on `The table public.User does
+      not exist`
+      ([#90](troubleshooting/README.md#90-a-fresh-clones-docker-quick-start-dies-with-the-table-publicuser-does-not-exist)).
+      The *manual* path spelled the migrate step out and so worked; the Docker path — the one marked
+      **fastest** — never created a table. Fixed with `predev`/`prestart` hooks and re-verified end to
+      end. **That is the whole argument for this item**: 1,192 green backend tests could not see it,
+      because every one of them ran against a database somebody had already migrated by hand. A
+      suite cannot catch a setup step, and the docs pass is the only thing that looks.
+
+      **The stale-claims sweep ran 2026-09-11, and it was worth running.** The
+      missing-`--profile docker` claim the README was corrected for on 2026-09-09 was still live in
+      **five** other places, including both install guides and — worst — the **public gallery page's
+      copy-paste quick start**, which is the first command a stranger runs and which would have left
+      them at an empty `:7373` exactly as [#90](troubleshooting/README.md#90-a-fresh-clones-docker-quick-start-dies-with-the-table-publicuser-does-not-exist)
+      describes. Also fixed: `CONTRIBUTING.md`, the CLI reference's claim that a bare `up` brings up
+      backend and frontend, and an integration-test row asserting the same.
+
+      **Stale counts were removed rather than corrected** — 66 templates (really 97), 8 packs
+      (really 9), 40 templates in two more places, 36 MCP tools (really 38). Writing today's number
+      recreates the same debt next week, and the repo had already reached that conclusion twice
+      (`functional-testing/README.md`, `skills/cronsole/references/workflows.md` both say so), so
+      these now point at `registry/index.json` and `grep -c 'server.registerTool'` the way
+      `CLAUDE.md` instructs. Two stale lines in `DESIGN_NOTES.md` were corrected too.
+
+      **Left:** a GIF.
+
+- [x] **Flip the six "this repo is private" claims** *(noted 2026-08-24, done 2026-09-09)*. Each
+      was true at the time and became false the moment the repo flipped, and **none of them would
+      have failed a test or a build** — they are prose. Flipped in `README.md`, `CONTRIBUTING.md`,
+      `CLAUDE.md`, `docs/DESIGN_NOTES.md`, `docs/resources/repos/README.md` and
+      `frontend/src/data/docs.ts`.
+
+      `docs/CHANGELOG.md` was **deliberately left alone**: its private-repo mentions are dated
+      historical entries, and that file's own header says rewriting them to match today is the one
+      thing a changelog must never do. The same goes for the 2026-07-13 audit note recording *why*
+      the squash-to-a-fresh-public-root decision was made.
+
+      Two were more than wording. `docs.ts` explained why a `?` button might not resolve for a
+      reader — once public that caveat was not merely stale but **backwards**, since the deep-links
+      point at the repo on GitHub and now resolve for everyone; it was rewritten to say a rendered
+      docs site is still pending and GitHub's Markdown view is the interim. And `SECURITY.md`'s
+      *"do not expose Cronsole directly to the public internet"* was re-read and **kept**: it is a
+      statement about the product's single-user posture, not about the repo's visibility, and it is
+      still true.
+
+### Application goes public
+
+- [~] **Versioning & releases** — **the scheme landed 2026-09-11**
+      ([`docs/contributing/Versioning.md`](contributing/Versioning.md)). Four components, three
+      release trains, prefixed tags (`app/v…`, `agent/v…`, `mcp/v…`); the registry is **not** on a
+      release train, which is the whole point of decoupling it. Everything is `0.9.0` — pre-1.0, and
+      the manifests said `1.0.0`/`0.0.0` while zero tags existed, so nothing was advertised and
+      nothing goes backwards.
+
+      The decision that matters is **the agent's wire protocol versions separately from the agent**,
+      because it is the one contract with software we do not control: a user's agent from June talks
+      to today's backend. `PROTOCOL_VERSION` is now stamped at both ends and reported in
+      `agent:hello`.
+
+      It is **reported, not enforced**, deliberately — there is exactly one protocol version in
+      existence, so a mismatch cannot occur yet and refusal machinery would be guarding nothing.
+      The honest refusal is the *first* thing to build the day `SignableCommand` moves; until then a
+      version nothing can disagree with is a fact, not a gate.
+
+      **Two already-logged items closed with it**, both waiting on the same missing fact — the agent
+      hardcoded `agentVersion = "1.0.0"`, so it was identical on a build from today and one from
+      June. `AgentManager` captured it and diagnostics *deliberately refused to render it* (the
+      comment said "render it the day the agent stamps a real build id"); it now stamps one, read
+      from the assembly so there is no second string to drift.
+
+      **The first tags were cut 2026-09-11** — `app/v0.9.0`, `agent/v0.9.0`, `mcp/v0.9.0`, all on
+      `main` at `7a60562`, with GitHub releases carrying **zero assets** each, per the source-only
+      rule. The repo had no tag before this and `docs/CHANGELOG.md` had no version heading, so
+      `[Unreleased]` became `[0.9.0]` with a fresh empty one above it. The checklist ran first:
+      backend 1192 + 267 integration, frontend 1166 + lint, agent 164, mcp-server 211 — ~2,800
+      tests — plus all five hygiene scripts and the registry drift check.
+
+      **Left:** release notes generated from real commits rather than written by hand. That is the
+      whole of this item now.
+- [~] **Operations — for the machine the user runs it on** *(narrowed 2026-09-11)*. The original item
+      named error tracking, uptime monitoring, a status page, staging and a deploy pipeline. Those
+      describe a **hosted service**, and Cronsole does not have one: there is nothing to monitor,
+      nothing to deploy, and no incident anybody but the user can see. Rewritten against the product
+      this actually is, the item is much smaller — and one part of it is cancelled outright.
+
+      **Error tracking is cancelled, not deferred.** Posting a local-first tool's stack traces to a
+      third party contradicts the one thing it claims. A default install today initiates **zero
+      outbound calls of its own** — verified, not assumed: there is no telemetry or analytics SDK
+      anywhere in the four workspaces, and `TEMPLATE_REGISTRY_URL` is commented out in
+      `backend/.env.example`, so the catalog a fresh install reads is the compiled-in snapshot and
+      not a fetch. That property is worth more than aggregate crash data, and this is the same shape
+      as the certificate decision: reopening it means re-answering *what leaves the machine*, in
+      public, having already said it leaves nothing.
+
+      **Uptime monitoring, status page, staging, deploy pipeline: dissolved.** The real question
+      underneath them — *is my install healthy* — is already answered by `/doctor` and the
+      diagnostics screen, which report on the machine the user is standing at. A status page would
+      describe the availability of a service nobody connects to.
+
+      **Postgres backups with a tested restore — done 2026-09-11**
+      ([`Backup_Restore_Guide.md`](user-guides/guides/Backup_Restore_Guide.md)). It ships as a
+      documented routine rather than infrastructure, because the volume is the user's, and it can be
+      scheduled as a Cronsole native `SCRIPT` job — with the caveat stated, since a native job runs
+      where the *backend* runs and on the Dockerized stack that is a container with no Docker socket.
+      The guide opens with the scope, because it cuts both ways: the volume holds Cronsole's *view*
+      and **not the tasks themselves**, so losing it loses the dashboard rather than the jobs — with
+      the pre-delete archive called out as the exception, being the only copy of a task that is gone.
+
+      **The restore was run, not described.** Against the live stack: PostgreSQL 16.14, 404 tasks and
+      143 execution logs across 17 tables, a 130 KB dump, `pg_restore` exit 0, all 17 tables matching
+      on real counts, scratch database dropped and the live stack verified intact.
+
+      **It found two things worth publishing.** First, **a backup without `ENCRYPTION_KEY` is half a
+      backup** — stored credentials are AES-256-GCM ciphertext, so a restore onto a machine with a
+      different key *succeeds*, every count matches, and every platform connection is permanently
+      unreadable; the key therefore belongs in the backup plan and **not** beside the dump, since it
+      is the only thing making that ciphertext safe to keep. Second, **the obvious way to verify a
+      restore is wrong in both directions**: `pg_stat_user_tables.n_live_tup` is an estimate, and run
+      that way this very test reported a false mismatch (0 users and 18 logs against the restored
+      copy's 1 and 143) on a restore that was perfect. A check that can be wrong in both directions
+      is not one, so the guide generates real `count(*)` queries.
+
+      **Left:**
+      - **Structured logs**, narrowed to their real audience: the user debugging their own install,
+        and pasting the result into an issue.
+      - **Broader API rate limiting**, small — the only caller is the user and their MCP session, so
+        the case is defence-in-depth *behind* Cloudflare Access on the opt-in remote path, not
+        protection from a crowd that cannot reach the port. *(Auth rate limiting shipped 2026-07-16.)*
+- [x] **Agent distribution & trust** — **signing and installers dropped 2026-09-11; the trust page
+      is what survives, and it matters more now.**
+
+      **Cronsole ships as source.** Clone the repo, or run the Docker stack; the agent is built on
+      the machine that runs it. The signed MSI, the code-signing certificate, the update channel and
+      the whole-stack `.exe` are **cancelled, not deferred** — see *Distribution* under
+      [Open decisions](#open-decisions) for the argument.
+
+      Why this actually removes the problem rather than postponing it: **SmartScreen keys off
+      Mark-of-the-Web**, the tag Windows attaches to *downloaded* files. A binary the user compiled
+      locally carries none, so the wall that made the certificate a hard prerequisite never appears.
+      Authenticode was never protecting the user from Cronsole — it was protecting them from a
+      binary they could not inspect, and the answer to that is now *inspect it*.
+
+      **The rule that replaces it: no prebuilt binary in a GitHub Release, ever.** The moment an
+      `.exe` or `.msi` is attached to a release, it is downloaded, it carries MOTW, and the
+      certificate is a hard prerequisite again. This is the one way the decision gets quietly undone,
+      and nothing enforces it.
+
+      **The trust page shipped 2026-09-11** — [`docs/TRUST.md`](TRUST.md). It was the smallest line
+      of the old item and became the whole of it, because "read the source" is only a real answer if
+      something tells you what to read. It names the elevation **and why it is genuinely required**
+      (#74's 86 invisible tasks), lists the agent's capabilities as the **complete** verb list rather
+      than a summary — the point being that a reader can check the interface and know there is no
+      sixteenth verb — and states the uncomfortable half out loud: a task Cronsole registers runs a
+      program, so the honest description of its power is *anything you can schedule by hand, Cronsole
+      can schedule for you*. Then what is enforced against that (no file-write verb, never binds a
+      port, `\Microsoft\` refused twice, signed commands with a replay guard, no self-update), the
+      full inventory of what runs after an install, and the removal sequence.
+
+      **The removal section is the part that earns the page.** `docker compose down -v` removes
+      Cronsole's database and **not the tasks Cronsole created** — they are ordinary Windows tasks
+      and keep running. That is correct behavior, it is the product's own premise turned to face its
+      uninstall, and nobody would guess it. The sequence also notes the `\Cronsole-Stack\` sweep
+      needs elevation (those tasks carry an administrator ACE), and deliberately does **not**
+      automate deleting the user's own scheduled jobs.
+
+      This item is now **closed**.
+- [x] **Legal minimum** *(narrowed and closed 2026-09-11)*. Most of this item described obligations that attach
+      to **operating a service**, and Cronsole operates none. What is actually owed to a stranger is
+      smaller, and part of it already shipped.
+
+      **`LICENSE` is in the repo** — the actual legal relationship, and the only one that exists.
+
+      **Terms of service: dissolved.** A ToS governs a service you run — access, acceptable use,
+      suspension, termination. There is no server, no account held by anyone else, and nothing to
+      terminate. The LICENSE already covers use and reuse; a ToS layered on top would set terms for a
+      relationship that does not exist.
+
+      **Account deletion and data export: reframed as *uninstall*, and folded into the trust page
+      above.** No account exists anywhere but the user's own Postgres, so "delete my account" is
+      really "remove Cronsole" — and that has an edge worth stating plainly, because nothing else
+      will say it: **`docker compose down -v` removes Cronsole's database, not the tasks Cronsole
+      created.** The `\Cronsole` tasks and the `\Cronsole-Stack\` launcher tasks survive it, by
+      design — Cronsole never owned them, which is the product's whole premise pointed back at its
+      own uninstall. Per-task export already exists in both formats (`native` and `template`).
+
+      **Cookie handling: nothing to handle.** The one public page sets **no cookies** and loads no
+      third-party analytics — verified: a single `localStorage` key for the theme toggle, and
+      outbound links to GitHub.
+
+      **Third-party notices: dissolved under source-only distribution** *(added 2026-09-11, found by
+      sweeping the `release-engineering` skill against reality)*. A NOTICE file exists because you
+      **redistribute** someone else's code inside your artifact. Cronsole ships no artifact —
+      dependencies are fetched from npm and NuGet by the user's own tooling, from manifests they can
+      read. `LICENSE` is Apache-2.0 and in place. **This returns the day a binary ships**, alongside
+      the certificate and for the same underlying reason.
+
+      **The privacy page shipped 2026-09-11** — [`docs/PRIVACY.md`](PRIVACY.md), written in the same
+      sitting as the trust page because they are the same act. It opens by saying why it is *not* a
+      policy (a policy documents a service that collects your data; there is no service), then states
+      the claim that matters — **a default install initiates no outbound connection of its own** —
+      and backs it with three checkable facts: no telemetry SDK in any of the four workspaces,
+      `TEMPLATE_REGISTRY_URL` commented out so the catalog is compiled in, and a dashboard that loads
+      no CDN, font or remote script. Then the per-source table of who gets contacted **when you
+      connect them**, naming Gemini as the one platform that ends up holding a credential of yours
+      and Claude as the one read at call time and never stored. It ends with the commands to verify
+      each claim, because the whole value of shipping as source is that a reader can settle this
+      rather than believe it.
+
+      This item is now **closed**.
+- [ ] **Multi-user / hosted account system** *(deferred — not a local-first launch requirement)*:
+      password reset (needs email infra), open registration as a *designed* invite/approval flow,
+      JWT refresh tokens, per-user agent pairing, account management and roles.
+- [~] **Launch surface** — one public page shipped *(2026-07-28, consolidated from two)*.
+
+      **Install links are live and correct as of 2026-09-11.** The repo is public, so the page's
+      *Get Cronsole* panel links it directly and the copy-paste quick start is a real `git clone`.
+      There are no *download* links and there never will be — a released binary is the one thing
+      that reinstates the code-signing certificate, so the install link **is** the clone.
+
+      That quick start was **wrong until the sweep found it**: it read `docker compose up -d`, which
+      starts Postgres and Redis only. The front door was handing every visitor the exact failure of
+      [#90](troubleshooting/README.md#90-a-fresh-clones-docker-quick-start-dies-with-the-table-publicuser-does-not-exist).
+      It now matches the README verbatim and carries a comment saying it must.
+
+      **Left:** richer marketing content, and a GIF.
 
 <a id="completed--resolved-decisions"></a>
 

@@ -119,5 +119,6 @@ commit the user checked out, which they can read.
 
 ## What is not built yet
 
-Release notes generated from real commits, and the first tags themselves. Both are on the
-[roadmap](../ROADMAP.md#-go-public-checklist).
+Release notes generated from real commits — and only that. The first tags were cut on
+2026-09-11 (`app/v0.9.0`, `agent/v0.9.0`, `mcp/v0.9.0`), so what is left is the *generation* step,
+tracked under [Post-launch](../ROADMAP.md#post-launch).

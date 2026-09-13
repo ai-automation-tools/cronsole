@@ -191,4 +191,11 @@ export interface ConnectionHealth {
    * previous day (troubleshooting #41). Never render this as "synced".
    */
   lastContactAt?: string | null;
+  /**
+   * Does this connector's reader have a full view of the platform? A sibling
+   * fact to `state`, not a fourth value of it — only the Windows agent reports
+   * it today, and `undefined` means unknown (an agent published before this
+   * field existed), never "yes" (troubleshooting #74).
+   */
+  elevated?: boolean | null;
 }

@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Security.Principal;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -53,6 +54,17 @@ namespace Cronsole.Agent
                 .Split('+')[0]
             ?? typeof(AgentService).Assembly.GetName().Version?.ToString(3)
             ?? "unknown";
+
+        /// <summary>
+        /// Whether this process is running elevated. An unelevated agent's
+        /// `ITaskScheduler.AllTasks` enumerator silently skips ACL-protected
+        /// folders (`\Microsoft\Windows\UpdateOrchestrator\`, `\TPM\`, ...) with
+        /// no exception and no signal — so the backend has no other way to know
+        /// its next sync snapshot is a narrowed view rather than a shrunk
+        /// machine. See docs/troubleshooting/README.md #74.
+        /// </summary>
+        public static bool IsElevated =>
+            new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator);
 
         // Windows' own error for running a task that is switched off. The COM
         // layer's text ("The task is disabled.") is already honest, so this is
@@ -227,7 +239,8 @@ namespace Cronsole.Agent
                     machineName = Environment.MachineName,
                     agentVersion = AgentVersion,
                     protocolVersion = ProtocolVersion,
-                    osVersion = Environment.OSVersion.ToString()
+                    osVersion = Environment.OSVersion.ToString(),
+                    elevated = IsElevated
                 }});
             };
 

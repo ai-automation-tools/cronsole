@@ -217,6 +217,31 @@ namespace Cronsole.Agent.Tests
         }
 
         [Fact]
+        public void OnConnected_HelloReportsRealElevationRatherThanOmittingIt()
+        {
+            // Troubleshooting #74: the backend must be able to tell an
+            // unelevated agent's narrowed task-folder enumeration from a
+            // machine that actually lost those tasks. That starts here — the
+            // hello payload must carry the agent's *real* elevation, matching
+            // whatever this test process is actually running as, not a
+            // hardcoded value that would pass regardless of what the field
+            // is wired up to.
+            object? captured = null;
+            _mockSocket
+                .Setup(s => s.EmitAsync("agent:hello", It.IsAny<object>()))
+                .Callback<string, object>((_, payload) => captured = payload)
+                .Returns(Task.CompletedTask);
+
+            _onConnectedHandler!.Invoke();
+
+            captured.Should().NotBeNull();
+            var hello = ((object[])captured!).Single();
+            var elevatedProp = hello.GetType().GetProperty("elevated");
+            elevatedProp.Should().NotBeNull("the hello payload must carry an `elevated` field");
+            elevatedProp!.GetValue(hello).Should().Be(AgentService.IsElevated);
+        }
+
+        [Fact]
         public void TaskList_Event_SyncsTasksToSocket()
         {
             // Arrange

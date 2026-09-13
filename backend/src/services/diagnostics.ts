@@ -282,6 +282,17 @@ async function checkWindowsAgent(ctx: CheckContext): Promise<DiagnosticCheck | n
         ? `${agentVersion}${protocolVersion ? ` (wire v${protocolVersion})` : ''}`
         : 'not reported — predates version stamping, republish to find out'
     });
+    // Connected, answering and having a complete view of the machine are three
+    // separate facts (troubleshooting #74) — an unelevated agent enumerates a
+    // strictly smaller Task Scheduler and cannot say so from `state` alone.
+    facts.push({
+      label: 'Elevated',
+      value: liveness.identity.elevated === undefined
+        ? 'not reported — predates elevation reporting, republish to find out'
+        : liveness.identity.elevated
+          ? 'yes'
+          : 'no — some task folders (e.g. \\Microsoft\\Windows\\...) are not visible'
+    });
   }
   if (liveness) {
     // The staleness fact about the running *process*, which the version does not

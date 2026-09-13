@@ -501,34 +501,12 @@ see [Part II](#completed--p1-correctness--honesty).
       capturing the first response, which for a preview API means driving it by hand anyway
       ([the probe technique](../skills/cronsole/SKILL.md) is how each of these was found).
 
-- [ ] **The agent must report its own elevation, and MISSING must be bounded by what the agent can
-      see** *(logged 2026-08-23, from a live incident)*. An agent started by hand from an ordinary
-      shell runs **unelevated** and cannot enumerate the ACL-protected task folders —
-      `\Microsoft\Windows\UpdateOrchestrator\`, `\TPM\`, `\Pluton\`, `\WindowsUpdate\`,
-      `\License Manager\`, `\DeviceDirectoryClient\` and a dozen more. On this machine that is
-      **86 of 371 tasks**. The next sync compared a 285-task snapshot against 374 tracked rows and
-      marked the difference MISSING, and the dashboard offered to *Clear 89 missing*.
-      **Every layer was individually honest and the product still lied.** The agent reported what it
-      could see. `getHealth` correctly said connected-and-answering — elevation is not liveness.
-      `reconcileMissingTasks` did exactly its job. The 50%-retention guard did not fire, because
-      285/374 is 76%: the guard catches a *catastrophically* partial snapshot, not a
-      systematically-blinded one, which is the more dangerous shape precisely because it looks
-      plausible.
-      **This is the "absence of evidence is `unknown`, never `ok`" rule with the sign flipped** —
-      here absence of evidence rendered as a confident *"the platform no longer has this task"*.
-      Three parts:
-      **(a)** the agent sends its **integrity level** on the handshake (it knows its own token), and
-      it lands beside health rather than inside it — *connected*, *answering* and *elevated* are
-      three facts and collapsing them is how this hid;
-      **(b)** the Platforms row and the health strip say **"agent is running unelevated — some task
-      folders are not visible"**, which is a *fact about the reader*, not a verdict about the tasks;
-      **(c)** `reconcileMissingTasks` **refuses to mark anything MISSING when the agent reports a
-      narrower field of view than the snapshot it is being compared against** — an unelevated agent
-      may add and refresh rows, never retire them. Retiring a row is the one operation that needs
-      the reader to have been able to see everything.
-      Cheap corroborating signal worth having either way: **a MISSING set concentrated in whole
-      subtrees is structurally different from scattered attrition**, and the difference is
-      computable. See [troubleshooting #74](troubleshooting/README.md#74-dozens-of-windows-tasks-go-missing-in-one-sync-and-the-agent-is-healthy).
+- [ ] **A MISSING set concentrated in whole subtrees vs. scattered attrition** *(carved out
+      2026-09-11 from the now-shipped elevation item below — see
+      [Part II](#completed--p1-correctness--honesty))*. A cheap corroborating signal that was never
+      required to fix #74 (the shipped fix gates on the agent's own `elevated` report, not on the
+      *shape* of what went missing), but still worth having: cluster-detection over a MISSING batch
+      as a second, independent tell. Unscheduled.
 
 - [ ] **The E2E suite writes real rows into live data** *(logged 2026-08-23)*. A run leaves
       `\E2E\Mock Nightly Backup` tracked against the developer's own account, which then goes
@@ -2016,6 +1994,17 @@ verification pass — is still open above, narrowed to the half that needs a tok
 
 ## Completed — P1 Correctness & honesty
 
+- [x] **The agent reports its own elevation, and MISSING is bounded by what it can see**
+      *(2026-09-11, logged 2026-08-23)*. An unelevated agent enumerates a strictly smaller machine
+      with no signal that it is doing so — 86 of 371 tasks on a real one — and reconciliation
+      faithfully retired the difference as MISSING. The agent now reports `elevated` on
+      `agent:hello`; it lands as a **sibling fact** on connector health (health strip, Sources tab,
+      `get_diagnostics`), never folded into the health state; and `WindowsAgentConnector.syncTasks`
+      sets `SyncOutcome.partial: true` only on a *positive* `elevated: false` report, reusing the
+      `partial`-gates-`reconcileMissingTasks` wiring GitHub's truncated-listing case (#75) already
+      had — so a narrowed sync still adds and refreshes rows and retires none. An agent that
+      predates the field reports nothing, which reads as unknown rather than a guessed `false`.
+      See [troubleshooting #74](troubleshooting/README.md#74-dozens-of-windows-tasks-go-missing-in-one-sync-and-the-agent-is-healthy).
 - [x] **`Clear N missing` states its scope in words, and its friction scales** *(2026-09-04,
       logged 2026-08-23)*. New `GET /api/tasks/missing/summary` groups the MISSING rows by category
       and counts favorites, collection memberships and secrets across them — everything a re-import

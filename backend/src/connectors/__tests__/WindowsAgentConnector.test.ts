@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { WindowsAgentConnector, UNRESPONSIVE_EVIDENCE_TTL_MS, AGENT_REQUEST_TIMEOUT_MS } from '../WindowsAgentConnector.js';
+import { syncOutcomeOf } from '../platform.interface.js';
 import { agentManager } from '../../ws/AgentManager.js';
 import { signCommand, type SignableCommand } from '../../ws/agentAuth.js';
 
@@ -82,8 +83,8 @@ describe('WindowsAgentConnector', () => {
       }
     });
 
-    const tasks = await connector.syncTasks({ userId: 'test_user' });
-    
+    const { tasks } = syncOutcomeOf(await connector.syncTasks({ userId: 'test_user' }));
+
     expect(mockSocket.emit).toHaveBeenCalledWith('task:list');
     expect(tasks).toHaveLength(2);
     expect(tasks[0].status).toBe('ACTIVE');
@@ -114,12 +115,74 @@ describe('WindowsAgentConnector', () => {
       }
     });
 
-    const tasks = await connector.syncTasks({ userId: 'test_user' });
+    const { tasks } = syncOutcomeOf(await connector.syncTasks({ userId: 'test_user' }));
 
     expect(tasks[0].schedule).toBe('0 3 * * *');
     expect(tasks[0].nextRunTime).toEqual(new Date('2026-07-09T03:00:00Z'));
     expect(tasks[1].schedule).toBeNull();
     expect(tasks[1].nextRunTime).toBeNull();
+  });
+
+  /**
+   * Troubleshooting #74: an unelevated agent enumerates a strictly smaller
+   * machine, and retiring on that narrowed snapshot is how 86 healthy tasks
+   * were reported MISSING. These pin that `syncTasks` bounds itself by what
+   * the agent reported it can see, using the same `SyncOutcome.partial`
+   * mechanism GitHub's truncated-listing case already proved out.
+   */
+  describe('syncTasks — bounded by the agent\'s own field of view (#74)', () => {
+    const oneTaskReply = (handler: any) => setTimeout(() => handler({
+      tasks: [{ path: '\\Task1', name: 'Task1', state: 'Ready' }]
+    }), 10);
+
+    it('marks the sync partial when the agent reports it is running unelevated', async () => {
+      vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
+      vi.mocked(agentManager.getLiveness).mockReturnValue({
+        connectedAt: new Date(),
+        identity: { elevated: false, at: new Date() }
+      });
+      mockSocket.on.mockImplementation((event: string, handler: any) => {
+        if (event === 'task:full_list') oneTaskReply(handler);
+      });
+
+      const outcome = await connector.syncTasks({ userId: 'test_user' });
+
+      expect(outcome).not.toBeInstanceOf(Array);
+      expect((outcome as any).partial).toBe(true);
+      expect((outcome as any).tasks).toHaveLength(1);
+      expect((outcome as any).warnings?.[0]).toContain('unelevated');
+    });
+
+    it('returns a bare array — not partial — once the agent confirms it is elevated', async () => {
+      vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
+      vi.mocked(agentManager.getLiveness).mockReturnValue({
+        connectedAt: new Date(),
+        identity: { elevated: true, at: new Date() }
+      });
+      mockSocket.on.mockImplementation((event: string, handler: any) => {
+        if (event === 'task:full_list') oneTaskReply(handler);
+      });
+
+      const outcome = await connector.syncTasks({ userId: 'test_user' });
+
+      expect(Array.isArray(outcome)).toBe(true);
+    });
+
+    it('does not mark a sync partial merely because an old agent has never said whether it is elevated', async () => {
+      // Absence of evidence is unknown, never a signal to act on — an agent
+      // published before this field existed must keep the pre-existing
+      // behavior rather than having every one of its syncs go partial the
+      // day this ships.
+      vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
+      vi.mocked(agentManager.getLiveness).mockReturnValue({ connectedAt: new Date() });
+      mockSocket.on.mockImplementation((event: string, handler: any) => {
+        if (event === 'task:full_list') oneTaskReply(handler);
+      });
+
+      const outcome = await connector.syncTasks({ userId: 'test_user' });
+
+      expect(Array.isArray(outcome)).toBe(true);
+    });
   });
 
   it('should run a task successfully', async () => {
@@ -784,6 +847,26 @@ describe('WindowsAgentConnector', () => {
       expect(health.state).toBe('HEALTHY');
       // But it has said nothing, so there is no contact time to report.
       expect(health.lastContactAt).toBeUndefined();
+    });
+
+    it('reports elevation as a sibling fact, undefined when the agent has not said (#74)', async () => {
+      vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
+      vi.mocked(agentManager.getLiveness).mockReturnValue({ connectedAt: new Date() });
+
+      expect((await connector.getHealth(CONFIG)).elevated).toBeUndefined();
+    });
+
+    it('reports elevated: false as HEALTHY, not as a degraded state — it is a fact about the reader, not the tasks', async () => {
+      vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
+      vi.mocked(agentManager.getLiveness).mockReturnValue({
+        connectedAt: new Date(),
+        identity: { elevated: false, at: new Date() }
+      });
+
+      const health = await connector.getHealth(CONFIG);
+
+      expect(health.state).toBe('HEALTHY');
+      expect(health.elevated).toBe(false);
     });
 
     it('reports the real time of the agent\'s last response as lastSync', async () => {

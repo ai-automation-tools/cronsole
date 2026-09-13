@@ -1,0 +1,140 @@
+# Rebuild the click-through demo and mirror it to cronsole-demo.
+#
+# The demo is the real dashboard bundle built with `--mode demo`, which swaps the
+# axios adapter for one answering every request from fixtures compiled into the
+# bundle (frontend/src/demo/). No backend, no database, no agent, no credentials.
+#
+# It is a MIRROR SURFACE in the §11a sense and the worst kind: it looks like the
+# product, so when it drifts it does not break, it just quietly shows strangers a
+# version of Cronsole that no longer exists. Rebuilding it on every frontend merge
+# is what stops that.
+#
+# WHY THE SECRET MAY BE ABSENT, AND WHY THAT IS A SKIP RATHER THAN A FAILURE:
+# the org disables deploy keys by policy, so `DEMO_DEPLOY_KEY` cannot exist until
+# that policy is changed (Organization settings -> Actions -> deploy keys). Until
+# then this job would redden every unrelated merge, which trains people to ignore
+# a red X. The established publish jobs DO hard-fail on a missing secret, and that
+# asymmetry is deliberate: those targets are load-bearing today, this one is not
+# yet wired. The notice below says so out loud on every run.
+name: Publish demo
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/publish-demo.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: publish-demo
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Rebuild and mirror the demo
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout cronsole (source of truth)
+        uses: actions/checkout@v4
+        with:
+          path: source
+
+      - name: Is the deploy key configured yet?
+        id: gate
+        env:
+          DEPLOY_KEY: ${{ secrets.DEMO_DEPLOY_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "$DEPLOY_KEY" ]; then
+            echo 'ready=no' >> "$GITHUB_OUTPUT"
+            echo "::notice::DEMO_DEPLOY_KEY is not set, so the demo was NOT republished. It is serving whatever was last pushed to ai-automation-tools/cronsole-demo. To wire this up: enable deploy keys for the org, add a write deploy key to that repo, and store the private half here as DEMO_DEPLOY_KEY."
+          else
+            echo 'ready=yes' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Node
+        if: steps.gate.outputs.ready == 'yes'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: source/frontend/package-lock.json
+
+      - name: Build the demo bundle
+        if: steps.gate.outputs.ready == 'yes'
+        working-directory: source/frontend
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run build:demo -- --outDir dist-demo
+          test -f dist-demo/index.html || {
+            echo "::error::demo build produced no index.html"
+            exit 1
+          }
+
+      # The fixtures must be IN the demo bundle and OUT of every other one. The
+      # fold in main.tsx is what guarantees the second half, and a fold that
+      # silently stops folding is exactly the failure this repo keeps finding, so
+      # it is asserted here rather than assumed.
+      - name: Assert the fold still holds
+        if: steps.gate.outputs.ready == 'yes'
+        working-directory: source/frontend
+        run: |
+          set -euo pipefail
+          grep -rq 'TLS certificate expiry check' dist-demo/assets/ || {
+            echo "::error::demo bundle does not contain its fixtures -- the demo would be empty"
+            exit 1
+          }
+          npm run build
+          if grep -rq 'TLS certificate expiry check' dist/ ; then
+            echo "::error::demo fixtures LEAKED into the production bundle -- the import.meta.env.MODE fold is broken"
+            exit 1
+          fi
+          echo "Fold holds: fixtures in the demo bundle, absent from the production bundle."
+
+      - name: Checkout cronsole-demo (publish target)
+        if: steps.gate.outputs.ready == 'yes'
+        uses: actions/checkout@v4
+        with:
+          repository: ai-automation-tools/cronsole-demo
+          ssh-key: ${{ secrets.DEMO_DEPLOY_KEY }}
+          path: target
+
+      # CNAME is infrastructure owned by the target, not content, and it is not
+      # mirrored. Publishing over an absent one produces a site nobody can reach
+      # at the documented address while the push itself succeeds.
+      - name: Check the custom domain is still configured
+        if: steps.gate.outputs.ready == 'yes'
+        run: |
+          set -euo pipefail
+          if [ ! -f target/CNAME ]; then
+            echo "::error::No CNAME in cronsole-demo -- cronsole-demo.ai-automation-tools.dev will not serve this."
+            exit 1
+          fi
+          echo "Custom domain: $(cat target/CNAME)"
+
+      - name: Mirror the built demo
+        if: steps.gate.outputs.ready == 'yes'
+        run: |
+          set -euo pipefail
+          find target -mindepth 1 -maxdepth 1 \
+            ! -name '.git' ! -name 'CNAME' ! -name 'README.md' ! -name '.gitattributes' \
+            -exec rm -rf {} +
+          cp -r source/frontend/dist-demo/. target/
+
+      - name: Commit and push if changed
+        if: steps.gate.outputs.ready == 'yes'
+        working-directory: target
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'Demo already up to date -- nothing to publish.'
+            exit 0
+          fi
+          git commit -q -m "Publish demo (cronsole@${GITHUB_SHA:0:7})"
+          git push -q origin HEAD:main
+          echo "Published. GitHub Pages will rebuild shortly (https://$(cat CNAME))."

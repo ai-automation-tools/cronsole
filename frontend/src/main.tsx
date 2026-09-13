@@ -26,6 +26,19 @@ startSettingsSync()
 
 const queryClient = new QueryClient()
 
+// Demo mode installs an axios adapter that answers every request from bundled
+// fixtures, so it MUST be in place before the first render or the opening queries
+// race it and fail. `import.meta.env.MODE` is statically replaced at build time,
+// so this whole branch and the chunk it imports are dropped from a normal build.
+async function boot() {
+  if (import.meta.env.MODE === 'demo') {
+    const { installDemo } = await import('./demo/install.ts')
+    installDemo()
+  }
+  render()
+}
+
+function render() {
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
@@ -44,3 +57,6 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     </BrowserRouter>
   </React.StrictMode>,
 )
+}
+
+void boot()

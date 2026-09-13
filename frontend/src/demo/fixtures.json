@@ -1,0 +1,1036 @@
+{
+  "generatedFor": "2026-09-13T09:00:00.000Z",
+  "platforms": [
+    {
+      "platform": "WINDOWS_TASK_SCHEDULER",
+      "label": "Windows Task Scheduler",
+      "summary": "Your machine's own scheduler, reached through the local Cronsole agent.",
+      "maturity": "functional",
+      "access": "controller",
+      "configured": true,
+      "isActive": true,
+      "healthState": "HEALTHY",
+      "healthReason": null,
+      "lastSync": "2026-09-13T08:48:00.000Z",
+      "taskCount": 6,
+      "capabilities": [
+        {
+          "verb": "sync",
+          "label": "Sync",
+          "description": "Read the tasks that exist on the platform.",
+          "support": "verified",
+          "lastSuccessAt": "2026-09-13T08:48:00.000Z",
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "listFolders",
+          "label": "List folders",
+          "description": "Read the platform's real folder tree.",
+          "support": "verified",
+          "lastSuccessAt": "2026-09-13T08:48:00.000Z",
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "run",
+          "label": "Run now",
+          "description": "Trigger a task outside its schedule.",
+          "support": "verified",
+          "lastSuccessAt": "2026-09-13T08:48:00.000Z",
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "create",
+          "label": "Create",
+          "description": "Register a new task on the platform.",
+          "support": "verified",
+          "lastSuccessAt": "2026-09-13T08:48:00.000Z",
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "setStatus",
+          "label": "Enable / disable",
+          "description": "Park a task without deleting it.",
+          "support": "verified",
+          "lastSuccessAt": "2026-09-13T08:48:00.000Z",
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "updateSchedule",
+          "label": "Edit schedule",
+          "description": "Change when an existing task runs.",
+          "support": "verified",
+          "lastSuccessAt": "2026-09-13T08:48:00.000Z",
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "updateAction",
+          "label": "Edit action",
+          "description": "Change what an existing task runs.",
+          "support": "verified",
+          "lastSuccessAt": "2026-09-13T08:48:00.000Z",
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "export",
+          "label": "Export",
+          "description": "Write the task out in a portable native format.",
+          "support": "verified",
+          "lastSuccessAt": "2026-09-13T08:48:00.000Z",
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "restore",
+          "label": "Restore",
+          "description": "Register a task back from an exported file.",
+          "support": "declared",
+          "lastSuccessAt": null,
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "delete",
+          "label": "Delete",
+          "description": "Remove the real task from the platform.",
+          "support": "verified",
+          "lastSuccessAt": "2026-09-13T08:48:00.000Z",
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        }
+      ],
+      "lastVerifiedAt": "2026-09-13T16:42:04.480Z",
+      "executionHost": null
+    },
+    {
+      "platform": "TASKHUB_NATIVE",
+      "label": "Cronsole-native",
+      "summary": "Scheduled and executed by the Cronsole backend itself. No agent involved.",
+      "maturity": "functional",
+      "access": "controller",
+      "configured": true,
+      "isActive": true,
+      "healthState": "HEALTHY",
+      "healthReason": null,
+      "lastSync": "2026-09-13T08:48:00.000Z",
+      "taskCount": 5,
+      "capabilities": [
+        {
+          "verb": "sync",
+          "label": "Sync",
+          "description": "Read the tasks that exist on the platform.",
+          "support": "verified",
+          "lastSuccessAt": "2026-09-13T08:48:00.000Z",
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "listFolders",
+          "label": "List folders",
+          "description": "Read the platform's real folder tree.",
+          "support": "unsupported",
+          "lastSuccessAt": null,
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "run",
+          "label": "Run now",
+          "description": "Trigger a task outside its schedule.",
+          "support": "verified",
+          "lastSuccessAt": "2026-09-13T08:48:00.000Z",
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "create",
+          "label": "Create",
+          "description": "Register a new task on the platform.",
+          "support": "verified",
+          "lastSuccessAt": "2026-09-13T08:48:00.000Z",
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "setStatus",
+          "label": "Enable / disable",
+          "description": "Park a task without deleting it.",
+          "support": "verified",
+          "lastSuccessAt": "2026-09-13T08:48:00.000Z",
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "updateSchedule",
+          "label": "Edit schedule",
+          "description": "Change when an existing task runs.",
+          "support": "declared",
+          "lastSuccessAt": null,
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "updateAction",
+          "label": "Edit action",
+          "description": "Change what an existing task runs.",
+          "support": "verified",
+          "lastSuccessAt": "2026-09-13T08:48:00.000Z",
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "export",
+          "label": "Export",
+          "description": "Write the task out in a portable native format.",
+          "support": "verified",
+          "lastSuccessAt": "2026-09-13T08:48:00.000Z",
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "restore",
+          "label": "Restore",
+          "description": "Register a task back from an exported file.",
+          "support": "unsupported",
+          "lastSuccessAt": null,
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "delete",
+          "label": "Delete",
+          "description": "Remove the real task from the platform.",
+          "support": "verified",
+          "lastSuccessAt": "2026-09-13T08:48:00.000Z",
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        }
+      ],
+      "lastVerifiedAt": "2026-09-11T00:11:14.778Z",
+      "executionHost": {
+        "kind": "host",
+        "evidence": "no container runtime detected",
+        "summary": "Cronsole-native tasks run directly on DESKTOP-OM0VT6L.",
+        "os": "win32",
+        "hostname": "DESKTOP-OM0VT6L"
+      }
+    },
+    {
+      "platform": "CLAUDE_CODE",
+      "label": "Claude Code Routines",
+      "summary": "Fire, and — when Cronsole can read your Claude Code session — list, create, reschedule and pause routines. Deleting one always happens in claude.ai: no API exposes it.",
+      "maturity": "experimental",
+      "access": "controller",
+      "configured": true,
+      "isActive": true,
+      "healthState": "HEALTHY",
+      "healthReason": null,
+      "lastSync": "2026-09-13T08:48:00.000Z",
+      "taskCount": 2,
+      "capabilities": [
+        {
+          "verb": "sync",
+          "label": "Sync",
+          "description": "Read the tasks that exist on the platform.",
+          "support": "verified",
+          "lastSuccessAt": "2026-09-13T08:48:00.000Z",
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "listFolders",
+          "label": "List folders",
+          "description": "Read the platform's real folder tree.",
+          "support": "unsupported",
+          "lastSuccessAt": null,
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "run",
+          "label": "Run now",
+          "description": "Trigger a task outside its schedule.",
+          "support": "verified",
+          "lastSuccessAt": "2026-09-13T08:48:00.000Z",
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "create",
+          "label": "Create",
+          "description": "Register a new task on the platform.",
+          "support": "verified",
+          "lastSuccessAt": "2026-09-13T08:48:00.000Z",
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "setStatus",
+          "label": "Enable / disable",
+          "description": "Park a task without deleting it.",
+          "support": "verified",
+          "lastSuccessAt": "2026-09-13T08:48:00.000Z",
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "updateSchedule",
+          "label": "Edit schedule",
+          "description": "Change when an existing task runs.",
+          "support": "verified",
+          "lastSuccessAt": "2026-09-13T08:48:00.000Z",
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "updateAction",
+          "label": "Edit action",
+          "description": "Change what an existing task runs.",
+          "support": "unsupported",
+          "lastSuccessAt": null,
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "export",
+          "label": "Export",
+          "description": "Write the task out in a portable native format.",
+          "support": "unsupported",
+          "lastSuccessAt": null,
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "restore",
+          "label": "Restore",
+          "description": "Register a task back from an exported file.",
+          "support": "unsupported",
+          "lastSuccessAt": null,
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "delete",
+          "label": "Delete",
+          "description": "Remove the real task from the platform.",
+          "support": "unsupported",
+          "lastSuccessAt": null,
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        }
+      ],
+      "lastVerifiedAt": "2026-09-11T00:11:19.527Z",
+      "executionHost": null
+    },
+    {
+      "platform": "GITHUB_ACTIONS",
+      "label": "GitHub Actions",
+      "summary": "Read-only. Cronsole reads the scheduled workflows in the repositories you name, their crons and their real run outcomes, and changes nothing — running, pausing and editing happen on GitHub.",
+      "maturity": "functional",
+      "access": "observer",
+      "configured": true,
+      "isActive": true,
+      "healthState": "HEALTHY",
+      "healthReason": null,
+      "lastSync": "2026-09-13T08:48:00.000Z",
+      "taskCount": 2,
+      "capabilities": [
+        {
+          "verb": "sync",
+          "label": "Sync",
+          "description": "Read the tasks that exist on the platform.",
+          "support": "verified",
+          "lastSuccessAt": "2026-09-13T08:48:00.000Z",
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "listFolders",
+          "label": "List folders",
+          "description": "Read the platform's real folder tree.",
+          "support": "unsupported",
+          "lastSuccessAt": null,
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "run",
+          "label": "Run now",
+          "description": "Trigger a task outside its schedule.",
+          "support": "unsupported",
+          "lastSuccessAt": null,
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "create",
+          "label": "Create",
+          "description": "Register a new task on the platform.",
+          "support": "unsupported",
+          "lastSuccessAt": null,
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "setStatus",
+          "label": "Enable / disable",
+          "description": "Park a task without deleting it.",
+          "support": "unsupported",
+          "lastSuccessAt": null,
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "updateSchedule",
+          "label": "Edit schedule",
+          "description": "Change when an existing task runs.",
+          "support": "unsupported",
+          "lastSuccessAt": null,
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "updateAction",
+          "label": "Edit action",
+          "description": "Change what an existing task runs.",
+          "support": "unsupported",
+          "lastSuccessAt": null,
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "export",
+          "label": "Export",
+          "description": "Write the task out in a portable native format.",
+          "support": "unsupported",
+          "lastSuccessAt": null,
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "restore",
+          "label": "Restore",
+          "description": "Register a task back from an exported file.",
+          "support": "unsupported",
+          "lastSuccessAt": null,
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "delete",
+          "label": "Delete",
+          "description": "Remove the real task from the platform.",
+          "support": "unsupported",
+          "lastSuccessAt": null,
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        }
+      ],
+      "lastVerifiedAt": "2026-09-11T00:11:18.762Z",
+      "executionHost": null
+    },
+    {
+      "platform": "VERCEL_CRON",
+      "label": "Vercel Cron",
+      "summary": "Read-only. Cronsole reads the cron jobs declared by the projects you name and their schedules, and changes nothing. Vercel publishes no run history for a cron, so their health stays unknown.",
+      "maturity": "functional",
+      "access": "observer",
+      "configured": false,
+      "isActive": false,
+      "healthState": "UNKNOWN",
+      "healthReason": "Not connected in this demo",
+      "lastSync": null,
+      "taskCount": 0,
+      "capabilities": [
+        {
+          "verb": "sync",
+          "label": "Sync",
+          "description": "Read the tasks that exist on the platform.",
+          "support": "verified",
+          "lastSuccessAt": "2026-09-13T08:48:00.000Z",
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "listFolders",
+          "label": "List folders",
+          "description": "Read the platform's real folder tree.",
+          "support": "unsupported",
+          "lastSuccessAt": null,
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "run",
+          "label": "Run now",
+          "description": "Trigger a task outside its schedule.",
+          "support": "unsupported",
+          "lastSuccessAt": null,
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "create",
+          "label": "Create",
+          "description": "Register a new task on the platform.",
+          "support": "unsupported",
+          "lastSuccessAt": null,
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "setStatus",
+          "label": "Enable / disable",
+          "description": "Park a task without deleting it.",
+          "support": "unsupported",
+          "lastSuccessAt": null,
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "updateSchedule",
+          "label": "Edit schedule",
+          "description": "Change when an existing task runs.",
+          "support": "unsupported",
+          "lastSuccessAt": null,
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "updateAction",
+          "label": "Edit action",
+          "description": "Change what an existing task runs.",
+          "support": "unsupported",
+          "lastSuccessAt": null,
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "export",
+          "label": "Export",
+          "description": "Write the task out in a portable native format.",
+          "support": "unsupported",
+          "lastSuccessAt": null,
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "restore",
+          "label": "Restore",
+          "description": "Register a task back from an exported file.",
+          "support": "unsupported",
+          "lastSuccessAt": null,
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "delete",
+          "label": "Delete",
+          "description": "Remove the real task from the platform.",
+          "support": "unsupported",
+          "lastSuccessAt": null,
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        }
+      ],
+      "lastVerifiedAt": "2026-09-07T19:47:49.204Z",
+      "executionHost": null
+    },
+    {
+      "platform": "GEMINI_TRIGGERS",
+      "label": "Gemini API Triggers",
+      "summary": "Scheduled triggers on the Gemini API's managed agents. Cronsole lists, runs, pauses, creates and deletes them, and reads their real run outcomes. A trigger cannot be changed in place — the preview API takes only a status and a display name — so a new prompt or schedule is a rebuild: Recreate with changes on the task does it and keeps the task's history.",
+      "maturity": "experimental",
+      "access": "controller",
+      "configured": true,
+      "isActive": true,
+      "healthState": "HEALTHY",
+      "healthReason": null,
+      "lastSync": "2026-09-13T08:48:00.000Z",
+      "taskCount": 1,
+      "capabilities": [
+        {
+          "verb": "sync",
+          "label": "Sync",
+          "description": "Read the tasks that exist on the platform.",
+          "support": "verified",
+          "lastSuccessAt": "2026-09-13T08:48:00.000Z",
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "listFolders",
+          "label": "List folders",
+          "description": "Read the platform's real folder tree.",
+          "support": "unsupported",
+          "lastSuccessAt": null,
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "run",
+          "label": "Run now",
+          "description": "Trigger a task outside its schedule.",
+          "support": "verified",
+          "lastSuccessAt": "2026-09-13T08:48:00.000Z",
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "create",
+          "label": "Create",
+          "description": "Register a new task on the platform.",
+          "support": "verified",
+          "lastSuccessAt": "2026-09-13T08:48:00.000Z",
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "setStatus",
+          "label": "Enable / disable",
+          "description": "Park a task without deleting it.",
+          "support": "verified",
+          "lastSuccessAt": "2026-09-13T08:48:00.000Z",
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "updateSchedule",
+          "label": "Edit schedule",
+          "description": "Change when an existing task runs.",
+          "support": "unsupported",
+          "lastSuccessAt": null,
+          "lastFailureAt": null,
+          "lastFailureReason": "Gemini rejected the request (400): Unknown parameter 'schedule'."
+        },
+        {
+          "verb": "updateAction",
+          "label": "Edit action",
+          "description": "Change what an existing task runs.",
+          "support": "unsupported",
+          "lastSuccessAt": null,
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "export",
+          "label": "Export",
+          "description": "Write the task out in a portable native format.",
+          "support": "unsupported",
+          "lastSuccessAt": null,
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "restore",
+          "label": "Restore",
+          "description": "Register a task back from an exported file.",
+          "support": "unsupported",
+          "lastSuccessAt": null,
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        },
+        {
+          "verb": "delete",
+          "label": "Delete",
+          "description": "Remove the real task from the platform.",
+          "support": "verified",
+          "lastSuccessAt": "2026-09-13T08:48:00.000Z",
+          "lastFailureAt": null,
+          "lastFailureReason": null
+        }
+      ],
+      "lastVerifiedAt": "2026-09-11T00:11:19.243Z",
+      "executionHost": null
+    }
+  ],
+  "tasks": [
+    {
+      "id": "demo-001",
+      "userId": "demo-user",
+      "quickLink": null,
+      "metadata": {},
+      "createdAt": "2026-08-14T09:00:00.000Z",
+      "updatedAt": "2026-09-13T08:00:00.000Z",
+      "nextRunTime": "2026-09-14T03:00:00.000Z",
+      "lastRunStatus": "SUCCESS",
+      "isSystem": false,
+      "isFavorite": false,
+      "platform": "WINDOWS_TASK_SCHEDULER",
+      "source": "WINDOWS_TASK_SCHEDULER",
+      "externalId": "\\Cronsole\\Nightly Backup",
+      "name": "Nightly Backup",
+      "category": "Cronsole",
+      "schedule": "0 3 * * *",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "demo-002",
+      "userId": "demo-user",
+      "quickLink": null,
+      "metadata": {},
+      "createdAt": "2026-08-14T09:00:00.000Z",
+      "updatedAt": "2026-09-13T08:00:00.000Z",
+      "nextRunTime": "2026-09-15T02:00:00.000Z",
+      "lastRunStatus": "SUCCESS",
+      "isSystem": false,
+      "isFavorite": false,
+      "platform": "WINDOWS_TASK_SCHEDULER",
+      "source": "WINDOWS_TASK_SCHEDULER",
+      "externalId": "\\Cronsole\\Clear Temp Files",
+      "name": "Clear Temp Files",
+      "category": "Cronsole",
+      "schedule": "30 2 * * 0",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "demo-003",
+      "userId": "demo-user",
+      "quickLink": null,
+      "metadata": {},
+      "createdAt": "2026-08-14T09:00:00.000Z",
+      "updatedAt": "2026-09-13T08:00:00.000Z",
+      "nextRunTime": "2026-09-13T11:00:00.000Z",
+      "lastRunStatus": "FAILURE",
+      "isSystem": false,
+      "isFavorite": false,
+      "platform": "WINDOWS_TASK_SCHEDULER",
+      "source": "WINDOWS_TASK_SCHEDULER",
+      "externalId": "\\Cronsole\\Sync Photos to NAS",
+      "name": "Sync Photos to NAS",
+      "category": "Cronsole",
+      "schedule": "0 */6 * * *",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "demo-004",
+      "userId": "demo-user",
+      "quickLink": null,
+      "metadata": {},
+      "createdAt": "2026-08-14T09:00:00.000Z",
+      "updatedAt": "2026-09-13T08:00:00.000Z",
+      "nextRunTime": "2026-09-16T07:00:00.000Z",
+      "lastRunStatus": "SUCCESS",
+      "isSystem": false,
+      "isFavorite": false,
+      "platform": "WINDOWS_TASK_SCHEDULER",
+      "source": "WINDOWS_TASK_SCHEDULER",
+      "externalId": "\\Reports\\Weekly Sales Export",
+      "name": "Weekly Sales Export",
+      "category": "Reports",
+      "schedule": "0 7 * * 1",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "demo-005",
+      "userId": "demo-user",
+      "quickLink": null,
+      "metadata": {},
+      "createdAt": "2026-08-14T09:00:00.000Z",
+      "updatedAt": "2026-09-13T08:00:00.000Z",
+      "nextRunTime": null,
+      "lastRunStatus": "SUCCESS",
+      "isSystem": false,
+      "isFavorite": false,
+      "platform": "WINDOWS_TASK_SCHEDULER",
+      "source": "WINDOWS_TASK_SCHEDULER",
+      "externalId": "\\Reports\\Archive Last Quarter",
+      "name": "Archive Last Quarter",
+      "category": "Reports",
+      "schedule": "0 4 1 * *",
+      "status": "PAUSED"
+    },
+    {
+      "id": "demo-006",
+      "userId": "demo-user",
+      "quickLink": null,
+      "metadata": {},
+      "createdAt": "2026-08-14T09:00:00.000Z",
+      "updatedAt": "2026-09-13T08:00:00.000Z",
+      "nextRunTime": null,
+      "lastRunStatus": "SUCCESS",
+      "isSystem": true,
+      "isFavorite": false,
+      "platform": "WINDOWS_TASK_SCHEDULER",
+      "source": "WINDOWS_TASK_SCHEDULER",
+      "externalId": "\\Microsoft\\Windows\\Defrag\\ScheduledDefrag",
+      "name": "ScheduledDefrag",
+      "category": "Microsoft",
+      "schedule": "0 1 * * 3",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "demo-007",
+      "userId": "demo-user",
+      "quickLink": null,
+      "metadata": {
+        "job": {
+          "jobType": "CHECK"
+        }
+      },
+      "createdAt": "2026-08-14T09:00:00.000Z",
+      "updatedAt": "2026-09-13T08:00:00.000Z",
+      "nextRunTime": "2026-09-14T08:00:00.000Z",
+      "lastRunStatus": "SUCCESS",
+      "isSystem": false,
+      "isFavorite": false,
+      "platform": "TASKHUB_NATIVE",
+      "source": "TASKHUB_NATIVE:CHECK",
+      "externalId": "native-check-tls",
+      "name": "TLS certificate expiry check",
+      "category": "Monitoring",
+      "schedule": "0 8 * * *",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "demo-008",
+      "userId": "demo-user",
+      "quickLink": null,
+      "metadata": {
+        "job": {
+          "jobType": "CHECK"
+        }
+      },
+      "createdAt": "2026-08-14T09:00:00.000Z",
+      "updatedAt": "2026-09-13T08:00:00.000Z",
+      "nextRunTime": "2026-09-13T09:18:00.000Z",
+      "lastRunStatus": "FAILURE",
+      "isSystem": false,
+      "isFavorite": false,
+      "platform": "TASKHUB_NATIVE",
+      "source": "TASKHUB_NATIVE:CHECK",
+      "externalId": "native-check-disk",
+      "name": "Disk space above 15%",
+      "category": "Monitoring",
+      "schedule": "*/30 * * * *",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "demo-009",
+      "userId": "demo-user",
+      "quickLink": null,
+      "metadata": {
+        "job": {
+          "jobType": "HTTP"
+        }
+      },
+      "createdAt": "2026-08-14T09:00:00.000Z",
+      "updatedAt": "2026-09-13T08:00:00.000Z",
+      "nextRunTime": "2026-09-13T09:03:00.000Z",
+      "lastRunStatus": "SUCCESS",
+      "isSystem": false,
+      "isFavorite": false,
+      "platform": "TASKHUB_NATIVE",
+      "source": "TASKHUB_NATIVE:HTTP",
+      "externalId": "native-http-status",
+      "name": "Ping status page",
+      "category": "Monitoring",
+      "schedule": "*/5 * * * *",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "demo-010",
+      "userId": "demo-user",
+      "quickLink": null,
+      "metadata": {
+        "job": {
+          "jobType": "SCRIPT"
+        }
+      },
+      "createdAt": "2026-08-14T09:00:00.000Z",
+      "updatedAt": "2026-09-13T08:00:00.000Z",
+      "nextRunTime": "2026-09-13T17:00:00.000Z",
+      "lastRunStatus": "SUCCESS",
+      "isSystem": false,
+      "isFavorite": false,
+      "platform": "TASKHUB_NATIVE",
+      "source": "TASKHUB_NATIVE:SCRIPT",
+      "externalId": "native-script-digest",
+      "name": "Post daily digest to Slack",
+      "category": "Notifications",
+      "schedule": "0 17 * * 1-5",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "demo-011",
+      "userId": "demo-user",
+      "quickLink": null,
+      "metadata": {
+        "job": {
+          "jobType": "EXEC"
+        }
+      },
+      "createdAt": "2026-08-14T09:00:00.000Z",
+      "updatedAt": "2026-09-13T08:00:00.000Z",
+      "nextRunTime": null,
+      "lastRunStatus": null,
+      "isSystem": false,
+      "isFavorite": false,
+      "platform": "TASKHUB_NATIVE",
+      "source": "TASKHUB_NATIVE:EXEC",
+      "externalId": "native-exec-prune",
+      "name": "Prune Docker images",
+      "category": "Cleanup",
+      "schedule": "0 5 * * 6",
+      "status": "PAUSED"
+    },
+    {
+      "id": "demo-012",
+      "userId": "demo-user",
+      "quickLink": null,
+      "metadata": {},
+      "createdAt": "2026-08-14T09:00:00.000Z",
+      "updatedAt": "2026-09-13T08:00:00.000Z",
+      "nextRunTime": "2026-09-13T09:00:00.000Z",
+      "lastRunStatus": "SUCCESS",
+      "isSystem": false,
+      "isFavorite": false,
+      "platform": "CLAUDE_CODE",
+      "source": "CLAUDE_CODE",
+      "externalId": "routine-triage",
+      "name": "Triage new issues",
+      "category": "Claude",
+      "schedule": "0 9 * * 1-5",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "demo-013",
+      "userId": "demo-user",
+      "quickLink": null,
+      "metadata": {},
+      "createdAt": "2026-08-14T09:00:00.000Z",
+      "updatedAt": "2026-09-13T08:00:00.000Z",
+      "nextRunTime": "2026-09-16T10:00:00.000Z",
+      "lastRunStatus": "SUCCESS",
+      "isSystem": false,
+      "isFavorite": false,
+      "platform": "CLAUDE_CODE",
+      "source": "CLAUDE_CODE",
+      "externalId": "routine-deps",
+      "name": "Weekly dependency review",
+      "category": "Claude",
+      "schedule": "0 10 * * 1",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "demo-014",
+      "userId": "demo-user",
+      "quickLink": null,
+      "metadata": {},
+      "createdAt": "2026-08-14T09:00:00.000Z",
+      "updatedAt": "2026-09-13T08:00:00.000Z",
+      "nextRunTime": "2026-09-14T13:00:00.000Z",
+      "lastRunStatus": "SUCCESS",
+      "isSystem": false,
+      "isFavorite": false,
+      "platform": "GEMINI_TRIGGERS",
+      "source": "GEMINI_TRIGGERS",
+      "externalId": "trigger-competitors",
+      "name": "Summarise competitor releases",
+      "category": "Gemini",
+      "schedule": "0 13 * * 2",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "demo-015",
+      "userId": "demo-user",
+      "quickLink": null,
+      "metadata": {},
+      "createdAt": "2026-08-14T09:00:00.000Z",
+      "updatedAt": "2026-09-13T08:00:00.000Z",
+      "nextRunTime": "2026-09-14T02:00:00.000Z",
+      "lastRunStatus": "SUCCESS",
+      "isSystem": false,
+      "isFavorite": false,
+      "platform": "GITHUB_ACTIONS",
+      "source": "GITHUB_ACTIONS",
+      "externalId": "acme/website:nightly.yml",
+      "name": "nightly.yml",
+      "category": "acme/website",
+      "schedule": "0 2 * * *",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "demo-016",
+      "userId": "demo-user",
+      "quickLink": null,
+      "metadata": {},
+      "createdAt": "2026-08-14T09:00:00.000Z",
+      "updatedAt": "2026-09-13T08:00:00.000Z",
+      "nextRunTime": "2026-09-16T06:00:00.000Z",
+      "lastRunStatus": "FAILURE",
+      "isSystem": false,
+      "isFavorite": false,
+      "platform": "GITHUB_ACTIONS",
+      "source": "GITHUB_ACTIONS",
+      "externalId": "acme/website:link-check.yml",
+      "name": "link-check.yml",
+      "category": "acme/website",
+      "schedule": "0 6 * * 1",
+      "status": "ACTIVE"
+    }
+  ],
+  "health": [
+    {
+      "platform": "WINDOWS_TASK_SCHEDULER",
+      "state": "HEALTHY",
+      "lastContactAt": "2026-09-13T08:57:00.000Z",
+      "lastSync": "2026-09-13T08:48:00.000Z"
+    },
+    {
+      "platform": "TASKHUB_NATIVE",
+      "state": "HEALTHY",
+      "lastContactAt": "2026-09-13T08:57:00.000Z",
+      "lastSync": "2026-09-13T08:48:00.000Z"
+    },
+    {
+      "platform": "CLAUDE_CODE",
+      "state": "HEALTHY",
+      "lastContactAt": "2026-09-13T08:57:00.000Z",
+      "lastSync": "2026-09-13T08:48:00.000Z"
+    },
+    {
+      "platform": "GITHUB_ACTIONS",
+      "state": "HEALTHY",
+      "lastContactAt": "2026-09-13T08:57:00.000Z",
+      "lastSync": "2026-09-13T08:48:00.000Z"
+    },
+    {
+      "platform": "GEMINI_TRIGGERS",
+      "state": "HEALTHY",
+      "lastContactAt": "2026-09-13T08:57:00.000Z",
+      "lastSync": "2026-09-13T08:48:00.000Z"
+    }
+  ],
+  "collections": [
+    {
+      "id": "col-1",
+      "name": "Morning checks",
+      "position": 0,
+      "taskIds": [
+        "demo-007",
+        "demo-009"
+      ],
+      "count": 2,
+      "createdAt": "2026-09-03T09:00:00.000Z",
+      "updatedAt": "2026-09-12T09:00:00.000Z"
+    },
+    {
+      "id": "col-2",
+      "name": "Weekly reports",
+      "position": 1,
+      "taskIds": [
+        "demo-004"
+      ],
+      "count": 1,
+      "createdAt": "2026-09-03T09:00:00.000Z",
+      "updatedAt": "2026-09-12T09:00:00.000Z"
+    }
+  ]
+}

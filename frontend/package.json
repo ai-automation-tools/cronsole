@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build && npm run check:bundle",
     "build:remote": "tsc -b && vite build --mode remote && npm run check:bundle",
+    "build:demo": "tsc -b && vite build --mode demo && npm run check:bundle",
     "check:bundle": "node scripts/check-bundle-secrets.mjs",
     "lint": "eslint .",
     "preview": "vite preview",

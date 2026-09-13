@@ -24,6 +24,9 @@
 # --- Node / JS ---
 node_modules/
 dist/
+# The demo bundle (npm run build:demo -- --outDir dist-demo). A build artifact
+# like dist/, and rebuilt by publish-demo.yml on every frontend merge.
+dist-demo/
 build/
 .vite/
 .next/

@@ -19,6 +19,12 @@ export function useLiveTaskUpdates(): void {
   useEffect(() => subscribeApiOrigin(setApiOriginState), []);
 
   useEffect(() => {
+    // A demo build serves fixtures from an axios adapter and has no backend to
+    // dial. Without this the page would open a websocket to its own static host
+    // and retry on a backoff forever, which costs nothing visible and is exactly
+    // the kind of thing that later reads as "the demo is broken".
+    if (import.meta.env.MODE === 'demo') return;
+
     const token = getAuthToken();
     if (!token) return;
 

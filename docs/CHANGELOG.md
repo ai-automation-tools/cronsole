@@ -14,6 +14,32 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **Cronsole is public** (2026-09-13) —
+  [github.com/ai-automation-tools/cronsole](https://github.com/ai-automation-tools/cronsole).
+
+  The pre-flight scanned **all 767 tracked files** with the repo's own `secret-patterns.mjs` — a
+  wider population than `check-tracked-env`, which only covers `.env*` files. Seven matches, all
+  benign: six dummy fixtures (`ghp_abcdefghijklmnopqrst`, `sk-ant-oat01-not-a-real-…`) and one line
+  of prose naming a PEM header. Same conclusion as the 2026-09-09 audit, re-derived rather than
+  trusted.
+
+  **Verified after the flip, not assumed:** branch protection survived (6 required checks, no
+  force-push, no deletion), the GitHub-owned-actions policy survived, and the anonymous clone
+  endpoint answers `200` — which is the only check that proves a stranger can actually get the
+  code. A visibility change is exactly the kind of event that silently drops repository settings.
+
+  One thing the flip fixed by itself: **the public gallery's repo links had been dead to every
+  visitor** since it shipped. `cronsole.mikesailab.com` has linked the repo all along, and every one
+  of those 404'd while it was private — the page advertised a project nobody could reach. That is
+  the second front-door defect this week invisible from inside the repo, after the quick start that
+  started no backend.
+
+  The go-public checklist moved to Part II of the roadmap **verbatim rather than summarised**: the
+  reasons are the valuable part, and several — why there is no installer, why error tracking is
+  cancelled, why a backup without `ENCRYPTION_KEY` is half a backup — are arguments someone will
+  want to reopen. What outlived it is a short [Post-launch](ROADMAP.md#post-launch) section: a GIF,
+  marketing copy, structured logs, generated release notes.
+
 - **Backup and restore, with the restore actually tested** (2026-09-11):
   [`Backup_Restore_Guide.md`](user-guides/guides/Backup_Restore_Guide.md). One `pg_dump` command,
   how to schedule it as a Cronsole native `SCRIPT` job, and the restore — run end to end against a

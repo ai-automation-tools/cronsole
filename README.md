@@ -263,5 +263,5 @@ See [**🧪 Testing**](docs/testing/README.md) for what each layer covers and wh
 </p>
 
 <p align="center">
-  <sub>© 2026 Michael Schecht · Licensed under <a href="LICENSE">Apache-2.0</a> · Local-first, pre-public MVP</sub>
+  <sub>© 2026 Michael Schecht · Licensed under <a href="LICENSE">Apache-2.0</a> · Local-first, pre-1.0</sub>
 </p>

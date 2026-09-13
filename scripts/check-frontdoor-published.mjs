@@ -110,7 +110,7 @@ async function main() {
   }
 
   if (problems.length === 0) {
-    console.log(`Both hosts serve the current gallery page.`);
+    console.log(`All ${HOSTS.length} hosts serve the current gallery page.`);
     return true;
   }
 

@@ -130,6 +130,29 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
   [`SKILL.md`](../skills/cronsole/SKILL.md); #93 stays in the troubleshooting log alone, because it
   is a real symptom a user will hit rather than something that cost time in the repo.
 
+### Fixed
+
+- **An unelevated Windows agent could no longer make MISSING lie about a task being gone**
+  (2026-09-11), closing
+  [#74](troubleshooting/README.md#74-dozens-of-windows-tasks-go-missing-in-one-sync-and-the-agent-is-healthy).
+  An agent started unelevated cannot enumerate ACL-protected Task Scheduler folders
+  (`\Microsoft\Windows\UpdateOrchestrator\`, `\TPM\`, `\Pluton\`, ...) — 86 of 371 tasks on a real
+  machine — with no exception and no signal, so a sync compared a narrowed snapshot against every
+  tracked row and reconciliation faithfully retired the difference, offering to *"Clear 89 missing"*
+  over tasks still running on schedule.
+
+  The agent now reports its own elevation on `agent:hello`. It lands as a **sibling fact** on
+  connector health — never folded into the health state, because connected, answering and having a
+  complete view of the machine are three different things — so a HEALTHY-but-unelevated agent still
+  reads as online, with the health strip, the Sources tab and `get_diagnostics` all saying *"Agent
+  running unelevated — some task folders are not visible"* as a fact about the reader rather than a
+  verdict about the tasks. `WindowsAgentConnector.syncTasks` sets `SyncOutcome.partial: true` only
+  when the agent has *positively* reported `elevated: false` — the same `partial`-gates-reconciliation
+  mechanism GitHub's truncated-listing case (#75) already proved out — so a narrowed sync still adds
+  and refreshes rows and cannot retire any of them. An agent published before this field existed
+  reports nothing, which reads as *unknown* and keeps the pre-existing behavior rather than freezing
+  reconciliation across an entire un-republished fleet the day this shipped.
+
 ### Changed
 
 - **The `release-engineering` skill was swept against reality** (2026-09-11). It still described

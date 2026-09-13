@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertTriangle, CheckCircle2, RefreshCw, Stethoscope, Terminal } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, RefreshCw, ShieldAlert, Stethoscope, Terminal } from 'lucide-react';
 import { DiagnosticsModal } from './DiagnosticsModal';
 import { useConnections, healthMeta } from '../hooks/useConnections';
 import { usePlatformMatrix, newestOutcome } from '../hooks/usePlatformMatrix';
@@ -86,6 +86,11 @@ export const HealthStrip = () => {
   // these was reported as the other (troubleshooting #41).
   const contactIsNewer = !!lastContact && (!lastSync || lastContact > lastSync);
 
+  // A fact about the reader, not a verdict about the tasks (troubleshooting
+  // #74) — so it renders beside health rather than folding into `ailing`,
+  // and a healthy-but-unelevated agent still reads as healthy.
+  const unelevated = connected.find(c => c.elevated === false) ?? null;
+
   if (connected.length === 0 && !lastSync && !outcome) return null;
 
   return (
@@ -139,6 +144,16 @@ export const HealthStrip = () => {
           <span className="opacity-70">· agent replied {timeAgo(lastContact!)}</span>
         )}
       </span>
+
+      {unelevated && (
+        <span
+          className="inline-flex shrink-0 items-center gap-1.5 text-warning-text"
+          title="Some task folders (e.g. \Microsoft\Windows\...) are hidden from an unelevated reader, so a task missing from a sync is not necessarily gone from the platform."
+        >
+          <ShieldAlert size={11} />
+          Agent running unelevated — some task folders are not visible
+        </span>
+      )}
 
       {outcome ? (
         <span

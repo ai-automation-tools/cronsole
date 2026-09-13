@@ -5017,6 +5017,20 @@ place, and the layer that knows the platform is the layer that can say which.
 
 ## 74. Dozens of Windows tasks go MISSING in one sync, and the agent is healthy
 
+**Fixed 2026-09-11.** The agent now reports its own elevation on `agent:hello`
+(`AgentService.IsElevated`, `WindowsIdentity`/`WindowsPrincipal`), the backend carries it as a
+sibling fact on `ConnectorHealth` (never folded into `state`) and shows it on the health strip and
+the Sources tab as *"Agent running unelevated — some task folders are not visible"*, and
+`WindowsAgentConnector.syncTasks` marks its `SyncOutcome` **`partial`** whenever the agent has
+*positively reported* `elevated: false` — which routes through the same `partial`-gates-reconciliation
+mechanism GitHub's truncated-listing case already proved out (`routes/tasks.ts`), so
+`reconcileMissingTasks` adds and refreshes rows but retires none. An agent published before this
+field existed reports nothing (`elevated: undefined`), which reads as *unknown* and keeps the
+pre-existing behavior rather than silently freezing reconciliation fleet-wide the day this shipped —
+only a *positive* `false` gates it. **The manual fix below still applies**: this stops the product
+from lying about what an unelevated snapshot means, it does not restore the agent's visibility —
+that still needs the elevated restart.
+
 **Symptom.** The dashboard header offers to **Clear 89 missing**. The Windows platform reads
 **HEALTHY**, the agent process is running, sync reports success, and nothing is in the error log.
 Opening Task Scheduler shows the tasks are still there, running on schedule.

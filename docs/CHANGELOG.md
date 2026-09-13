@@ -14,6 +14,17 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Fixed
 
+- **The demo was live and linked from nowhere** (2026-09-13). It is now the first thing the front
+  door offers (**Try the demo**, beside *Browse templates*), a badge and a link in the README, and
+  the opening line of the docs index — a demo a visitor cannot find is worth what an unpublished one
+  is worth.
+
+  **The README's website badge was broken by the domain sweep**, and only on the rendered page.
+  shields.io parses `label-message-colour`, so a hyphen *inside* the message has to be doubled;
+  `cronsole.ai-automation-tools.dev` has three, which silently made the message "cronsole.ai" and
+  the colour "automation". The badge now carries no hostname at all, which is one fewer thing to
+  re-escape the next time a domain moves.
+
 - **The demo's Templates tab showed nothing** (2026-09-13). `/api/templates` returns a **flat
   array**; the first fixture stub returned `{ templates: [], packs: [] }`, so the tab rendered an
   empty catalog. It now serves the real **97 templates**, normalised out of `registry/` through the
@@ -58,7 +69,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 - **The front door has a home on the org's own domain** (2026-09-13):
   `ai-automation-tools/cronsole-site` and `ai-automation-tools/cronsole-demo`, both with Pages
-  enabled and their `CNAME` committed. **Waiting on two DNS records**; the old
+  enabled and their `CNAME` committed. **Live the same day**; the old
   `cronsole.mikesailab.com` keeps serving the same page, because GitHub Pages cannot issue a 308
   and so the `edge-spectrum` redirect precedent does not transfer.
 

@@ -558,6 +558,7 @@
 
     var LINKS = {
       appRepo: "https://github.com/ai-automation-tools/cronsole",
+      demo: "https://cronsole-demo.ai-automation-tools.dev/",
       quickStart: "https://github.com/ai-automation-tools/cronsole#-quick-start",
       registryRepo: "https://github.com/michaelschecht/cronsole-registry",
       registryIssues: "https://github.com/michaelschecht/cronsole-registry/issues"
@@ -654,6 +655,7 @@
       // collection / category icons
       spark: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg>',
       code: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg>',
+      play: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l14 8-14 8V4z"/></svg>',
       bot: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="12" rx="3"/><path d="M12 8V4M8 2h8"/><circle cx="9" cy="14" r="1"/><circle cx="15" cy="14" r="1"/></svg>',
       shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
       pulse: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>',
@@ -896,6 +898,9 @@
           '<h1>Your automations,<br><span class="gr">finally in one place.</span></h1>' +
           '<p class="lede">Cronsole is a local-first control plane for the scheduled work scattered across your machine — Windows Task Scheduler, Claude&nbsp;Code routines, and jobs Cronsole runs itself with no agent at all — in one dark, fast dashboard. View, trigger, edit and schedule them from a single place, and grow your catalog from the open template registry below.</p>' +
           '<div class="hero-cta"><button class="btn btn-primary" data-nav="#/browse">Browse ' + TEMPLATES.length + ' templates' + I.arrow + '</button>' +
+          // The demo is the only thing on this page a visitor can TRY rather than
+          // read about, so it sits beside the primary CTA rather than in a footer.
+          '<a class="btn btn-ghost" href="' + LINKS.demo + '" target="_blank" rel="noopener">' + I.play + ' Try the demo</a>' +
           '<a class="btn btn-ghost" href="' + LINKS.appRepo + '" target="_blank" rel="noopener">' + I.code + ' Get Cronsole</a>' +
           '<button class="btn btn-ghost" id="hero-import">' + I.info + ' How import works</button></div>' +
           '<div class="stat-strip">' +

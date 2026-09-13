@@ -19,6 +19,10 @@ that explains what's inside and links to the individual documents.
 
 ## 🧭 Start here
 
+**Want to see it first?** [**▶️ Open the live demo**](https://cronsole-demo.ai-automation-tools.dev/) — the real dashboard with
+invented data, no install and no backend. Nothing there is connected, so nothing there can be
+changed; it is for looking at the thing before deciding to run it.
+
 New to Cronsole? Follow this path in order:
 
 1. [**⬇️ Install**](install/README.md) — get the stack running (Windows, macOS, or clone-the-repo).

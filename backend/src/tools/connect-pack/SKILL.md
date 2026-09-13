@@ -5,7 +5,7 @@ description: Create, run, and manage scheduled tasks through a running Cronsole 
 
 # Cronsole
 
-> Cronsole Connect Pack **v1.11** · canonical copy: <https://cronsole.mikesailab.com>
+> Cronsole Connect Pack **v1.11** · canonical copy: <https://cronsole.ai-automation-tools.dev>
 > If this file is older than your Cronsole install, the install wins — re-download the pack.
 
 Cronsole is a single pane of glass for scheduled tasks. It runs **locally** on the user's own

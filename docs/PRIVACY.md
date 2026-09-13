@@ -139,7 +139,7 @@ your disk.
 
 ## 6. The public website
 
-[`cronsole.mikesailab.com`](https://cronsole.mikesailab.com) is one static page listing the template
+[`cronsole.ai-automation-tools.dev`](https://cronsole.ai-automation-tools.dev) is one static page listing the template
 catalog. It sets **no cookies**, has no analytics and no third-party scripts. It stores exactly one
 thing in your browser — `cronsole.gallery.theme`, remembering whether you chose dark or light — and
 that never leaves your browser.

@@ -118,7 +118,7 @@ if (Test-Path (Join-Path $SiteDir 'index.html')) {
     # NB: the wildcard path (...\*) is required -- `Get-ChildItem -Path <dir> -Exclude` on a
     # bare directory silently returns nothing.
     # CNAME is excluded defensively: it decides which domain a Pages repo answers
-    # on, so a stray one in registry-site/ would hand cronsole.mikesailab.com to
+    # on, so a stray one in registry-site/ would hand cronsole.ai-automation-tools.dev to
     # the REGISTRY repo -- moving the registry JSON off its documented URL and
     # breaking catalog sync for every installed Cronsole. Domains belong to the
     # target repo, never to mirrored content.

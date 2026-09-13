@@ -250,7 +250,7 @@ pwsh scripts/publish-frontdoor.ps1   # registry-site/index.html             → 
 
 **There is one page, published to two hosts.** Both scripts ship the *same*
 `registry-site/index.html`: to `mikesailab.com/cronsole-registry` (beside the registry JSON)
-and to `cronsole.mikesailab.com` (the front door). The page works at both because it tries
+and to `cronsole.ai-automation-tools.dev` (the front door). The page works at both because it tries
 `./index.json` and falls back to the canonical registry origin when it isn't co-located.
 
 > **There is no `publish-landing.ps1` and no `landing-site/`.** The separate marketing

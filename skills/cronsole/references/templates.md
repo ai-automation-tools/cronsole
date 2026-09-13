@@ -207,7 +207,7 @@ and `CRONSOLE_SITE_CLONE` name them, and an unset variable falls back to a `%TEM
 | Clone | Remote | Serves | Source in this repo |
 |:---|:---|:---|:---|
 | `Tools\cronsole-registry` | `michaelschecht/cronsole-registry` | `mikesailab.com/cronsole-registry` (registry JSON **+** gallery) | `registry/` + `registry-site/` |
-| `Tools\cronsole-site` | `michaelschecht/cronsole-site` | `cronsole.mikesailab.com` (the front door — **the same gallery page**, not a landing page) | `registry-site/` |
+| `Tools\cronsole-site` | `michaelschecht/cronsole-site` | `cronsole.ai-automation-tools.dev` (the front door — **the same gallery page**, not a landing page) | `registry-site/` |
 
 - They are **separate, independent git repos — NOT submodules.**
 - **These clones double as the publish working clones.** The scripts default `-WorkDir` to

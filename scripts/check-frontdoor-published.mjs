@@ -3,7 +3,8 @@
  *
  * `registry-site/index.html` is one page served from two addresses:
  *
- *   https://cronsole.mikesailab.com/                    the front door
+ *   https://cronsole.ai-automation-tools.dev/           the front door
+ *   https://cronsole.mikesailab.com/                    the OLD front door, still served
  *   https://mikesailab.com/cronsole-registry/           beside the registry JSON
  *
  * Two hosts, two publish paths, and for a long time two chances to forget. The
@@ -32,7 +33,15 @@ const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '..');
 
 // Both hosts are checked by default. Override for a fork or a staging host.
-const HOSTS = (process.env.SITE_URLS || 'https://cronsole.mikesailab.com/,https://mikesailab.com/cronsole-registry/')
+// Every host that serves this page gets checked, because the stale one is always
+// whichever you did not happen to open. The old front door is still in the list on
+// purpose: it keeps serving rather than redirecting (GitHub Pages cannot issue a
+// 308), so it can go stale exactly like the others and nobody would notice.
+const HOSTS = (process.env.SITE_URLS || [
+  'https://cronsole.ai-automation-tools.dev/',
+  'https://cronsole.mikesailab.com/',
+  'https://mikesailab.com/cronsole-registry/'
+].join(','))
   .split(',')
   .map((u) => u.trim())
   .filter(Boolean);
@@ -113,7 +122,8 @@ async function main() {
   console.error('Fix: "Publish front door" runs on every merge to main that touches registry-site/,');
   console.error('and "Publish registry" mirrors the same page to the registry host. Re-run whichever');
   console.error('did not run from the Actions tab, or publish manually with');
-  console.error('  pwsh scripts/publish-frontdoor.ps1      (cronsole.mikesailab.com)');
+  console.error('  Actions -> Publish front door           (both front-door hosts)');
+  console.error('  pwsh scripts/publish-frontdoor.ps1      (cronsole.mikesailab.com only)');
   console.error('  pwsh scripts/publish-registry.ps1       (mikesailab.com/cronsole-registry)');
   return false;
 }

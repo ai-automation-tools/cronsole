@@ -759,7 +759,7 @@ Non-negotiable rules. **Every one has a reason recorded in
   GitHub does not redirect renamed Pages paths, so there is no second free move.
 - **The front door is the only public face of the catalog; the registry host is a machine read**
   *(decided 2026-09-09)*. One page is served from two hosts, so every link has a choice of host and
-  the choice is not arbitrary: **a human-facing link goes to `cronsole.mikesailab.com`** (README, the
+  the choice is not arbitrary: **a human-facing link goes to `cronsole.ai-automation-tools.dev`** (README, the
   Templates-tab gallery pointer, the onboarding resource list) and **the apex path is what code
   fetches** (`TEMPLATE_REGISTRY_URL`, the gallery's own `REGISTRY_BASE` fallback). The registry repo
   is a **mirror with no source in it**, so linking a user at it offers them a worse copy of a page
@@ -858,7 +858,8 @@ is infrastructure, not content: it decides which domain a Pages repo answers on,
 workflow **fails** when the target has none rather than publishing a page nobody can reach.
 
 **One page, two hosts, so it is checked at both.** `registry-site/index.html` is served from
-`cronsole.mikesailab.com` *and* `mikesailab.com/cronsole-registry/`, by two different publish paths —
+`cronsole.ai-automation-tools.dev`, `cronsole.mikesailab.com` *and* `mikesailab.com/cronsole-registry/`,
+by three different publish paths —
 so the stale half is whichever one you did not happen to open. `check-frontdoor-published.mjs`
 compares sha256 over the served bytes at both, **LF-normalized**: a CRLF working tree makes the same
 commit pass on Linux and fail on Windows, and makes a manual publish copy different bytes than CI

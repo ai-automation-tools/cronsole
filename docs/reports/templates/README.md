@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="https://cronsole.mikesailab.com"><img src="https://img.shields.io/badge/catalog-browse_the_gallery-2ea44f?style=for-the-badge" alt="Browse the catalog"></a>
+  <a href="https://cronsole.ai-automation-tools.dev"><img src="https://img.shields.io/badge/catalog-browse_the_gallery-2ea44f?style=for-the-badge" alt="Browse the catalog"></a>
   <img src="https://img.shields.io/badge/tiers-core_+_extended-8B5CF6?style=for-the-badge" alt="Core and extended tiers">
   <img src="https://img.shields.io/badge/schema-Registry_v1-0EA5E9?style=for-the-badge" alt="Registry v1">
 </p>

@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Publish the gallery as Cronsole's public front door (cronsole.mikesailab.com).
+    Publish the gallery as Cronsole's public front door (cronsole.ai-automation-tools.dev).
 
 .DESCRIPTION
     Cronsole used to have two public pages: a marketing landing page at
@@ -10,7 +10,7 @@
     2026-07-28 and the gallery took over that domain, with the landing page's
     product pitch, quick start, and project links merged into its Home view.
     Rename stage 3 then moved both on 2026-07-31: the gallery to
-    mikesailab.com/cronsole-registry, and this front door to cronsole.mikesailab.com.
+    mikesailab.com/cronsole-registry, and this front door to cronsole.ai-automation-tools.dev.
 
     So this script publishes the SAME registry-site/index.html that
     publish-registry.ps1 does -- to a second host.
@@ -113,7 +113,7 @@ if (Test-Path (Join-Path $WorkDir '.git')) {
 # domain is down after the fact.
 $cname = Join-Path $WorkDir 'CNAME'
 if (-not (Test-Path $cname)) {
-    Write-Warning "No CNAME in $WorkDir - cronsole.mikesailab.com will NOT serve this. Restore it before relying on the custom domain."
+    Write-Warning "No CNAME in $WorkDir - cronsole.ai-automation-tools.dev will NOT serve this. Restore it before relying on the custom domain."
 } else {
     Write-Host ("Custom domain: " + (Get-Content $cname -Raw).Trim()) -ForegroundColor DarkGray
 }

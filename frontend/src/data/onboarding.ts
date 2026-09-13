@@ -90,6 +90,6 @@ export const HELP_GUIDES: HelpLink[] = [
   {
     label: 'Template Gallery',
     description: 'The public catalog Cronsole fetches — browse and import',
-    url: 'https://cronsole.mikesailab.com/'
+    url: 'https://cronsole.ai-automation-tools.dev/'
   }
 ];

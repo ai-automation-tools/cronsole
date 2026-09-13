@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="https://cronsole.mikesailab.com/">🌐 Website &amp; Template Gallery</a>
+  <a href="https://cronsole.ai-automation-tools.dev/">🌐 Website &amp; Template Gallery</a>
   ·
   <a href="docs/ROADMAP.md">🗺️ Roadmap</a>
 </p>
@@ -27,7 +27,7 @@
 </p>
 
 <p align="center">
-  <a href="https://cronsole.mikesailab.com/"><img src="https://img.shields.io/badge/website-cronsole.mikesailab.com-2ea44f?style=for-the-badge&logo=githubpages&logoColor=white" alt="Website: cronsole.mikesailab.com"></a>
+  <a href="https://cronsole.ai-automation-tools.dev/"><img src="https://img.shields.io/badge/website-cronsole.ai-automation-tools.dev-2ea44f?style=for-the-badge&logo=githubpages&logoColor=white" alt="Website: cronsole.ai-automation-tools.dev"></a>
   <img src="https://img.shields.io/badge/status-MVP_Prototype-F59E0B?style=for-the-badge" alt="Status: MVP Prototype">
   <a href="docs/ROADMAP.md"><img src="https://img.shields.io/badge/plan-ROADMAP-8B5CF6?style=for-the-badge" alt="Roadmap"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-2ea44f?style=for-the-badge" alt="License: Apache 2.0"></a>

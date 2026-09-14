@@ -222,11 +222,14 @@ const sourceWindows: HelpTopic = {
         'the detail also needs an agent published on or after 2026-08-25.'
     },
     {
-      label: 'Cronsole creates only \\Cronsole',
+      label: 'Cronsole creates a folder only when you ask for one',
       body:
-        'The agent runs elevated, so a folder it creates can only be deleted by an administrator. ' +
-        'Make the folder in Task Scheduler yourself and it appears in the picker. \\Microsoft\\ is ' +
-        'refused outright.'
+        'Pick New folder — the first row of the Task Scheduler folder box — and Cronsole makes ' +
+        'the chain as it creates the task, naming every folder it made. It never removes them ' +
+        'again — only its ' +
+        'own \\Cronsole is cleaned up when empty — and the agent runs elevated, so deleting one ' +
+        'later needs an administrator. Anything you make in Task Scheduler yourself shows up in ' +
+        'the picker. \\Microsoft\\ is refused outright.'
     }
   ],
   doc: { label: 'Sources Guide › Windows Task Scheduler', url: sourcesGuide('windows-task-scheduler') },

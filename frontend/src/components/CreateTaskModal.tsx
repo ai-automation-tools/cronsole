@@ -24,6 +24,7 @@ import {
   type NativeJobValues
 } from '../utils/taskEditing';
 import { useGeminiToolPresets } from '../hooks/useGeminiConnection';
+import { WindowsFolderField, DEFAULT_FOLDER, type WindowsFolderChoice } from './WindowsFolderField';
 
 /**
  * The three things this modal can put on your dashboard — and one of them is
@@ -120,6 +121,15 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
   const executionHost = matrix?.platforms.find(p => p.platform === 'TASKHUB_NATIVE')?.executionHost ?? null;
   // Windows fields
   const [command, setCommand] = useState('');
+  // The REAL Task Scheduler folder the task lands in. It was hard-coded to
+  // \Cronsole here while Apply Template offered a picker, so the same act put a
+  // task in a different place depending on which button you pressed — and the
+  // Category field beside it is only a Cronsole label, which made the form look
+  // like it was asking where the task goes when it wasn't.
+  const [folderChoice, setFolderChoice] = useState<WindowsFolderChoice>({
+    folder: DEFAULT_FOLDER,
+    createFolder: false
+  });
   // Gemini's target: the instruction its agent runs on the schedule. Deliberately
   // its own state rather than sharing `command` — see `CreatePlatform`.
   const [prompt, setPrompt] = useState(initial?.prompt ?? '');
@@ -252,7 +262,11 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
           platform,
           category: category.trim() || undefined,
           schedule: storedSchedule.cron,
-          command
+          command,
+          folder: folderChoice.folder.trim(),
+          // Sent only when asked for, so a create into an existing folder is
+          // byte-identical to one made before this field existed.
+          ...(folderChoice.createFolder ? { createFolder: true } : {})
         });
       }
       if (isGemini) {
@@ -327,9 +341,16 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
         onClose();
         return;
       }
+      // Folders Cronsole had to make are named, never merely implied: creating
+      // one is the exception to "Cronsole creates only \Cronsole", and nothing
+      // here removes them again.
+      const made = (res as { data?: { foldersCreated?: string[] } })?.data?.foldersCreated ?? [];
       toast(
         isWindows
-          ? `Windows task "${name}" created under the \\Cronsole\\ scheduler folder.`
+          ? `Windows task "${name}" created in ${folderChoice.folder.trim()}.` +
+            (made.length
+              ? ` Created ${made.length === 1 ? 'folder' : 'folders'} ${made.join(', ')} — remove ${made.length === 1 ? 'it' : 'them'} in Task Scheduler if you don't want ${made.length === 1 ? 'it' : 'them'}.`
+              : '')
           : isGemini
             // The allowlist is set HERE, under Tools and network access — the
             // sentence used to send people to Google AI Studio, which is neither
@@ -341,12 +362,17 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
       onClose();
     },
     onError: (error: unknown) => {
-      const err = error as Error & { response?: { data?: { error?: string } } };
+      const err = error as Error & { response?: { data?: { error?: string; foldersCreated?: string[] } } };
       const message = err.response?.data?.error || err.message;
+      // A create can build the folder chain and then fail to register into it.
+      // The folder is real at that point, so a clean-sounding failure would be a
+      // lie about what is now on the machine.
+      const made = err.response?.data?.foldersCreated ?? [];
       toast(
-        message === 'Agent offline'
+        (message === 'Agent offline'
           ? 'Create failed: the Windows agent is not connected. Check that the CronsoleAgent scheduled task is running.'
-          : `Create failed: ${message}`,
+          : `Create failed: ${message}`) +
+          (made.length ? ` (${made.length === 1 ? 'folder' : 'folders'} ${made.join(', ')} was created and left in place)` : ''),
         'error'
       );
     }
@@ -355,7 +381,9 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
   // Native completeness is `nativeJobIncomplete` — the same check the edit form
   // uses — so a job cannot be submittable in one form and refused in the other.
   const targetValid = isWindows
-    ? !!command.trim()
+    ? // A typed-but-empty new folder is refused at the button; the path itself
+      // is validated server-side (windowsTaskFolderError has one definition).
+      !!command.trim() && !!folderChoice.folder.trim()
     : isGemini
       ? // The prompt is the whole action here, so it is required for the reason
         // a command is on Windows: a trigger with nothing to do is refused by
@@ -685,6 +713,12 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
                 className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-xs font-mono text-foreground outline-none focus:border-primary transition-colors resize-y"
               />
               <p className="text-[10px] text-subtle-foreground italic">Runs the program directly as your user — no hidden shell wrapper. Name <span className="font-mono">cmd.exe /c</span> explicitly if you need shell features like redirection.</p>
+
+              <WindowsFolderField
+                value={folderChoice}
+                onChange={setFolderChoice}
+                enabled={isWindows}
+              />
             </div>
           ) : (
             <>
@@ -750,7 +784,7 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
             <Info size={13} className={`shrink-0 mt-0.5 ${isWindows ? 'text-foreground' : isClaude ? 'text-claude-text' : isGemini ? 'text-gemini-text' : 'text-native-text'}`} />
             <span>
               {isWindows
-                ? 'Created under the \\Cronsole\\ folder in Task Scheduler, so Cronsole-made tasks stay identifiable. Requires the Windows agent to be online.'
+                ? `Created in ${folderChoice.folder.trim() || 'the folder you pick'} in Task Scheduler — the folder also becomes the task's category in Cronsole. Requires the Windows agent to be online.`
                 : isClaude
                   ? 'The token is stored encrypted and never shown again. Running a routine from here starts a real Claude Code session that can use its repos and connectors — exactly as if it had fired on schedule.'
                   : isGemini

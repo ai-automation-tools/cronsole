@@ -12,6 +12,7 @@ import { describeCron } from '../utils/schedule';
 import { Modal } from './ui/Modal';
 import { ScheduleZoneHint } from './ScheduleZoneHint';
 import { ScheduleBuilder } from './ScheduleBuilder';
+import { WindowsFolderField, DEFAULT_FOLDER, type WindowsFolderChoice } from './WindowsFolderField';
 
 // Substitute {{key}} placeholders — preview only. The apply request sends the
 // raw parameter values; the backend owns the real substitution per-token, so a
@@ -40,15 +41,6 @@ const GEMINI_TOOL_LABEL: Record<string, string> = {
   tool_search: 'Discover further tools',
   mcp_server: 'Call an MCP server'
 };
-
-/** Mirrors DEFAULT_TASK_FOLDER in backend/src/utils/windowsTaskFolder.ts. */
-const DEFAULT_FOLDER = '\\Cronsole';
-
-interface AgentFolder {
-  path: string;
-  taskCount: number;
-  writable: boolean;
-}
 
 interface ApplyTemplateModalProps {
   template: Template;
@@ -94,10 +86,12 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
   // Windows task the "category" is a projection of this folder
   // (TaskService.extractCategory reads the root segment), so choosing a folder
   // IS choosing the category — unlike native tasks, where categories are local.
-  // Only EXISTING folders are offered: Cronsole creates just its own \Cronsole
-  // (the one folder it also prunes), because removing a folder needs elevation
-  // and anything else it created would be litter only the user could clear.
-  const [folder, setFolder] = useState(DEFAULT_FOLDER);
+  // `createFolder` is the signed opt-in to making one that doesn't exist; see
+  // WindowsFolderField.
+  const [folderChoice, setFolderChoice] = useState<WindowsFolderChoice>({
+    folder: DEFAULT_FOLDER,
+    createFolder: false
+  });
   const isWindows = platform === 'WINDOWS_TASK_SCHEDULER';
   const isClaude = platform === 'CLAUDE_CODE';
   const isGemini = platform === 'GEMINI_TRIGGERS';
@@ -148,36 +142,7 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
     retry: false
   });
 
-  // The machine's real Task Scheduler folders. Windows only, and only while the
-  // modal is open. A failure here is not fatal: the selector falls back to the
-  // default folder rather than blocking the apply — the backend and agent both
-  // validate the folder anyway, so an out-of-date list can't cause a bad write.
-  const { data: foldersData, isLoading: foldersLoading, isError: foldersError } = useQuery<{
-    folders: AgentFolder[];
-    defaultFolder: string;
-  } | null>({
-    queryKey: ['task-folders', platform],
-    queryFn: async () => {
-      const res = await api.get('/tasks/folders', { params: { platform } });
-      return res.data;
-    },
-    enabled: isWindows,
-    staleTime: 60_000,
-    retry: false
-  });
-
-  // Offer only writable folders that ALREADY EXIST — plus the default, which is
-  // the one folder Cronsole creates lazily (and prunes again when emptied), so it
-  // belongs here even on a fresh machine where it doesn't exist yet.
-  // \Microsoft\ is excluded rather than shown-and-disabled: the reason is
-  // explained once, below, which is honest without cluttering the list with
-  // dozens of unusable system folders.
-  const writableFolders = (foldersData?.folders ?? []).filter(f => f.writable);
-  const folderOptions = Array.from(
-    new Set<string>([DEFAULT_FOLDER, ...writableFolders.map(f => f.path)])
-  ).sort((a, b) => (a === DEFAULT_FOLDER ? -1 : b === DEFAULT_FOLDER ? 1 : a.localeCompare(b)));
-
-  const folderReady = !isWindows || !!folder;
+  const folderReady = !isWindows || !!folderChoice.folder.trim();
 
   // One repository per line; blank lines dropped so a trailing newline is not a
   // repository the routine is told to check out.
@@ -192,23 +157,39 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
         name: name.trim(),
         parameters: values,
         // Windows only — other platforms have no native folder hierarchy and
-        // the backend rejects the field for them.
-        ...(isWindows ? { folder } : {}),
+        // the backend rejects the field for them. `createFolder` is sent only
+        // when it was asked for, so an apply into an existing folder is
+        // byte-identical to one made before this field existed.
+        ...(isWindows ? { folder: folderChoice.folder.trim() } : {}),
+        ...(isWindows && folderChoice.createFolder ? { createFolder: true } : {}),
         // Claude only, and omitted entirely when blank rather than sent as [].
         ...(isClaude && repoList.length ? { repositoryUrls: repoList } : {})
       });
     },
-    onSuccess: () => {
+    onSuccess: (res: unknown) => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      // Folders Cronsole had to make are named, never merely implied: creating
+      // one is the exception to "Cronsole creates only \Cronsole", and it is
+      // the half that doesn't undo — nothing here will remove them again.
+      const made = (res as { data?: { foldersCreated?: string[] } })?.data?.foldersCreated ?? [];
       toast(
-        `Task created on ${platformLabel(platform)} from "${template.name}".`,
+        `Task created on ${platformLabel(platform)} from "${template.name}".` +
+          (made.length ? ` Created ${made.length === 1 ? 'folder' : 'folders'} ${made.join(', ')}.` : ''),
         'success'
       );
       onClose();
     },
     onError: (error: unknown) => {
-      const err = error as Error & { response?: { data?: { error?: string } } };
-      toast(`Apply failed: ${err.response?.data?.error || err.message}`, 'error');
+      const err = error as Error & { response?: { data?: { error?: string; foldersCreated?: string[] } } };
+      // A create can build the folder chain and then fail to register into it.
+      // The folder is real at that point, so the one response the user sees has
+      // to say so rather than reporting a clean failure.
+      const made = err.response?.data?.foldersCreated ?? [];
+      toast(
+        `Apply failed: ${err.response?.data?.error || err.message}` +
+          (made.length ? ` (${made.length === 1 ? 'folder' : 'folders'} ${made.join(', ')} was created and left in place)` : ''),
+        'error'
+      );
     }
   });
 
@@ -307,47 +288,12 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
           </div>
 
           {isWindows && (
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider flex items-center gap-1.5">
-                <FolderTree size={11} /> Task Scheduler folder
-              </label>
-
-              {foldersLoading ? (
-                <div className="flex items-center gap-2 text-[11px] text-subtle-foreground px-3 py-2.5">
-                  <Loader2 size={11} className="animate-spin" /> Reading folders from your machine…
-                </div>
-              ) : (
-                <select
-                  aria-label="Task Scheduler folder"
-                  value={folder}
-                  onChange={e => setFolder(e.target.value)}
-                  className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary transition-colors"
-                >
-                  {folderOptions.map(path => {
-                    const meta = writableFolders.find(f => f.path === path);
-                    const count = meta ? ` (${meta.taskCount} task${meta.taskCount === 1 ? '' : 's'})` : '';
-                    return (
-                      <option key={path} value={path}>
-                        {path}{path === DEFAULT_FOLDER ? ' — default' : count}
-                      </option>
-                    );
-                  })}
-                </select>
-              )}
-
-              {foldersError ? (
-                <p className="text-[10px] text-warning-text flex items-start gap-1.5">
-                  <AlertTriangle size={11} className="shrink-0 mt-0.5" />
-                  Couldn’t read your folders (the agent may be offline). You can still create the task in {DEFAULT_FOLDER}.
-                </p>
-              ) : (
-                <p className="text-[10px] text-subtle-foreground italic">
-                  Where the task lives in Windows Task Scheduler — this also becomes its category in Cronsole.
-                  {' '}<span className="not-italic">Only folders that already exist are listed. Cronsole creates just its own {DEFAULT_FOLDER} (and removes it again when empty) — deleting a folder needs admin rights, so it won’t leave one behind that only you could clear. To use a new folder, create it in Task Scheduler first.</span>
-                  {' '}<span className="not-italic">\Microsoft\ isn’t offered: Windows keeps its own tasks there, and a name collision would silently overwrite one.</span>
-                </p>
-              )}
-            </div>
+            <WindowsFolderField
+              value={folderChoice}
+              onChange={setFolderChoice}
+              platform={platform}
+              enabled={isWindows}
+            />
           )}
 
           {isClaude && (

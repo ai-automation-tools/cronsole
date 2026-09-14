@@ -92,8 +92,10 @@ which is backwards.
 
 **Filing a task in a folder that doesn't exist yet.** By default Cronsole refuses: it creates only
 its own `\Cronsole` folder, because the agent runs **elevated** and a folder it creates needs
-administrator rights to delete again. If you genuinely want a new folder, `create_task` takes
-**`createFolder: true`**, and the reply names every folder it made. Two things worth knowing before
+administrator rights to delete again. If you genuinely want a new folder, `create_task` and
+`create_task_from_template` both take **`createFolder: true`**, and the reply names every folder it
+made — as does the **New folder…** row in the dashboard's *Task Scheduler folder* box, which is the
+same opt-in. Two things worth knowing before
 you ask for it: a **misspelled folder name becomes a real, permanent folder** (Cronsole never
 removes it for you), and it does **not** let a task be filed under `\Microsoft\` — that stays
 refused either way, so Windows' own scheduled tasks can't be overwritten. Ask your assistant to

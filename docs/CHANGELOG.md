@@ -44,6 +44,28 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **Create a Task Scheduler folder from the dashboard** (2026-09-14). The *Task Scheduler folder*
+  box on **New Task** and **Apply Template** now opens with a **New folder…** row: pick it, type a
+  path, and Cronsole makes the chain as it creates the task. It sits at the **top** of the list
+  rather than the bottom — a real machine has dozens of folders, and the one option that is not a
+  folder should not be the one you scroll to find. The plumbing has existed since
+  2026-08-04 — `createFolder` is signed into the agent command and the agent re-validates it — but
+  only MCP could reach it, so the dashboard's advice was to go and make the folder in Task
+  Scheduler first.
+
+  **Choosing the row *is* the opt-in**, so there is no second checkbox beside it, and the
+  confirmation **names every folder it made**. It has to: Cronsole prunes only its own `\Cronsole`,
+  the agent runs elevated, and a folder it creates carries an administrator ACE — so this is the
+  half that does not undo. The same sentence rides the **failure** path, because a create can build
+  the chain and then fail to register into it. `\Microsoft\` is still refused in the backend and
+  independently in the agent.
+
+  **New Task hard-coded `\Cronsole` while Apply Template had a picker**, so the same act put a task
+  in a different place depending on which button you pressed. Both now render one
+  `WindowsFolderField`. `POST /api/templates/:id/apply` and MCP `create_task_from_template` gained
+  `createFolder` in the same change, and both apply responses now carry `foldersCreated` — on
+  success and on error — the way `POST /api/tasks` always has.
+
 - **A click-through demo** (2026-09-13) — the real dashboard, served from fixtures with no
   backend: [`cronsole-demo.ai-automation-tools.dev`](https://cronsole-demo.ai-automation-tools.dev).
 

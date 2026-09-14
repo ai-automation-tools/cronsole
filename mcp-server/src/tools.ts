@@ -709,8 +709,10 @@ export function registerTools(
       description:
         'List the real Windows Task Scheduler folders on the machine, with how many tasks each holds and whether ' +
         'a task can be created in it. Call this before create_task / create_task_from_template when you want a ' +
-        'folder other than the default: Cronsole creates ONLY its own "\\Cronsole" folder, so every other folder ' +
-        'must already exist — this is how you find out which do. Windows-only (no other platform has task folders). ' +
+        'folder other than the default: Cronsole creates ONLY its own "\\Cronsole" folder unless you pass ' +
+        'createFolder, so every other folder must already exist — this is how you find out which do, and checking ' +
+        'is how you avoid making a permanent duplicate of a folder that was already there under a slightly ' +
+        'different name. Windows-only (no other platform has task folders). ' +
         'Folders you cannot create in are listed with writable=false rather than hidden, so you can see that a ' +
         'folder exists AND why it is refused.',
       inputSchema: {
@@ -957,7 +959,20 @@ export function registerTools(
             'EXIST — Cronsole creates only its own "\\\\Cronsole" folder, because removing a folder needs elevation ' +
             'and it will not leave behind one the user has to delete by hand. Folders under "\\\\Microsoft\\\\" are ' +
             'refused outright: Windows keeps its own scheduled tasks there and a name collision would silently ' +
-            'overwrite one.'
+            'overwrite one. ' +
+            'Set createFolder if you want a missing folder created instead of refused.'
+          ),
+        createFolder: z
+          .boolean()
+          .optional()
+          .describe(
+            'Windows only. Create `folder` when it does not exist, instead of refusing. Default false. ' +
+            'THINK BEFORE SETTING THIS: the local agent runs elevated, so a folder it creates carries an ' +
+            'administrator ACE — the user will need administrator rights to delete it again, and Cronsole ' +
+            'never removes it for them (it only ever prunes its own "\\\\Cronsole"). Prefer list_folders and ' +
+            'an existing folder. Use this when the user has asked for a specific new folder by name, not to ' +
+            'recover from a typo — a misspelled path becomes a permanent folder. It does not widen WHERE a ' +
+            'task may go: "\\\\Microsoft\\\\" is still refused. Any folder created is named in the response.'
           ),
         parameters: z
           .record(z.string(), z.string())
@@ -974,12 +989,16 @@ export function registerTools(
           )
       }
     },
-    async ({ templateId, platform, name, schedule, folder, parameters, repositoryUrls }) => {
+    async ({ templateId, platform, name, schedule, folder, createFolder, parameters, repositoryUrls }) => {
       try {
         const body: Record<string, unknown> = { platform };
         if (name) body.name = name;
         if (schedule) body.schedule = schedule;
         if (folder) body.folder = folder;
+        // Only sent when true, for the reason create_task does the same: an
+        // explicit `false` on every ordinary apply would make the signed opt-in
+        // read as a routine field.
+        if (createFolder) body.createFolder = true;
         if (parameters) body.parameters = parameters;
         if (repositoryUrls?.length) body.repositoryUrls = repositoryUrls;
 
@@ -995,8 +1014,17 @@ export function registerTools(
         const warnings = conv?.warnings?.length
           ? lossyLead + `\nSchedule conversion warnings: ${conv.warnings.join('; ')}`
           : '';
+        // At the same volume as a warning, not tucked into the structured
+        // payload: creating a folder is the exception to a standing invariant
+        // and the caller cannot undo it without elevation, so a model that only
+        // reads the text must still learn it happened.
+        const made = Array.isArray(result.foldersCreated) ? (result.foldersCreated as string[]) : [];
+        const folders = made.length
+          ? `\nCreated Task Scheduler folder(s): ${made.join(', ')}. ` +
+            'Removing these again needs administrator rights — Cronsole will not delete them.'
+          : '';
         const msg = typeof result.message === 'string' ? result.message : 'Template applied';
-        return ok(`${msg}${warnings}`, { templateId, platform, result });
+        return ok(`${msg}${warnings}${folders}`, { templateId, platform, result });
       } catch (err) {
         return toolError(err);
       }

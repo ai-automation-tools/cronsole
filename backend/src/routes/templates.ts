@@ -202,6 +202,14 @@ const applySchema = z.object({
    * into the agent command, and the agent re-validates before registering.
    */
   folder: z.string().optional(),
+  /**
+   * Windows only: create `folder` when its chain is missing, instead of
+   * refusing. Same rule as `POST /api/tasks` — false by default, signed into
+   * the agent command, and every folder it made comes back in `foldersCreated`
+   * on BOTH the success and the error response. Cronsole creating a folder is
+   * the exception to a standing invariant, so it is never a fallback.
+   */
+  createFolder: z.boolean().optional().default(false),
   schedule: z.string().optional(),
   scheduleExpression: z.string().optional(),
   /** Deprecated: pre-substituted command string (legacy clients). */
@@ -226,7 +234,7 @@ const applySchema = z.object({
 // Apply a template to a platform
 router.post('/:id/apply', validateBody(applySchema), async (req: Request, res: Response) => {
   const id = req.params.id as string;
-  const { platform, command, schedule, scheduleExpression, name, parameters, folder, repositoryUrls } = req.body;
+  const { platform, command, schedule, scheduleExpression, name, parameters, folder, createFolder, repositoryUrls } = req.body;
   const userId = (req as AuthRequest).user!.id;
 
   const template = await prisma.template.findUnique({
@@ -390,6 +398,7 @@ router.post('/:id/apply', validateBody(applySchema), async (req: Request, res: R
       trigger: conversion.trigger,
       action: structuredAction,
       folder: finalFolder,
+      createFolder: createFolder === true,
       ...(finalNativeJob !== undefined ? { nativeJob: finalNativeJob } : {}),
       ...(finalAgentTools !== undefined
         ? { agentTools: finalAgentTools as AgentToolInput[] }
@@ -419,7 +428,14 @@ router.post('/:id/apply', validateBody(applySchema), async (req: Request, res: R
     const clientMistake =
       verbDeclaredUnsupported(platform, 'create') || result.refusedBeforeCalling === true;
     return res.status(clientMistake ? 400 : 500)
-      .json({ error: result.message || 'Failed to apply template' });
+      .json({
+        error: result.message || 'Failed to apply template',
+        // Rides the ERROR too, for the reason it does on `POST /api/tasks`: an
+        // apply can build the folder chain and then fail to register into it.
+        // Cronsole does not delete folders, so the folder is real and needs an
+        // admin to remove — the one response the caller ever sees must say so.
+        ...(result.foldersCreated?.length ? { foldersCreated: result.foldersCreated } : {})
+      });
   }
 
   // Track the created task right away (mirrors POST /tasks): the dashboard shows
@@ -464,7 +480,11 @@ router.post('/:id/apply', validateBody(applySchema), async (req: Request, res: R
   res.json({
     message: 'Template applied successfully',
     externalId: result.externalId,
-    conversion: { confidence: conversion.confidence, warnings: conversion.warnings, lossy: conversion.lossy }
+    conversion: { confidence: conversion.confidence, warnings: conversion.warnings, lossy: conversion.lossy },
+    // Always present (empty when nothing was created), never conditional: a
+    // caller must be able to read the answer rather than infer it from an
+    // absent key. Same shape as `POST /api/tasks`.
+    foldersCreated: result.foldersCreated ?? []
   });
 });
 

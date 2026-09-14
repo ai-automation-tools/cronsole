@@ -222,6 +222,81 @@ describe('ApplyTemplateModal Component', () => {
     });
   });
 
+  it('creates a new folder only when asked, and names what it made', async () => {
+    // `foldersCreated` comes back from the server. Cronsole creating a folder is
+    // the exception to "Cronsole creates only \Cronsole" and nothing removes one
+    // again, so the confirmation has to name it rather than imply it.
+    vi.mocked(api.post).mockResolvedValue({
+      data: { success: true, foldersCreated: ['\\Work', '\\Work\\Nightly'] }
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ApplyTemplateModal template={mockTemplate} onClose={vi.fn()} />
+      </QueryClientProvider>
+    );
+
+    fireEvent.change(screen.getAllByPlaceholderText('C:\\path\\to\\file')[1], {
+      target: { value: 'D:\\backup' }
+    });
+
+    const select = await screen.findByRole('combobox', { name: 'Task Scheduler folder' });
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: /\\Work/ })).toBeInTheDocument();
+    });
+
+    // First, not last. A real machine has dozens of folders, and at the bottom
+    // the one option that is not a folder is the one you have to scroll to find.
+    expect(
+      Array.from(select.querySelectorAll('option')).map(o => o.textContent)[0]
+    ).toBe('New folder…');
+
+    // No free-text box until the gesture is made: choosing "New folder…" IS the
+    // opt-in, which is why there is no separate checkbox beside it.
+    expect(screen.queryByRole('textbox', { name: 'New folder path' })).not.toBeInTheDocument();
+
+    fireEvent.change(select, { target: { value: '::new::' } });
+    const pathInput = screen.getByRole('textbox', { name: 'New folder path' });
+
+    // Empty is refused at the button rather than sent as a folder of ''.
+    expect(screen.getByRole('button', { name: /Create Task/ })).toBeDisabled();
+
+    fireEvent.change(pathInput, { target: { value: '\\Work\\Nightly' } });
+    fireEvent.click(screen.getByRole('button', { name: /Create Task/ }));
+
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith(
+        '/templates/template-cron-backup/apply',
+        expect.objectContaining({ folder: '\\Work\\Nightly', createFolder: true })
+      );
+    });
+    expect(toastMock).toHaveBeenCalledWith(
+      expect.stringContaining('Created folders \\Work, \\Work\\Nightly.'),
+      'success'
+    );
+  });
+
+  it('does not send createFolder when an existing folder is picked', async () => {
+    vi.mocked(api.post).mockResolvedValue({ data: { success: true, foldersCreated: [] } });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ApplyTemplateModal template={mockTemplate} onClose={vi.fn()} />
+      </QueryClientProvider>
+    );
+
+    fireEvent.change(screen.getAllByPlaceholderText('C:\\path\\to\\file')[1], {
+      target: { value: 'D:\\backup' }
+    });
+    await screen.findByRole('combobox', { name: 'Task Scheduler folder' });
+    fireEvent.click(screen.getByRole('button', { name: /Create Task/ }));
+
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    // Byte-identical to an apply made before the field existed — the signed
+    // opt-in is absent, so the agent refuses a missing folder as it always did.
+    expect(vi.mocked(api.post).mock.calls.at(-1)![1]).not.toHaveProperty('createFolder');
+  });
+
   it('prefills the task name, sends an edited name, and blocks an empty one', async () => {
     vi.mocked(api.post).mockResolvedValue({ data: { success: true } });
 

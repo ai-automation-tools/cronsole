@@ -346,6 +346,24 @@ const devPack: RegistryTemplate[] = [
     commandTemplate: '/bin/bash -c "brew update && brew upgrade"',
     parameters: [],
     compatibleTargets: ['macos']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'dev-npm-audit-check',
+    name: 'Dependency Security Audit (npm)',
+    description: 'Write an npm audit report for a project on a schedule, so known vulnerabilities in dependencies surface on a regular cadence rather than only when someone happens to run the command by hand.',
+    runtime: 'node',
+    os: 'windows',
+    category: 'dev-workflow',
+    tags: ['dev', 'node', 'npm', 'security'],
+    icon: 'ShieldAlert',
+    trigger: sched('0 7 * * 3'),
+    commandTemplate: 'cmd.exe /c "cd /d {{projectPath}} && npm audit > {{reportPath}} 2>&1"',
+    parameters: [
+      { key: 'projectPath', label: 'Project path', type: 'path', default: '', required: true, help: 'Folder containing package.json (avoid spaces in the path).' },
+      { key: 'reportPath', label: 'Report file path', type: 'path', default: 'C:\\reports\\npm-audit.txt', required: true, help: 'Where to write the audit report. Note: npm audit exits non-zero when vulnerabilities are found, so the run shows as failed exactly when there is something to review.' }
+    ],
+    compatibleTargets: ['windows']
   }
 ];
 
@@ -1393,6 +1411,59 @@ const extendedPack: RegistryTemplate[] = [
       { key: 'logPath', label: 'Log file path', type: 'path', default: 'C:\\logs\\top-processes.log', required: true, help: 'Where to append the process snapshot.' }
     ],
     compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'sys-process-watchdog',
+    name: 'Restart a Crashed Process (Windows)',
+    description: 'Check whether a named process is running and start it again if it is not \u2014 a lightweight watchdog for an application that is not registered as a Windows service.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'system',
+    tags: ['system', 'windows', 'process', 'watchdog'],
+    icon: 'RefreshCw',
+    trigger: sched('*/10 * * * *'),
+    commandTemplate: 'powershell.exe -NoProfile -Command "if (-not (Get-Process -Name \'{{processName}}\' -ErrorAction SilentlyContinue)) { Start-Process -FilePath \'{{exePath}}\' }"',
+    parameters: [
+      { key: 'processName', label: 'Process name', type: 'text', default: '', required: true, help: 'The process name without .exe, as shown by Get-Process, e.g. notepad.' },
+      { key: 'exePath', label: 'Executable path to relaunch', type: 'path', default: '', required: true, help: 'Absolute path to the program to start when the process is not found.' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'sys-macos-update-check',
+    name: 'Check for macOS Software Updates',
+    description: 'List available macOS software updates and write the result to a log file on a schedule, so pending updates show up somewhere you read instead of only in System Settings.',
+    runtime: 'bash',
+    os: 'macos',
+    category: 'system',
+    tags: ['system', 'macos', 'updates'],
+    icon: 'DownloadCloud',
+    trigger: sched('0 7 * * 1'),
+    commandTemplate: '/bin/bash -c "softwareupdate -l > {{logPath}} 2>&1"',
+    parameters: [
+      { key: 'logPath', label: 'Log file path', type: 'path', default: '/usr/local/var/log/macos-updates.log', required: true, help: 'Where to write the list of available updates. softwareupdate -l exits non-zero only when the check itself fails, not merely when updates are available.' }
+    ],
+    compatibleTargets: ['macos']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'data-rsync-folder-sync',
+    name: 'Sync Folder with rsync (macOS)',
+    description: 'Mirror a local or externally mounted folder to another location with rsync, copying only what changed since the last run instead of the whole folder every time.',
+    runtime: 'executable',
+    os: 'macos',
+    category: 'data-sync',
+    tags: ['data', 'macos', 'rsync', 'sync'],
+    icon: 'FolderSync',
+    trigger: sched('0 23 * * *'),
+    commandTemplate: 'rsync -av --delete "{{sourceDir}}/" "{{destDir}}/"',
+    parameters: [
+      { key: 'sourceDir', label: 'Source folder', type: 'path', default: '', required: true, help: 'The directory to sync from. Its contents are copied, not the folder itself.' },
+      { key: 'destDir', label: 'Destination folder', type: 'path', default: '', required: true, help: 'The directory to sync to \u2014 local, an external drive, or a path under a mounted network share. --delete makes it match the source exactly (removes extras).' }
+    ],
+    compatibleTargets: ['macos']
   }
 ];
 
@@ -2118,6 +2189,76 @@ const nativeScriptCheckPack: RegistryTemplate[] = [
         default: '2000',
         required: true,
         help: 'Record the run as failed when the response takes longer than this many milliseconds.'
+      }
+    ],
+    compatibleTargets: ['cronsole-native']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'native-script-folder-size-check',
+    name: 'Folder Size Check (Cronsole)',
+    description:
+      'Recursively measure a folder’s total size and fail the run when it grows past your limit, so a folder that is supposed to stay bounded — a queue, a cache, a drop folder — gets noticed before the disk does.',
+    runtime: 'node',
+    os: 'cross-platform',
+    category: 'monitoring',
+    tags: ['cronsole-native', 'script', 'monitoring', 'disk'],
+    icon: 'HardDrive',
+    trigger: sched('0 */4 * * *'),
+    action: {
+      kind: 'script',
+      interpreter: 'node',
+      body: [
+        '// Runs on the machine hosting the Cronsole backend, walking the folder tree.',
+        '// A non-zero exit records a failed run.',
+        'const fs = require("fs");',
+        'const path = require("path");',
+        '',
+        'const target = "{{folderPath}}";',
+        'const maxBytes = Number("{{maxBytes}}");',
+        '',
+        'function sizeOf(dir) {',
+        '  let total = 0;',
+        '  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {',
+        '    const full = path.join(dir, entry.name);',
+        '    if (entry.isDirectory()) {',
+        '      total += sizeOf(full);',
+        '    } else if (entry.isFile()) {',
+        '      total += fs.statSync(full).size;',
+        '    }',
+        '  }',
+        '  return total;',
+        '}',
+        '',
+        'try {',
+        '  const bytes = sizeOf(target);',
+        '  console.log(target + " is " + bytes + " bytes (limit " + maxBytes + ").");',
+        '  if (bytes > maxBytes) {',
+        '    console.error("Folder exceeds the configured limit.");',
+        '    process.exitCode = 1;',
+        '  }',
+        '} catch (err) {',
+        '  console.error("Could not measure " + target + ": " + err.message);',
+        '  process.exitCode = 1;',
+        '}',
+        ''
+      ].join('\n')
+    },
+    parameters: [
+      {
+        key: 'folderPath',
+        label: 'Folder to measure',
+        type: 'string',
+        required: true,
+        help: 'Absolute path as seen by the machine running the Cronsole backend — the container on a Dockerized stack, not your desktop.'
+      },
+      {
+        key: 'maxBytes',
+        label: 'Fail above (bytes)',
+        type: 'number',
+        default: '10737418240',
+        required: true,
+        help: 'Default is 10 GB, in bytes — 1 GB is 1073741824.'
       }
     ],
     compatibleTargets: ['cronsole-native']

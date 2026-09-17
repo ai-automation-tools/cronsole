@@ -44,6 +44,13 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **Five new extended templates** (2026-09-17): **Dependency Security Audit (npm)** reports
+  vulnerabilities on a schedule rather than only version drift, **Restart a Crashed Process
+  (Windows)** is a watchdog for an app that is not a registered service, **Check for macOS
+  Software Updates** and **Sync Folder with rsync (macOS)** fill out the thin macOS system and
+  data-sync corners of the catalog, and **Folder Size Check (Cronsole)** is a native check that
+  measures a folder's own size rather than the volume's free space. None are `core`.
+
 - **Create a Task Scheduler folder from the dashboard** (2026-09-14). The *Task Scheduler folder*
   box on **New Task** and **Apply Template** now opens with a **New folder…** row: pick it, type a
   path, and Cronsole makes the chain as it creates the task. It sits at the **top** of the list

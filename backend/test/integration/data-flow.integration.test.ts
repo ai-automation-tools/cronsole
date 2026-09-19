@@ -189,7 +189,7 @@ describe('TaskService.upsertTasks batching', () => {
       PlatformType.WINDOWS_TASK_SCHEDULER,
       ['\\S\\Task0', '\\S\\Task1']
     );
-    expect(missing).toBe(3);
+    expect(missing.count).toBe(3);
     // Nothing is deleted — the honest end state keeps the rows.
     expect(await prisma.task.count({ where: { userId: user.id } })).toBe(5);
     const gone = await prisma.task.findMany({
@@ -203,7 +203,7 @@ describe('TaskService.upsertTasks batching', () => {
     // Re-marking is idempotent: an already-MISSING row is excluded, so a second
     // reconcile against the same list flips nothing new.
     expect(
-      await TaskService.reconcileMissingTasks(user.id, PlatformType.WINDOWS_TASK_SCHEDULER, ['\\S\\Task0', '\\S\\Task1'])
+      (await TaskService.reconcileMissingTasks(user.id, PlatformType.WINDOWS_TASK_SCHEDULER, ['\\S\\Task0', '\\S\\Task1'])).count
     ).toBe(0);
 
     // Self-heal: a later sync that sees Task2 again upserts it back to ACTIVE.
@@ -231,7 +231,7 @@ describe('TaskService.upsertTasks batching', () => {
       ['\\Partial\\Task0']
     );
 
-    expect(missing).toBe(0);
+    expect(missing.count).toBe(0);
     expect(await prisma.task.count({ where: { userId: user.id } })).toBe(30);
     // Nothing was flipped — the whole dashboard stays ACTIVE.
     expect(await prisma.task.count({ where: { userId: user.id, status: 'MISSING' } })).toBe(0);

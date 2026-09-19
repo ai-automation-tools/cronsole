@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "1.0",
+  "id": "sys-macos-update-check",
+  "name": "Check for macOS Software Updates",
+  "description": "List available macOS software updates and write the result to a log file on a schedule, so pending updates show up somewhere you read instead of only in System Settings.",
+  "runtime": "bash",
+  "os": "macos",
+  "category": "system",
+  "tags": [
+    "system",
+    "macos",
+    "updates"
+  ],
+  "icon": "DownloadCloud",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 7 * * 1"
+  },
+  "commandTemplate": "/bin/bash -c \"softwareupdate -l > {{logPath}} 2>&1\"",
+  "parameters": [
+    {
+      "key": "logPath",
+      "label": "Log file path",
+      "type": "path",
+      "default": "/usr/local/var/log/macos-updates.log",
+      "required": true,
+      "help": "Where to write the list of available updates. softwareupdate -l exits non-zero only when the check itself fails, not merely when updates are available."
+    }
+  ],
+  "compatibleTargets": [
+    "macos"
+  ]
+}

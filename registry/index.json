@@ -1,6 +1,6 @@
 {
   "registryVersion": "1.0",
-  "updatedAt": "2026-09-10T14:11:54.843Z",
+  "updatedAt": "2026-09-17T14:12:48.739Z",
   "templates": [
     {
       "id": "tpl_daily_database_backup",
@@ -273,6 +273,25 @@
       ],
       "path": "templates/dev-brew-update.json",
       "sha256": "06314d0e0cff868102658fb30f0335b0905c345dfe72cbcf31e5989a484fa96c"
+    },
+    {
+      "id": "dev-npm-audit-check",
+      "name": "Dependency Security Audit (npm)",
+      "description": "Write an npm audit report for a project on a schedule, so known vulnerabilities in dependencies surface on a regular cadence rather than only when someone happens to run the command by hand.",
+      "category": "dev-workflow",
+      "tags": [
+        "dev",
+        "node",
+        "npm",
+        "security"
+      ],
+      "runtime": "node",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/dev-npm-audit-check.json",
+      "sha256": "ef3a9dc7b65581f5f93e30ee6dd2ed86636bbf81254b4213f1134a818cc29304"
     },
     {
       "id": "ai-claude-headless-run",
@@ -1352,6 +1371,62 @@
       "sha256": "7f9cb89a3e66cd66e9513dc765252c2aa2682f5f929e7ef501c2aec91ac7ea6e"
     },
     {
+      "id": "sys-process-watchdog",
+      "name": "Restart a Crashed Process (Windows)",
+      "description": "Check whether a named process is running and start it again if it is not — a lightweight watchdog for an application that is not registered as a Windows service.",
+      "category": "system",
+      "tags": [
+        "system",
+        "windows",
+        "process",
+        "watchdog"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/sys-process-watchdog.json",
+      "sha256": "e8bb6bb2a507b577703cdd32383a01cf18a417030faa4fe70086b2b18b5d340c"
+    },
+    {
+      "id": "sys-macos-update-check",
+      "name": "Check for macOS Software Updates",
+      "description": "List available macOS software updates and write the result to a log file on a schedule, so pending updates show up somewhere you read instead of only in System Settings.",
+      "category": "system",
+      "tags": [
+        "system",
+        "macos",
+        "updates"
+      ],
+      "runtime": "bash",
+      "os": "macos",
+      "compatibleTargets": [
+        "macos"
+      ],
+      "path": "templates/sys-macos-update-check.json",
+      "sha256": "698666ab0d114e480bfc53bf290fba84cc5d587c483a8b0e053f9269feb9625a"
+    },
+    {
+      "id": "data-rsync-folder-sync",
+      "name": "Sync Folder with rsync (macOS)",
+      "description": "Mirror a local or externally mounted folder to another location with rsync, copying only what changed since the last run instead of the whole folder every time.",
+      "category": "data-sync",
+      "tags": [
+        "data",
+        "macos",
+        "rsync",
+        "sync"
+      ],
+      "runtime": "executable",
+      "os": "macos",
+      "compatibleTargets": [
+        "macos"
+      ],
+      "path": "templates/data-rsync-folder-sync.json",
+      "sha256": "0ee42615f1dd1f7ab9df297772788b71dd9aaeac862487941f7b47e3f298e2e4"
+    },
+    {
       "id": "native-run-program",
       "name": "Run a Program (Cronsole)",
       "description": "Run any executable with arguments on the machine hosting Cronsole — no agent, no Task Scheduler entry. Cronsole schedules and runs it itself.",
@@ -1703,6 +1778,25 @@
       "sha256": "2fab753f4bfba3c5f644685f764cc84663fc3a6d1346c68675c747e6df0a2bce"
     },
     {
+      "id": "native-script-folder-size-check",
+      "name": "Folder Size Check (Cronsole)",
+      "description": "Recursively measure a folder’s total size and fail the run when it grows past your limit, so a folder that is supposed to stay bounded — a queue, a cache, a drop folder — gets noticed before the disk does.",
+      "category": "monitoring",
+      "tags": [
+        "cronsole-native",
+        "script",
+        "monitoring",
+        "disk"
+      ],
+      "runtime": "node",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-script-folder-size-check.json",
+      "sha256": "c236b60cc4c5cc9f7e46f25493b824fc456110ba83cf66514c56e1b58e5519ec"
+    },
+    {
       "id": "claude-routine-issue-triage",
       "name": "Routine: Issue Triage",
       "description": "A Claude Code routine that reads new issues each morning, labels them by area and severity, and flags anything that looks like a regression.",
@@ -1927,11 +2021,12 @@
         "dev-docker-prune",
         "dev-docker-compose-up",
         "dev-brew-update",
+        "dev-npm-audit-check",
         "tpl_github_pr_triage",
         "tpl_starter_git_sync"
       ],
       "path": "packs/developer.json",
-      "sha256": "13fec847ebe895816940680661363151949dc55235a8e0ce73c82d3847bfc6ca"
+      "sha256": "ceeacf24b400e88c72140846aafe7d9ea4c4ff635c20d18fd2ff329abc8a8939"
     },
     {
       "id": "ai-agents",
@@ -2013,10 +2108,11 @@
         "native-ffmpeg-transcode",
         "native-image-resize",
         "native-script-docker-restart-unhealthy",
-        "native-script-http-response-time"
+        "native-script-http-response-time",
+        "native-script-folder-size-check"
       ],
       "path": "packs/cronsole-native.json",
-      "sha256": "5ec71f21f53508a6a4ae7cc9ccd5f390352bcb51198a0690918326e66e7fb199"
+      "sha256": "bfcc7524938eaad241a794d9641b74d658a4fde8461347003023ea5cb7c57ccd"
     },
     {
       "id": "claude-routines",
@@ -2066,10 +2162,13 @@
         "ntf-windows-broadcast-message",
         "ntf-email-alert",
         "ntf-sms-twilio-alert",
-        "sys-certbot-renew"
+        "sys-certbot-renew",
+        "sys-process-watchdog",
+        "sys-macos-update-check",
+        "data-rsync-folder-sync"
       ],
       "path": "packs/system-utilities.json",
-      "sha256": "daed9c35ceb94e16b78f174d07e9eb9bce0607f68fcfb5d163203c9698aa683c"
+      "sha256": "9c04c079b0c446217bbb2ee905181cd64b2975c4bc865a88f432c33e14f8ea9b"
     }
   ]
 }

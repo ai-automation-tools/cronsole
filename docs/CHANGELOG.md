@@ -44,6 +44,12 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **Five new extended templates** (2026-09-17): **Dependency Security Audit (npm)** reports
+  vulnerabilities on a schedule rather than only version drift, **Restart a Crashed Process
+  (Windows)** is a watchdog for an app that is not a registered service, **Check for macOS
+  Software Updates** and **Sync Folder with rsync (macOS)** fill out the thin macOS system and
+  data-sync corners of the catalog, and **Folder Size Check (Cronsole)** is a native check that
+  measures a folder's own size rather than the volume's free space. None are `core`.
 - **A consent banner on the hosted demo, and nothing on the local app** (2026-09-17). The demo at
   `cronsole-demo.ai-automation-tools.dev` now carries the shared consent banner the rest of the
   domain uses, and so does the front door at `cronsole.ai-automation-tools.dev` (from

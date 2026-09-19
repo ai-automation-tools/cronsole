@@ -88,6 +88,7 @@ export const bundledPacks: BundledPack[] = [
       'dev-docker-prune',
       'dev-docker-compose-up',
       'dev-brew-update',
+      'dev-npm-audit-check',
       'tpl_github_pr_triage',
       'tpl_starter_git_sync'
     ]
@@ -180,7 +181,8 @@ export const bundledPacks: BundledPack[] = [
       'native-ffmpeg-transcode',
       'native-image-resize',
       'native-script-docker-restart-unhealthy',
-      'native-script-http-response-time'
+      'native-script-http-response-time',
+      'native-script-folder-size-check'
     ]
   },
   {
@@ -252,7 +254,10 @@ export const bundledPacks: BundledPack[] = [
       'ntf-windows-broadcast-message',
       'ntf-email-alert',
       'ntf-sms-twilio-alert',
-      'sys-certbot-renew'
+      'sys-certbot-renew',
+      'sys-process-watchdog',
+      'sys-macos-update-check',
+      'data-rsync-folder-sync'
     ]
   }
 ];

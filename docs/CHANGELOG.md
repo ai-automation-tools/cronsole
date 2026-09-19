@@ -50,6 +50,20 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
   Software Updates** and **Sync Folder with rsync (macOS)** fill out the thin macOS system and
   data-sync corners of the catalog, and **Folder Size Check (Cronsole)** is a native check that
   measures a folder's own size rather than the volume's free space. None are `core`.
+- **A consent banner on the hosted demo, and nothing on the local app** (2026-09-17). The demo at
+  `cronsole-demo.ai-automation-tools.dev` now carries the shared consent banner the rest of the
+  domain uses, and so does the front door at `cronsole.ai-automation-tools.dev` (from
+  `registry-site/`). Neither sets a cookie or runs analytics, so the banner exists for the
+  gate behind it: optional scripts have to pass `window.AILConsent.whenGranted(...)`, which
+  makes tracking opt-in by construction rather than by remembering.
+
+  **The local app is deliberately untouched, and that took a hostname check rather than a
+  build flag.** `frontend/index.html` is the same file for the demo and for the copy running on
+  someone's own machine, where there is no third party to consent to and the app is expected to
+  work air-gapped — so the tag is only injected when the hostname ends in
+  `ai-automation-tools.dev`. Letting the script load and no-op itself would have been shorter and
+  would have put an outbound CDN request into a local-first tool. The banner itself lives once, at
+  `ai-automation-tools.dev/consent.js`.
 
 - **Create a Task Scheduler folder from the dashboard** (2026-09-14). The *Task Scheduler folder*
   box on **New Task** and **Apply Template** now opens with a **New folder…** row: pick it, type a

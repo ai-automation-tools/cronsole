@@ -650,6 +650,123 @@
       "compatibleTargets": [
         "macos"
       ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "sys-process-watchdog",
+      "name": "Restart a Crashed Process (Windows)",
+      "description": "Check whether a named process is running and start it again if it is not — a lightweight watchdog for an application that is not registered as a Windows service.",
+      "runtime": "powershell",
+      "os": "windows",
+      "category": "system",
+      "tags": [
+        "system",
+        "windows",
+        "process",
+        "watchdog"
+      ],
+      "icon": "RefreshCw",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "*/10 * * * *"
+      },
+      "commandTemplate": "powershell.exe -NoProfile -Command \"if (-not (Get-Process -Name '{{processName}}' -ErrorAction SilentlyContinue)) { Start-Process -FilePath '{{exePath}}' }\"",
+      "parameters": [
+        {
+          "key": "processName",
+          "label": "Process name",
+          "type": "text",
+          "default": "",
+          "required": true,
+          "help": "The process name without .exe, as shown by Get-Process, e.g. notepad."
+        },
+        {
+          "key": "exePath",
+          "label": "Executable path to relaunch",
+          "type": "path",
+          "default": "",
+          "required": true,
+          "help": "Absolute path to the program to start when the process is not found."
+        }
+      ],
+      "compatibleTargets": [
+        "windows"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "sys-macos-update-check",
+      "name": "Check for macOS Software Updates",
+      "description": "List available macOS software updates and write the result to a log file on a schedule, so pending updates show up somewhere you read instead of only in System Settings.",
+      "runtime": "bash",
+      "os": "macos",
+      "category": "system",
+      "tags": [
+        "system",
+        "macos",
+        "updates"
+      ],
+      "icon": "DownloadCloud",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 7 * * 1"
+      },
+      "commandTemplate": "/bin/bash -c \"softwareupdate -l > {{logPath}} 2>&1\"",
+      "parameters": [
+        {
+          "key": "logPath",
+          "label": "Log file path",
+          "type": "path",
+          "default": "/usr/local/var/log/macos-updates.log",
+          "required": true,
+          "help": "Where to write the list of available updates. softwareupdate -l exits non-zero only when the check itself fails, not merely when updates are available."
+        }
+      ],
+      "compatibleTargets": [
+        "macos"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "data-rsync-folder-sync",
+      "name": "Sync Folder with rsync (macOS)",
+      "description": "Mirror a local or externally mounted folder to another location with rsync, copying only what changed since the last run instead of the whole folder every time.",
+      "runtime": "executable",
+      "os": "macos",
+      "category": "data-sync",
+      "tags": [
+        "data",
+        "macos",
+        "rsync",
+        "sync"
+      ],
+      "icon": "FolderSync",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 23 * * *"
+      },
+      "commandTemplate": "rsync -av --delete \"{{sourceDir}}/\" \"{{destDir}}/\"",
+      "parameters": [
+        {
+          "key": "sourceDir",
+          "label": "Source folder",
+          "type": "path",
+          "default": "",
+          "required": true,
+          "help": "The directory to sync from. Its contents are copied, not the folder itself."
+        },
+        {
+          "key": "destDir",
+          "label": "Destination folder",
+          "type": "path",
+          "default": "",
+          "required": true,
+          "help": "The directory to sync to — local, an external drive, or a path under a mounted network share. --delete makes it match the source exactly (removes extras)."
+        }
+      ],
+      "compatibleTargets": [
+        "macos"
+      ]
     }
   ]
 }

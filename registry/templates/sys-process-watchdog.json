@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "id": "sys-process-watchdog",
+  "name": "Restart a Crashed Process (Windows)",
+  "description": "Check whether a named process is running and start it again if it is not — a lightweight watchdog for an application that is not registered as a Windows service.",
+  "runtime": "powershell",
+  "os": "windows",
+  "category": "system",
+  "tags": [
+    "system",
+    "windows",
+    "process",
+    "watchdog"
+  ],
+  "icon": "RefreshCw",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "*/10 * * * *"
+  },
+  "commandTemplate": "powershell.exe -NoProfile -Command \"if (-not (Get-Process -Name '{{processName}}' -ErrorAction SilentlyContinue)) { Start-Process -FilePath '{{exePath}}' }\"",
+  "parameters": [
+    {
+      "key": "processName",
+      "label": "Process name",
+      "type": "text",
+      "default": "",
+      "required": true,
+      "help": "The process name without .exe, as shown by Get-Process, e.g. notepad."
+    },
+    {
+      "key": "exePath",
+      "label": "Executable path to relaunch",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Absolute path to the program to start when the process is not found."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

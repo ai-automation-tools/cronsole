@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "id": "dev-npm-audit-check",
+  "name": "Dependency Security Audit (npm)",
+  "description": "Write an npm audit report for a project on a schedule, so known vulnerabilities in dependencies surface on a regular cadence rather than only when someone happens to run the command by hand.",
+  "runtime": "node",
+  "os": "windows",
+  "category": "dev-workflow",
+  "tags": [
+    "dev",
+    "node",
+    "npm",
+    "security"
+  ],
+  "icon": "ShieldAlert",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 7 * * 3"
+  },
+  "commandTemplate": "cmd.exe /c \"cd /d {{projectPath}} && npm audit > {{reportPath}} 2>&1\"",
+  "parameters": [
+    {
+      "key": "projectPath",
+      "label": "Project path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Folder containing package.json (avoid spaces in the path)."
+    },
+    {
+      "key": "reportPath",
+      "label": "Report file path",
+      "type": "path",
+      "default": "C:\\reports\\npm-audit.txt",
+      "required": true,
+      "help": "Where to write the audit report. Note: npm audit exits non-zero when vulnerabilities are found, so the run shows as failed exactly when there is something to review."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

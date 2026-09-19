@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "id": "data-rsync-folder-sync",
+  "name": "Sync Folder with rsync (macOS)",
+  "description": "Mirror a local or externally mounted folder to another location with rsync, copying only what changed since the last run instead of the whole folder every time.",
+  "runtime": "executable",
+  "os": "macos",
+  "category": "data-sync",
+  "tags": [
+    "data",
+    "macos",
+    "rsync",
+    "sync"
+  ],
+  "icon": "FolderSync",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 23 * * *"
+  },
+  "commandTemplate": "rsync -av --delete \"{{sourceDir}}/\" \"{{destDir}}/\"",
+  "parameters": [
+    {
+      "key": "sourceDir",
+      "label": "Source folder",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "The directory to sync from. Its contents are copied, not the folder itself."
+    },
+    {
+      "key": "destDir",
+      "label": "Destination folder",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "The directory to sync to — local, an external drive, or a path under a mounted network share. --delete makes it match the source exactly (removes extras)."
+    }
+  ],
+  "compatibleTargets": [
+    "macos"
+  ]
+}

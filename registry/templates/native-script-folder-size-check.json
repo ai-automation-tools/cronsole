@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "1.0",
+  "id": "native-script-folder-size-check",
+  "name": "Folder Size Check (Cronsole)",
+  "description": "Recursively measure a folder’s total size and fail the run when it grows past your limit, so a folder that is supposed to stay bounded — a queue, a cache, a drop folder — gets noticed before the disk does.",
+  "runtime": "node",
+  "os": "cross-platform",
+  "category": "monitoring",
+  "tags": [
+    "cronsole-native",
+    "script",
+    "monitoring",
+    "disk"
+  ],
+  "icon": "HardDrive",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 */4 * * *"
+  },
+  "action": {
+    "kind": "script",
+    "interpreter": "node",
+    "body": "// Runs on the machine hosting the Cronsole backend, walking the folder tree.\n// A non-zero exit records a failed run.\nconst fs = require(\"fs\");\nconst path = require(\"path\");\n\nconst target = \"{{folderPath}}\";\nconst maxBytes = Number(\"{{maxBytes}}\");\n\nfunction sizeOf(dir) {\n  let total = 0;\n  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {\n    const full = path.join(dir, entry.name);\n    if (entry.isDirectory()) {\n      total += sizeOf(full);\n    } else if (entry.isFile()) {\n      total += fs.statSync(full).size;\n    }\n  }\n  return total;\n}\n\ntry {\n  const bytes = sizeOf(target);\n  console.log(target + \" is \" + bytes + \" bytes (limit \" + maxBytes + \").\");\n  if (bytes > maxBytes) {\n    console.error(\"Folder exceeds the configured limit.\");\n    process.exitCode = 1;\n  }\n} catch (err) {\n  console.error(\"Could not measure \" + target + \": \" + err.message);\n  process.exitCode = 1;\n}\n"
+  },
+  "parameters": [
+    {
+      "key": "folderPath",
+      "label": "Folder to measure",
+      "type": "string",
+      "required": true,
+      "help": "Absolute path as seen by the machine running the Cronsole backend — the container on a Dockerized stack, not your desktop."
+    },
+    {
+      "key": "maxBytes",
+      "label": "Fail above (bytes)",
+      "type": "number",
+      "default": "10737418240",
+      "required": true,
+      "help": "Default is 10 GB, in bytes — 1 GB is 1073741824."
+    }
+  ],
+  "compatibleTargets": [
+    "cronsole-native"
+  ]
+}

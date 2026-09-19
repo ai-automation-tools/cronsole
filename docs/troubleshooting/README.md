@@ -5031,6 +5031,16 @@ only a *positive* `false` gates it. **The manual fix below still applies**: this
 from lying about what an unelevated snapshot means, it does not restore the agent's visibility —
 that still needs the elevated restart.
 
+**The "tell" below is now automated, 2026-09-18.** `reconcileMissingTasks` groups its own
+newly-MISSING batch by subtree (`MISSING_CLUSTER_MIN_COUNT` / `MISSING_CLUSTER_SHARE` in
+`TaskService.ts`) and, when most of the batch sits in one folder while others came through
+untouched, adds a warning to that platform's sync result naming the folder and count — the same
+grouping done by hand below, run on every sync. It is a **corroborating signal, not a gate**: it
+never blocks or delays the flip to MISSING (that gate is still `outcome.partial`, driven by the
+agent's own `elevated` report), and it fires on any platform, not just an unelevated Windows agent —
+this was never required to fix this incident, it just makes the diagnostic step below unnecessary on
+the next one.
+
 **Symptom.** The dashboard header offers to **Clear 89 missing**. The Windows platform reads
 **HEALTHY**, the agent process is running, sync reports success, and nothing is in the error log.
 Opening Task Scheduler shows the tasks are still there, running on schedule.

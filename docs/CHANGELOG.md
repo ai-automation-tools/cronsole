@@ -44,6 +44,18 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **A sync flags a MISSING batch concentrated in one folder** (2026-09-18). Carved out of
+  [#74](troubleshooting/README.md#74-dozens-of-windows-tasks-go-missing-in-one-sync-and-the-agent-is-healthy):
+  the manual diagnostic — group the newly-MISSING rows by subtree; real attrition is scattered,
+  a blocked read wipes a whole subtree at once — now runs on every sync.
+  `TaskService.reconcileMissingTasks` groups its own batch by category and, when one subtree holds
+  most of it while other tracked subtrees came through untouched, adds a warning naming the folder
+  and count to that platform's sync result (surfaced in the dashboard's sync toast and the
+  `sync_tasks` MCP tool, which already renders `warnings` generically). **A corroborating signal,
+  not a gate** — it never delays or blocks the flip to MISSING, which is still governed solely by
+  `outcome.partial` off the agent's own `elevated` report; this fires on any platform and would
+  have caught #74's shape even before that fix existed.
+
 - **A consent banner on the hosted demo, and nothing on the local app** (2026-09-17). The demo at
   `cronsole-demo.ai-automation-tools.dev` now carries the shared consent banner the rest of the
   domain uses, and so does the front door at `cronsole.ai-automation-tools.dev` (from

@@ -193,15 +193,20 @@ describe('TaskService', () => {
     // offline agent looks identical), so the row and its execution history are
     // KEPT and flipped to MISSING with nextRunTime cleared — never deleted.
     mockPrisma.task.count.mockResolvedValue(3);
+    mockPrisma.task.findMany.mockResolvedValue([
+      { externalId: '\\Mikes\\GoneOne' },
+      { externalId: '\\Other\\GoneTwo' }
+    ]);
     mockPrisma.task.updateMany.mockResolvedValue({ count: 2 });
 
-    const missing = await TaskService.reconcileMissingTasks(
+    const { count, concentrated } = await TaskService.reconcileMissingTasks(
       'user-1',
       'WINDOWS_TASK_SCHEDULER' as any,
       ['\\Mikes\\StillExists']
     );
 
-    expect(missing).toBe(2);
+    expect(count).toBe(2);
+    expect(concentrated).toBe(false); // too few rows to judge — under MISSING_CLUSTER_MIN_COUNT
     expect(mockPrisma.task.updateMany).toHaveBeenCalledWith({
       where: {
         userId: 'user-1',
@@ -216,28 +221,84 @@ describe('TaskService', () => {
     expect(mockPrisma.executionLog.deleteMany).not.toHaveBeenCalled();
   });
 
-  it('does not re-mark rows that are already MISSING (the where-clause excludes them)', async () => {
-    mockPrisma.task.count.mockResolvedValue(3);
-    mockPrisma.task.updateMany.mockResolvedValue({ count: 0 });
+  it('flags a MISSING batch concentrated in one folder while other folders came through untouched', async () => {
+    mockPrisma.task.count.mockResolvedValue(10);
+    mockPrisma.task.findMany
+      .mockResolvedValueOnce([
+        { externalId: '\\Locked\\One' },
+        { externalId: '\\Locked\\Two' },
+        { externalId: '\\Locked\\Three' }
+      ])
+      // trackedCategories' own findMany — three folders exist, only one lost anything.
+      .mockResolvedValueOnce([
+        { externalId: '\\Locked\\One' },
+        { externalId: '\\Locked\\Two' },
+        { externalId: '\\Locked\\Three' },
+        { externalId: '\\Fine\\StillHere' },
+        { externalId: '\\AlsoFine\\StillHere' }
+      ]);
+    mockPrisma.task.updateMany.mockResolvedValue({ count: 3 });
 
-    const missing = await TaskService.reconcileMissingTasks(
+    const { count, concentrated, categories } = await TaskService.reconcileMissingTasks(
       'user-1',
       'WINDOWS_TASK_SCHEDULER' as any,
-      ['\\Mikes\\StillExists']
+      ['\\Fine\\StillHere', '\\AlsoFine\\StillHere']
     );
 
-    expect(missing).toBe(0);
-    expect(mockPrisma.task.updateMany.mock.calls[0][0].where.status).toEqual({ not: 'MISSING' });
+    expect(count).toBe(3);
+    expect(concentrated).toBe(true);
+    expect(categories).toEqual([{ category: 'Locked', missingCount: 3 }]);
   });
 
-  it('skips reconciliation when the platform snapshot is empty', async () => {
-    const missing = await TaskService.reconcileMissingTasks(
+  it('does not flag scattered attrition spread evenly across every tracked folder', async () => {
+    mockPrisma.task.count.mockResolvedValue(10);
+    mockPrisma.task.findMany
+      .mockResolvedValueOnce([
+        { externalId: '\\A\\Gone' },
+        { externalId: '\\B\\Gone' },
+        { externalId: '\\C\\Gone' }
+      ])
+      // trackedCategories: only these same three folders exist — nothing came
+      // through untouched, so this reads as ordinary attrition, not a cluster.
+      .mockResolvedValueOnce([
+        { externalId: '\\A\\Gone' },
+        { externalId: '\\B\\Gone' },
+        { externalId: '\\C\\Gone' }
+      ]);
+    mockPrisma.task.updateMany.mockResolvedValue({ count: 3 });
+
+    const { concentrated } = await TaskService.reconcileMissingTasks(
       'user-1',
       'WINDOWS_TASK_SCHEDULER' as any,
       []
     );
 
-    expect(missing).toBe(0);
+    expect(concentrated).toBe(false);
+  });
+
+  it('does not re-mark rows that are already MISSING (the where-clause excludes them)', async () => {
+    mockPrisma.task.count.mockResolvedValue(3);
+    mockPrisma.task.findMany.mockResolvedValue([]);
+    mockPrisma.task.updateMany.mockResolvedValue({ count: 0 });
+
+    const { count } = await TaskService.reconcileMissingTasks(
+      'user-1',
+      'WINDOWS_TASK_SCHEDULER' as any,
+      ['\\Mikes\\StillExists']
+    );
+
+    expect(count).toBe(0);
+    expect(mockPrisma.task.updateMany.mock.calls[0][0].where.status).toEqual({ not: 'MISSING' });
+  });
+
+  it('skips reconciliation when the platform snapshot is empty', async () => {
+    const { count } = await TaskService.reconcileMissingTasks(
+      'user-1',
+      'WINDOWS_TASK_SCHEDULER' as any,
+      []
+    );
+
+    expect(count).toBe(0);
     expect(mockPrisma.task.count).not.toHaveBeenCalled();
     expect(mockPrisma.task.updateMany).not.toHaveBeenCalled();
   });
@@ -248,13 +309,13 @@ describe('TaskService', () => {
     // reversible.
     mockPrisma.task.count.mockResolvedValue(100);
 
-    const missing = await TaskService.reconcileMissingTasks(
+    const { count } = await TaskService.reconcileMissingTasks(
       'user-1',
       'WINDOWS_TASK_SCHEDULER' as any,
       ['\\Only\\OneTask']
     );
 
-    expect(missing).toBe(0);
+    expect(count).toBe(0);
     expect(mockPrisma.task.updateMany).not.toHaveBeenCalled();
   });
 

@@ -500,13 +500,6 @@ see [Part II](#completed--p1-correctness--honesty).
       capturing the first response, which for a preview API means driving it by hand anyway
       ([the probe technique](../skills/cronsole/SKILL.md) is how each of these was found).
 
-- [ ] **A MISSING set concentrated in whole subtrees vs. scattered attrition** *(carved out
-      2026-09-11 from the now-shipped elevation item below — see
-      [Part II](#completed--p1-correctness--honesty))*. A cheap corroborating signal that was never
-      required to fix #74 (the shipped fix gates on the agent's own `elevated` report, not on the
-      *shape* of what went missing), but still worth having: cluster-detection over a MISSING batch
-      as a second, independent tell. Unscheduled.
-
 - [ ] **The E2E suite writes real rows into live data** *(logged 2026-08-23)*. A run leaves
       `\E2E\Mock Nightly Backup` tracked against the developer's own account, which then goes
       MISSING when the mock agent disconnects and sits on the dashboard forever. Same family as
@@ -1794,6 +1787,14 @@ verification pass — is still open above, narrowed to the half that needs a tok
       had — so a narrowed sync still adds and refreshes rows and retires none. An agent that
       predates the field reports nothing, which reads as unknown rather than a guessed `false`.
       See [troubleshooting #74](troubleshooting/README.md#74-dozens-of-windows-tasks-go-missing-in-one-sync-and-the-agent-is-healthy).
+- [x] **A MISSING set concentrated in whole subtrees vs. scattered attrition** *(2026-09-18, carved
+      out 2026-09-11 from the elevation item above)*. `reconcileMissingTasks` now groups its own
+      newly-MISSING batch by category and, when most of it sits in one subtree while other tracked
+      subtrees came through untouched, adds a warning naming the folder and count to that platform's
+      sync result — the same by-hand grouping troubleshooting #74 recommends, run on every sync. A
+      **corroborating signal, not a gate**: it was never required to fix #74 (that gate is
+      `outcome.partial`, off the agent's own `elevated` report) and it changes nothing about when a
+      row flips — it only adds a sentence next to an already-honest flip, on any platform.
 - [x] **`Clear N missing` states its scope in words, and its friction scales** *(2026-09-04,
       logged 2026-08-23)*. New `GET /api/tasks/missing/summary` groups the MISSING rows by category
       and counts favorites, collection memberships and secrets across them — everything a re-import

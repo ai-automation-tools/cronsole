@@ -30,6 +30,17 @@ const UPSERT_BATCH_SIZE = 100;
 const STALE_PRUNE_MIN_TRACKED = 20;
 const STALE_PRUNE_MIN_RETAIN_RATIO = 0.5;
 
+// ponytail: a cheap corroborating signal, not a gate — cluster-detection over a
+// MISSING batch (roadmap "MISSING set concentrated in whole subtrees vs.
+// scattered attrition", carved out of #74). A whole folder disappearing at once
+// reads more like a blocked read (ACL, narrowed agent token) than real
+// deletions; ordinary attrition is scattered across many folders instead. Never
+// required to fix #74 — that gate is `outcome.partial` — this only adds a
+// warning next to an already-honest MISSING flip. Threshold tuning, if it's
+// ever noisy in practice, is the upgrade path.
+const MISSING_CLUSTER_MIN_COUNT = 3;
+const MISSING_CLUSTER_SHARE = 0.7;
+
 // Categories owned by the OS rather than the user. Counted separately in the
 // un-imported signal (see `summarizeUntracked`) because they are numerous,
 // permanent, and not something anyone intends to import — so folding them into
@@ -112,10 +123,16 @@ export class TaskService {
    * category-filtering) — a task the user simply didn't import into a selected
    * category still exists on the platform and must not be marked MISSING.
    *
-   * Returns the number of rows NEWLY flipped to MISSING (already-MISSING rows
-   * that stay absent are a no-op, so a quiet sync returns 0).
+   * Returns `count`, the number of rows NEWLY flipped to MISSING
+   * (already-MISSING rows that stay absent are a no-op, so a quiet sync
+   * returns 0) — plus `concentrated`/`categories`, the cluster-detection
+   * signal described above `MISSING_CLUSTER_MIN_COUNT`.
    */
-  static async reconcileMissingTasks(userId: string, platform: PlatformType, currentExternalIds: string[]) {
+  static async reconcileMissingTasks(
+    userId: string,
+    platform: PlatformType,
+    currentExternalIds: string[]
+  ): Promise<{ count: number; concentrated: boolean; categories: { category: string; missingCount: number }[] }> {
     // Refuse rather than lie, and check this before anything else: "I cannot do
     // this correctly" is a precondition on the operation, independent of what
     // the snapshot happens to contain. If the generated client lacks MISSING (a
@@ -132,7 +149,8 @@ export class TaskService {
       );
     }
 
-    if (currentExternalIds.length === 0) return 0;
+    const empty = { count: 0, concentrated: false, categories: [] };
+    if (currentExternalIds.length === 0) return empty;
 
     const trackedCount = await prisma.task.count({ where: { userId, platform } });
     if (
@@ -143,22 +161,50 @@ export class TaskService {
         `[TaskService] skipped MISSING reconciliation for ${platform}: partial snapshot suspected ` +
         `(${currentExternalIds.length}/${trackedCount} IDs returned)`
       );
-      return 0;
+      return empty;
     }
+
+    // The where-clause that decides which rows flip. Read via findMany first —
+    // same clause, no extra filtering — so the cluster signal below sees exactly
+    // the rows that are about to go MISSING, not an approximation of them.
+    const where = {
+      userId,
+      platform,
+      externalId: { notIn: currentExternalIds },
+      status: { not: TaskStatus.MISSING }
+    };
+    const rowsToFlip = await prisma.task.findMany({ where, select: { externalId: true } });
 
     // Only flip rows that are absent AND not already MISSING — so the return
     // count is "newly gone this sync", and an already-marked row isn't rewritten
     // (which would also churn updatedAt for no reason).
     const result = await prisma.task.updateMany({
-      where: {
-        userId,
-        platform,
-        externalId: { notIn: currentExternalIds },
-        status: { not: TaskStatus.MISSING }
-      },
+      where,
       data: { status: TaskStatus.MISSING, nextRunTime: null }
     });
-    return result.count;
+
+    let concentrated = false;
+    let categories: { category: string; missingCount: number }[] = [];
+    if (rowsToFlip.length >= MISSING_CLUSTER_MIN_COUNT) {
+      const counts = new Map<string, number>();
+      for (const row of rowsToFlip) {
+        const category = this.extractCategory(row.externalId, platform);
+        counts.set(category, (counts.get(category) ?? 0) + 1);
+      }
+      categories = [...counts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .map(([category, missingCount]) => ({ category, missingCount }));
+
+      // Concentrated means: most of what just went missing sits in one
+      // subtree, AND other tracked subtrees came through untouched — scattered
+      // attrition would spread across most of the tracked categories instead.
+      const trackedCategoryCount = (await this.trackedCategories(userId, platform)).length;
+      concentrated =
+        categories[0].missingCount / rowsToFlip.length >= MISSING_CLUSTER_SHARE &&
+        trackedCategoryCount > categories.length;
+    }
+
+    return { count: result.count, concentrated, categories };
   }
 
   /**

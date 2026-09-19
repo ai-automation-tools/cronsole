@@ -1298,8 +1298,23 @@ router.post('/sync', validateBody(syncSchema), async (req: Request, res: Respons
         // not help, because a plausible-looking partial read is the dangerous
         // kind.
         let missing = 0;
+        // A corroborating signal, not a gate (roadmap: "a MISSING set
+        // concentrated in whole subtrees vs. scattered attrition") — it never
+        // blocks the flip above, it only names a pattern worth a second look:
+        // a whole folder disappearing at once reads more like a blocked read
+        // than real deletions.
+        const clusterWarnings: string[] = [];
         if (conn.platform !== 'TASKHUB_NATIVE' && allExternalIds.length > 0 && !outcome.partial) {
-          missing = await TaskService.reconcileMissingTasks(userId, conn.platform, allExternalIds);
+          const reconciliation = await TaskService.reconcileMissingTasks(userId, conn.platform, allExternalIds);
+          missing = reconciliation.count;
+          if (reconciliation.concentrated) {
+            const top = reconciliation.categories[0];
+            clusterWarnings.push(
+              `${top.missingCount} of the ${missing} tasks marked missing this sync are in "${top.category}" ` +
+              `— a whole folder going missing at once often means a blocked read (permissions, agent scope) ` +
+              `rather than real deletions. Worth checking before treating them as gone.`
+            );
+          }
         }
 
         // The one place a sync actually happened, so the one place allowed to
@@ -1334,7 +1349,9 @@ router.post('/sync', validateBody(syncSchema), async (req: Request, res: Respons
           // at nothing" are the same on screen otherwise, and that ambiguity has
           // now hidden a real defect once (troubleshooting #75).
           ...(outcome.notes?.length ? { notes: outcome.notes } : {}),
-          ...(outcome.warnings?.length ? { warnings: outcome.warnings } : {})
+          ...((outcome.warnings?.length || clusterWarnings.length)
+            ? { warnings: [...(outcome.warnings ?? []), ...clusterWarnings] }
+            : {})
         });
       } catch (err: any) {
         await recordCapability(userId, conn.platform, 'sync', false, err?.message);

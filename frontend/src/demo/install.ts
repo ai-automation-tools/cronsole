@@ -103,9 +103,43 @@ const demoAdapter: AxiosAdapter = async (config) => {
   return respond(config, 200, body);
 };
 
+const REPO_URL = 'https://github.com/ai-automation-tools/cronsole';
+
+/**
+ * The way out of the demo. Every other repo link in the app is buried a click or
+ * two deep (Help, Settings), which is fine for an operator who installed it and
+ * useless for a visitor who landed on the hosted demo and wants the source.
+ *
+ * Injected straight into the body rather than added to the dashboard chrome: it
+ * only ever exists in a demo build, and keeping it out of the component tree is
+ * what keeps it out of a real install even if the mode guard were ever loosened.
+ * Styled from the theme tokens, so it follows light/dark like everything else.
+ *
+ * Bottom-LEFT at z-40, which is the one corner and layer that collides with
+ * nothing: toasts own bottom-right (`z-[200]`) and modal overlays are `z-50`,
+ * so a chip above either would sit on top of a dialog.
+ */
+function mountRepoLink(): void {
+  const chip = document.createElement('a');
+  chip.href = REPO_URL;
+  chip.target = '_blank';
+  chip.rel = 'noopener noreferrer';
+  chip.textContent = 'Read-only demo — get the source ↗';
+  chip.style.cssText = [
+    'position:fixed', 'z-index:40', 'left:16px', 'bottom:16px',
+    'padding:7px 13px', 'border-radius:999px',
+    'border:1px solid hsl(var(--border))', 'background:hsl(var(--surface))',
+    'color:hsl(var(--primary-text))', 'text-decoration:none',
+    'font:500 12px/1.4 ui-sans-serif,system-ui,sans-serif',
+    'box-shadow:0 6px 20px rgba(0,0,0,.45)',
+  ].join(';');
+  document.body.append(chip);
+}
+
 /** Called from `main.tsx` before the first render, in demo builds only. */
 export function installDemo(): void {
   api.defaults.adapter = demoAdapter;
+  mountRepoLink();
 
   // AuthProvider trusts a stored login token and skips straight to `authed`, so
   // seeding one is what makes the demo open on the dashboard rather than a login

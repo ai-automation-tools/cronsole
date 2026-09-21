@@ -105,41 +105,84 @@ const demoAdapter: AxiosAdapter = async (config) => {
 
 const REPO_URL = 'https://github.com/ai-automation-tools/cronsole';
 
+const GH_MARK =
+  '<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true" '
+  + 'style="flex:none"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 '
+  + '0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63'
+  + '-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87'
+  + '.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 '
+  + '1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29'
+  + '.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8Z'
+  + '"/></svg>';
+
+const BAR_H = '34px';
+
 /**
- * The way out of the demo. Every other repo link in the app is buried a click or
- * two deep (Help, Settings), which is fine for an operator who installed it and
- * useless for a visitor who landed on the hosted demo and wants the source.
+ * The way out of the demo: the shared source bar every ai-automation-tools site
+ * carries in the same place — full width at the very top, note on the left, repo
+ * link in the right corner.
  *
- * Injected straight into the body rather than added to the dashboard chrome: it
- * only ever exists in a demo build, and keeping it out of the component tree is
+ * Injected straight into the document rather than added to the dashboard chrome:
+ * it only ever exists in a demo build, and keeping it out of the component tree is
  * what keeps it out of a real install even if the mode guard were ever loosened.
  * Styled from the theme tokens, so it follows light/dark like everything else.
  *
- * Bottom-LEFT at z-40, which is the one corner and layer that collides with
- * nothing: toasts own bottom-right (`z-[200]`) and modal overlays are `z-50`,
- * so a chip above either would sit on top of a dialog.
+ * z-45 sits above the app's own TopBar (z-30) and below modal overlays (z-50), so
+ * a dialog dims it like everything else rather than having a strip float over it.
+ *
+ * The reserved height is taken off #root rather than <body>: BackendStatusBanner
+ * writes `body.style.paddingTop` directly and would clobber it.
+ *
+ * ponytail: the viewport-height overrides below name the two Tailwind classes the
+ * shell actually uses today (`h-screen` on the Dashboard, `h-[calc(100vh-3.5rem)]`
+ * on its sidebar). Rename or restyle either and the demo build grows a 34px
+ * overflow — the demo is the only build that reads this.
  */
-function mountRepoLink(): void {
-  const chip = document.createElement('a');
-  chip.href = REPO_URL;
-  chip.target = '_blank';
-  chip.rel = 'noopener noreferrer';
-  chip.textContent = 'Read-only demo — get the source ↗';
-  chip.style.cssText = [
-    'position:fixed', 'z-index:40', 'left:16px', 'bottom:16px',
-    'padding:7px 13px', 'border-radius:999px',
-    'border:1px solid hsl(var(--border))', 'background:hsl(var(--surface))',
-    'color:hsl(var(--primary-text))', 'text-decoration:none',
-    'font:500 12px/1.4 ui-sans-serif,system-ui,sans-serif',
-    'box-shadow:0 6px 20px rgba(0,0,0,.45)',
+function mountSourceBar(): void {
+  const style = document.createElement('style');
+  style.textContent = [
+    ':root{--demo-bar-h:' + BAR_H + '}',
+    '#root{padding-top:var(--demo-bar-h)}',
+    '.h-screen{height:calc(100vh - var(--demo-bar-h))}',
+    '.min-h-screen{min-height:calc(100vh - var(--demo-bar-h))}',
+    // Attribute form, so the brackets and dots in the class name need no CSS escaping.
+    '[class~="h-[calc(100vh-3.5rem)]"]{height:calc(100vh - 3.5rem - var(--demo-bar-h))}',
+  ].join('');
+  document.head.append(style);
+
+  const bar = document.createElement('div');
+  bar.style.cssText = [
+    'position:fixed', 'z-index:45', 'top:0', 'left:0', 'right:0',
+    'height:var(--demo-bar-h)', 'box-sizing:border-box',
+    'display:flex', 'align-items:center', 'gap:16px', 'padding:0 16px',
+    'border-bottom:1px solid hsl(var(--border))', 'background:hsl(var(--surface))',
+    'font:12px/1.4 ui-sans-serif,system-ui,sans-serif',
   ].join(';');
-  document.body.append(chip);
+
+  const note = document.createElement('p');
+  note.style.cssText = 'margin:0;min-width:0;overflow:hidden;white-space:nowrap;'
+    + 'text-overflow:ellipsis;color:hsl(var(--muted-foreground))';
+  note.innerHTML = '<strong style="font-weight:600;color:hsl(var(--primary-text))">Read-only demo</strong>'
+    + ' · fixtures only, nothing here can be changed.';
+
+  const link = document.createElement('a');
+  link.href = REPO_URL;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  link.innerHTML = GH_MARK + '<span>View source</span>';
+  link.style.cssText = 'margin-left:auto;flex:none;display:inline-flex;align-items:center;gap:6px;'
+    + 'color:hsl(var(--muted-foreground));text-decoration:none;font-weight:500';
+  link.onmouseenter = () => { link.style.color = 'hsl(var(--foreground))'; };
+  link.onmouseleave = () => { link.style.color = 'hsl(var(--muted-foreground))'; };
+
+  bar.append(note, link);
+  document.body.append(bar);
 }
 
 /** Called from `main.tsx` before the first render, in demo builds only. */
 export function installDemo(): void {
   api.defaults.adapter = demoAdapter;
-  mountRepoLink();
+  mountSourceBar();
 
   // AuthProvider trusts a stored login token and skips straight to `authed`, so
   // seeding one is what makes the demo open on the dashboard rather than a login

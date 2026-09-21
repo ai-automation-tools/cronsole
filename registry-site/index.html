@@ -105,6 +105,24 @@
       color: var(--violet-hi); font-weight: 600;
     }
 
+    /* ---------------- Source bar ----------------
+       The shared "back to the repo" strip every ai-automation-tools site
+       carries in the same place: full width at the very top, note on the
+       left, repo link in the right corner. In normal flow (not sticky) so it
+       scrolls away and .nav takes the top. */
+    .src-bar { background: var(--bg-2); border-bottom: 1px solid var(--line); }
+    .src-bar-inner {
+      display: flex; align-items: center; gap: 16px; height: 34px; font-size: 12px;
+      max-width: var(--maxw); margin: 0 auto; padding: 0 24px;
+    }
+    .src-note { margin: 0; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--ink-3); }
+    .src-note strong { font-weight: 600; color: var(--cond); }
+    .src-link {
+      margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: 6px;
+      color: var(--ink-2); text-decoration: none; transition: color .18s var(--ease);
+    }
+    .src-link:hover { color: var(--ink); }
+
     /* ---------------- Top nav ---------------- */
     .nav {
       position: sticky; top: 0; z-index: 40;
@@ -484,6 +502,15 @@
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs><linearGradient id="cm-bg" x1="28" y1="24" x2="228" y2="232" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#18181b"/><stop offset="0.52" stop-color="#09090b"/><stop offset="1" stop-color="#050505"/></linearGradient><linearGradient id="cm-accent" x1="64" y1="48" x2="200" y2="208" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#8b5cf6"/><stop offset="1" stop-color="#10b981"/></linearGradient><filter id="cm-glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><symbol id="cronsole-mark" viewBox="0 0 256 256"><rect width="256" height="256" rx="54" fill="url(#cm-bg)"/><rect x="20" y="20" width="216" height="216" rx="42" fill="none" stroke="url(#cm-accent)" stroke-width="8"/><path d="M76 94h104M76 128h104M76 162h104" stroke="#27272a" stroke-width="16" stroke-linecap="round"/><path d="M76 94h54M76 128h82M76 162h42" stroke="#8b5cf6" stroke-width="16" stroke-linecap="round"/><circle cx="76" cy="94" r="18" fill="#10b981"/><circle cx="130" cy="94" r="15" fill="#a78bfa"/><circle cx="76" cy="128" r="18" fill="#10b981"/><circle cx="158" cy="128" r="15" fill="#a78bfa"/><circle cx="76" cy="162" r="18" fill="#10b981"/><circle cx="118" cy="162" r="15" fill="#a78bfa"/><path d="M146 172l22 22 43-58" fill="none" stroke="#ecfeff" stroke-width="17" stroke-linecap="round" stroke-linejoin="round" filter="url(#cm-glow)"/></symbol></svg>
+  <div class="src-bar">
+    <div class="src-bar-inner">
+      <p class="src-note"><strong>Open source</strong> · Cronsole runs entirely on your own machine.</p>
+      <a class="src-link" href="https://github.com/ai-automation-tools/cronsole" target="_blank" rel="noopener">
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+        View source
+      </a>
+    </div>
+  </div>
   <nav class="nav">
     <div class="nav-inner">
       <div class="brand" data-nav="#/">
@@ -505,7 +532,6 @@
       <div class="nav-right">
         <button class="ibtn nav-toggle" id="navtoggle" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
         <button class="ibtn" id="theme" aria-label="Toggle theme"></button>
-        <a class="ibtn" href="https://github.com/michaelschecht/cronsole-registry" target="_blank" rel="noopener" aria-label="GitHub"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12c0 4.42 2.87 8.17 6.84 9.5.5.09.68-.22.68-.48 0-.24-.01-.87-.01-1.7-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.89 1.52 2.34 1.08 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02.8-.22 1.65-.33 2.5-.34.85 0 1.7.12 2.5.34 1.91-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.4.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85 0 1.34-.01 2.42-.01 2.75 0 .27.18.58.69.48A10.01 10.01 0 0 0 22 12c0-5.52-4.48-10-10-10z"/></svg></a>
       </div>
     </div>
   </nav>

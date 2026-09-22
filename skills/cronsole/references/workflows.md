@@ -259,7 +259,7 @@ and to `cronsole.ai-automation-tools.dev` (the front door). The page works at bo
 > not a stale record, it is an agent running `pwsh` on a file that does not exist.
 
 Both reset their working clone to `origin/main` — **never keep manual work in
-`Repos\Tools\cronsole-*`**. Both **exclude `README.md`** and **`CNAME`** (the public repos own
+`Repos\Private\Tools\cronsole-*`**. Both **exclude `README.md`** and **`CNAME`** (the public repos own
 their front pages, and CNAME decides which domain a Pages repo answers on — mirroring a stray
 one would move the registry off its documented URL). Neither regenerates the registry: run
 `cd backend && npm run registry:build` first if `bundled.ts` changed.

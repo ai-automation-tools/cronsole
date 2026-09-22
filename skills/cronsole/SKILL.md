@@ -372,7 +372,7 @@ Load these on demand — don't read them all up front:
     no source, and it is a worse copy of the page they were already on. Same reason
     `cronsole-registry` stays on the personal account forever — it borrows the apex domain with
     `cname: null`, so an org move breaks the frozen URL. Never keep
-    manual work in the two publish clones (`Repos/Tools/cronsole-registry`, `Repos/Tools/cronsole-site`)
+    manual work in the two publish clones (`Repos/Private/Tools/cronsole-registry`, `Repos/Private/Tools/cronsole-site`)
     — each script `git reset --hard`s them first, and both now refuse a branch that is not
     up-to-date `main`.
     **Be accurate about who a stale registry hurts**: `TEMPLATE_REGISTRY_URL` is commented out by

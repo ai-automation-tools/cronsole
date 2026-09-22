@@ -76,7 +76,7 @@ registry→DB→export. Tags are how packs are grouped and faceted.
 5. Update `docs/ROADMAP.md` if the catalog gained a pack or a tier moved.
 
 > The publish script **resets its working clone to `origin/main`** — never keep manual work
-> in `Repos\Tools\cronsole-registry`. It also **excludes `README.md`**; the public repo owns
+> in `Repos\Private\Tools\cronsole-registry`. It also **excludes `README.md`**; the public repo owns
 > its own front page.
 
 ## Auditing a template

@@ -852,7 +852,7 @@ push**: the hosted registry and the gallery page are read by *other people's mac
 publish on merge and are checked daily** — `publish-registry.yml` + `publish-frontdoor.yml`,
 `registry-drift.yml` + `frontdoor-drift.yml`. The two publish scripts remain the manual path and
 both now **refuse any branch that is not up-to-date `main`**; both `git reset --hard origin/main`
-their working clone (`Repos/Tools/cronsole-registry`, `Repos/Tools/cronsole-site`) — **never keep
+their working clone (`Repos/Private/Tools/cronsole-registry`, `Repos/Private/Tools/cronsole-site`) — **never keep
 manual work there** — and both exclude `README.md` and `CNAME`, which the public repos own. `CNAME`
 is infrastructure, not content: it decides which domain a Pages repo answers on, so the front-door
 workflow **fails** when the target has none rather than publishing a page nobody can reach.

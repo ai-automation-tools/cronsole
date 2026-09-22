@@ -638,7 +638,7 @@ gallery's renderer**, or the page starts describing these templates less than fu
 like it describes them completely.
 
 **Both publish scripts `git reset --hard origin/main` their working clone first.** So never keep
-manual work in `Repos/Tools/cronsole-registry` or `Repos/Tools/cronsole-site` — including an edit
+manual work in `Repos/Private/Tools/cronsole-registry` or `Repos/Private/Tools/cronsole-site` — including an edit
 to those repos' own `README.md`, which the mirror deliberately excludes. Edit those *after* a
 publish, and commit them there.
 

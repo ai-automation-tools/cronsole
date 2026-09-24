@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "1.0",
+  "id": "gemini-weekly-slack-digest",
+  "name": "Trigger: Weekly Digest to Slack",
+  "description": "A Gemini trigger that researches a topic every week and posts the digest to a Slack channel through one of your saved MCP servers -- a chat-first alternative to the daily email digest.",
+  "runtime": "ai-prompt",
+  "os": "cross-platform",
+  "category": "ai-agent",
+  "tags": [
+    "ai",
+    "gemini",
+    "trigger",
+    "digest",
+    "slack"
+  ],
+  "icon": "MessageSquare",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 12 * * 1"
+  },
+  "commandTemplate": "Research {{topic}} and write a digest of what changed in the last seven days. Keep it to the {{length}} form: the developments that matter, one sentence each, with the source link. Then post it to Slack using the Slack tool available to you. Do not ask which stories to include, that judgment call already belongs to you. If the research or the post fails, say so explicitly in your final message and name the step that failed rather than summarizing what you would have posted.",
+  "parameters": [
+    {
+      "key": "topic",
+      "label": "Topic",
+      "type": "text",
+      "default": "",
+      "required": true,
+      "help": "What to research each week, e.g. competitor product launches."
+    },
+    {
+      "key": "length",
+      "label": "Digest length",
+      "type": "select",
+      "default": "short",
+      "required": true,
+      "options": [
+        "short",
+        "detailed"
+      ],
+      "help": "How much detail to include."
+    },
+    {
+      "key": "slackServer",
+      "label": "Slack MCP server",
+      "type": "text",
+      "default": "slack",
+      "required": true,
+      "help": "The name of a saved MCP server on your Gemini connection that can post to Slack. Save one on the Sources tab first -- the token lives there, not in this template."
+    }
+  ],
+  "agentTools": [
+    {
+      "type": "google_search"
+    },
+    {
+      "type": "url_context"
+    },
+    {
+      "type": "mcp_server",
+      "preset": "{{slackServer}}"
+    }
+  ],
+  "compatibleTargets": [
+    "gemini"
+  ]
+}

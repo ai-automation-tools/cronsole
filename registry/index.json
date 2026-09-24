@@ -1,6 +1,6 @@
 {
   "registryVersion": "1.0",
-  "updatedAt": "2026-09-17T14:12:48.739Z",
+  "updatedAt": "2026-09-24T14:12:00.137Z",
   "templates": [
     {
       "id": "tpl_daily_database_backup",
@@ -1427,6 +1427,25 @@
       "sha256": "0ee42615f1dd1f7ab9df297772788b71dd9aaeac862487941f7b47e3f298e2e4"
     },
     {
+      "id": "sys-installed-software-inventory",
+      "name": "Export Installed Software Inventory",
+      "description": "Write a list of installed programs and their versions to a CSV file on a schedule, so a software inventory is available for an audit without opening Programs and Features by hand.",
+      "category": "system",
+      "tags": [
+        "system",
+        "windows",
+        "inventory",
+        "audit"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/sys-installed-software-inventory.json",
+      "sha256": "142dd320971386addf1965020cd9c889c8077675eef419d465da829ce19ced8e"
+    },
+    {
       "id": "native-run-program",
       "name": "Run a Program (Cronsole)",
       "description": "Run any executable with arguments on the machine hosting Cronsole — no agent, no Task Scheduler entry. Cronsole schedules and runs it itself.",
@@ -1797,6 +1816,25 @@
       "sha256": "c236b60cc4c5cc9f7e46f25493b824fc456110ba83cf66514c56e1b58e5519ec"
     },
     {
+      "id": "native-script-log-rotate",
+      "name": "Rotate & Compress Log Files (Cronsole)",
+      "description": "Compress log files older than a cutoff into .gz archives on the machine hosting Cronsole, then delete archives that have aged past a longer retention window — rotation, not just deletion, so recent history survives compressed instead of disappearing outright.",
+      "category": "cleanup",
+      "tags": [
+        "cronsole-native",
+        "script",
+        "cleanup",
+        "logs"
+      ],
+      "runtime": "node",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-script-log-rotate.json",
+      "sha256": "de9af5f296d04f51672413f60b914710b977ab15224ed1faa3ccb1a590f94692"
+    },
+    {
       "id": "claude-routine-issue-triage",
       "name": "Routine: Issue Triage",
       "description": "A Claude Code routine that reads new issues each morning, labels them by area and severity, and flags anything that looks like a regression.",
@@ -1916,6 +1954,46 @@
       "sha256": "cdaeed4fa658155b66558cafc09f2c578a4b63e88834b37f07dab1ab9134bea9"
     },
     {
+      "id": "claude-routine-license-compliance",
+      "name": "Routine: License Compliance Check",
+      "description": "A routine that reviews the licenses of dependencies added or changed in a repository and flags anything copyleft, unapproved, or missing a license entirely, so a legal problem is caught before it ships rather than during an audit.",
+      "category": "dev-workflow",
+      "tags": [
+        "ai",
+        "claude-code",
+        "routine",
+        "dependencies",
+        "compliance"
+      ],
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "claude-code"
+      ],
+      "path": "templates/claude-routine-license-compliance.json",
+      "sha256": "4f29dd932f8ad84a7b23dc0159191ebb77d73d0813c0663edb16ac20b04094f4"
+    },
+    {
+      "id": "claude-routine-stale-branch-sweep",
+      "name": "Routine: Stale Branch Sweep",
+      "description": "A weekly routine that lists remote branches with no commits in a configurable window and reports which look safe to delete, so a repository does not accumulate branches nobody remembers opening.",
+      "category": "dev-workflow",
+      "tags": [
+        "ai",
+        "claude-code",
+        "routine",
+        "git",
+        "hygiene"
+      ],
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "claude-code"
+      ],
+      "path": "templates/claude-routine-stale-branch-sweep.json",
+      "sha256": "0a117178633c7533d763a4c8d1006b8cd7d50deda1834e91276420fde35ef9d4"
+    },
+    {
       "id": "gemini-daily-email-digest",
       "name": "Trigger: Daily Digest by Email",
       "description": "A Gemini trigger that researches a topic every morning and emails the digest through one of your saved MCP servers -- the credential stays on the connection and is never retyped.",
@@ -1974,6 +2052,26 @@
       ],
       "path": "templates/gemini-page-watch.json",
       "sha256": "493074e3077d82c85cba04a5f956cf2b5a89eec388cecb41dd33c674ee882681"
+    },
+    {
+      "id": "gemini-weekly-slack-digest",
+      "name": "Trigger: Weekly Digest to Slack",
+      "description": "A Gemini trigger that researches a topic every week and posts the digest to a Slack channel through one of your saved MCP servers -- a chat-first alternative to the daily email digest.",
+      "category": "ai-agent",
+      "tags": [
+        "ai",
+        "gemini",
+        "trigger",
+        "digest",
+        "slack"
+      ],
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "gemini"
+      ],
+      "path": "templates/gemini-weekly-slack-digest.json",
+      "sha256": "a1e73c179f81bced8094938b1373322efbb5c4e0795f5a9ba9084afd41a5d6f4"
     }
   ],
   "packs": [
@@ -2109,10 +2207,11 @@
         "native-image-resize",
         "native-script-docker-restart-unhealthy",
         "native-script-http-response-time",
-        "native-script-folder-size-check"
+        "native-script-folder-size-check",
+        "native-script-log-rotate"
       ],
       "path": "packs/cronsole-native.json",
-      "sha256": "bfcc7524938eaad241a794d9641b74d658a4fde8461347003023ea5cb7c57ccd"
+      "sha256": "b2f4ac744991f2b8efb56328fa35052b43537c28008c0a467d62dbd1d7f67e22"
     },
     {
       "id": "claude-routines",
@@ -2125,10 +2224,12 @@
         "claude-routine-docs-drift",
         "claude-routine-standup-digest",
         "claude-routine-release-notes",
+        "claude-routine-license-compliance",
+        "claude-routine-stale-branch-sweep",
         "tpl_starter_claude_routine"
       ],
       "path": "packs/claude-routines.json",
-      "sha256": "9f4e7b9cfaf667f0774c012ee716602d317f14603f1c5f3e32d27c36838661eb"
+      "sha256": "270bf45b758892679ff3defa19aa9f548c9d2241fc6c38dd57afeb5beaf02ae2"
     },
     {
       "id": "gemini-triggers",
@@ -2137,10 +2238,11 @@
       "templateIds": [
         "gemini-daily-email-digest",
         "gemini-weekly-repo-report",
-        "gemini-page-watch"
+        "gemini-page-watch",
+        "gemini-weekly-slack-digest"
       ],
       "path": "packs/gemini-triggers.json",
-      "sha256": "764d90acd8585188e6aee8f9b4069ed3e5ce6fb446e13d6d64b504e853949aa9"
+      "sha256": "900323c1988bdba6a2b0b2ea298dc953418f7633f73e1ed8f122c95e03306213"
     },
     {
       "id": "system-utilities",
@@ -2165,10 +2267,11 @@
         "sys-certbot-renew",
         "sys-process-watchdog",
         "sys-macos-update-check",
-        "data-rsync-folder-sync"
+        "data-rsync-folder-sync",
+        "sys-installed-software-inventory"
       ],
       "path": "packs/system-utilities.json",
-      "sha256": "9c04c079b0c446217bbb2ee905181cd64b2975c4bc865a88f432c33e14f8ea9b"
+      "sha256": "e0acb5337e0dc7d7fd1acccb57d8a1db449bcfc0e71e08d4d8bd92fc055c6bb0"
     }
   ]
 }

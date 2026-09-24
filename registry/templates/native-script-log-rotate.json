@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "1.0",
+  "id": "native-script-log-rotate",
+  "name": "Rotate & Compress Log Files (Cronsole)",
+  "description": "Compress log files older than a cutoff into .gz archives on the machine hosting Cronsole, then delete archives that have aged past a longer retention window — rotation, not just deletion, so recent history survives compressed instead of disappearing outright.",
+  "runtime": "node",
+  "os": "cross-platform",
+  "category": "cleanup",
+  "tags": [
+    "cronsole-native",
+    "script",
+    "cleanup",
+    "logs"
+  ],
+  "icon": "FileArchive",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 3 * * *"
+  },
+  "action": {
+    "kind": "script",
+    "interpreter": "node",
+    "body": "// Runs on the machine hosting the Cronsole backend.\n// Compresses files older than the cutoff into .gz, deletes their\n// originals, then deletes any .gz archive past the retention window.\nconst fs = require(\"fs\");\nconst path = require(\"path\");\nconst zlib = require(\"zlib\");\n\nconst dir = \"{{logDir}}\";\nconst filterExt = \"{{filter}}\";\nconst compressAfterDays = Number(\"{{days}}\");\nconst deleteAfterDays = Number(\"{{deleteAfterDays}}\");\n\nfunction matches(name) {\n  if (filterExt.startsWith(\"*.\")) return name.endsWith(filterExt.slice(1));\n  return name === filterExt;\n}\n\nconst now = Date.now();\nlet compressed = 0;\nlet deleted = 0;\n\ntry {\n  for (const name of fs.readdirSync(dir)) {\n    const full = path.join(dir, name);\n    const stat = fs.statSync(full);\n    if (!stat.isFile()) continue;\n    const ageDays = (now - stat.mtimeMs) / 86400000;\n\n    if (name.endsWith(\".gz\")) {\n      if (ageDays > deleteAfterDays) {\n        fs.unlinkSync(full);\n        deleted++;\n      }\n      continue;\n    }\n\n    if (matches(name) && ageDays > compressAfterDays) {\n      const gzPath = full + \".gz\";\n      fs.writeFileSync(gzPath, zlib.gzipSync(fs.readFileSync(full)));\n      fs.unlinkSync(full);\n      compressed++;\n    }\n  }\n  console.log(\"Compressed \" + compressed + \" file(s), deleted \" + deleted + \" expired archive(s).\");\n} catch (err) {\n  console.error(\"Log rotation failed: \" + err.message);\n  process.exitCode = 1;\n}\n"
+  },
+  "parameters": [
+    {
+      "key": "logDir",
+      "label": "Log folder",
+      "type": "string",
+      "required": true,
+      "help": "Absolute path as seen by the machine running the Cronsole backend — the container on a Dockerized stack, not your desktop."
+    },
+    {
+      "key": "filter",
+      "label": "File filter",
+      "type": "string",
+      "default": "*.log",
+      "required": true,
+      "help": "Which files are eligible for rotation, e.g. *.log or app-*.txt. Existing .gz archives are always considered for deletion regardless of this filter."
+    },
+    {
+      "key": "days",
+      "label": "Compress after (days)",
+      "type": "number",
+      "default": "7",
+      "required": true,
+      "help": "Files last modified more than this many days ago are compressed into a .gz archive and removed."
+    },
+    {
+      "key": "deleteAfterDays",
+      "label": "Delete archive after (days)",
+      "type": "number",
+      "default": "90",
+      "required": true,
+      "help": "Compressed .gz archives older than this are deleted permanently."
+    }
+  ],
+  "compatibleTargets": [
+    "cronsole-native"
+  ]
+}

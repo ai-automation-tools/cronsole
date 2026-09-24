@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "1.0",
+  "id": "claude-routine-stale-branch-sweep",
+  "name": "Routine: Stale Branch Sweep",
+  "description": "A weekly routine that lists remote branches with no commits in a configurable window and reports which look safe to delete, so a repository does not accumulate branches nobody remembers opening.",
+  "runtime": "ai-prompt",
+  "os": "cross-platform",
+  "category": "dev-workflow",
+  "tags": [
+    "ai",
+    "claude-code",
+    "routine",
+    "git",
+    "hygiene"
+  ],
+  "icon": "GitBranch",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 16 * * 3"
+  },
+  "commandTemplate": "List every remote branch in {{repo}} with no commits in the last {{staleDays}} days. For each one say who authored the last commit, how old it is, and whether it has an open pull request. Recommend which look safe to delete and which to keep, with one sentence of reasoning each. Report only — do not delete a branch or push anything.",
+  "parameters": [
+    {
+      "key": "repo",
+      "label": "Repository",
+      "type": "text",
+      "default": "",
+      "required": true,
+      "help": "The owner/name of the repository to sweep. Attach the same repository to the routine so it has a checkout."
+    },
+    {
+      "key": "staleDays",
+      "label": "Stale after (days)",
+      "type": "text",
+      "default": "90",
+      "required": true,
+      "help": "Branches with no commits in this many days are reported as stale."
+    }
+  ],
+  "compatibleTargets": [
+    "claude-code"
+  ]
+}

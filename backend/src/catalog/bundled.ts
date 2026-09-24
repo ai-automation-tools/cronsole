@@ -1464,6 +1464,23 @@ const extendedPack: RegistryTemplate[] = [
       { key: 'destDir', label: 'Destination folder', type: 'path', default: '', required: true, help: 'The directory to sync to \u2014 local, an external drive, or a path under a mounted network share. --delete makes it match the source exactly (removes extras).' }
     ],
     compatibleTargets: ['macos']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'sys-installed-software-inventory',
+    name: 'Export Installed Software Inventory',
+    description: 'Write a list of installed programs and their versions to a CSV file on a schedule, so a software inventory is available for an audit without opening Programs and Features by hand.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'system',
+    tags: ['system', 'windows', 'inventory', 'audit'],
+    icon: 'ClipboardList',
+    trigger: sched('0 6 * * 1'),
+    commandTemplate: 'powershell.exe -NoProfile -Command "Get-ItemProperty HKLM:\\Software\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*, HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\* -ErrorAction SilentlyContinue | Where-Object DisplayName | Select-Object DisplayName, DisplayVersion, Publisher, InstallDate | Export-Csv -Path \'{{outFile}}\' -NoTypeInformation"',
+    parameters: [
+      { key: 'outFile', label: 'Output CSV path', type: 'path', default: 'C:\\reports\\installed-software.csv', required: true, help: 'Where to write the inventory. Export-Csv overwrites this file on every run.' }
+    ],
+    compatibleTargets: ['windows']
   }
 ];
 
@@ -2262,6 +2279,108 @@ const nativeScriptCheckPack: RegistryTemplate[] = [
       }
     ],
     compatibleTargets: ['cronsole-native']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'native-script-log-rotate',
+    name: 'Rotate & Compress Log Files (Cronsole)',
+    description:
+      'Compress log files older than a cutoff into .gz archives on the machine hosting Cronsole, then delete archives that have aged past a longer retention window — rotation, not just deletion, so recent history survives compressed instead of disappearing outright.',
+    runtime: 'node',
+    os: 'cross-platform',
+    category: 'cleanup',
+    tags: ['cronsole-native', 'script', 'cleanup', 'logs'],
+    icon: 'FileArchive',
+    trigger: sched('0 3 * * *'),
+    action: {
+      kind: 'script',
+      interpreter: 'node',
+      body: [
+        '// Runs on the machine hosting the Cronsole backend.',
+        '// Compresses files older than the cutoff into .gz, deletes their',
+        '// originals, then deletes any .gz archive past the retention window.',
+        'const fs = require("fs");',
+        'const path = require("path");',
+        'const zlib = require("zlib");',
+        '',
+        'const dir = "{{logDir}}";',
+        'const filterExt = "{{filter}}";',
+        'const compressAfterDays = Number("{{days}}");',
+        'const deleteAfterDays = Number("{{deleteAfterDays}}");',
+        '',
+        'function matches(name) {',
+        '  if (filterExt.startsWith("*.")) return name.endsWith(filterExt.slice(1));',
+        '  return name === filterExt;',
+        '}',
+        '',
+        'const now = Date.now();',
+        'let compressed = 0;',
+        'let deleted = 0;',
+        '',
+        'try {',
+        '  for (const name of fs.readdirSync(dir)) {',
+        '    const full = path.join(dir, name);',
+        '    const stat = fs.statSync(full);',
+        '    if (!stat.isFile()) continue;',
+        '    const ageDays = (now - stat.mtimeMs) / 86400000;',
+        '',
+        '    if (name.endsWith(".gz")) {',
+        '      if (ageDays > deleteAfterDays) {',
+        '        fs.unlinkSync(full);',
+        '        deleted++;',
+        '      }',
+        '      continue;',
+        '    }',
+        '',
+        '    if (matches(name) && ageDays > compressAfterDays) {',
+        '      const gzPath = full + ".gz";',
+        '      fs.writeFileSync(gzPath, zlib.gzipSync(fs.readFileSync(full)));',
+        '      fs.unlinkSync(full);',
+        '      compressed++;',
+        '    }',
+        '  }',
+        '  console.log("Compressed " + compressed + " file(s), deleted " + deleted + " expired archive(s).");',
+        '} catch (err) {',
+        '  console.error("Log rotation failed: " + err.message);',
+        '  process.exitCode = 1;',
+        '}',
+        ''
+      ].join('\n')
+    },
+    parameters: [
+      {
+        key: 'logDir',
+        label: 'Log folder',
+        type: 'string',
+        required: true,
+        help: 'Absolute path as seen by the machine running the Cronsole backend — the container on a Dockerized stack, not your desktop.'
+      },
+      {
+        key: 'filter',
+        label: 'File filter',
+        type: 'string',
+        default: '*.log',
+        required: true,
+        help: 'Which files are eligible for rotation, e.g. *.log or app-*.txt. Existing .gz archives are always considered for deletion regardless of this filter.'
+      },
+      {
+        key: 'days',
+        label: 'Compress after (days)',
+        type: 'number',
+        default: '7',
+        required: true,
+        help: 'Files last modified more than this many days ago are compressed into a .gz archive and removed.'
+      },
+      {
+        key: 'deleteAfterDays',
+        label: 'Delete archive after (days)',
+        type: 'number',
+        default: '90',
+        required: true,
+        help: 'Compressed .gz archives older than this are deleted permanently.'
+      }
+    ],
+    compatibleTargets: ['cronsole-native']
   }
 ];
 
@@ -2403,6 +2522,46 @@ const claudeRoutinesPack: RegistryTemplate[] = [
       { key: 'sinceTag', label: 'Since tag', type: 'text', default: '', required: true, help: 'The release tag the notes start after, e.g. v1.4.0. Everything merged after it is considered.' }
     ],
     compatibleTargets: ['claude-code']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'claude-routine-license-compliance',
+    name: 'Routine: License Compliance Check',
+    description:
+      'A routine that reviews the licenses of dependencies added or changed in a repository and flags anything copyleft, unapproved, or missing a license entirely, so a legal problem is caught before it ships rather than during an audit.',
+    runtime: 'ai-prompt',
+    os: 'cross-platform',
+    category: 'dev-workflow',
+    tags: ['ai', 'claude-code', 'routine', 'dependencies', 'compliance'],
+    icon: 'Scale',
+    trigger: sched('0 15 * * 3'),
+    commandTemplate:
+      'Review the dependencies added or changed in {{repo}} since your last run. For each one, identify its license. Treat {{approvedLicenses}} as pre-approved and flag anything outside that list, anything copyleft, and anything missing a license entirely. Group the findings into clear, flagged, and needs review. Report only — do not modify the lockfile or remove a dependency.',
+    parameters: [
+      { key: 'repo', label: 'Repository', type: 'text', default: '', required: true, help: 'The owner/name of the repository to review. Attach the same repository to the routine so it has a checkout.' },
+      { key: 'approvedLicenses', label: 'Approved licenses', type: 'text', default: 'MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC', required: true, help: 'Comma-separated list of licenses that need no review. Anything outside this list is flagged.' }
+    ],
+    compatibleTargets: ['claude-code']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'claude-routine-stale-branch-sweep',
+    name: 'Routine: Stale Branch Sweep',
+    description:
+      'A weekly routine that lists remote branches with no commits in a configurable window and reports which look safe to delete, so a repository does not accumulate branches nobody remembers opening.',
+    runtime: 'ai-prompt',
+    os: 'cross-platform',
+    category: 'dev-workflow',
+    tags: ['ai', 'claude-code', 'routine', 'git', 'hygiene'],
+    icon: 'GitBranch',
+    trigger: sched('0 16 * * 3'),
+    commandTemplate:
+      'List every remote branch in {{repo}} with no commits in the last {{staleDays}} days. For each one say who authored the last commit, how old it is, and whether it has an open pull request. Recommend which look safe to delete and which to keep, with one sentence of reasoning each. Report only — do not delete a branch or push anything.',
+    parameters: [
+      { key: 'repo', label: 'Repository', type: 'text', default: '', required: true, help: 'The owner/name of the repository to sweep. Attach the same repository to the routine so it has a checkout.' },
+      { key: 'staleDays', label: 'Stale after (days)', type: 'text', default: '90', required: true, help: 'Branches with no commits in this many days are reported as stale.' }
+    ],
+    compatibleTargets: ['claude-code']
   }
 ];
 
@@ -2499,6 +2658,32 @@ const geminiTriggersPack: RegistryTemplate[] = [
     ],
     agentTools: [
       { type: 'url_context' }
+    ],
+    compatibleTargets: ['gemini']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'gemini-weekly-slack-digest',
+    name: 'Trigger: Weekly Digest to Slack',
+    description:
+      'A Gemini trigger that researches a topic every week and posts the digest to a Slack channel through one of your saved MCP servers -- a chat-first alternative to the daily email digest.',
+    runtime: 'ai-prompt',
+    os: 'cross-platform',
+    category: 'ai-agent',
+    tags: ['ai', 'gemini', 'trigger', 'digest', 'slack'],
+    icon: 'MessageSquare',
+    trigger: sched('0 12 * * 1'),
+    commandTemplate:
+      'Research {{topic}} and write a digest of what changed in the last seven days. Keep it to the {{length}} form: the developments that matter, one sentence each, with the source link. Then post it to Slack using the Slack tool available to you. Do not ask which stories to include, that judgment call already belongs to you. If the research or the post fails, say so explicitly in your final message and name the step that failed rather than summarizing what you would have posted.',
+    parameters: [
+      { key: 'topic', label: 'Topic', type: 'text', default: '', required: true, help: 'What to research each week, e.g. competitor product launches.' },
+      { key: 'length', label: 'Digest length', type: 'select', options: ['short', 'detailed'], default: 'short', required: true, help: 'How much detail to include.' },
+      { key: 'slackServer', label: 'Slack MCP server', type: 'text', default: 'slack', required: true, help: 'The name of a saved MCP server on your Gemini connection that can post to Slack. Save one on the Sources tab first -- the token lives there, not in this template.' }
+    ],
+    agentTools: [
+      { type: 'google_search' },
+      { type: 'url_context' },
+      { type: 'mcp_server', preset: '{{slackServer}}' }
     ],
     compatibleTargets: ['gemini']
   }

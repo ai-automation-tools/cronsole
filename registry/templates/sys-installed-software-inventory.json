@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "1.0",
+  "id": "sys-installed-software-inventory",
+  "name": "Export Installed Software Inventory",
+  "description": "Write a list of installed programs and their versions to a CSV file on a schedule, so a software inventory is available for an audit without opening Programs and Features by hand.",
+  "runtime": "powershell",
+  "os": "windows",
+  "category": "system",
+  "tags": [
+    "system",
+    "windows",
+    "inventory",
+    "audit"
+  ],
+  "icon": "ClipboardList",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 6 * * 1"
+  },
+  "commandTemplate": "powershell.exe -NoProfile -Command \"Get-ItemProperty HKLM:\\Software\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*, HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\* -ErrorAction SilentlyContinue | Where-Object DisplayName | Select-Object DisplayName, DisplayVersion, Publisher, InstallDate | Export-Csv -Path '{{outFile}}' -NoTypeInformation\"",
+  "parameters": [
+    {
+      "key": "outFile",
+      "label": "Output CSV path",
+      "type": "path",
+      "default": "C:\\reports\\installed-software.csv",
+      "required": true,
+      "help": "Where to write the inventory. Export-Csv overwrites this file on every run."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

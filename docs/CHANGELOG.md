@@ -44,6 +44,15 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **Five new extended templates** (2026-09-24): **Rotate & Compress Log Files (Cronsole)** gives the
+  native pack its first `cleanup`-category entry — gzip logs past a cutoff and delete archives past a
+  longer retention window, rather than only deleting outright. **Routine: License Compliance Check**
+  and **Routine: Stale Branch Sweep** join the Claude Routines pack, flagging unapproved dependency
+  licenses and branches with no recent commits. **Trigger: Weekly Digest to Slack** gives the thin
+  Gemini Triggers pack a chat-channel alternative to the existing email digest. **Export Installed
+  Software Inventory** fills a gap in the Windows extended pack — no prior template listed installed
+  programs for an audit. None are `core`.
+
 - **A sync flags a MISSING batch concentrated in one folder** (2026-09-18). Carved out of
   [#74](troubleshooting/README.md#74-dozens-of-windows-tasks-go-missing-in-one-sync-and-the-agent-is-healthy):
   the manual diagnostic — group the newly-MISSING rows by subtree; real attrition is scattered,

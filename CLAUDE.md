@@ -205,8 +205,14 @@ Non-negotiable rules. **Every one has a reason recorded in
 - **Export has two formats and they never merge**: `native` (fidelity — Task Scheduler XML or the
   `cronsoleTaskVersion` bundle) and `template` (portability). It reaches no platform, so it records no
   capability.
-- **Untrack 400s for `TASKHUB_NATIVE` and `CLAUDE_CODE`** — their rows *are* the task.
-  Disconnecting a Claude routine removes its tracked tasks with the declaration.
+- **Untrack 400s for `TASKHUB_NATIVE` always, and for `CLAUDE_CODE` only when the routine is
+  *declared*** in `PlatformConnection.config` — that row *is* the declaration, so removing it alone
+  would have the next sync bring it back; use `disconnect_claude_routine`, which removes both. A
+  `CLAUDE_CODE` row discovered through an OAuth session has no declaration to leave behind, so it
+  untracks like any other platform's — before this, such a row (e.g. one whose routine was deleted at
+  claude.ai, leaving it `MISSING`) could not be removed by anything: untrack 400s unconditionally,
+  `disconnect_claude_routine` 404s (nothing declared to disconnect), and `delete_task` refuses every
+  platform but `TASKHUB_NATIVE`.
 - **`createNativeTask` is the one definition of writing a native row**, shared by create, import and
   restore.
 

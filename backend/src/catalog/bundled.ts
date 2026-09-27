@@ -2298,7 +2298,7 @@ const nativeScriptCheckPack: RegistryTemplate[] = [
       body: [
         '// Runs on the machine hosting the Cronsole backend.',
         '// Compresses files older than the cutoff into .gz, deletes their',
-        '// originals, then deletes any .gz archive past the retention window.',
+        '// originals, then deletes matching .gz archives past the retention window.',
         'const fs = require("fs");',
         'const path = require("path");',
         'const zlib = require("zlib");',
@@ -2308,9 +2308,13 @@ const nativeScriptCheckPack: RegistryTemplate[] = [
         'const compressAfterDays = Number("{{days}}");',
         'const deleteAfterDays = Number("{{deleteAfterDays}}");',
         '',
+        '// Real glob matching (only "*" needs support): escape everything else that',
+        '// is special in a regex, then let each "*" match any run of characters, so',
+        '// both "*.log" and "app-*.txt" behave the way the parameter help promises',
+        '// instead of the second one silently matching nothing.',
         'function matches(name) {',
-        '  if (filterExt.startsWith("*.")) return name.endsWith(filterExt.slice(1));',
-        '  return name === filterExt;',
+        '  const escaped = filterExt.replace(/[.+^${}()|[\\]\\\\]/g, "\\\\$&").replace(/\\*/g, ".*");',
+        '  return new RegExp("^" + escaped + "$").test(name);',
         '}',
         '',
         'const now = Date.now();',
@@ -2325,7 +2329,9 @@ const nativeScriptCheckPack: RegistryTemplate[] = [
         '    const ageDays = (now - stat.mtimeMs) / 86400000;',
         '',
         '    if (name.endsWith(".gz")) {',
-        '      if (ageDays > deleteAfterDays) {',
+        '      // Only an archive this template would itself have created for the',
+        '      // current filter is eligible — never every .gz in the folder.',
+        '      if (matches(name.slice(0, -3)) && ageDays > deleteAfterDays) {',
         '        fs.unlinkSync(full);',
         '        deleted++;',
         '      }',
@@ -2361,7 +2367,7 @@ const nativeScriptCheckPack: RegistryTemplate[] = [
         type: 'string',
         default: '*.log',
         required: true,
-        help: 'Which files are eligible for rotation, e.g. *.log or app-*.txt. Existing .gz archives are always considered for deletion regardless of this filter.'
+        help: 'Which files are eligible for rotation, e.g. *.log or app-*.txt (a single * wildcard is supported). Only a .gz archive that would itself have come from a matching file is a candidate for deletion — an unrelated .gz already in the folder is left alone.'
       },
       {
         key: 'days',
@@ -2559,7 +2565,7 @@ const claudeRoutinesPack: RegistryTemplate[] = [
       'List every remote branch in {{repo}} with no commits in the last {{staleDays}} days. For each one say who authored the last commit, how old it is, and whether it has an open pull request. Recommend which look safe to delete and which to keep, with one sentence of reasoning each. Report only — do not delete a branch or push anything.',
     parameters: [
       { key: 'repo', label: 'Repository', type: 'text', default: '', required: true, help: 'The owner/name of the repository to sweep. Attach the same repository to the routine so it has a checkout.' },
-      { key: 'staleDays', label: 'Stale after (days)', type: 'text', default: '90', required: true, help: 'Branches with no commits in this many days are reported as stale.' }
+      { key: 'staleDays', label: 'Stale after (days)', type: 'number', default: '90', required: true, help: 'Branches with no commits in this many days are reported as stale.' }
     ],
     compatibleTargets: ['claude-code']
   }

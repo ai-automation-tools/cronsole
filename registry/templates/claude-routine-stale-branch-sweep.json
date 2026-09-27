@@ -31,7 +31,7 @@
     {
       "key": "staleDays",
       "label": "Stale after (days)",
-      "type": "text",
+      "type": "number",
       "default": "90",
       "required": true,
       "help": "Branches with no commits in this many days are reported as stale."

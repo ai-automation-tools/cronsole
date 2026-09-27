@@ -1,6 +1,6 @@
 {
   "registryVersion": "1.0",
-  "updatedAt": "2026-09-24T14:12:00.137Z",
+  "updatedAt": "2026-09-27T22:05:50.189Z",
   "templates": [
     {
       "id": "tpl_daily_database_backup",
@@ -1832,7 +1832,7 @@
         "cronsole-native"
       ],
       "path": "templates/native-script-log-rotate.json",
-      "sha256": "de9af5f296d04f51672413f60b914710b977ab15224ed1faa3ccb1a590f94692"
+      "sha256": "4faee76f46b03d1a2dcacdce4163efafccdf6cba4ec270dcb0c3dc74a7062e4c"
     },
     {
       "id": "claude-routine-issue-triage",
@@ -1991,7 +1991,7 @@
         "claude-code"
       ],
       "path": "templates/claude-routine-stale-branch-sweep.json",
-      "sha256": "0a117178633c7533d763a4c8d1006b8cd7d50deda1834e91276420fde35ef9d4"
+      "sha256": "48555de5f604f9c4a99c60950a71451c6eba3648e1034a294f70047b24cfcf78"
     },
     {
       "id": "gemini-daily-email-digest",
@@ -2211,7 +2211,7 @@
         "native-script-log-rotate"
       ],
       "path": "packs/cronsole-native.json",
-      "sha256": "b2f4ac744991f2b8efb56328fa35052b43537c28008c0a467d62dbd1d7f67e22"
+      "sha256": "a2c247a1acb38217c4e2aaffac4fe63db56133ff162ed3281502368f189d9148"
     },
     {
       "id": "claude-routines",
@@ -2229,7 +2229,7 @@
         "tpl_starter_claude_routine"
       ],
       "path": "packs/claude-routines.json",
-      "sha256": "270bf45b758892679ff3defa19aa9f548c9d2241fc6c38dd57afeb5beaf02ae2"
+      "sha256": "e2d25575b7db6e6b9da956eb2d1347d9e8bdbcb6a65be8bddab9627955dd15e7"
     },
     {
       "id": "gemini-triggers",

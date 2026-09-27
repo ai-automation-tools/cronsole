@@ -33,6 +33,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
+| 94 | **A `MISSING` Claude row survives untrack, disconnect and delete** — the routine was deleted at claude.ai, Cronsole correctly flags the row `MISSING`, and nothing removes it | **Untrack refused every `CLAUDE_CODE` row unconditionally**, assuming the routine was always *declared* in `PlatformConnection.config`. An OAuth-discovered routine is never declared there, so `disconnect_claude_routine` also 404s (nothing to disconnect) and the row is stranded. Untrack now checks whether the routine is actually declared first | [→](#94-a-missing-claude-row-survives-untrack-disconnect-and-delete) |
 | 93 | **A restored backup succeeds and every platform connection is unreadable** — `pg_restore` exits 0, every row count matches, your tasks are all there, and every source is broken | **The credentials in the dump are ciphertext and the key is not in the dump.** `PlatformConnection.config` and `TaskSecret` are AES-256-GCM encrypted with `ENCRYPTION_KEY`, which lives in `.env`. A restore onto a stack with a different key genuinely succeeds and leaves every value permanently unreadable, discovered one failing sync at a time | [→](#93-a-restore-succeeds-and-every-platform-connection-is-unreadable) |
 | 92 | **A restore verification says the data does not match, and the restore was perfect** — the *restored* copy reports more rows than the original it came from | **The check is reading an estimate, not a count.** `pg_stat_user_tables.n_live_tup` is a planner input maintained by autovacuum: stale (often zero) on a database not analysed recently, accurate on a freshly-restored one. It can be wrong in **both** directions, so it can also report a match over a restore that dropped rows. Generate real `count(*)` queries | [→](#92-a-restored-database-reports-different-row-counts-and-the-restore-was-perfect) |
 | 91 | **A second clone of the repo is not a second install** — `docker compose up` from a fresh checkout adopts the first one's database, or fails with `port is already allocated`. Shifting the ports in a `docker-compose.override.yml` does not help | **The Compose project name is pinned in the file, not derived from the folder** (`name: taskhub`, deliberately — it is what stops a renamed checkout orphaning the Postgres volume). Every clone on the machine is therefore the *same* project. And a plain override **appends** to `ports:` rather than replacing it, so both bindings are attempted and the old one still collides. Use `docker compose -p <name>` **and** the `!override` tag on every port list | [→](#91-a-second-clone-of-the-repo-shares-the-first-ones-database-and-ports) |
@@ -6257,6 +6258,44 @@ you log in again) and `AGENT_PAIRING_SECRET` (the agent's handshake fails until 
 
 Documented 2026-09-11 with
 [`Backup_Restore_Guide.md`](../user-guides/guides/Backup_Restore_Guide.md).
+
+---
+
+## 94. A `MISSING` Claude row survives untrack, disconnect and delete
+
+**Symptom.** A Claude Code routine is deleted at claude.ai. Cronsole's next sync correctly detects
+the tracked row as `MISSING` — but nothing removes it. `untrack_task` (`POST /:id/untrack`) 400s
+unconditionally for `CLAUDE_CODE`. `disconnect_claude_routine`
+(`DELETE /api/tools/platforms/claude/routines/:id`) 404s: *"No routine ... is configured."*
+`delete_task` refuses every platform but `TASKHUB_NATIVE`. The row sits on the dashboard forever.
+
+**Cause.** Untrack's `CLAUDE_CODE` guard assumed every Claude row exists because the routine is
+**declared** in `PlatformConnection.config` — true of a routine added through
+`connect_claude_routine`, where the row *is* the declaration and untracking it alone would just have
+the next sync bring it back ([#47](#47-a-claude-task-keeps-coming-back-after-remove-from-cronsole)).
+
+It stopped being true of every Claude row once `ClaudeConnector` gained **OAuth mode**: with a
+readable Claude Code session, `syncTasks` reads the routines directly off the account and tracks
+them, without ever writing them into `config.routines`. That row has no declaration to fence
+against, so the reasoning behind the refusal does not apply — but the refusal fired anyway, on
+platform alone, and `disconnect_claude_routine` reads only `config.routines`, so it has nothing to
+find for that id either.
+
+**Fix.** `POST /:id/untrack` now reads `config.routines` for the task's platform connection first
+(`readRoutines`, shared with the Claude routes) and only refuses when the task's `externalId` is
+actually declared there. An undeclared row — including one gone `MISSING` because its routine was
+removed remotely — untracks exactly like any other platform's: the row and its execution logs are
+deleted and a `TaskExclusion` is written so a future OAuth-mode sync does not re-import it.
+
+The three refusal messages (`untrack_task`, `disconnect_claude_routine`, `delete_task`'s
+native-only 400) were also pointing at each other without naming a way out for this case:
+`delete_task` said "untrack it instead," a declared-routine untrack said "disconnect the routine
+instead" without naming `disconnect_claude_routine`, and none of the three said what to do about an
+undeclared row. All three now name `disconnect_claude_routine` explicitly where it applies.
+
+Logged 2026-08-13, fixed 2026-09-25 — see
+[ROADMAP.md](../ROADMAP.md#follow-ups-2026-08-13).
+
 ---
 
 <p align="center">

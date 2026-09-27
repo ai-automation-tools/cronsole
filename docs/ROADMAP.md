@@ -38,13 +38,16 @@ the CHANGELOG's *Roadmap narrative archive* appendices.)
 | **Sources** | 🟡 6 of ~9 built | Gemini usability *(A–C done, D–E open)* · POSIX agent (the big one) · Supabase observer |
 | **Go-public** | 🟢 **shipped 2026-09-13** | [**The repo is public.**](https://github.com/ai-automation-tools/cronsole) Anonymous clone verified, and branch protection plus the GitHub-owned-actions policy re-checked *after* the flip rather than assumed — a visibility change is exactly the event that silently drops them. The pre-flight scanned all 767 tracked files with the repo's own patterns and found nothing new. The whole checklist, reasons included, is in [Part II](#completed--go-public); what outlived it is [Post-launch](#post-launch). **Cancelled along the way, not deferred:** code signing, installers, and error tracking — Cronsole ships as source and phones home to nobody |
 
-**Leading the queue as of 2026-09-08:** the [2026-08-13 follow-ups](#follow-ups-2026-08-13) —
-the last block in *Next up* with anything open in it, now that **the Monthly trigger shipped
-2026-09-08** and closed the 2026-08-18 pair's second half. The worst of them is that **a `MISSING`
-Claude row cannot be removed by anything**: `untrack_task` 400s for `CLAUDE_CODE`,
-`disconnect_claude_routine` only reaches *declared* routines, and OAuth mode produces tracked rows
-that nothing declares — two are stranded on the dev machine. Alongside it, [periodic
-sync](#import-sync-split) is the one remaining item of its block and the larger build.
+**Leading the queue as of 2026-09-25:** the [2026-08-13 follow-ups](#follow-ups-2026-08-13) — the
+worst two of the unfixed remainder shipped 2026-09-25: **a `MISSING` Claude row could not be removed
+by anything**, because `untrack_task` 400s for `CLAUDE_CODE` assumed every Claude row was *declared*
+in the connection config, but OAuth mode tracks rows that never are, so `disconnect_claude_routine`
+had nothing to reach either — fixed by checking whether the routine is actually declared before
+refusing (see
+[#94](troubleshooting/README.md#94-a-missing-claude-row-survives-untrack-disconnect-and-delete)) —
+and the two refusal messages that pointed at each other without naming the way out now do. Three
+smaller items remain open in that block. Alongside it, [periodic sync](#import-sync-split) is the
+one remaining item of its own block and the larger build.
 *(The [**Gemini usability**](#gemini-usability) block led this queue from 2026-08-25 and closed
 2026-08-31, all five items. It is worth re-reading for one thing: it **changed a §9 invariant**
 whose stated reason — "the value is needed exactly once" — live use falsified, which is the
@@ -426,16 +429,23 @@ moved to [P2](#open--ui--product): `--border` needs a second token.
 Left open at the end of the 2026-08-13 MCP/Claude test pass. Ordered worst-first; the three items
 of that list which have since shipped are in Part II.
 
-- [ ] **A `MISSING` Claude row cannot be removed by anything.** Delete a routine at claude.ai and
-      its Cronsole row is correctly detected as `MISSING`, but `untrack_task` 400s for
-      `CLAUDE_CODE` and `disconnect_claude_routine` only reaches *declared* routines. OAuth mode
-      now produces tracked Claude rows that nothing in `PlatformConnection.config` declares, so the
-      documented escape hatch does not cover them. **Two such rows are stranded on the dev machine
-      today.**
-- [ ] **Two refusal messages point at each other.** `delete_task` on a Claude task says *"untrack
-      it instead"*; `untrack_task` 400s for `CLAUDE_CODE`; neither names
-      `disconnect_claude_routine`. Same pass: untrack's message promises that removing the routine
-      *"also forgets its API token"*, which an OAuth-created routine never had.
+- [x] **A `MISSING` Claude row cannot be removed by anything** — **shipped 2026-09-25**. Delete a
+      routine at claude.ai and its Cronsole row is correctly detected as `MISSING`, but
+      `untrack_task` 400s for `CLAUDE_CODE` and `disconnect_claude_routine` only reaches *declared*
+      routines. OAuth mode now produces tracked Claude rows that nothing in
+      `PlatformConnection.config` declares, so the documented escape hatch does not cover them.
+      **Fix:** `POST /:id/untrack` now checks `readRoutines(config)` for the task's externalId and
+      only refuses the *declared* case (where the redirect to `disconnect_claude_routine` is real);
+      an undeclared row untracks like any other platform's. The two stranded dev-machine rows are
+      not touched by this change itself — they untrack normally once it ships. See
+      [#94](troubleshooting/README.md#94-a-missing-claude-row-survives-untrack-disconnect-and-delete).
+- [x] **Two refusal messages point at each other** — **shipped 2026-09-25 alongside the item
+      above**. `delete_task` on a Claude task said *"untrack it instead"*; `untrack_task` 400s for
+      `CLAUDE_CODE`; neither named `disconnect_claude_routine`. Both the REST error and the
+      `untrack_task` / `disconnect_claude_routine` MCP tool descriptions now name it explicitly, and
+      state the declared/undeclared split above rather than treating every Claude row alike. The
+      "also forgets its API token" line was already only reachable for a declared routine (the one
+      case where a token exists to forget) and needed no change.
 - [>] **`list_platforms`' MCP tool description was stale** — fixed 2026-08-24 alongside the
       `access` field, see [Part II](#shipped-2026-08-24--source-onboarding).
 - [ ] **`update_task_schedule` echoes a next-run time it computed** — the immediate response

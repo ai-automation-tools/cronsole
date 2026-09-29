@@ -36,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout cronsole (source of truth)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: source
 
@@ -50,7 +50,7 @@ jobs:
           fi
 
       - name: Checkout cronsole-site (publish target)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: michaelschecht/cronsole-site
           ssh-key: ${{ secrets.SITE_DEPLOY_KEY }}
@@ -111,7 +111,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout cronsole (source of truth)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: source
 
@@ -135,7 +135,7 @@ jobs:
 
       - name: Checkout the org front door (publish target)
         if: steps.gate.outputs.ready == 'yes'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ai-automation-tools/cronsole-site
           ssh-key: ${{ secrets.SITE_ORG_DEPLOY_KEY }}

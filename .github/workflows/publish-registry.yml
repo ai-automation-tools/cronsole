@@ -36,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout cronsole (source of truth)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: source
 
@@ -53,7 +53,7 @@ jobs:
           fi
 
       - name: Checkout cronsole-registry (publish target)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: michaelschecht/cronsole-registry
           ssh-key: ${{ secrets.REGISTRY_DEPLOY_KEY }}

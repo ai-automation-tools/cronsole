@@ -165,7 +165,7 @@ services:
 
   tunnel:
     profiles: ["remote"]
-    image: cloudflare/cloudflared:2025.8.1
+    image: cloudflare/cloudflared:2025.11.1
     restart: unless-stopped
     # --no-autoupdate: an unattended binary swap under a process that is the only
     # route to your machine is not a thing to do silently. Update by changing the

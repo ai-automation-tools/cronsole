@@ -44,7 +44,7 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.2",
-    "js-yaml": "^4.3.1",
+    "js-yaml": "^5.4.2",
     "jsonwebtoken": "^9.0.3",
     "jszip": "^3.10.1",
     "socket.io": "^4.8.3",

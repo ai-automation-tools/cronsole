@@ -27,27 +27,27 @@
     "@types/js-yaml": "^4.0.9",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.9.1",
-    "@types/supertest": "^7.2.0",
+    "@types/supertest": "^7.2.1",
     "@vitest/coverage-v8": "^4.1.8",
     "prisma": "6.19.3",
-    "supertest": "^7.2.2",
-    "tsx": "^4.23.0",
+    "supertest": "^7.3.0",
+    "tsx": "^4.23.15",
     "typescript": "^6.0.3",
     "vitest": "^4.1.11"
   },
   "dependencies": {
     "@prisma/client": "6.19.3",
-    "axios": "^1.16.1",
+    "axios": "^1.20.0",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
-    "cron-parser": "^5.6.1",
+    "cron-parser": "^5.10.1",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "express-rate-limit": "^8.5.2",
+    "express-rate-limit": "^8.7.0",
     "js-yaml": "^4.3.1",
     "jsonwebtoken": "^9.0.3",
-    "jszip": "^3.10.1",
-    "socket.io": "^4.8.3",
-    "zod": "^4.4.3"
+    "jszip": "^3.10.2",
+    "socket.io": "^4.8.4",
+    "zod": "^4.6.5"
   }
 }

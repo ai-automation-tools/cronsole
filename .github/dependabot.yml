@@ -1,0 +1,31 @@
+# Dependency updates. Minor/patch bumps arrive as one grouped PR per ecosystem per week;
+# majors get their own PR. Semantic upstream drift (the sources' APIs) is the Cronsole
+# Upstream Check routine's job -- see docs/UPSTREAMS.md.
+# Prisma is pinned exactly on purpose; a Prisma PR needs a migration check before merge.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directories: ["/backend", "/frontend", "/mcp-server", "/agent/test-server"]
+    schedule: { interval: weekly, day: monday }
+    open-pull-requests-limit: 8
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+  - package-ecosystem: nuget
+    directory: "/agent"
+    schedule: { interval: weekly, day: monday }
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+  - package-ecosystem: docker
+    directories: ["/backend", "/frontend"]
+    schedule: { interval: weekly, day: monday }
+  - package-ecosystem: docker-compose
+    directory: "/"
+    schedule: { interval: weekly, day: monday }
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule: { interval: weekly, day: monday }
+    groups:
+      actions:
+        patterns: ["*"]

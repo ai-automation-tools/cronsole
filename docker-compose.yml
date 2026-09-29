@@ -134,7 +134,7 @@ services:
   # Neither starts on a plain `docker compose up -d`.
   proxy:
     profiles: ["proxy", "remote"]
-    image: caddy:2.10-alpine
+    image: caddy:2.11-alpine
     restart: unless-stopped
     volumes:
       - ./proxy/Caddyfile:/etc/caddy/Caddyfile:ro

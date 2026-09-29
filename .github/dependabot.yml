@@ -1,5 +1,7 @@
 # Dependency updates. Minor/patch bumps arrive as one grouped PR per ecosystem per week;
-# majors get their own PR. Semantic upstream drift (the sources' APIs) is the Cronsole
+# major versions are ignored (2026-09-29): the biweekly upstream check flags a major that
+# breaks something, and Dependabot security alerts still fire for any version.
+# Semantic upstream drift (the sources' APIs) is the Cronsole
 # Upstream Check routine's job -- see docs/UPSTREAMS.md.
 # Prisma is pinned exactly on purpose; a Prisma PR needs a migration check before merge.
 version: 2
@@ -7,6 +9,9 @@ updates:
   - package-ecosystem: npm
     directories: ["/backend", "/frontend", "/mcp-server", "/agent/test-server"]
     schedule: { interval: weekly, day: monday }
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     open-pull-requests-limit: 8
     groups:
       minor-and-patch:
@@ -14,18 +19,30 @@ updates:
   - package-ecosystem: nuget
     directory: "/agent"
     schedule: { interval: weekly, day: monday }
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       minor-and-patch:
         update-types: [minor, patch]
   - package-ecosystem: docker
     directories: ["/backend", "/frontend"]
     schedule: { interval: weekly, day: monday }
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: docker-compose
     directory: "/"
     schedule: { interval: weekly, day: monday }
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: "/"
     schedule: { interval: weekly, day: monday }
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       actions:
         patterns: ["*"]

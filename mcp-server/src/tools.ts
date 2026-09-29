@@ -2359,10 +2359,12 @@ Next run: ${task.nextRunTime}` : '')
         'stop existing. ' +
         'Reversible: importing that category again in the Cronsole UI starts tracking the task once more. ' +
         'Not available for TASKHUB_NATIVE tasks, which exist only inside Cronsole and therefore have nothing to ' +
-        'be kept — disable or delete those instead. Not available for CLAUDE_CODE tasks either, for the same ' +
-        'reason one level over: a Claude task exists because the routine is declared in the connection config, ' +
-        'so removing the row leaves the declaration and the next sync brings it back — use ' +
-        'disconnect_claude_routine, which removes both.',
+        'be kept — disable or delete those instead. Refused for a CLAUDE_CODE task whose routine is DECLARED in ' +
+        'the connection config (added via connect_claude_routine), for the same reason one level over: removing ' +
+        'the row would leave the declaration in place and the next sync would bring it back — use ' +
+        'disconnect_claude_routine there, which removes both. A CLAUDE_CODE task discovered through an OAuth ' +
+        'session (not declared anywhere) has no such declaration to leave behind, so this tool works on it ' +
+        'normally.',
       inputSchema: {
         taskId: z.string().describe('The Cronsole task id (from list_tasks).')
       }
@@ -2791,9 +2793,10 @@ Next run: ${task.nextRunTime}` : '')
         'because claude.ai shows a token once. Re-connecting later means generating a new token there (which ' +
         'also revokes any other copy of the old one). ' +
         'Tracked tasks pointing at the routine are removed with it, and the count is reported back. That is not ' +
-        'incidental cleanup — it is why this tool exists: a Claude task is tracked BECAUSE the routine is ' +
-        'declared here, so untrack_task refuses for this platform and this is the only way to take one off the ' +
-        'dashboard.',
+        'incidental cleanup — it is why this tool exists: a Claude task tracked because the routine is declared ' +
+        'here has untrack_task refuse for it, and this is the only way to take one off the dashboard. Only ' +
+        'declared routines can be disconnected this way — a CLAUDE_CODE task discovered through an OAuth ' +
+        'session was never declared here, so untrack_task (not this tool) is what removes it.',
       inputSchema: {
         routineId: z.string().min(1).describe('The trig_… id (from list_claude_routines).')
       }

@@ -20,6 +20,7 @@ import {
   TaskSecretError
 } from '../services/taskSecrets.js';
 import { queueRunNotification } from '../services/FailureNotificationService.js';
+import { readRoutines } from '../services/claudeRoutines.js';
 import { computeNextRun } from '../utils/cron-next.js';
 import { convertCronToWindowsTrigger, WindowsTrigger } from '../utils/scheduler-conversion.js';
 import { toStructuredAction } from '../utils/commandParser.js';
@@ -1548,7 +1549,12 @@ router.post('/:id/untrack', async (req: Request, res: Response) => {
   }
 
   // Claude is the same refusal one platform over, and it is worth spelling out
-  // because the mechanism looks like Windows and is not.
+  // because the mechanism looks like Windows and is not — but only when the
+  // routine is **declared**. `ClaudeConnector.syncTasks` also returns routines
+  // discovered through a readable Claude Code session (OAuth mode), which have
+  // no entry in `PlatformConnection.config` to fence against. For those the
+  // reasoning below does not apply — there is no declaration to come back from —
+  // so untrack falls through to the normal path instead of refusing.
   //
   // `ClaudeConnector.syncTasks` returns the routines the user **declared** — the
   // registry inside `PlatformConnection.config` IS the platform here. So the
@@ -1565,13 +1571,25 @@ router.post('/:id/untrack', async (req: Request, res: Response) => {
   // spend something that costs a regeneration at Anthropic to replace. The
   // routine control says so in its own confirmation; this one points at it.
   if (task.platform === PlatformType.CLAUDE_CODE) {
-    throw new HttpError(
-      400,
-      'A Claude routine is tracked because you declared it, so this row is not the thing to remove — ' +
-      'the routine would still be in the Claude connection and the next sync would bring it back. ' +
-      'Remove the routine itself under Platforms → Claude, which also forgets its API token. ' +
-      'The routine keeps running at claude.ai either way.'
+    const connection = await prisma.platformConnection.findUnique({
+      where: { userId_platform: { userId, platform: PlatformType.CLAUDE_CODE } }
+    });
+    const declared = readRoutines(deserializeConfig(connection?.config)).some(
+      r => r.id === task.externalId
     );
+    if (declared) {
+      throw new HttpError(
+        400,
+        'A Claude routine is tracked because you declared it, so this row is not the thing to remove — ' +
+        'the routine would still be in the Claude connection and the next sync would bring it back. ' +
+        'Remove the routine itself under Platforms → Claude (or disconnect_claude_routine over MCP), which ' +
+        'also forgets its API token. The routine keeps running at claude.ai either way.'
+      );
+    }
+    // Undeclared: discovered via an OAuth session with nothing in config to
+    // remove it from. Untrack here behaves like any other platform's — it
+    // stops tracking the row and excludes it from the next sync, without
+    // touching the routine at claude.ai.
   }
 
   await prisma.$transaction([

@@ -21,6 +21,20 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Fixed
 
+- **A `MISSING` Claude row could not be removed by anything** (2026-09-25). `untrack_task`
+  (`POST /tasks/:id/untrack`) refused every `CLAUDE_CODE` task unconditionally, on the assumption
+  that a Claude row always exists because its routine is **declared** in
+  `PlatformConnection.config` — true of a routine added through `connect_claude_routine`, where
+  untracking alone would just have the next sync bring it back ([#47](troubleshooting/README.md#47-a-claude-task-keeps-coming-back-after-remove-from-cronsole)).
+  It stopped being true of every Claude row once OAuth mode started tracking routines read straight
+  off the account, with nothing written into `config.routines` — so a row whose routine was later
+  deleted at claude.ai went `MISSING` and stayed forever: `untrack_task` 400s, `disconnect_claude_routine`
+  404s (nothing declared to disconnect), and `delete_task` refuses every platform but
+  `TASKHUB_NATIVE`. Untrack now checks whether the routine is actually declared before refusing; an
+  undeclared row untracks like any other platform's. The `untrack_task` / `disconnect_claude_routine`
+  refusal messages, which pointed at each other without ever naming the tool that actually works,
+  now name it explicitly. See [#94](troubleshooting/README.md#94-a-missing-claude-row-survives-untrack-disconnect-and-delete).
+
 - **The demo was live and linked from nowhere** (2026-09-13). It is now the first thing the front
   door offers (**Try the demo**, beside *Browse templates*), a badge and a link in the README, and
   the opening line of the docs index — a demo a visitor cannot find is worth what an unpublished one
@@ -50,6 +64,15 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
   shared link takes.
 
 ### Added
+
+- **Five new extended templates** (2026-09-24): **Rotate & Compress Log Files (Cronsole)** gives the
+  native pack its first `cleanup`-category entry — gzip logs past a cutoff and delete archives past a
+  longer retention window, rather than only deleting outright. **Routine: License Compliance Check**
+  and **Routine: Stale Branch Sweep** join the Claude Routines pack, flagging unapproved dependency
+  licenses and branches with no recent commits. **Trigger: Weekly Digest to Slack** gives the thin
+  Gemini Triggers pack a chat-channel alternative to the existing email digest. **Export Installed
+  Software Inventory** fills a gap in the Windows extended pack — no prior template listed installed
+  programs for an audit. None are `core`.
 
 - **A sync flags a MISSING batch concentrated in one folder** (2026-09-18). Carved out of
   [#74](troubleshooting/README.md#74-dozens-of-windows-tasks-go-missing-in-one-sync-and-the-agent-is-healthy):

@@ -34,14 +34,14 @@ describe('bundled catalog snapshot', () => {
     }
   });
 
-  it('has the expected shape: 102 templates (4 patterns + 11 dev + 7 ai + 20 starters + 32 extended + 8 native + 11 native scripts&checks + 6 claude routines + 3 gemini triggers)', () => {
-    expect(bundledCatalog).toHaveLength(102);
+  it('has the expected shape: 107 templates (4 patterns + 11 dev + 7 ai + 20 starters + 33 extended + 8 native + 12 native scripts&checks + 8 claude routines + 4 gemini triggers)', () => {
+    expect(bundledCatalog).toHaveLength(107);
     expect(bundledCatalog.filter((t) => t.isStarter)).toHaveLength(24);
     expect(bundledCatalog.filter((t) => t.id.startsWith('dev-'))).toHaveLength(11);
     expect(bundledCatalog.filter((t) => t.id.startsWith('ai-'))).toHaveLength(7);
-    expect(bundledCatalog.filter((t) => t.id.startsWith('native-'))).toHaveLength(19);
-    expect(bundledCatalog.filter((t) => t.id.startsWith('claude-routine-'))).toHaveLength(6);
-    expect(bundledCatalog.filter((t) => t.id.startsWith('gemini-'))).toHaveLength(3);
+    expect(bundledCatalog.filter((t) => t.id.startsWith('native-'))).toHaveLength(20);
+    expect(bundledCatalog.filter((t) => t.id.startsWith('claude-routine-'))).toHaveLength(8);
+    expect(bundledCatalog.filter((t) => t.id.startsWith('gemini-'))).toHaveLength(4);
   });
 
   it('Cronsole-native is a real target — the pack that was missing until 2026-08-13', () => {
@@ -105,7 +105,7 @@ describe('bundled catalog snapshot', () => {
     // first template in the catalog that is guaranteed to work on a fresh
     // install rather than merely applicable to one.
     expect(core).toHaveLength(10);
-    expect(extended).toHaveLength(92);
+    expect(extended).toHaveLength(97);
     expect(core.length).toBeLessThan(bundledCatalog.length); // registry > default
     // Extended Pack templates use the ext-namespace prefixes and are never core.
     for (const t of bundledCatalog.filter((x) => /^(bkp|cln|sys|mon|data|ntf)-/.test(x.id))) {
@@ -270,10 +270,10 @@ describe('normalizeTemplate -> Prisma shape', () => {
 });
 
 describe('BundledCatalogSource', () => {
-  it('lists all 102 normalized templates', async () => {
+  it('lists all 107 normalized templates', async () => {
     const src = new BundledCatalogSource();
     const list = await src.list();
-    expect(list).toHaveLength(102);
+    expect(list).toHaveLength(107);
     expect(src.name).toBe('bundled');
   });
 });

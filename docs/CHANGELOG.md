@@ -12,6 +12,13 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
+### Added
+
+- **`docs/UPSTREAMS.md`** (2026-09-29): every platform, protocol, library and host Cronsole
+  depends on, what the code assumes about each, and where to check it. It is the worklist for
+  the biweekly **Cronsole Upstream Check** routine (`upstream/auto-*` PRs), which catches drift
+  in the sources before a connector breaks silently.
+
 ### Fixed
 
 - **A `MISSING` Claude row could not be removed by anything** (2026-09-25). `untrack_task`

@@ -182,7 +182,8 @@ export const bundledPacks: BundledPack[] = [
       'native-image-resize',
       'native-script-docker-restart-unhealthy',
       'native-script-http-response-time',
-      'native-script-folder-size-check'
+      'native-script-folder-size-check',
+      'native-script-log-rotate'
     ]
   },
   {
@@ -205,6 +206,8 @@ export const bundledPacks: BundledPack[] = [
       'claude-routine-docs-drift',
       'claude-routine-standup-digest',
       'claude-routine-release-notes',
+      'claude-routine-license-compliance',
+      'claude-routine-stale-branch-sweep',
       'tpl_starter_claude_routine'
     ]
   },
@@ -224,7 +227,8 @@ export const bundledPacks: BundledPack[] = [
     templateIds: [
       'gemini-daily-email-digest',
       'gemini-weekly-repo-report',
-      'gemini-page-watch'
+      'gemini-page-watch',
+      'gemini-weekly-slack-digest'
     ]
   },
   {
@@ -257,7 +261,8 @@ export const bundledPacks: BundledPack[] = [
       'sys-certbot-renew',
       'sys-process-watchdog',
       'sys-macos-update-check',
-      'data-rsync-folder-sync'
+      'data-rsync-folder-sync',
+      'sys-installed-software-inventory'
     ]
   }
 ];

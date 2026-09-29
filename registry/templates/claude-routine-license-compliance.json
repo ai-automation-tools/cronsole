@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "1.0",
+  "id": "claude-routine-license-compliance",
+  "name": "Routine: License Compliance Check",
+  "description": "A routine that reviews the licenses of dependencies added or changed in a repository and flags anything copyleft, unapproved, or missing a license entirely, so a legal problem is caught before it ships rather than during an audit.",
+  "runtime": "ai-prompt",
+  "os": "cross-platform",
+  "category": "dev-workflow",
+  "tags": [
+    "ai",
+    "claude-code",
+    "routine",
+    "dependencies",
+    "compliance"
+  ],
+  "icon": "Scale",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 15 * * 3"
+  },
+  "commandTemplate": "Review the dependencies added or changed in {{repo}} since your last run. For each one, identify its license. Treat {{approvedLicenses}} as pre-approved and flag anything outside that list, anything copyleft, and anything missing a license entirely. Group the findings into clear, flagged, and needs review. Report only — do not modify the lockfile or remove a dependency.",
+  "parameters": [
+    {
+      "key": "repo",
+      "label": "Repository",
+      "type": "text",
+      "default": "",
+      "required": true,
+      "help": "The owner/name of the repository to review. Attach the same repository to the routine so it has a checkout."
+    },
+    {
+      "key": "approvedLicenses",
+      "label": "Approved licenses",
+      "type": "text",
+      "default": "MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC",
+      "required": true,
+      "help": "Comma-separated list of licenses that need no review. Anything outside this list is flagged."
+    }
+  ],
+  "compatibleTargets": [
+    "claude-code"
+  ]
+}

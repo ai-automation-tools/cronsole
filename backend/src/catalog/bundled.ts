@@ -1481,6 +1481,73 @@ const extendedPack: RegistryTemplate[] = [
       { key: 'outFile', label: 'Output CSV path', type: 'path', default: 'C:\\reports\\installed-software.csv', required: true, help: 'Where to write the inventory. Export-Csv overwrites this file on every run.' }
     ],
     compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'mon-physical-disk-health',
+    name: 'Log Physical Disk Health (Windows)',
+    description: 'Append each physical disk\u2019s health and operational status to a log file on a schedule, so a drive that starts reporting Warning or Unhealthy leaves a record before it fails outright.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'monitoring',
+    tags: ['monitoring', 'windows', 'disk', 'health'],
+    icon: 'HardDrive',
+    trigger: sched('0 6 * * *'),
+    commandTemplate: 'powershell.exe -NoProfile -Command "Get-PhysicalDisk | Select-Object FriendlyName, MediaType, HealthStatus, OperationalStatus | Format-Table -AutoSize | Out-File -Append \'{{logPath}}\'"',
+    parameters: [
+      { key: 'logPath', label: 'Log file path', type: 'path', default: 'C:\\logs\\disk-health.log', required: true, help: 'Where to append the disk health snapshot. This reports what Windows already knows about each drive; it is not a full SMART analysis.' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'sys-windows-time-resync',
+    name: 'Resync Windows Clock',
+    description: 'Ask the Windows Time service to resynchronize with its configured time source on a schedule, so a machine that drifts, such as a laptop that sleeps often, keeps its clock accurate for certificates and logins.',
+    runtime: 'executable',
+    os: 'windows',
+    category: 'system',
+    tags: ['system', 'windows', 'time', 'ntp'],
+    icon: 'Clock',
+    trigger: sched('0 */6 * * *'),
+    commandTemplate: 'w32tm /resync',
+    parameters: [],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'mon-macos-time-machine-status',
+    name: 'Log Latest Time Machine Backup (macOS)',
+    description: 'Write the location of the most recent Time Machine backup to a log file on a schedule, so a backup disk that quietly stopped being written to shows up as a stale entry instead of going unnoticed.',
+    runtime: 'bash',
+    os: 'macos',
+    category: 'monitoring',
+    tags: ['monitoring', 'macos', 'backup', 'time-machine'],
+    icon: 'History',
+    trigger: sched('0 9 * * *'),
+    commandTemplate: '/bin/bash -c "tmutil latestbackup >> {{logPath}} 2>&1"',
+    parameters: [
+      { key: 'logPath', label: 'Log file path', type: 'path', default: '/usr/local/var/log/time-machine.log', required: true, help: 'Where to append the latest backup path. The command fails when no backup exists or the disk is not mounted, which is the signal worth noticing. The job may need Full Disk Access.' }
+    ],
+    compatibleTargets: ['macos']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'bkp-sqlite-backup',
+    name: 'Back Up a SQLite Database',
+    description: 'Make a consistent copy of a SQLite database with its built-in backup command on a schedule, which is safe to run while an application is using the database, unlike copying the file directly.',
+    runtime: 'executable',
+    os: 'cross-platform',
+    category: 'backup',
+    tags: ['backup', 'database', 'sqlite'],
+    icon: 'Database',
+    trigger: sched('30 2 * * *'),
+    commandTemplate: 'sqlite3 {{dbPath}} .backup {{backupPath}}',
+    parameters: [
+      { key: 'dbPath', label: 'Database file path', type: 'path', default: '', required: true, help: 'Absolute path to the SQLite database file to back up. The sqlite3 command-line tool must be installed and on the PATH.' },
+      { key: 'backupPath', label: 'Backup file path', type: 'path', default: '', required: true, help: 'Absolute path of the backup file to write. It is overwritten on every run, so point it at a dated name or rotate it separately if you want history. Avoid spaces in both paths.' }
+    ],
+    compatibleTargets: ['windows', 'macos']
   }
 ];
 

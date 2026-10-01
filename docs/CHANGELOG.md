@@ -14,6 +14,9 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **Four extended templates** (2026-10-01): `mon-physical-disk-health`, `sys-windows-time-resync`,
+  `mon-macos-time-machine-status` and `bkp-sqlite-backup`, joining the Monitoring, System & Utilities
+  and Backup & Cleanup packs.
 - **`docs/UPSTREAMS.md`** (2026-09-29): every platform, protocol, library and host Cronsole
   depends on, what the code assumes about each, and where to check it. It is the worklist for
   the biweekly **Cronsole Upstream Check** routine (`upstream/auto-*` PRs), which catches drift

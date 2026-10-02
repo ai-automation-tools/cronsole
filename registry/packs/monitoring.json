@@ -244,6 +244,74 @@
     },
     {
       "schemaVersion": "1.0",
+      "id": "mon-physical-disk-health",
+      "name": "Log Physical Disk Health (Windows)",
+      "description": "Append each physical disk’s health and operational status to a log file on a schedule, so a drive that starts reporting Warning or Unhealthy leaves a record before it fails outright.",
+      "runtime": "powershell",
+      "os": "windows",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "disk",
+        "health"
+      ],
+      "icon": "HardDrive",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 6 * * *"
+      },
+      "commandTemplate": "powershell.exe -NoProfile -Command \"Get-PhysicalDisk | Select-Object FriendlyName, MediaType, HealthStatus, OperationalStatus | Format-Table -AutoSize | Out-File -Append '{{logPath}}'\"",
+      "parameters": [
+        {
+          "key": "logPath",
+          "label": "Log file path",
+          "type": "path",
+          "default": "C:\\logs\\disk-health.log",
+          "required": true,
+          "help": "Where to append the disk health snapshot. This reports what Windows already knows about each drive; it is not a full SMART analysis."
+        }
+      ],
+      "compatibleTargets": [
+        "windows"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "mon-macos-time-machine-status",
+      "name": "Log Latest Time Machine Backup (macOS)",
+      "description": "Write the location of the most recent Time Machine backup to a log file on a schedule, so a backup disk that quietly stopped being written to shows up as a stale entry instead of going unnoticed.",
+      "runtime": "bash",
+      "os": "macos",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "macos",
+        "backup",
+        "time-machine"
+      ],
+      "icon": "History",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 9 * * *"
+      },
+      "commandTemplate": "/bin/bash -c \"tmutil latestbackup >> {{logPath}} 2>&1\"",
+      "parameters": [
+        {
+          "key": "logPath",
+          "label": "Log file path",
+          "type": "path",
+          "default": "/usr/local/var/log/time-machine.log",
+          "required": true,
+          "help": "Where to append the latest backup path. The command fails when no backup exists or the disk is not mounted, which is the signal worth noticing. The job may need Full Disk Access."
+        }
+      ],
+      "compatibleTargets": [
+        "macos"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
       "id": "dev-docker-compose-up",
       "name": "Docker Compose Self-Heal",
       "description": "Re-run docker compose up on an interval so a dev stack restarts itself if it stops (the pattern Cronsole uses for its own stack).",

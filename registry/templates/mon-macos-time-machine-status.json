@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "1.0",
+  "id": "mon-macos-time-machine-status",
+  "name": "Log Latest Time Machine Backup (macOS)",
+  "description": "Write the location of the most recent Time Machine backup to a log file on a schedule, so a backup disk that quietly stopped being written to shows up as a stale entry instead of going unnoticed.",
+  "runtime": "bash",
+  "os": "macos",
+  "category": "monitoring",
+  "tags": [
+    "monitoring",
+    "macos",
+    "backup",
+    "time-machine"
+  ],
+  "icon": "History",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 9 * * *"
+  },
+  "commandTemplate": "/bin/bash -c \"tmutil latestbackup >> {{logPath}} 2>&1\"",
+  "parameters": [
+    {
+      "key": "logPath",
+      "label": "Log file path",
+      "type": "path",
+      "default": "/usr/local/var/log/time-machine.log",
+      "required": true,
+      "help": "Where to append the latest backup path. The command fails when no backup exists or the disk is not mounted, which is the signal worth noticing. The job may need Full Disk Access."
+    }
+  ],
+  "compatibleTargets": [
+    "macos"
+  ]
+}

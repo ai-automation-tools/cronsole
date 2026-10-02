@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "1.0",
+  "id": "sys-windows-time-resync",
+  "name": "Resync Windows Clock",
+  "description": "Ask the Windows Time service to resynchronize with its configured time source on a schedule, so a machine that drifts, such as a laptop that sleeps often, keeps its clock accurate for certificates and logins.",
+  "runtime": "executable",
+  "os": "windows",
+  "category": "system",
+  "tags": [
+    "system",
+    "windows",
+    "time",
+    "ntp"
+  ],
+  "icon": "Clock",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 */6 * * *"
+  },
+  "commandTemplate": "w32tm /resync",
+  "parameters": [],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

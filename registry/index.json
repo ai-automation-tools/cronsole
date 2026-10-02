@@ -1,6 +1,6 @@
 {
   "registryVersion": "1.0",
-  "updatedAt": "2026-09-27T22:05:50.189Z",
+  "updatedAt": "2026-10-01T14:07:42.581Z",
   "templates": [
     {
       "id": "tpl_daily_database_backup",
@@ -1446,6 +1446,82 @@
       "sha256": "142dd320971386addf1965020cd9c889c8077675eef419d465da829ce19ced8e"
     },
     {
+      "id": "mon-physical-disk-health",
+      "name": "Log Physical Disk Health (Windows)",
+      "description": "Append each physical disk’s health and operational status to a log file on a schedule, so a drive that starts reporting Warning or Unhealthy leaves a record before it fails outright.",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "disk",
+        "health"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/mon-physical-disk-health.json",
+      "sha256": "da3bf142d2bd680d13fd90eab36de04fdc1674c073f96af161f566c8d8096c1e"
+    },
+    {
+      "id": "sys-windows-time-resync",
+      "name": "Resync Windows Clock",
+      "description": "Ask the Windows Time service to resynchronize with its configured time source on a schedule, so a machine that drifts, such as a laptop that sleeps often, keeps its clock accurate for certificates and logins.",
+      "category": "system",
+      "tags": [
+        "system",
+        "windows",
+        "time",
+        "ntp"
+      ],
+      "runtime": "executable",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/sys-windows-time-resync.json",
+      "sha256": "fe9b5137e635ac5648b90d66594da5bc7780b7659ae240cd9e568aaf7c974a1d"
+    },
+    {
+      "id": "mon-macos-time-machine-status",
+      "name": "Log Latest Time Machine Backup (macOS)",
+      "description": "Write the location of the most recent Time Machine backup to a log file on a schedule, so a backup disk that quietly stopped being written to shows up as a stale entry instead of going unnoticed.",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "macos",
+        "backup",
+        "time-machine"
+      ],
+      "runtime": "bash",
+      "os": "macos",
+      "compatibleTargets": [
+        "macos"
+      ],
+      "path": "templates/mon-macos-time-machine-status.json",
+      "sha256": "cbd3bb9fd3415aa602c6436a7ed41e9656b647e6f4197c589bc7fc9d6b9264e6"
+    },
+    {
+      "id": "bkp-sqlite-backup",
+      "name": "Back Up a SQLite Database",
+      "description": "Make a consistent copy of a SQLite database with its built-in backup command on a schedule, which is safe to run while an application is using the database, unlike copying the file directly.",
+      "category": "backup",
+      "tags": [
+        "backup",
+        "database",
+        "sqlite"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ],
+      "path": "templates/bkp-sqlite-backup.json",
+      "sha256": "f9316014cb6587e4f2af5e8d4a92502d188033c303790fb7af0da4238c47a699"
+    },
+    {
       "id": "native-run-program",
       "name": "Run a Program (Cronsole)",
       "description": "Run any executable with arguments on the machine hosting Cronsole — no agent, no Task Scheduler entry. Cronsole schedules and runs it itself.",
@@ -2156,6 +2232,7 @@
         "bkp-folder-zip",
         "bkp-robocopy-mirror",
         "bkp-registry-export",
+        "bkp-sqlite-backup",
         "bkp-system-restore-point",
         "cln-old-files",
         "cln-recycle-bin",
@@ -2164,7 +2241,7 @@
         "sys-postgres-vacuum"
       ],
       "path": "packs/backup-cleanup.json",
-      "sha256": "efa5c2f7e781d5473a4f56e4bd398bc2edd2a6c2665479cca4aed61d3b1c57a7"
+      "sha256": "c21a156b3fecd7c5599d5e1f4bdffe9f4f8bfcf0cb51589fb78d6de4a201400f"
     },
     {
       "id": "monitoring",
@@ -2177,12 +2254,14 @@
         "mon-log-error-scan",
         "mon-failed-scheduled-tasks",
         "mon-top-processes",
+        "mon-physical-disk-health",
+        "mon-macos-time-machine-status",
         "dev-docker-compose-up",
         "tpl_starter_webhook_windows",
         "tpl_starter_webhook_macos"
       ],
       "path": "packs/monitoring.json",
-      "sha256": "6e94520a62acb8e1896634cf836b1a48b644bc0a6faf0d3e64730983997481f3"
+      "sha256": "ef493d86332e12de1872d9448f4b81c1a1471fa44c477855d7271b4ec2eac76d"
     },
     {
       "id": "cronsole-native",
@@ -2268,10 +2347,11 @@
         "sys-process-watchdog",
         "sys-macos-update-check",
         "data-rsync-folder-sync",
-        "sys-installed-software-inventory"
+        "sys-installed-software-inventory",
+        "sys-windows-time-resync"
       ],
       "path": "packs/system-utilities.json",
-      "sha256": "e0acb5337e0dc7d7fd1acccb57d8a1db449bcfc0e71e08d4d8bd92fc055c6bb0"
+      "sha256": "476e5807ea79d68c5e1443c8daacc397762ba7562177eddcacf40aaf7ea25fdb"
     }
   ]
 }

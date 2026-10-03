@@ -2024,7 +2024,15 @@ Next run: ${task.nextRunTime}` : '')
         const task = await client.patch<
           TaskRow & { conversion?: { warnings?: string[]; lossy?: 'approximated' | 'replaced' } }
         >(`/tasks/${encodeURIComponent(taskId)}/schedule`, { schedule });
-        const next = task.nextRunTime ? `\nNext run: ${task.nextRunTime}` : '';
+        // Cronsole owns the native scheduler, so its next run is the real one. On every
+        // other platform the backend computed this from the cron; the platform's own
+        // value (jitter, the Windows trigger) only lands on the next sync (#42's shape:
+        // a timestamp must name the event that produced it).
+        const next = task.nextRunTime
+          ? task.platform === 'TASKHUB_NATIVE'
+            ? `\nNext run: ${task.nextRunTime}`
+            : `\nNext run (computed by Cronsole from the cron, not reported by ${task.platform} — its own value arrives on the next sync): ${task.nextRunTime}`
+          : '';
         // Same rule as create_task: a lossy conversion is reported at the volume
         // of the success, because the task now runs on a schedule nobody asked
         // for. Reachable on THIS route only since the converter stopped rating a

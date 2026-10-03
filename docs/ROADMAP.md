@@ -38,14 +38,14 @@ the CHANGELOG's *Roadmap narrative archive* appendices.)
 | **Sources** | 🟡 6 of ~9 built | Gemini usability *(A–C done, D–E open)* · POSIX agent (the big one) · Supabase observer |
 | **Go-public** | 🟢 **shipped 2026-09-13** | [**The repo is public.**](https://github.com/ai-automation-tools/cronsole) Anonymous clone verified, and branch protection plus the GitHub-owned-actions policy re-checked *after* the flip rather than assumed — a visibility change is exactly the event that silently drops them. The pre-flight scanned all 767 tracked files with the repo's own patterns and found nothing new. The whole checklist, reasons included, is in [Part II](#completed--go-public); what outlived it is [Post-launch](#post-launch). **Cancelled along the way, not deferred:** code signing, installers, and error tracking — Cronsole ships as source and phones home to nobody |
 
-**Leading the queue as of 2026-09-25:** the [2026-08-13 follow-ups](#follow-ups-2026-08-13) — the
+**Leading the queue as of 2026-10-02:** the [2026-08-13 follow-ups](#follow-ups-2026-08-13) — the
 worst two of the unfixed remainder shipped 2026-09-25: **a `MISSING` Claude row could not be removed
 by anything**, because `untrack_task` 400s for `CLAUDE_CODE` assumed every Claude row was *declared*
 in the connection config, but OAuth mode tracks rows that never are, so `disconnect_claude_routine`
 had nothing to reach either — fixed by checking whether the routine is actually declared before
 refusing (see
 [#94](troubleshooting/README.md#94-a-missing-claude-row-survives-untrack-disconnect-and-delete)) —
-and the two refusal messages that pointed at each other without naming the way out now do. Three
+and the two refusal messages that pointed at each other without naming the way out now do. Two
 smaller items remain open in that block. Alongside it, [periodic sync](#import-sync-split) is the
 one remaining item of its own block and the larger build.
 *(The [**Gemini usability**](#gemini-usability) block led this queue from 2026-08-25 and closed
@@ -448,7 +448,10 @@ of that list which have since shipped are in Part II.
       case where a token exists to forget) and needed no change.
 - [>] **`list_platforms`' MCP tool description was stale** — fixed 2026-08-24 alongside the
       `access` field, see [Part II](#shipped-2026-08-24--source-onboarding).
-- [ ] **`update_task_schedule` echoes a next-run time it computed** — the immediate response
+- [x] **`update_task_schedule` echoes a next-run time it computed** — **shipped 2026-10-02**. The
+      MCP line now reads *"Next run (computed by Cronsole from the cron, not reported by
+      `<platform>` …)"* for every platform but Cronsole-native, whose scheduler Cronsole owns. The
+      REST response is unchanged. Original finding: the immediate response
       carries `computeNextRun(cron)` while the platform's real value (Anthropic's jitter, Windows'
       trigger) only lands on the next sync. Storage converges, so this is the response shape only —
       but it is the [#42](troubleshooting/README.md#42-the-dashboard-says-synced-7m-ago-over-a-task-list-from-yesterday)

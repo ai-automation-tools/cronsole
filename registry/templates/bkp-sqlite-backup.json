@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "id": "bkp-sqlite-backup",
+  "name": "Back Up a SQLite Database",
+  "description": "Make a consistent copy of a SQLite database with its built-in backup command on a schedule, which is safe to run while an application is using the database, unlike copying the file directly.",
+  "runtime": "executable",
+  "os": "cross-platform",
+  "category": "backup",
+  "tags": [
+    "backup",
+    "database",
+    "sqlite"
+  ],
+  "icon": "Database",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "30 2 * * *"
+  },
+  "commandTemplate": "sqlite3 {{dbPath}} .backup {{backupPath}}",
+  "parameters": [
+    {
+      "key": "dbPath",
+      "label": "Database file path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Absolute path to the SQLite database file to back up. The sqlite3 command-line tool must be installed and on the PATH."
+    },
+    {
+      "key": "backupPath",
+      "label": "Backup file path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Absolute path of the backup file to write. It is overwritten on every run, so point it at a dated name or rotate it separately if you want history. Avoid spaces in both paths."
+    }
+  ],
+  "compatibleTargets": [
+    "windows",
+    "macos"
+  ]
+}

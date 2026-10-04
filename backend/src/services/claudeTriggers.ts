@@ -211,7 +211,12 @@ async function call<T>(
 export async function listTriggers(token: string): Promise<TriggerResult<ClaudeTrigger[]>> {
   const result = await call<{ data?: ClaudeTrigger[] }>('get', '/v1/code/triggers', token);
   if (!result.ok) return result;
-  return { ok: true, data: Array.isArray(result.data?.data) ? result.data.data : [] };
+  // A body without the array is not "no routines" — the sync treats an ok
+  // listing as complete and retires every routine absent from it.
+  if (!Array.isArray(result.data?.data)) {
+    return { ok: false, message: 'Unexpected response shape from /v1/code/triggers.', surfaceMoved: true };
+  }
+  return { ok: true, data: result.data.data };
 }
 
 export async function getTrigger(token: string, id: string): Promise<TriggerResult<ClaudeTrigger>> {

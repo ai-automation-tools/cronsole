@@ -24,6 +24,11 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Fixed
 
+- **Deleting every Claude routine left them all `ACTIVE` in Cronsole** (2026-10-04). Sync skipped
+  missing-task reconciliation on any empty listing, so removing your *last* routine at claude.ai was
+  never noticed. A connector can now vouch that an empty listing is real (`SyncOutcome.complete`),
+  and Claude's OAuth read does — the rows go `MISSING` on the next sync ([#95](troubleshooting/README.md#95-every-claude-routine-was-deleted-and-cronsole-still-shows-them-active)).
+
 - **`update_task_schedule` no longer presents a time it computed as one the platform reported**
   (2026-10-02). The response's `Next run:` came from `computeNextRun(cron)` on every platform, while
   the platform's real value (Anthropic's jitter, the Windows trigger) only lands on the next sync —

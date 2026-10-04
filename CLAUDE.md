@@ -319,6 +319,13 @@ Non-negotiable rules. **Every one has a reason recorded in
   A truncated listing or one unreadable repository is a *narrowed reader*, not an emptier platform,
   so `reconcileMissingTasks` is skipped for that pass. The 50%-retention guard does not cover it:
   100 of 140 looks plausible, which is what makes a partial view worse than an empty one.
+- **`complete` is `partial`'s mirror: an empty listing retires everything only when the connector
+  vouches for it.** The route never reconciles on `[]` by default — an offline agent or a failed
+  read also returns nothing — so deleting a source's *last* task was never noticed and every row
+  stayed `ACTIVE` ([#95](docs/troubleshooting/README.md#95-every-claude-routine-was-deleted-and-cronsole-still-shows-them-active)).
+  `SyncOutcome.complete` says *"this successful read is the whole platform"*; it lifts the empty
+  and retention nets and is never set alongside `partial`. Claude's OAuth read sets it, and a
+  malformed 200 is a surface change, not an empty account — otherwise one bad body retires all.
 - **A platform that reports no run outcomes says `unknown` in its own terms, permanently.**
   `metadata.reportsRunResult` is present-and-false, never absent, and `scoreTask` dispatches on
   platform with **no fallback arm** — the Windows branch used to be the `else`, so every other

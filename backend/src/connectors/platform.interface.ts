@@ -348,6 +348,18 @@ export interface SyncOutcome {
    * dangerous than a catastrophically empty one.
    */
   partial?: boolean;
+  /**
+   * The connector **vouches that this listing is the platform's whole answer**
+   * — an empty one included.
+   *
+   * The route otherwise refuses to retire anything on an empty list, because
+   * an empty enumeration is usually a reader that saw nothing (offline agent,
+   * failed read). That guard made deleting your *last* routine invisible: the
+   * platform truthfully answered `[]`, and every row stayed ACTIVE forever. Set
+   * this only when the empty answer came from a successful, unpaginated read
+   * whose failures throw or fall back elsewhere. Never together with `partial`.
+   */
+  complete?: boolean;
 }
 
 /** One shape for the route, whichever form a connector returned. */

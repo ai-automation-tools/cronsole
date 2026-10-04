@@ -7,7 +7,8 @@ import {
   ConnectorHealth,
   CreateTaskOptions,
   UpdateScheduleOptions,
-  CapabilityVerb
+  CapabilityVerb,
+  SyncOutcome
 } from './platform.interface.js';
 import { getClaudeCredential } from '../services/claudeOAuth.js';
 import {
@@ -138,11 +139,14 @@ export class ClaudeConnector implements PlatformConnector {
    * because the platform confirmed it, and a routine deleted at claude.ai still
    * lists until its next run 404s.
    */
-  async syncTasks(config: any): Promise<TaskInfo[]> {
+  async syncTasks(config: any): Promise<TaskInfo[] | SyncOutcome> {
     const { credential } = getClaudeCredential();
     if (credential) {
       const result = await listTriggers(credential.token);
-      if (result.ok) return result.data.map(toTaskInfo);
+      // A successful read is the account's whole list, so an empty one means
+      // every routine was deleted at claude.ai — `complete` lets the route
+      // retire them rather than keep them ACTIVE forever.
+      if (result.ok) return { tasks: result.data.map(toTaskInfo), complete: true };
       // Door 2 failed. Fall through to the declaration rather than returning an
       // empty list: an empty sync would untrack every Claude task the user has
       // (or, with exclusions, look like they all vanished) over what may be a

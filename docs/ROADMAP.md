@@ -439,6 +439,12 @@ of that list which have since shipped are in Part II.
       an undeclared row untracks like any other platform's. The two stranded dev-machine rows are
       not touched by this change itself — they untrack normally once it ships. See
       [#94](troubleshooting/README.md#94-a-missing-claude-row-survives-untrack-disconnect-and-delete).
+- [x] **Deleting *every* Claude routine left them all `ACTIVE`** — **shipped 2026-10-04**. The
+      sync route skipped missing-task reconciliation on any empty listing, so removing a source's
+      last task was never detected. **Fix:** `SyncOutcome.complete` lets a connector vouch for an
+      empty answer; Claude's OAuth read does, and the rows go `MISSING` (then untrack per the item
+      above). See
+      [#95](troubleshooting/README.md#95-every-claude-routine-was-deleted-and-cronsole-still-shows-them-active).
 - [x] **Two refusal messages point at each other** — **shipped 2026-09-25 alongside the item
       above**. `delete_task` on a Claude task said *"untrack it instead"*; `untrack_task` 400s for
       `CLAUDE_CODE`; neither named `disconnect_claude_routine`. Both the REST error and the

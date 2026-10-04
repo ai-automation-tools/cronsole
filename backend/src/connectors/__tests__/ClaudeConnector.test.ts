@@ -25,6 +25,7 @@ vi.mock('../../services/claudeTriggers.js', async () => {
 });
 
 import { ClaudeConnector } from '../ClaudeConnector.js';
+import { syncOutcomeOf } from '../platform.interface.js';
 import { prisma } from '../../db.js';
 import { getClaudeCredential } from '../../services/claudeOAuth.js';
 import {
@@ -97,7 +98,8 @@ beforeEach(() => {
 // ───────────────────────── declared mode (door 1) ─────────────────────────
 
 describe('declared mode — syncTasks is a registry, not a read', () => {
-  const connector = new ClaudeConnector();
+  const real = new ClaudeConnector();
+  const connector = { syncTasks: async (c: any) => syncOutcomeOf(await real.syncTasks(c)).tasks };
 
   it('lists the routines the user declared', async () => {
     const tasks = await connector.syncTasks(CONFIG);
@@ -292,7 +294,22 @@ describe('declared mode — the verbs that cannot exist', () => {
 // ─────────────────────────── OAuth mode (door 2) ───────────────────────────
 
 describe('OAuth mode — syncTasks is a real read', () => {
-  const connector = new ClaudeConnector();
+  const real = new ClaudeConnector();
+  // OAuth mode returns a SyncOutcome; most tests only care about the rows.
+  const connector = {
+    syncTasks: async (c: any) => syncOutcomeOf(await real.syncTasks(c)).tasks,
+    get unsupportedVerbs() { return real.unsupportedVerbs; }
+  };
+
+  it('vouches for an empty listing, so deleting every routine retires them', async () => {
+    list.mockResolvedValue({ ok: true, data: [] });
+    expect(await real.syncTasks(CONFIG)).toEqual({ tasks: [], complete: true });
+  });
+
+  it('does not vouch for the declared fallback', async () => {
+    list.mockResolvedValue({ ok: false, status: 500, message: 'x' });
+    expect(syncOutcomeOf(await real.syncTasks(CONFIG)).complete).toBeUndefined();
+  });
 
   beforeEach(() => {
     withCredential();

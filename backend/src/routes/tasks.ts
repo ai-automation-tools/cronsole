@@ -1305,8 +1305,12 @@ router.post('/sync', validateBody(syncSchema), async (req: Request, res: Respons
         // a whole folder disappearing at once reads more like a blocked read
         // than real deletions.
         const clusterWarnings: string[] = [];
-        if (conn.platform !== 'TASKHUB_NATIVE' && allExternalIds.length > 0 && !outcome.partial) {
-          const reconciliation = await TaskService.reconcileMissingTasks(userId, conn.platform, allExternalIds);
+        // `outcome.complete` lifts the empty-list net: a connector that vouches
+        // for its listing means `[]` is "you deleted them all", not "saw nothing".
+        if (conn.platform !== 'TASKHUB_NATIVE' && (allExternalIds.length > 0 || outcome.complete) && !outcome.partial) {
+          const reconciliation = await TaskService.reconcileMissingTasks(
+            userId, conn.platform, allExternalIds, outcome.complete === true
+          );
           missing = reconciliation.count;
           if (reconciliation.concentrated) {
             const top = reconciliation.categories[0];

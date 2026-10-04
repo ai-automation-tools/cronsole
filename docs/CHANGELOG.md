@@ -21,6 +21,11 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Fixed
 
+- **Deleting every Claude routine left them all `ACTIVE` in Cronsole** (2026-10-04). Sync skipped
+  missing-task reconciliation on any empty listing, so removing your *last* routine at claude.ai was
+  never noticed. A connector can now vouch that an empty listing is real (`SyncOutcome.complete`),
+  and Claude's OAuth read does — the rows go `MISSING` on the next sync ([#95](troubleshooting/README.md#95-every-claude-routine-was-deleted-and-cronsole-still-shows-them-active)).
+
 - **A `MISSING` Claude row could not be removed by anything** (2026-09-25). `untrack_task`
   (`POST /tasks/:id/untrack`) refused every `CLAUDE_CODE` task unconditionally, on the assumption
   that a Claude row always exists because its routine is **declared** in

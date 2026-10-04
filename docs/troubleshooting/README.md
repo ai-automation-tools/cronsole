@@ -34,6 +34,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
 | 94 | **A `MISSING` Claude row survives untrack, disconnect and delete** — the routine was deleted at claude.ai, Cronsole correctly flags the row `MISSING`, and nothing removes it | **Untrack refused every `CLAUDE_CODE` row unconditionally**, assuming the routine was always *declared* in `PlatformConnection.config`. An OAuth-discovered routine is never declared there, so `disconnect_claude_routine` also 404s (nothing to disconnect) and the row is stranded. Untrack now checks whether the routine is actually declared first | [→](#94-a-missing-claude-row-survives-untrack-disconnect-and-delete) |
+| 95 | **Every Claude routine was deleted at claude.ai, and Cronsole still shows them all `ACTIVE`** — sync reports `count: 0, missing: 0` | The route skipped `reconcileMissingTasks` on any **empty** listing, a net against an offline reader flipping a whole platform. Deleting your *last* routine is a truthful empty listing, so nothing was ever retired. Connectors can now vouch for an empty answer (`SyncOutcome.complete`); Claude's OAuth read does | [→](#95-every-claude-routine-was-deleted-and-cronsole-still-shows-them-active) |
 | 93 | **A restored backup succeeds and every platform connection is unreadable** — `pg_restore` exits 0, every row count matches, your tasks are all there, and every source is broken | **The credentials in the dump are ciphertext and the key is not in the dump.** `PlatformConnection.config` and `TaskSecret` are AES-256-GCM encrypted with `ENCRYPTION_KEY`, which lives in `.env`. A restore onto a stack with a different key genuinely succeeds and leaves every value permanently unreadable, discovered one failing sync at a time | [→](#93-a-restore-succeeds-and-every-platform-connection-is-unreadable) |
 | 92 | **A restore verification says the data does not match, and the restore was perfect** — the *restored* copy reports more rows than the original it came from | **The check is reading an estimate, not a count.** `pg_stat_user_tables.n_live_tup` is a planner input maintained by autovacuum: stale (often zero) on a database not analysed recently, accurate on a freshly-restored one. It can be wrong in **both** directions, so it can also report a match over a restore that dropped rows. Generate real `count(*)` queries | [→](#92-a-restored-database-reports-different-row-counts-and-the-restore-was-perfect) |
 | 91 | **A second clone of the repo is not a second install** — `docker compose up` from a fresh checkout adopts the first one's database, or fails with `port is already allocated`. Shifting the ports in a `docker-compose.override.yml` does not help | **The Compose project name is pinned in the file, not derived from the folder** (`name: taskhub`, deliberately — it is what stops a renamed checkout orphaning the Postgres volume). Every clone on the machine is therefore the *same* project. And a plain override **appends** to `ports:` rather than replacing it, so both bindings are attempted and the old one still collides. Use `docker compose -p <name>` **and** the `!override` tag on every port list | [→](#91-a-second-clone-of-the-repo-shares-the-first-ones-database-and-ports) |
@@ -6295,6 +6296,29 @@ undeclared row. All three now name `disconnect_claude_routine` explicitly where 
 
 Logged 2026-08-13, fixed 2026-09-25 — see
 [ROADMAP.md](../ROADMAP.md#follow-ups-2026-08-13).
+
+---
+
+## 95. Every Claude routine was deleted, and Cronsole still shows them `ACTIVE`
+
+**Symptom.** You delete all your routines at claude.ai. Sync succeeds, reports
+`CLAUDE_CODE count: 0, missing: 0`, and every Claude row stays `ACTIVE` with a future next run.
+Deleting *some* routines works — they go `MISSING` as expected.
+
+**Cause.** `POST /tasks/sync` only called `reconcileMissingTasks` when the platform's listing was
+non-empty, and `reconcileMissingTasks` itself returned early on `[]`. That net exists for readers
+that can come back empty without meaning it (an offline agent, a failed read) — but Claude's OAuth
+read is a successful `GET /v1/code/triggers`, and failures already fall back to the declared list.
+So the one truthful empty answer, *"you have no routines"*, was the one case never acted on.
+
+**Fix (2026-10-04).** `SyncOutcome.complete` — a connector vouches that its listing is the
+platform's whole answer, empty included. The route then reconciles on `[]`, and
+`reconcileMissingTasks(…, complete)` skips the empty-list and retention guards. `ClaudeConnector`
+sets it only on a successful OAuth read; `listTriggers` now treats a 200 with no `data` array as a
+surface change rather than an empty account, so a malformed body cannot retire everything.
+
+The rows go `MISSING`, not away — that is §9's rule. Remove them with **Remove from Cronsole**
+(`untrack_task`), which works for OAuth-discovered rows since [#94](#94-a-missing-claude-row-survives-untrack-disconnect-and-delete).
 
 ---
 

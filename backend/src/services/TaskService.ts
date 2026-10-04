@@ -131,7 +131,11 @@ export class TaskService {
   static async reconcileMissingTasks(
     userId: string,
     platform: PlatformType,
-    currentExternalIds: string[]
+    currentExternalIds: string[],
+    // The connector vouched the list is the platform's whole answer
+    // (SyncOutcome.complete): skip the empty-list and retention guards, which
+    // exist only to catch a reader that saw less than it should have.
+    complete = false
   ): Promise<{ count: number; concentrated: boolean; categories: { category: string; missingCount: number }[] }> {
     // Refuse rather than lie, and check this before anything else: "I cannot do
     // this correctly" is a precondition on the operation, independent of what
@@ -150,9 +154,9 @@ export class TaskService {
     }
 
     const empty = { count: 0, concentrated: false, categories: [] };
-    if (currentExternalIds.length === 0) return empty;
+    if (currentExternalIds.length === 0 && !complete) return empty;
 
-    const trackedCount = await prisma.task.count({ where: { userId, platform } });
+    const trackedCount = complete ? 0 : await prisma.task.count({ where: { userId, platform } });
     if (
       trackedCount >= STALE_PRUNE_MIN_TRACKED &&
       currentExternalIds.length / trackedCount < STALE_PRUNE_MIN_RETAIN_RATIO

@@ -303,6 +303,16 @@ describe('TaskService', () => {
     expect(mockPrisma.task.updateMany).not.toHaveBeenCalled();
   });
 
+  it('retires every row on an empty snapshot the connector vouched for (all routines deleted)', async () => {
+    mockPrisma.task.findMany.mockResolvedValue([{ externalId: 'trig_a' }, { externalId: 'trig_b' }]);
+    mockPrisma.task.updateMany.mockResolvedValue({ count: 2 });
+
+    const { count } = await TaskService.reconcileMissingTasks('user-1', 'CLAUDE_CODE' as any, [], true);
+
+    expect(count).toBe(2);
+    expect(mockPrisma.task.updateMany.mock.calls[0][0].where.externalId).toEqual({ notIn: [] });
+  });
+
   it('skips reconciliation when an established platform returns a suspicious partial snapshot', async () => {
     // A whole-dashboard flip to MISSING on a partial sync is alarming noise —
     // preserve the DB and wait for a complete snapshot even though MISSING is

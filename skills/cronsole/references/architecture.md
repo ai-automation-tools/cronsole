@@ -102,6 +102,10 @@ createTask(name, schedule, command, config, options?): Promise<{ success, extern
   reason `notes` exists: **"found nothing" and "looked at nothing" render identically**, and the
   first is usually correct.
   `partial` is #74's rule off the agent — **a narrowed reader may add and refresh, never retire.**
+  `complete` is its mirror — **the connector vouches that a successful read is the whole platform**,
+  so an *empty* listing still reconciles (the route otherwise never retires on `[]`). Without it,
+  deleting a source's last task is never noticed ([#95](../../../docs/troubleshooting/README.md#95-every-claude-routine-was-deleted-and-cronsole-still-shows-them-active)).
+  Never set both.
 
 **`getHealth` has a contract beyond its signature, and every connector broke it the same way.**
 `ConnectorHealth` is `{ state, reason?, lastContactAt? }`, and both optional fields are optional

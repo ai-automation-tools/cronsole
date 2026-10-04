@@ -125,6 +125,9 @@ pwsh .\scripts\cronsole.ps1 up
    *correct* — otherwise a working sync and a broken one are the same empty screen. Set `partial`
    whenever you saw less than the whole platform (a truncated page, one unreadable source), which
    suppresses retirement for that pass.
+   Set `complete` when a *successful* read is always the whole platform (no pagination, failures
+   throw or fall back) — otherwise an empty listing never retires anything, and deleting the last
+   task on the source leaves every row `ACTIVE`.
 8. **Can this platform report run outcomes?** Put `reportsRunResult` in every task's metadata —
    **present-and-`false`**, never absent, because `services/taskHealth.ts` reads an absent key as
    "Cronsole never asked" rather than "the platform has nothing to say". Then give the platform its

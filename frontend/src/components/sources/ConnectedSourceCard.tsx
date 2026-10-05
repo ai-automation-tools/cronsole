@@ -7,6 +7,7 @@ import { ClaudeRoutinesPanel } from '../ClaudeRoutinesPanel';
 import { GitHubReposPanel } from '../GitHubReposPanel';
 import { VercelProjectsPanel } from '../VercelProjectsPanel';
 import { GeminiTriggersPanel } from '../GeminiTriggersPanel';
+import { N8nPanel } from '../N8nPanel';
 import { SidebarToggle, SourceHeading, SourceStatusPill, SourceTile, Stat } from './SourceIdentity';
 import { SUPPORT_STYLE } from './sourceStyles';
 import { SourceDocLink } from './SourceDocLink';
@@ -163,6 +164,7 @@ export const ConnectedSourceCard = ({ row, shownSources, onToggleShown }: {
             assumption onto a row full of buttons that work.
           */}
           {row.platform === 'GEMINI_TRIGGERS' && <GeminiTriggersPanel />}
+          {row.platform === 'N8N' && <N8nPanel />}
 
           <div className="border-t border-border p-5 space-y-3">
             <div className="flex flex-wrap gap-1.5">

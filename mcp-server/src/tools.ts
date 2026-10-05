@@ -132,7 +132,9 @@ const ALL_PLATFORMS = [
   // endpoint. It is in the same list for the same reason they are: this is a
   // filter enum, and what an agent may *do* with a platform is `list_platforms`'
   // answer rather than this list's.
-  'GEMINI_TRIGGERS'
+  'GEMINI_TRIGGERS',
+  // Read-only again, like GitHub and Vercel, but with real run outcomes.
+  'N8N'
 ] as const;
 
 // ---- API response shapes (only the fields the tools surface) ----
@@ -511,7 +513,8 @@ export function registerTools(
       title: 'List scheduled tasks',
       description:
         'List the scheduled tasks Cronsole tracks for the current user — Windows Task Scheduler, Cronsole-native, ' +
-        'Claude Code routines, GitHub Actions workflows, Vercel cron jobs and Gemini API triggers — with each ' +
+        'Claude Code routines, GitHub Actions workflows, Vercel cron jobs, Gemini API triggers and scheduled n8n ' +
+        'workflows — with each ' +
         'task\'s schedule, status, next run time and last run result. Optional filters narrow the list. ' +
         'GITHUB_ACTIONS and VERCEL_CRON are READ-ONLY sources: their tasks list and report health, and every ' +
         'verb that would change one is refused. VERCEL_CRON additionally never reports a last run result — ' +
@@ -520,6 +523,8 @@ export function registerTools(
         'run, pause, reschedule, create and delete all reach real endpoints there, and it reports real run ' +
         'outcomes. A GEMINI_TRIGGERS task that is DISABLED may have been paused by Gemini itself after ' +
         'repeated failures rather than by a person — get_task_health says which. ' +
+        'N8N is read-only like GITHUB_ACTIONS (it reports real run outcomes); an N8N task with a null schedule ' +
+        'usually means the instance time zone is not set on the connection, or the rule has no cron equivalent. ' +
         'Call list_platforms before planning work on a platform you are unsure about.',
       inputSchema: {
         platform: z
@@ -1629,7 +1634,7 @@ Next run: ${task.nextRunTime}` : '')
         'dispatched and reported success — a task that hangs forever can still report SUCCESS, so for a ' +
         'suspected hang check Windows\' own LastTaskResult rather than trusting this. ' +
         'For the runs a source recorded ITSELF — every scheduled run Cronsole never triggered — call ' +
-        'list_platform_runs instead. On GEMINI_TRIGGERS, GITHUB_ACTIONS, VERCEL_CRON and Windows that is ' +
+        'list_platform_runs instead. On GEMINI_TRIGGERS, GITHUB_ACTIONS, VERCEL_CRON, N8N and Windows that is ' +
         'where the history actually lives, and this tool being empty there is the design working.',
       inputSchema: {
         taskId: z.string().describe('The Cronsole task id (from list_tasks).'),
@@ -1691,7 +1696,7 @@ Next run: ${task.nextRunTime}` : '')
         'triggered. This is the companion to get_task_history and the two are deliberately separate: ' +
         'get_task_history reads Cronsole\'s own log, which holds only runs Cronsole PERFORMED — so on a ' +
         'source that runs work by itself it is empty by design, however well the task is running. ' +
-        'THIS is where the runs actually are on GEMINI_TRIGGERS, GITHUB_ACTIONS, VERCEL_CRON and ' +
+        'THIS is where the runs actually are on GEMINI_TRIGGERS, GITHUB_ACTIONS, VERCEL_CRON, N8N and ' +
         'WINDOWS_TASK_SCHEDULER. When asked "why did my scheduled task fail?", call this, not ' +
         'get_task_history. ' +
         'Nothing is stored: this is a live read, so it can fail on its own while Cronsole\'s log reads fine. ' +

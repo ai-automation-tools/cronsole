@@ -454,6 +454,7 @@ enum PlatformType {
   GITHUB_ACTIONS         // read-only observer: scheduled workflows on repositories you name
   VERCEL_CRON            // read-only observer: cron jobs declared by the projects you name
   GEMINI_TRIGGERS        // controller: scheduled triggers on the Gemini API's managed agents
+  N8N                    // observer that reports outcomes: scheduled workflows on one n8n instance
 }
 
 enum ScriptType {

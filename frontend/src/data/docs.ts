@@ -71,7 +71,8 @@ const SOURCE_DOCS: Record<string, string> = {
   CLAUDE_CODE: 'Claude_Code_Routines.md',
   GEMINI_TRIGGERS: 'Gemini_API_Triggers.md',
   GITHUB_ACTIONS: 'GitHub_Actions.md',
-  VERCEL_CRON: 'Vercel_Cron.md'
+  VERCEL_CRON: 'Vercel_Cron.md',
+  N8N: 'n8n.md'
 };
 
 /** Where the per-source guides live, relative to the repo root. */

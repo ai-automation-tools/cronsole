@@ -140,6 +140,14 @@
      themes. */
   --gemini: 231 84% 70%;
   --gemini-text: 231 90% 80%;
+  /* n8n. **Magenta, turned well away from n8n's own coral.** Its brand #EA4B71
+     sits between `--danger` (0) and `--isolate` (350), and a platform must not
+     carry another role's claim — the `--native`/`--primary` trap. At 318 it is
+     32 degrees from `--isolate` and 48 from `--claude`, and the brand glyph is
+     not used (the rail draws a lucide one), so the pink identity is this token's
+     alone. Measured like every other pair. */
+  --n8n: 318 72% 64%;
+  --n8n-text: 318 80% 79%;
   --ring: 262 83% 62%;
   --radius: 0.5rem;
 }
@@ -213,6 +221,8 @@
      themes. */
   --gemini: 231 84% 70%;
   --gemini-text: 231 90% 80%;
+  --n8n: 318 72% 64%;
+  --n8n-text: 318 80% 79%;
   --ring: 262 83% 62%;
 }
 
@@ -280,6 +290,8 @@
   --vercel-text: 0 0% 22%;
   --gemini: 231 72% 48%;
   --gemini-text: 231 64% 38%;
+  --n8n: 318 64% 44%;
+  --n8n-text: 318 60% 34%;
   --ring: 262 83% 58%;
 }
 
@@ -362,6 +374,8 @@
   --vercel-text: 0 0% 72%;
   --gemini: 231 84% 70%;
   --gemini-text: 231 90% 80%;
+  --n8n: 318 72% 64%;
+  --n8n-text: 318 80% 79%;
   --ring: 265 83% 62%;
 }
 
@@ -410,6 +424,8 @@
   --vercel-text: 0 0% 72%;
   --gemini: 231 84% 70%;
   --gemini-text: 231 90% 80%;
+  --n8n: 318 72% 64%;
+  --n8n-text: 318 80% 79%;
   --ring: 221 74% 50%;
 }
 
@@ -458,6 +474,8 @@
   --vercel-text: 0 0% 72%;
   --gemini: 231 84% 70%;
   --gemini-text: 231 90% 80%;
+  --n8n: 318 72% 64%;
+  --n8n-text: 318 80% 79%;
   --ring: 193 60% 46%;
 }
 
@@ -506,6 +524,8 @@
   --vercel-text: 0 0% 72%;
   --gemini: 231 84% 70%;
   --gemini-text: 231 90% 80%;
+  --n8n: 318 72% 64%;
+  --n8n-text: 318 80% 79%;
   --ring: 205 64% 44%;
 }
 
@@ -557,6 +577,8 @@
   --color-vercel-text: hsl(var(--vercel-text));
   --color-gemini: hsl(var(--gemini));
   --color-gemini-text: hsl(var(--gemini-text));
+  --color-n8n: hsl(var(--n8n));
+  --color-n8n-text: hsl(var(--n8n-text));
   --color-ring: hsl(var(--ring));
 }
 

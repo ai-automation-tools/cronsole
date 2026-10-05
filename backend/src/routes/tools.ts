@@ -73,6 +73,13 @@ import {
   type AgentToolPreset
 } from '../services/geminiTriggers.js';
 import { listTriggers as listGeminiTriggers } from '../services/geminiApi.js';
+import {
+  readConfig as readN8nConfig,
+  redactConfig as redactN8nConfig,
+  connectionInputSchema as n8nConnectionInputSchema,
+  timeZoneInputSchema as n8nTimeZoneInputSchema
+} from '../services/n8nConnection.js';
+import { verifyKey as verifyN8nKey, normalizeBaseUrl as normalizeN8nBaseUrl } from '../services/n8nApi.js';
 import { parseTaskBundle, TaskImportError } from '../services/taskImport.js';
 import { createNativeTask, NativeTaskCreateError } from '../services/nativeTaskCreate.js';
 import { HttpError } from '../middleware/errorHandler.js';
@@ -3283,6 +3290,142 @@ router.delete('/platforms/gemini/connection', async (req: Request, res: Response
       ? [
           // ExecutionLog has no cascade on its Task relation, so it must go first
           // or the delete violates the FK. TaskFavorite does cascade.
+          prisma.executionLog.deleteMany({ where: { taskId: { in: doomedIds } } }),
+          prisma.task.deleteMany({ where: { id: { in: doomedIds } } })
+        ]
+      : []),
+    prisma.platformConnection.delete({ where: { id: connection.id } })
+  ]);
+  if (doomedIds.length) notifyTasksChanged(userId);
+
+  res.json({ disconnected: true, tasksRemoved: doomedIds.length });
+});
+
+/* ---------------------------------------------------------------------------
+ * n8n connection — an instance URL, an API key, and the instance time zone.
+ *
+ * Gemini's shape: one key sees one instance, so there is nothing to add or
+ * remove. The time zone is the field no other connection has, because n8n's
+ * schedules are wall-clock time in a zone its API does not report — see
+ * `services/n8nConnection.ts`. The key is write-only: `GET` reports `hasKey`
+ * and the last four characters.
+ * -------------------------------------------------------------------------- */
+
+async function loadN8nConnection(userId: string) {
+  const connection = await prisma.platformConnection.findFirst({
+    where: { userId, platform: PlatformType.N8N }
+  });
+  return {
+    connection,
+    config: connection ? readN8nConfig(deserializeConfig(connection.config)) : readN8nConfig({})
+  };
+}
+
+/** Write the config (encrypted at rest — it holds a live credential), then refresh health. */
+async function saveN8nConnection(
+  userId: string,
+  connectionId: string | undefined,
+  config: ReturnType<typeof readN8nConfig>
+) {
+  const serialized = serializeConfig(config);
+  const connection = connectionId
+    ? await prisma.platformConnection.update({ where: { id: connectionId }, data: { config: serialized } })
+    : await prisma.platformConnection.create({
+        data: { userId, platform: PlatformType.N8N, isActive: true, config: serialized }
+      });
+
+  // Safe only because the n8n connector's `getHealth` reads stored evidence and
+  // never probes — see `refreshGeminiHealth`.
+  const connector = connectorRegistry.getConnector(PlatformType.N8N);
+  if (!connector) return;
+  try {
+    const health = await connector.getHealth({ ...config, userId });
+    await prisma.platformConnection.update({
+      where: { id: connection.id },
+      data: { healthState: health.state, healthReason: health.reason ?? null }
+    });
+  } catch {
+    // A readout, not the operation.
+  }
+}
+
+router.get('/platforms/n8n/connection', async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+  const { connection, config } = await loadN8nConnection(userId);
+  const taskCount = await prisma.task.count({ where: { userId, platform: PlatformType.N8N } });
+  res.json({ connected: Boolean(connection), ...redactN8nConfig(config), taskCount });
+});
+
+/**
+ * Store (or rotate) the URL and key, verified before they are stored — a bad
+ * paste fails at the click, not at the first sync. A key n8n rejects is a 400;
+ * an instance that cannot be reached is a 502.
+ */
+router.put(
+  '/platforms/n8n/connection',
+  validateBody(n8nConnectionInputSchema),
+  async (req: Request, res: Response) => {
+    const userId = (req as AuthRequest).user!.id;
+    const body = req.body as { baseUrl: string; apiKey: string; timeZone?: string };
+    const baseUrl = normalizeN8nBaseUrl(body.baseUrl);
+    const apiKey = body.apiKey.trim();
+
+    const verified = await verifyN8nKey(baseUrl, apiKey);
+    if (!verified.ok) {
+      throw new HttpError(verified.status === null ? 502 : 400, verified.message);
+    }
+
+    const { connection, config } = await loadN8nConnection(userId);
+    const timeZone = body.timeZone === undefined ? config.timeZone : body.timeZone.trim() || undefined;
+    const next = { baseUrl, apiKey, ...(timeZone ? { timeZone } : {}) };
+    await saveN8nConnection(userId, connection?.id, next);
+
+    res.json(redactN8nConfig(next));
+  }
+);
+
+/** Set or clear the instance time zone. Blank clears it — a way back, not a way to break it. */
+router.put(
+  '/platforms/n8n/timezone',
+  validateBody(n8nTimeZoneInputSchema),
+  async (req: Request, res: Response) => {
+    const userId = (req as AuthRequest).user!.id;
+    const typed = String((req.body as { timeZone: string }).timeZone).trim();
+
+    const { connection, config } = await loadN8nConnection(userId);
+    if (!connection) {
+      throw new HttpError(400, 'Connect n8n first — there is no connection to configure yet.');
+    }
+    const { timeZone: _old, ...rest } = config;
+    const next = { ...rest, ...(typed ? { timeZone: typed } : {}) };
+    await saveN8nConnection(userId, connection.id, next);
+
+    res.json({
+      timeZone: next.timeZone ?? null,
+      // Schedules are converted at sync time, so the change shows on the next one.
+      message: 'Saved. Sync n8n to re-read its schedules in this time zone.'
+    });
+  }
+);
+
+/** Disconnect. Removes every tracked n8n task with the connection — nothing in n8n changes. */
+router.delete('/platforms/n8n/connection', async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+  const { connection } = await loadN8nConnection(userId);
+  if (!connection) {
+    throw new HttpError(404, 'n8n is not connected.');
+  }
+
+  const doomed = await prisma.task.findMany({
+    where: { userId, platform: PlatformType.N8N },
+    select: { id: true }
+  });
+  const doomedIds = doomed.map(t => t.id);
+
+  await prisma.$transaction([
+    ...(doomedIds.length
+      ? [
+          // ExecutionLog has no cascade on its Task relation, so it goes first.
           prisma.executionLog.deleteMany({ where: { taskId: { in: doomedIds } } }),
           prisma.task.deleteMany({ where: { id: { in: doomedIds } } })
         ]

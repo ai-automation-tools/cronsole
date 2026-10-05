@@ -543,6 +543,63 @@ const sourceVercel: HelpTopic = {
   doc: { label: 'Sources Guide \u203a Vercel Cron', url: sourcesGuide('vercel-cron') }
 };
 
+const sourceN8n: HelpTopic = {
+  id: 'source:N8N',
+  title: 'n8n',
+  summary:
+    'Workflows on your n8n instance that run on a Schedule Trigger. Read-only, with real run outcomes — ' +
+    'Cronsole shows their schedules and how their runs went, and changes nothing.',
+  points: [
+    {
+      label: 'Only scheduled workflows become tasks',
+      body:
+        "A workflow started by a form, a webhook, a chat or the editor's button is not scheduled work, " +
+        'so it is not imported. The sync says how many workflows it read and how many had a schedule, ' +
+        'so a short list never reads as a broken one.'
+    },
+    {
+      label: 'Set the instance time zone, or schedules show without a time',
+      body:
+        "n8n runs a Schedule Trigger in the instance's time zone and its API does not say which one. " +
+        'Cronsole stores every schedule in UTC, so it needs the zone to convert — set it on the n8n ' +
+        'card. A workflow with its own time zone setting uses that instead.'
+    },
+    {
+      label: 'Some schedules have no cron, and say why',
+      body:
+        'Every N days, weeks or months counts from the previous run rather than from the calendar, ' +
+        'so no cron expression describes it; neither does an interval in seconds, or a workflow with ' +
+        'several rules. Those read as unavailable with the reason, never as a guess.'
+    },
+    {
+      label: 'Run now, pause and edit stay in n8n',
+      body:
+        "n8n's API has no way to start a run, and publishing or unpublishing switches a whole workflow " +
+        '— its webhooks and forms too, not only its schedule. So all three are refused here, by design.'
+    },
+    {
+      label: 'Cronsole reads what is published, not your draft',
+      body:
+        'n8n keeps your latest edits as a draft until you publish. Cronsole reads the published ' +
+        'version, because that is the one that runs; an unpublished workflow shows as Disabled.'
+    },
+    {
+      label: 'Your n8n folders do not carry over',
+      body:
+        "n8n's public API lists your folders but not which workflow is in which, so every workflow " +
+        'lands under one n8n category. Give tasks your own categories in Cronsole if you want groups — ' +
+        'a sync never overwrites a category.'
+    },
+    {
+      label: 'Run output is the steps, not the data',
+      body:
+        'Opening a run shows which nodes ran, in order, where it stopped and the error if it failed. ' +
+        'The data each node produced stays in n8n — the run links straight to its page there.'
+    }
+  ],
+  doc: { label: 'Sources Guide › n8n', url: sourcesGuide('n8n') }
+};
+
 const sourceGemini: HelpTopic = {
   id: 'source:GEMINI_TRIGGERS',
   title: 'Gemini API Triggers',
@@ -1707,6 +1764,7 @@ const TOPIC_LIST: HelpTopic[] = [
   sourceGitHub,
   sourceVercel,
   sourceGemini,
+  sourceN8n,
   schedule,
   nativeJobType,
   jobEnv,

@@ -86,7 +86,8 @@ export const MATRIX_PLATFORMS: readonly PlatformType[] = [
   PlatformType.CLAUDE_CODE,
   PlatformType.GITHUB_ACTIONS,
   PlatformType.VERCEL_CRON,
-  PlatformType.GEMINI_TRIGGERS
+  PlatformType.GEMINI_TRIGGERS,
+  PlatformType.N8N
 ] as const;
 
 /**
@@ -271,6 +272,21 @@ export const PLATFORM_DESCRIPTORS: Record<string, PlatformDescriptor> = {
     // about how much of this connector is finished — the two questions are
     // deliberately separate fields.
     maturity: 'experimental'
+  },
+  [PlatformType.N8N]: {
+    platform: PlatformType.N8N,
+    label: 'n8n',
+    // An observer, though the platform has write endpoints: `activate` switches
+    // a whole workflow (its webhooks and forms too) rather than its schedule,
+    // and there is no execute endpoint at all. Chosen, not unfinished.
+    access: 'observer',
+    // Leads with the refusal, like the other observers, then with what this one
+    // has that Vercel does not: real run outcomes.
+    summary:
+      'Read-only. Cronsole reads the workflows on your n8n instance that have a Schedule Trigger, their ' +
+      'schedules and their real run outcomes, and changes nothing — running, publishing and editing happen in n8n.',
+    // `/api/v1` is n8n's stable, documented public API.
+    maturity: 'functional'
   }
 };
 

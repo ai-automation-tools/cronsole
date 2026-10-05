@@ -41,7 +41,8 @@ template catalog with an Apply modal, and a shipped MCP server.
 
 **Platforms:** Windows Task Scheduler (functional) · Cronsole-native jobs (functional) · Claude Code
 routines (two modes — see Connectors) · Gemini API Triggers (the **first hosted controller**;
-`v1beta` preview) · GitHub Actions and Vercel Cron (**read-only observers**) ·
+`v1beta` preview) · GitHub Actions, Vercel Cron and n8n (**read-only observers**; n8n reports run
+outcomes) ·
 ChatGPT / Grok / Jules / Open Claw / Hermes = quick links only.
 
 ---
@@ -404,6 +405,18 @@ Non-negotiable rules. **Every one has a reason recorded in
   shape: grep what you produce, and if every hit writes it, the feature is half-built.
 - **`buildNativeJob` / `validateJob` have one definition**, shared by create, edit and the connector —
   a second definition is how an edit produces a spec creation would have refused.
+- **n8n is an observer that reports outcomes, and the one source whose zone the user must declare.**
+  A task is a workflow with an enabled Schedule Trigger; everything else is counted in the sync note,
+  not dropped silently. Its rules are not cron and the API **omits defaults** (`{ field: "weeks",
+  triggerAtHour: 6 }` is Sunday 06:00), so `services/n8nSchedule.ts` carries the node's defaults and
+  refuses with a reason what no cron says — seconds, every *N* > 1 days/weeks/months (n8n counts from
+  the last run), hours not dividing 24, several rules. The rules are wall-clock in the instance's
+  `GENERIC_TIMEZONE`, **which the public API does not report**, so the connection declares it and
+  with no zone the schedule is `null` with that reason — never read as UTC (#60). It reads the
+  **published** graph (`activeVersion`), never the draft. `run` (no execute endpoint; a webhook is a
+  lookalike), `setStatus` (activate switches the whole workflow, webhooks too) and `create` are in
+  `unsupportedVerbs`. Only schedule nodes keep their parameters at the parse (`toNode`), so a
+  hardcoded HTTP token never enters a row; run output is node **names**, never node data.
 - Prefer the connector that unlocks several sources (one POSIX agent → launchd + cron + systemd) over
   one that unlocks a single cloud scheduler. An **observer** (read-only) connector is a finished
   state, not a stalled one.

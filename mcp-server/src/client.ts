@@ -1,4 +1,8 @@
 import axios, { AxiosInstance, isAxiosError } from 'axios';
+import { execSync } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 
 /**
  * Thin HTTP client over the Cronsole REST API. The MCP server owns no business
@@ -101,10 +105,75 @@ function env(name: string): string | undefined {
 }
 const warnedLegacy = new Set<string>();
 
+function resolveFallbackToken(): string | undefined {
+  if (process.env.VITEST) return undefined;
+
+  // 1. On Windows, check user environment via registry
+  if (process.platform === 'win32') {
+    for (const key of ['CRONSOLE_TOKEN', `${LEGACY_PREFIX}_TOKEN`]) {
+      try {
+        const out = execSync(`reg query HKCU\\Environment /v ${key}`, {
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'ignore'],
+          timeout: 2000
+        });
+        const match = out.match(new RegExp(`${key}\\s+REG_SZ\\s+(.+)`, 'i'));
+        if (match && match[1]?.trim()) {
+          const val = match[1].trim();
+          if (!UNEXPANDED_PLACEHOLDER.test(val)) {
+            console.error(`[cronsole] Resolved ${key} from Windows User environment.`);
+            return val;
+          }
+        }
+      } catch {
+        // Ignore registry query failure
+      }
+    }
+  }
+
+  // 2. Check .env file in mcp-server or parent directories
+  try {
+    const searchDirs = [
+      process.cwd(),
+      fileURLToPath(new URL('..', import.meta.url)),
+      fileURLToPath(new URL('../..', import.meta.url))
+    ];
+    for (const dir of searchDirs) {
+      const envPath = resolve(dir, '.env');
+      if (existsSync(envPath)) {
+        const content = readFileSync(envPath, 'utf8');
+        for (const line of content.split('\n')) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith('#') || !trimmed.includes('=')) continue;
+          const [k, ...v] = trimmed.split('=');
+          const varName = k.trim();
+          if (varName === 'CRONSOLE_TOKEN' || varName === `${LEGACY_PREFIX}_TOKEN`) {
+            let val = v.join('=').trim();
+            if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+              val = val.slice(1, -1);
+            }
+            if (val && !UNEXPANDED_PLACEHOLDER.test(val)) {
+              console.error(`[cronsole] Resolved ${varName} from ${envPath}.`);
+              return val;
+            }
+          }
+        }
+      }
+    }
+  } catch {
+    // Ignore fs errors
+  }
+
+  return undefined;
+}
+
 export function configFromEnv(): CronsoleServerConfig {
   const baseUrl = (env('API_URL') || 'http://localhost:3000/api').replace(/\/+$/, '');
   const rawToken = (env('TOKEN') || '').trim();
-  const token = UNEXPANDED_PLACEHOLDER.test(rawToken) ? '' : rawToken;
+  let token = UNEXPANDED_PLACEHOLDER.test(rawToken) ? '' : rawToken;
+  if (!token) {
+    token = resolveFallbackToken() || '';
+  }
   if (!token) {
     throw new Error(
       (rawToken

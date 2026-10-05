@@ -684,9 +684,9 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
 ## 🔷 Sources — where a task comes from
 
 > **The priority once *Next up* is clear** *(scoped 2026-08-12)*. The dashboard's first-level axis
-> is the **source** a task comes from. **Six ship as of 2026-08-24** — Windows Task Scheduler,
+> is the **source** a task comes from. **Seven ship as of 2026-10-04** — Windows Task Scheduler,
 > Cronsole-native (split into HTTP · Programs · Scripts · Checks), Claude Code routines, GitHub
-> Actions, Vercel Cron and Gemini API Triggers. This section is the plan for the rest; the built
+> Actions, Vercel Cron, Gemini API Triggers and n8n. This section is the plan for the rest; the built
 > ones are marked `[x]` below or in [Part II](#completed--sources). *(This line said "ships with
 > three" until 2026-08-24, when it had been wrong for a day and a half — a count in prose goes
 > stale on every change, which is why `PLATFORM_DESCRIPTORS` is the thing to read.)*
@@ -852,6 +852,67 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
         five-second run failure — a rejected configuration, not a failed attempt
         ([#84](troubleshooting/README.md#84-a-gemini-run-fails-in-five-seconds-and-cronsole-says-there-is-nothing-to-read)).
         **A capability list is not a permission list.**
+
+- [x] **n8n — observer that reports outcomes** *(scoped and shipped 2026-10-04)*. Self-hosted or
+      cloud, one `X-N8N-API-KEY` against `{base}/api/v1`, one instance per connection — so the
+      tracked set is declared and constant (`['n8n']`), Gemini's reason. Scoped against a real
+      instance (90 workflows, ~20 with a Schedule Trigger), not the docs, and four facts from that
+      read decide the design:
+
+      - **A task is a workflow with an enabled `scheduleTrigger` (or legacy `cron`) node.** Manual,
+        form and webhook workflows are not scheduled work and are counted out loud in the sync's
+        `notes`, not silently dropped — "found nothing" and "looked at nothing" again.
+      - **The schedule is not cron, and the API omits defaults.** A weekly trigger is stored as
+        `{ field: "weeks", triggerAtHour: 6 }` — the Sunday is the node's *default* and appears
+        nowhere in the body. The parser therefore carries n8n's per-field defaults
+        (`services/n8nSchedule.ts`), and every interval with no exact 5-field equivalent is `null`
+        **with its reason**: seconds, a 6-field cron with a stepped seconds field, and any
+        `daysInterval`/`weeksInterval`/`monthsInterval > 1` (n8n filters a more frequent cron by
+        elapsed time since the last run, which cron cannot say). `hoursInterval` is exact only when
+        it divides 24. A workflow with several rules is `null` with each rule kept in metadata.
+      - **The schedule is in a zone the API does not publish.** `settings.timezone` is per workflow
+        and usually absent; the instance default (`GENERIC_TIMEZONE`) is not exposed by the public
+        API — the live "6am" weekly fires at 10:00Z. So the connection **declares** the instance
+        zone, every conversion goes through `shiftCronToUtc`, the original pair is kept in metadata,
+        and with neither zone known the schedule is `null` with that reason rather than read as UTC.
+      - **n8n has a draft/publish model.** The workflow body is the latest draft; what runs is
+        `activeVersion` (`versionId` ≠ `activeVersionId` when they differ). The connector reads the
+        published graph, or it reports a schedule that is not live.
+
+      **Verbs.** `sync` · `listPlatformRuns` / `getRunOutput` (`/executions`, `mode: trigger` vs
+      `manual` tells a scheduled fire from a click; n8n has a real page per run, so `url` is set) ·
+      a real `scoreTask` arm (`reportsRunResult: true`). `run` is **refused**: the public API has no
+      execute endpoint, and calling a webhook is a lookalike, not the scheduled run — Vercel's
+      reasoning. `create` / `updateSchedule` / `delete` are out: `PUT /workflows/{id}` replaces the
+      whole body and collides with draft/publish. **`setStatus` is the open question** —
+      `activate`/`deactivate` is real, but it switches the *whole workflow*, webhooks included, so a
+      per-schedule toggle would be a control the platform does not have. First pass ships without it.
+
+      **Shipped the same day:** `services/n8nApi.ts` + `n8nSchedule.ts` + `n8nConnection.ts` (fixtures
+      copied from the live instance), the `N8N` enum value and migration, `N8nConnector` (sync, run
+      history, run output, evidence-only health), an `observer` descriptor, a `scoreTask` arm, the
+      connection routes (`/api/tools/platforms/n8n/{connection,timezone}`), the `--n8n` identity pair
+      measured against every surface, `N8nPanel` on both source cards, a `HelpTopic`, a source guide
+      and Sources Guide section, and `N8N` on the MCP filter enum.
+
+      **Driven live the same evening** (2.91 instance, 89 workflows → 24 scheduled). The workflow
+      *list* does carry `activeVersion`, so a sync costs one listing plus one execution read per
+      scheduled workflow and no second workflow read. Two warnings, both true: a workflow with no
+      Timezone setting of its own needs the declared instance zone (the live instance turned out to
+      be `America/Chicago`, read off a run's UTC start — [#97](troubleshooting/README.md#97-one-n8n-workflow-shows-no-schedule-while-the-others-convert-fine)),
+      and an every-6-hours rule is refused by `shiftCronToUtc`'s multi-hour rule.
+
+      **Still open:**
+      - **Folders as categories** — the user's workflows are organised in n8n folders, and **the
+        public API does not publish membership**: folders and paths are readable
+        (`/projects/{id}/folders`), a workflow has no folder field, `?parentFolderId=` is a `400`, and
+        the editor's `/rest/` API has the link but refuses API keys ([#96](troubleshooting/README.md#96-your-n8n-folders-do-not-appear-in-cronsole)).
+        Doors: an n8n login against `/rest/` (exact, but a password and an undocumented API), read-only
+        access to n8n's Postgres (`workflow_entity."parentFolderId"`), or tags. **Undecided** — waits
+        on where the instance runs and whether it has 2FA.
+      - **Every-N-hours in a whole-hour zone** has an exact UTC answer (`0 */6` in UTC−4 is
+        `0 4,10,16,22`); teach `n8nSchedule.ts` to enumerate it rather than inherit the refusal.
+      - The legacy `Cron` node; `setStatus` if n8n ever gets a per-trigger switch.
 
 - [ ] **Supabase `pg_cron` — read-only observer** *(next after Gemini in this section)*: the other half of the
       2026-08-12 pair. Same observer shape again, and the piece it needs that neither GitHub nor

@@ -14,9 +14,19 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **n8n as a source** (2026-10-04): connect an n8n instance (address, API key, and its time zone)
+  on the Sources tab, and every workflow with a Schedule Trigger appears on the dashboard with its
+  schedule in UTC, a real health score from its executions, and a *Runs on the platform* list
+  showing each run's steps, error and a link to it in n8n. Read-only: running, publishing and
+  editing stay in n8n. Schedules with no cron equivalent (every 2 weeks, seconds, several rules)
+  and schedules on an instance whose time zone is not set show as unavailable **with the reason**.
+  See the [n8n source guide](user-guides/sources/n8n.md). Known limit: n8n folders do not carry over
+  — its API does not report which folder a workflow is in ([#96](troubleshooting/README.md#96-your-n8n-folders-do-not-appear-in-cronsole)).
+
 - **Four extended templates** (2026-10-01): `mon-physical-disk-health`, `sys-windows-time-resync`,
   `mon-macos-time-machine-status` and `bkp-sqlite-backup`, joining the Monitoring, System & Utilities
   and Backup & Cleanup packs.
+
 - **`docs/UPSTREAMS.md`** (2026-09-29): every platform, protocol, library and host Cronsole
   depends on, what the code assumes about each, and where to check it. It is the worklist for
   the biweekly **Cronsole Upstream Check** routine (`upstream/auto-*` PRs), which catches drift

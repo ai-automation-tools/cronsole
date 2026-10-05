@@ -35,6 +35,8 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 |:--|:---|:---|:--|
 | 94 | **A `MISSING` Claude row survives untrack, disconnect and delete** — the routine was deleted at claude.ai, Cronsole correctly flags the row `MISSING`, and nothing removes it | **Untrack refused every `CLAUDE_CODE` row unconditionally**, assuming the routine was always *declared* in `PlatformConnection.config`. An OAuth-discovered routine is never declared there, so `disconnect_claude_routine` also 404s (nothing to disconnect) and the row is stranded. Untrack now checks whether the routine is actually declared first | [→](#94-a-missing-claude-row-survives-untrack-disconnect-and-delete) |
 | 95 | **Every Claude routine was deleted at claude.ai, and Cronsole still shows them all `ACTIVE`** — sync reports `count: 0, missing: 0` | The route skipped `reconcileMissingTasks` on any **empty** listing, a net against an offline reader flipping a whole platform. Deleting your *last* routine is a truthful empty listing, so nothing was ever retired. Connectors can now vouch for an empty answer (`SyncOutcome.complete`); Claude's OAuth read does | [→](#95-every-claude-routine-was-deleted-and-cronsole-still-shows-them-active) |
+| 96 | **Your n8n folders do not appear in Cronsole** — every workflow lands under one flat `n8n` category | **n8n's public API does not report a workflow's folder.** The folder tree is readable, the membership is not; the editor's internal API has it and refuses API keys. Not a bug — options listed | [→](#96-your-n8n-folders-do-not-appear-in-cronsole) |
+| 97 | **One n8n workflow shows no schedule while the others convert** — sync warns about the instance time zone | That workflow has no Timezone setting of its own and uses `GENERIC_TIMEZONE`, which the API does not report. Set **Instance time zone** on the n8n card | [→](#97-one-n8n-workflow-shows-no-schedule-while-the-others-convert-fine) |
 | 93 | **A restored backup succeeds and every platform connection is unreadable** — `pg_restore` exits 0, every row count matches, your tasks are all there, and every source is broken | **The credentials in the dump are ciphertext and the key is not in the dump.** `PlatformConnection.config` and `TaskSecret` are AES-256-GCM encrypted with `ENCRYPTION_KEY`, which lives in `.env`. A restore onto a stack with a different key genuinely succeeds and leaves every value permanently unreadable, discovered one failing sync at a time | [→](#93-a-restore-succeeds-and-every-platform-connection-is-unreadable) |
 | 92 | **A restore verification says the data does not match, and the restore was perfect** — the *restored* copy reports more rows than the original it came from | **The check is reading an estimate, not a count.** `pg_stat_user_tables.n_live_tup` is a planner input maintained by autovacuum: stale (often zero) on a database not analysed recently, accurate on a freshly-restored one. It can be wrong in **both** directions, so it can also report a match over a restore that dropped rows. Generate real `count(*)` queries | [→](#92-a-restored-database-reports-different-row-counts-and-the-restore-was-perfect) |
 | 91 | **A second clone of the repo is not a second install** — `docker compose up` from a fresh checkout adopts the first one's database, or fails with `port is already allocated`. Shifting the ports in a `docker-compose.override.yml` does not help | **The Compose project name is pinned in the file, not derived from the folder** (`name: taskhub`, deliberately — it is what stops a renamed checkout orphaning the Postgres volume). Every clone on the machine is therefore the *same* project. And a plain override **appends** to `ports:` rather than replacing it, so both bindings are attempted and the old one still collides. Use `docker compose -p <name>` **and** the `!override` tag on every port list | [→](#91-a-second-clone-of-the-repo-shares-the-first-ones-database-and-ports) |
@@ -6319,6 +6321,48 @@ surface change rather than an empty account, so a malformed body cannot retire e
 
 The rows go `MISSING`, not away — that is §9's rule. Remove them with **Remove from Cronsole**
 (`untrack_task`), which works for OAuth-discovered rows since [#94](#94-a-missing-claude-row-survives-untrack-disconnect-and-delete).
+
+
+## 96. Your n8n folders do not appear in Cronsole
+
+**Symptom.** Your n8n workflows are organised into folders (*AI Library › N8N-Workflows › Finance ›
+Investing*, …). After connecting n8n and syncing, every workflow lands under one flat **n8n**
+category.
+
+**Cause.** n8n's **public API does not say which folder a workflow is in.** Checked against a live
+2.91 instance on 2026-10-04:
+
+- `GET /api/v1/projects/{id}/folders` returns every folder and its path — the tree is readable.
+- A workflow from `GET /api/v1/workflows` or `/workflows/{id}` has no folder field at all.
+- `GET /api/v1/workflows?parentFolderId=…` (or `folderId`) answers
+  `400 Unknown query parameter 'parentFolderId'`.
+- The editor's internal API (`/rest/workflows?includeFolders=true`) carries the link, and answers
+  `401 Unauthorized` to an `X-N8N-API-KEY` — it takes a logged-in session only.
+
+So the membership exists and is not published to the credential Cronsole holds. Nothing is broken.
+
+**Options** (none built yet — ROADMAP › Sources › n8n):
+
+- **Internal API with an n8n login** — exact and automatic, but Cronsole would hold your n8n email
+  and password, and the API is undocumented (2FA/SSO complicate it).
+- **Read-only access to n8n's database** — `workflow_entity."parentFolderId"` is exact and stable,
+  if Cronsole can reach that Postgres.
+- **Tags** — they are in the public API; one tag per workflow could name its category.
+- Today: recategorize the tasks in Cronsole (category is a Cronsole label; sync never overwrites it).
+
+## 97. One n8n workflow shows no schedule while the others convert fine
+
+**Symptom.** After an n8n sync most workflows show a UTC schedule, one or two show none, and the sync
+warns *"n8n: 1 schedule run in the instance time zone, which the n8n API does not report"*.
+
+**Cause.** The workflows that converted have their own **Timezone** in *Workflow settings*; the ones
+that did not use the instance default (`GENERIC_TIMEZONE`), and **n8n's API does not report it**.
+Cronsole refuses to read a local time as UTC rather than store it hours off ([#60](#60-a-schedule-is-stored-78-hours-off-and-the-ui-says-the-timezone-doesnt-matter)).
+
+**Fix.** Set **Instance time zone** on the n8n card and sync again. If you do not know the zone, read
+it off a run: a rule at 9:00 whose executions start at `14:00Z` in October is UTC−5 — America/Chicago.
+A local `docker exec … printenv GENERIC_TIMEZONE` only helps if that container *is* the instance
+Cronsole is connected to; check that the workflow names match first.
 
 ---
 

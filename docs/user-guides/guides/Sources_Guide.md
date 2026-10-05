@@ -9,7 +9,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/shapes-controller_·_observer_·_quick_link-8B5CF6?style=for-the-badge" alt="Shapes: controller, observer, quick link">
-  <img src="https://img.shields.io/badge/read--only_sources-GitHub_·_Vercel-2ea44f?style=for-the-badge" alt="Read-only sources: GitHub Actions and Vercel Cron">
+  <img src="https://img.shields.io/badge/read--only_sources-GitHub_·_Vercel_·_n8n-2ea44f?style=for-the-badge" alt="Read-only sources: GitHub Actions, Vercel Cron and n8n">
   <a href="../../contributing/Adding_A_Source.md"><img src="https://img.shields.io/badge/extend-add_a_source-0078D4?style=for-the-badge" alt="Add a source"></a>
 </p>
 
@@ -18,15 +18,15 @@
 Cronsole shows tasks from more than one system, and those systems are not the same shape.
 A Windows task lives on your machine and keeps running whether or not Cronsole is up. A
 Cronsole-native task *is* a row in Cronsole's database. A Claude routine lives at claude.ai
-and Cronsole can only knock on its door. A GitHub Actions workflow or a Vercel cron job Cronsole
-can only *watch*.
+and Cronsole can only knock on its door. A GitHub Actions workflow, a Vercel cron job or an n8n workflow
+Cronsole can only *watch*.
 
 This guide has one section per source: what it is, **what Cronsole can and can't do with it**,
 and the things that surprise people. It is what the **?** buttons in the app link to.
 
 > [!TIP]
 > **Each source also has its own document**, and that is the one to read once you have chosen. This
-> page compares six sources; a [source guide](../sources/README.md) covers one — connecting it, what
+> page compares seven sources; a [source guide](../sources/README.md) covers one — connecting it, what
 > each capability actually does, the traps, and where to go when it misbehaves. Every card on the
 > Sources tab links straight to its own.
 >
@@ -35,7 +35,8 @@ and the things that surprise people. It is what the **?** buttons in the app lin
 > [🤖 Claude Code](../sources/Claude_Code_Routines.md) ·
 > [✨ Gemini](../sources/Gemini_API_Triggers.md) ·
 > [🐙 GitHub Actions](../sources/GitHub_Actions.md) ·
-> [▲ Vercel Cron](../sources/Vercel_Cron.md)
+> [▲ Vercel Cron](../sources/Vercel_Cron.md) ·
+> [🔀 n8n](../sources/n8n.md)
 
 > **Where to find this in the app:** the **Sources** section of the sidebar lists one row per
 > source you have, with **Explore sources** and **Manage sources** beneath it. The **Sources**
@@ -536,6 +537,61 @@ shows as *Unsupported* on the Sources tab — that tab stating a boundary, not w
 - **Health here comes from your syncs, not from a probe.** The same rule every source follows:
   `getHealth` runs every 45 seconds per open tab, so probing would spend your rate limit on a
   question sync already answers. Sync is your probe.
+
+---
+
+## n8n
+
+**The workflows on your n8n instance that run on a Schedule Trigger.** Connect on the **Sources**
+tab: paste your instance address and an API key (n8n → *Settings › n8n API*), and set the
+**instance time zone**. Self-hosted and n8n Cloud both work; one key reaches one instance, so there
+is nothing to pick.
+
+**Read-only, like GitHub Actions and Vercel Cron — but with real run outcomes.** n8n publishes an
+execution per run with a status, so these tasks get a real health score and a full *Runs on the
+platform* list, where Vercel's sit at `unknown` forever.
+
+The three refusals:
+
+- **Run now** — n8n's API has no endpoint that starts a workflow. Calling one of its webhooks would
+  start a *different* run than the scheduled one, and n8n would record it as a webhook run.
+- **Enable / disable** — publishing and unpublishing switch a **whole workflow**: its webhooks, forms
+  and chat triggers go dark with its schedule. A per-task toggle would hide that.
+- **Create** — a workflow is a graph of nodes and credentials. Build it in n8n, publish it, sync.
+
+### What Cronsole can do here
+
+**Sync**, **health**, **Run History** (the platform's own executions, with each run's steps and a
+link to its page in n8n), and **Remove from Cronsole** on a single workflow.
+
+### Things that surprise people
+
+- **Set the instance time zone, or schedules arrive without a time.** n8n runs a Schedule Trigger in
+  the instance's `GENERIC_TIMEZONE`, and its API does not report which zone that is. Cronsole stores
+  every schedule in UTC, so without the zone it shows the schedule as unavailable *with that reason*
+  rather than reading 06:00 as 06:00 UTC. A workflow with its own time zone setting uses that one.
+- **Only scheduled workflows become tasks.** Workflows started by a form, a webhook, a chat or the
+  editor's button are not scheduled work. The sync note says how many it read and how many had a
+  schedule — *"read 90 workflows, 20 with a schedule"* — so a short list never reads as a broken one.
+- **Some schedules have no cron, and say so.** *Every 2 weeks* (or N days or months) counts from the
+  previous run rather than from the calendar, so no cron expression describes it. Neither does an
+  interval in seconds, *every 5 hours* (it does not divide the day), or a workflow with several
+  rules. Each reads as unavailable with its reason; the rules themselves are kept on the task.
+- **Cronsole reads what is published, not your draft.** n8n keeps your latest edits as a draft until
+  you publish. Cronsole reads the published version because that is what runs. An unpublished
+  workflow shows as **Disabled**.
+- **A run's output is its steps, not its data.** Opening a run shows which nodes ran, in order, where
+  a failed run stopped and n8n's error message. The data each node produced stays in n8n — the run
+  links to its own page there.
+- **Your n8n folders don't carry over.** n8n's public API lists your folders but not which workflow
+  is in which, so every workflow lands under one **n8n** category. Recategorize in Cronsole if you
+  want groups — sync never overwrites a category.
+- **There is no next-run time.** n8n does not report one, and a time computed from the cron would
+  disagree with n8n's own scheduler with nothing on screen to say which was right.
+- **The UTC schedule uses today's offset.** Like Gemini, the conversion is done at sync time, so
+  across a daylight-saving change the stored cron is an hour out until the next sync.
+- **The key is stored encrypted and never shown again.** Cronsole verifies the address and key
+  against n8n before saving, so a bad paste fails at the click.
 
 ---
 

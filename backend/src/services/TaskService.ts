@@ -3,6 +3,7 @@ import { prisma } from '../db.js';
 import { repositoryFromExternalId } from './githubRepositories.js';
 import { projectFromExternalId } from './vercelProjects.js';
 import { GEMINI_CATEGORY } from './geminiTriggers.js';
+import { N8N_CATEGORY } from './n8nConnection.js';
 
 export interface NormalizedTask {
   externalId: string;
@@ -439,6 +440,11 @@ export class TaskService {
     // category is the word for *no category* reads as a defect.
     if (platform === PlatformType.GEMINI_TRIGGERS) {
       return GEMINI_CATEGORY;
+    }
+
+    // n8n: one key, one instance, a flat list — a constant for Gemini's reason.
+    if (platform === PlatformType.N8N) {
+      return N8N_CATEGORY;
     }
 
     return 'Uncategorized';

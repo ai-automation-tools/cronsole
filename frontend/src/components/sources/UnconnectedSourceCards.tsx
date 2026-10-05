@@ -7,6 +7,7 @@ import { ClaudeRoutinesPanel } from '../ClaudeRoutinesPanel';
 import { GitHubReposPanel } from '../GitHubReposPanel';
 import { VercelProjectsPanel } from '../VercelProjectsPanel';
 import { GeminiTriggersPanel } from '../GeminiTriggersPanel';
+import { N8nPanel } from '../N8nPanel';
 import { SidebarToggle, SourceHeading, SourceStatusPill, SourceTile } from './SourceIdentity';
 import { SourceDocLink } from './SourceDocLink';
 
@@ -129,6 +130,7 @@ export const PendingSourceCard = ({ row, shownSources, onToggleShown }: {
               {row.platform === 'GITHUB_ACTIONS' && <GitHubReposPanel />}
               {row.platform === 'VERCEL_CRON' && <VercelProjectsPanel />}
               {row.platform === 'GEMINI_TRIGGERS' && <GeminiTriggersPanel />}
+              {row.platform === 'N8N' && <N8nPanel />}
 
               <button
                 type="button"

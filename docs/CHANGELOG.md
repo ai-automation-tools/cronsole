@@ -14,6 +14,16 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **"Every N hours" schedules convert between time zones** (2026-10-05). A schedule with several
+  hours at one minute — *every 6 hours*, *hourly 9–5* — used to be refused when converted to or
+  from UTC. It is now converted exactly whenever every day fires or no hour crosses midnight:
+  every 6 hours from midnight in New York is stored as `0 4,10,16,22 * * *`. Cards still read
+  *Every 6 hours*, the schedule picker still opens it, and a Windows task gets a 6-hour repetition
+  rather than an hourly one. n8n's *every 2/3/4/6/8/12 hours* triggers now get a schedule.
+- **n8n: more triggers recognised** (2026-10-05). The IMAP email trigger, the legacy Start and
+  Interval nodes, and — via n8n's own trigger count — any community trigger whose name Cronsole
+  does not know now make a workflow an on-demand task, grouped under *Email* or *Other triggers*.
+
 - **n8n on-demand workflows** (2026-10-05): workflows with no schedule — forms, webhooks, chat,
   manual runs — are now tracked too, shown as *On demand (form)* with their run history and health.
   On by default; turn **Include on-demand workflows** off on the n8n card to track scheduled ones

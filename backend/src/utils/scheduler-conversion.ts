@@ -402,6 +402,29 @@ export function convertCronToWindowsTrigger(cron: string): ConversionResult {
     }
   }
 
+  // 6b. The same step after a zone shift: an evenly spaced list covering the
+  // whole day ("0 5,11,17,23 * * *"). Since 2026-10-05 the browser enumerates
+  // `*/6` typed in Chicago into this rather than storing it unconverted, and
+  // without this branch it fell to the fallback below — every hour, 24 a day.
+  if (minNum !== null && dom === '*' && month === '*' && dow === '*' && /^\d+(,\d+)+$/.test(hour)) {
+    const hours = hour.split(',').map(Number).sort((a, b) => a - b);
+    const step = hours[1]! - hours[0]!;
+    const evenDay = step > 0 && 24 % step === 0 && hours.length === 24 / step &&
+      hours.every((h, i) => h === hours[0]! + i * step);
+    if (evenDay) {
+      const pad = (n: number) => String(n).padStart(2, '0');
+      return {
+        confidence: 1.0,
+        trigger: {
+          type: 'Time',
+          startBoundary: `${pad(hours[0]!)}:${pad(minNum)}`,
+          repetition: { interval: `PT${step}H`, duration: 'P1D' }
+        },
+        warnings
+      };
+    }
+  }
+
   // Fallback / Complex cron.
   //
   // This trigger is NOT derived from the input — the expression is discarded and
@@ -549,10 +572,16 @@ export function convertWindowsTriggerToCron(trigger: WindowsTrigger): ReverseRes
       };
     }
 
-    // PT6H -> hour is */6, min is startMin
+    // PT6H -> hour is */6, min is startMin. A start hour off the step's grid
+    // (05:00 every 6h) is the hours listed — `*/6` would put it 5 hours early.
     const hourMatch = interval.match(/^PT(\d+)H$/);
     if (hourMatch) {
       const hours = parseInt(hourMatch[1], 10);
+      const startHour = parseStartBoundary(trigger.startBoundary)?.hour ?? 0;
+      if (hours > 1 && 24 % hours === 0 && startHour % hours !== 0) {
+        const listed = Array.from({ length: 24 / hours }, (_, k) => (startHour + k * hours) % 24).sort((a, b) => a - b);
+        return { confidence: 1.0, cron: `${startMin} ${listed.join(',')} * * *`, warnings };
+      }
       return {
         confidence: 1.0,
         cron: `${startMin} ${hours === 1 ? '*' : `*/${hours}`} * * *`,

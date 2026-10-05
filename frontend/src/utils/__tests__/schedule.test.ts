@@ -72,6 +72,15 @@ describe('describeCron — named zone conversion', () => {
     expect(describeCron('0 15 * * *', PACIFIC, JUL)).toBe('Daily at 8:00 AM PDT');
   });
 
+  it('still reads a stepped hour as "every N hours" once the shift lists its hours', () => {
+    // Before 2026-10-05 the shift refused `*/6` and the step survived untouched;
+    // now it becomes `0 22,4,10,16` in Pacific and must read the same as before.
+    expect(describeCron('0 */6 * * *', PACIFIC, JAN)).toBe('Every 6 hours at :00');
+    expect(describeCron('0 4,10,16,22 * * *', PACIFIC, JUL)).toBe('Every 6 hours at :00');
+    // A short uneven list reads as clock times in the reader's zone.
+    expect(describeCron('0 13,21 * * *', PACIFIC, JUL)).toBe('Daily at 6:00 AM, 2:00 PM PDT');
+  });
+
   it('rolls the weekday back when the conversion crosses midnight', () => {
     // Mon 02:00 UTC is Sunday evening in Pacific.
     expect(describeCron('0 2 * * 1', PACIFIC, JAN)).toBe('Weekly on Sunday at 6:00 PM PST');

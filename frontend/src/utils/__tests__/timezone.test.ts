@@ -75,20 +75,18 @@ describe('shiftCron', () => {
   // renders it as "no fixed clock time, so it reads the same in PDT and UTC",
   // so an unshiftable expression that DOES pin a clock time gets a confident
   // false statement printed under it while being stored 7–8 hours off.
-  it('explains a multi-value hour instead of calling it clock-time-free', () => {
-    // The reported case: a Pacific user's working day, stored as 01:00–09:00.
-    const workday = shiftCron('0 9-17 * * 1-5', -480);
-    expect(workday.cron).toBe('0 9-17 * * 1-5');
-    expect(workday.shifted).toBe(false);
-    expect(workday.reason).toMatch(/single hour/);
+  it('shifts a multi-value hour by enumerating it, never by calling it clock-time-free', () => {
+    // The reported case: a Pacific user's working day. Every hour stays on the
+    // same day, so the weekday range survives and the hours are listed.
+    expect(shiftCron('0 9-17 * * 1-5', -480)).toEqual({ cron: '0 1,2,3,4,5,6,7,8,9 * * 1-5', shifted: true });
+    // `0 */6 * * *` is four fixed clock times — four different ones in Pacific.
+    expect(shiftCron('0 */6 * * *', -480).cron).toBe('0 4,10,16,22 * * *');
+    expect(shiftCron('0 1,13 * * *', -480).cron).toBe('0 5,17 * * *');
   });
 
-  it('explains an hour list and an hour step too — both pin real clock times', () => {
-    // `0 */6 * * *` fires at 00:00, 06:00, 12:00 and 18:00. That is four fixed
-    // clock times, and they are four DIFFERENT ones in Pacific — exactly the
-    // reasoning that makes "hourly at :20" shift for a half-hour zone below.
-    expect(shiftCron('0 */6 * * *', -480).reason).toBeTruthy();
-    expect(shiftCron('0 1,13 * * *', -480).reason).toBeTruthy();
+  it('explains what it still cannot convert — both pin real clock times', () => {
+    // Some hours cross midnight and some do not, on weekdays only.
+    expect(shiftCron('0 */6 * * 1-5', -480).reason).toMatch(/across midnight/);
     // A fixed hour with several minutes still pins an hour.
     expect(shiftCron('0,30 9 * * *', -480).reason).toBeTruthy();
   });

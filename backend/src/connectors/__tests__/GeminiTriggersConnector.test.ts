@@ -211,7 +211,8 @@ describe('the zone is reconciled on the way in, and a refusal is never silent', 
   it('stores no schedule and states the reason when it cannot convert', async () => {
     listTriggersMock.mockResolvedValue({
       ok: true,
-      data: [trigger({ schedule: '0 9-17 * * 1-5', timeZone: 'America/New_York' })]
+      // Hours that split across midnight on weekdays only — still no honest cron.
+      data: [trigger({ schedule: '0 */6 * * 1-5', timeZone: 'Asia/Tokyo' })]
     } as never);
     const outcome = await connector.syncTasks(config());
     const [task] = outcome.tasks;

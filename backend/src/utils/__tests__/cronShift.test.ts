@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { shiftCronToUtc, zoneOffsetMinutes } from '../cron.js';
+import { expandHours, shiftCronToUtc, zoneOffsetMinutes } from '../cron.js';
 
 /**
  * **The server-side zone conversion, which exists for exactly one platform.**
@@ -137,12 +137,36 @@ describe('a refusal is null with a reason, never a plausible cron', () => {
     return result.reason!;
   };
 
-  it('refuses a multi-value hour rather than enumerating the shift', () => {
-    expect(refused('0 9-17 * * 1-5', 'America/New_York')).toMatch(/more than one hour/);
+  it('refuses several hours that split across midnight on a schedule limited to some days', () => {
+    // Tokyo 00:00 is the previous day in UTC, 12:00 is not: on weekdays only,
+    // cron cannot say which day each listed hour now falls on.
+    expect(refused('0 */6 * * 1-5', 'Asia/Tokyo')).toMatch(/across midnight and not others/);
   });
 
-  it('refuses a stepped hour for the same reason', () => {
-    expect(refused('0 */2 * * *', 'Asia/Tokyo')).toMatch(/more than one hour/);
+  it('refuses several hours with several minutes — the minute field cannot be shared', () => {
+    expect(refused('0,30 */6 * * *', 'Asia/Tokyo')).toMatch(/more than one hour/);
+  });
+
+  // Several hours at one minute are enumerated, not refused (2026-10-05).
+  it('shifts a stepped hour on every day — the n8n "every 6 hours" case', () => {
+    expect(shiftCronToUtc('0 */6 * * *', 'America/New_York', WINTER).cron).toBe('0 5,11,17,23 * * *');
+    expect(shiftCronToUtc('0 */6 * * *', 'America/New_York', SUMMER).cron).toBe('0 4,10,16,22 * * *');
+  });
+
+  it('keeps the days when no hour crosses midnight', () => {
+    expect(shiftCronToUtc('0 9-17 * * 1-5', 'America/New_York', SUMMER).cron)
+      .toBe('0 13,14,15,16,17,18,19,20,21 * * 1-5');
+  });
+
+  it('moves the shared minute for a partial-hour zone', () => {
+    expect(shiftCronToUtc('0 6,18 * * *', 'Asia/Kolkata', SUMMER).cron).toBe('30 0,12 * * *');
+  });
+
+  it('reads every hour-field form it claims to, and nothing else', () => {
+    expect(expandHours('5/6')).toEqual([5, 11, 17, 23]);
+    expect(expandHours('1-5,22')).toEqual([1, 2, 3, 4, 5, 22]);
+    expect(expandHours('9-30')).toBeNull();
+    expect(expandHours('MON')).toBeNull();
   });
 
   it('refuses a midnight-crossing shift that pins a day of the month', () => {

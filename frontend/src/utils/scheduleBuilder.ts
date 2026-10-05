@@ -140,6 +140,17 @@ export function cronToShape(cron: string): ScheduleShape | null {
     return every >= 1 && every <= 23 ? { kind: 'hours', every, minute: minNum } : null;
   }
 
+  // The same schedule after a zone round trip: since 2026-10-05 `shiftCron`
+  // enumerates `*/6` into `0,6,12,18` rather than refusing, so a picker-built
+  // "every 6 hours" reads back as a list. Exactly `*/N` only — a list starting
+  // anywhere but 0 is a different schedule the picker has no shape for.
+  if (minNum !== null && /^\d+(,\d+)+$/.test(hour) && wildDate) {
+    const hours = hour.split(',').map(Number);
+    const every = hours[1] - hours[0];
+    const isStep = hours[0] === 0 && every >= 1 && hours.every((h, i) => h === i * every) && hours.length === Math.ceil(24 / every);
+    if (isStep) return { kind: 'hours', every, minute: minNum };
+  }
+
   if (minNum === null || hourNum === null) return null;
 
   // Daily at H:M.

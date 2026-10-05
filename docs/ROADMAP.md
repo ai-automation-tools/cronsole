@@ -465,11 +465,17 @@ of that list which have since shipped are in Part II.
 - [ ] **The sync response's `missing` is a delta, not a state** — it counts rows *newly* marked
       `MISSING` by that pass, so it reads `0` beside `count: 5` while two rows sit `MISSING`.
       Defensible, but it is presented next to a state field and invites the wrong reading.
-- [ ] **Cronsole can refuse a multi-value hour honestly, but still cannot convert one**
-      *(carved out of the `shiftCron` fix, 2026-08-15)*. `0 9-15 * * *` → `0 17-23 * * *` is
-      expressible and would be a real improvement; ranges that cross midnight (`9-17` in Pacific)
-      are not, and per-element weekday rolls make the general case sharp. Its own item deliberately
-      — smuggling it into a warning fix is how the warning stops being trustworthy.
+- [x] **Convert a multi-value hour between zones** *(carved out 2026-08-15, shipped 2026-10-05)*.
+      Several hours at one minute are enumerated and shifted, in both `shiftCronToUtc` (backend)
+      and `shiftCron` (browser) via one mirrored `expandHours`: `0 */6 * * *` from New York is
+      `0 4,10,16,22 * * *`. Exact whenever every day fires, or no hour crosses midnight; hours that
+      split across midnight on a day-restricted schedule are still refused with the reason, as is a
+      multi-value hour with a multi-value minute. Three readers had to learn the list in the same
+      change or it would have regressed: `describeCron` (still "Every 6 hours"), the schedule
+      picker (`0,6,12,18` is `*/6`), and the Windows converter — an evenly spaced list is a
+      `PT{n}H` repetition from its first hour, where it previously fell to the **replace-with-hourly**
+      fallback; the reverse reader now honours a start hour off the step's grid instead of reading
+      05:00-every-6h as `*/6`. Unblocked n8n's *every N hours* (N dividing 24).
 
 **Chores, not roadmap items** *(dev machine)*: the MCP host needs a restart to load a rebuilt
 `mcp-server/dist/`; the Windows task `Cronsole conversion-response probe (safe to delete)` in

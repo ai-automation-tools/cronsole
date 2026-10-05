@@ -15,6 +15,10 @@ describe('cronToShape', () => {
     expect(cronToShape('*/15 * * * *')).toEqual({ kind: 'minutes', every: 15 });
     expect(cronToShape('0 * * * *')).toEqual({ kind: 'hours', every: 1, minute: 0 });
     expect(cronToShape('30 */6 * * *')).toEqual({ kind: 'hours', every: 6, minute: 30 });
+    // What `*/6` reads back as after a zone round trip — the same schedule.
+    expect(cronToShape('30 0,6,12,18 * * *')).toEqual({ kind: 'hours', every: 6, minute: 30 });
+    // Off the grid is a different schedule the picker has no shape for.
+    expect(cronToShape('0 5,11,17,23 * * *')).toBeNull();
     expect(cronToShape('0 8 * * *')).toEqual({ kind: 'daily', hour: 8, minute: 0 });
     expect(cronToShape('0 9 * * 1-5')).toEqual({
       kind: 'weekly',

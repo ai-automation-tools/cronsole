@@ -1172,9 +1172,10 @@ export const DashboardScreen = ({
                    )}
                 </div>
               ) : (
-                filteredTasks.map(task => (
+                filteredTasks.map((task, index) => (
                   <TaskCard
                     key={task.id}
+                    index={index}
                     task={task}
                     onSelect={onTaskSelect}
                     onRun={onRun}

@@ -376,7 +376,7 @@ const Dashboard = () => {
       and folder tree — the thing that actually changes, and the thing you
       navigate 350 tasks by. Every other tab gets the full width.
     */
-    <div className="flex flex-col h-screen bg-background text-foreground font-sans selection:bg-primary/30 overflow-hidden">
+    <div className="ground flex flex-col h-screen text-foreground font-sans selection:bg-primary/30 overflow-hidden">
       <TopBar activeTab={activeTab} setActiveTab={setActiveTab} />
       {/*
         No padding here — each screen owns its own.

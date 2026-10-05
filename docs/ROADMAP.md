@@ -902,14 +902,39 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
       be `America/Chicago`, read off a run's UTC start — [#97](troubleshooting/README.md#97-one-n8n-workflow-shows-no-schedule-while-the-others-convert-fine)),
       and an every-6-hours rule is refused by `shiftCronToUtc`'s multi-hour rule.
 
+      - [x] **Folders** *(decided and shipped 2026-10-05)* — the public API does not publish
+        membership (`parentFolderId` is `writeOnly` in the instance's own OpenAPI; package export is
+        licensed and ships whole bodies; `/rest/` refuses API keys — [#96](troubleshooting/README.md#96-your-n8n-folders-do-not-appear-in-cronsole)).
+        **Chose a read-only Postgres role** over an n8n login (owner password, 2FA, undocumented API)
+        and tags (hand-maintained duplicate of the folders): five granted columns, less reach than
+        the API key, verified on a live n8n DB that `SELECT nodes` is denied under them. Optional
+        `folderDbUrl` on the connection (encrypted, write-only, `PUT …/n8n/folder-db` verifies by
+        running the real query); `services/n8nFolders.ts` reads paths via a second `PrismaClient`
+        (no new dependency). **The folder is `metadata.folderPath`, not identity** — a category is
+        derived from `externalId` and a moved workflow keeps its id, so folders nest *beneath* `n8n`
+        through the rail's one `subfolderPath` helper, and a failed read is a warning, never
+        `partial`. Open: `DB_TABLE_PREFIX`.
+      - [x] **On-demand workflows** *(shipped 2026-10-05)* — the user's instance had 65 of 89 live
+        workflows with no schedule (48 manual-only agent-runner launchers, 12 forms, webhooks, an
+        error handler), so "a task is a scheduled workflow" hid most of the instance. Now any enabled
+        trigger makes a task (`readOnDemandTriggers`), `schedule: null` with `scheduleReason` (the
+        calendar's key), `never-run` downgraded to `info`, manual-only stays `ACTIVE`. Setting
+        `includeOnDemand` (absent = on); turning it off deletes the rows in `PUT …/n8n/options` so the
+        next complete sync cannot call them MISSING. Execution reads batched 6 at a time.
+      - [x] **Default sidebar grouping** *(shipped 2026-10-05)* — no tags on any of the user's 89
+        workflows and name suffixes are a personal convention, so the default groups by trigger
+        (`triggerGroup`: Scheduled / Forms / Webhooks / Manual / …, most specific trigger wins, manual
+        only when alone) through the same `metadata.folderPath` real folders use. Setting `groupBy`
+        (`trigger` | `none`, absent = `trigger`); real folders always win when readable.
+      - [x] **Sources page** *(2026-10-05)* — the *Read: using X* link sits in each card's header,
+        not behind *Show details*; an `unsupported` capability cell drops stale run evidence, and a
+        create refused before calling the platform (`refusedBeforeCalling`) is no longer recorded as
+        a platform failure (both put false "failed" verbs on the Gemini card).
+      - [x] **Rail caps** *(2026-10-05)* — the source list is never capped (visibility is already
+        the user's `shownSources` choice; the cap of 4 hid the two alphabetically-last sources);
+        `RAIL_ROW_CAP` raised 4 → 10 for folder lists and bands.
+
       **Still open:**
-      - **Folders as categories** — the user's workflows are organised in n8n folders, and **the
-        public API does not publish membership**: folders and paths are readable
-        (`/projects/{id}/folders`), a workflow has no folder field, `?parentFolderId=` is a `400`, and
-        the editor's `/rest/` API has the link but refuses API keys ([#96](troubleshooting/README.md#96-your-n8n-folders-do-not-appear-in-cronsole)).
-        Doors: an n8n login against `/rest/` (exact, but a password and an undocumented API), read-only
-        access to n8n's Postgres (`workflow_entity."parentFolderId"`), or tags. **Undecided** — waits
-        on where the instance runs and whether it has 2FA.
       - **Every-N-hours in a whole-hour zone** has an exact UTC answer (`0 */6` in UTC−4 is
         `0 4,10,16,22`); teach `n8nSchedule.ts` to enumerate it rather than inherit the refusal.
       - The legacy `Cron` node; `setStatus` if n8n ever gets a per-trigger switch.

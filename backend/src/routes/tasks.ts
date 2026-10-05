@@ -645,7 +645,12 @@ router.post('/', validateBody(createTaskSchema), async (req: Request, res: Respo
     }
   );
 
-  await recordCapability(userId, platform, 'create', result.success, result.message);
+  // A refusal reached without calling the platform is evidence about the
+  // request, not the platform: a typo'd preset name put "Create failed" on the
+  // Gemini card as though Google had declined.
+  if (!result.refusedBeforeCalling) {
+    await recordCapability(userId, platform, 'create', result.success, result.message);
+  }
 
   if (!result.success) {
     // foldersCreated rides the ERROR too. A create can build the folder chain

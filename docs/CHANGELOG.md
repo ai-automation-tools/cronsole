@@ -14,6 +14,19 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **n8n on-demand workflows** (2026-10-05): workflows with no schedule — forms, webhooks, chat,
+  manual runs — are now tracked too, shown as *On demand (form)* with their run history and health.
+  On by default; turn **Include on-demand workflows** off on the n8n card to track scheduled ones
+  only. Run history is read six workflows at a time so a larger sync stays quick. In the sidebar
+  they nest by how they start — *Scheduled*, *Forms*, *Webhooks*, *Manual*… — unless real n8n
+  folders are connected; **Group in the sidebar** on the n8n card turns it off.
+
+- **n8n folders** (2026-10-05): on a self-hosted n8n, paste a read-only Postgres URL for n8n's
+  database under **Folders (optional)** on the n8n card and your workflows nest by n8n folder in
+  the sidebar (*n8n › AI-Library › News*). n8n's API does not report folders; the role Cronsole
+  needs reads five columns and no workflow content. Moving a workflow in n8n moves it here on the
+  next sync, keeping its history. See the [n8n guide › Folders](user-guides/sources/n8n.md#folders).
+
 - **n8n as a source** (2026-10-04): connect an n8n instance (address, API key, and its time zone)
   on the Sources tab, and every workflow with a Schedule Trigger appears on the dashboard with its
   schedule in UTC, a real health score from its executions, and a *Runs on the platform* list
@@ -32,7 +45,21 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
   the biweekly **Cronsole Upstream Check** routine (`upstream/auto-*` PRs), which catches drift
   in the sources before a connector breaks silently.
 
+### Changed
+
+- **Each source card shows its *Read: using X* guide link without expanding it** (2026-10-05).
+- **The sidebar no longer hides sources** (2026-10-05). The source list used to fold everything past
+  the fourth behind *Show more* — on a rail with seven sources, Gemini and n8n disappeared. It now
+  draws every source you chose to show, and folder lists show ten rows (was four) before *Show N
+  more folders*.
+
 ### Fixed
+
+- **The Gemini card no longer reports two "failed" verbs that are not failures** (2026-10-05).
+  *Edit schedule* showed Google's old `400 Unknown parameter 'schedule'` from before the verb was
+  declared unsupported, and *Create* showed a refused request that never reached Google (an
+  unsaved MCP server name). An unsupported capability now carries no run evidence, and a create
+  refused before calling the platform is no longer recorded against it.
 
 - **Deleting every Claude routine left them all `ACTIVE` in Cronsole** (2026-10-04). Sync skipped
   missing-task reconciliation on any empty listing, so removing your *last* routine at claude.ai was

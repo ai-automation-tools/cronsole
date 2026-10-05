@@ -116,10 +116,11 @@ const sources: HelpTopic = {
         'search task names instead, use the search and filters above the task list.'
     },
     {
-      label: 'Long lists stop at four and say what is left',
+      label: 'Long lists stop at ten and say what is left',
       body:
-        'A source with fifteen folders shows four and a "Show 11 more folders" control, so one ' +
-        'platform cannot own the whole sidebar. Nothing is ever hidden without its count.'
+        'A source with fifteen folders shows ten and a "Show 5 more folders" control, so one ' +
+        'platform cannot own the whole sidebar. Nothing is ever hidden without its count, and the ' +
+        'list of sources itself is never shortened.'
     },
     {
       label: 'It composes with views',
@@ -547,15 +548,15 @@ const sourceN8n: HelpTopic = {
   id: 'source:N8N',
   title: 'n8n',
   summary:
-    'Workflows on your n8n instance that run on a Schedule Trigger. Read-only, with real run outcomes — ' +
+    'Workflows on your n8n instance — scheduled and on demand. Read-only, with real run outcomes — ' +
     'Cronsole shows their schedules and how their runs went, and changes nothing.',
   points: [
     {
-      label: 'Only scheduled workflows become tasks',
+      label: 'On-demand workflows are tracked too',
       body:
-        "A workflow started by a form, a webhook, a chat or the editor's button is not scheduled work, " +
-        'so it is not imported. The sync says how many workflows it read and how many had a schedule, ' +
-        'so a short list never reads as a broken one.'
+        'A workflow started by a form, a webhook, a chat or by hand shows as On demand, with its run ' +
+        'history and no schedule. Turn off "Include on-demand workflows" on the n8n card to track ' +
+        'scheduled workflows only.'
     },
     {
       label: 'Set the instance time zone, or schedules show without a time',
@@ -584,11 +585,12 @@ const sourceN8n: HelpTopic = {
         'version, because that is the one that runs; an unpublished workflow shows as Disabled.'
     },
     {
-      label: 'Your n8n folders do not carry over',
+      label: 'Folders need a database URL',
       body:
-        "n8n's public API lists your folders but not which workflow is in which, so every workflow " +
-        'lands under one n8n category. Give tasks your own categories in Cronsole if you want groups — ' +
-        'a sync never overwrites a category.'
+        'By default workflows nest by how they start (Scheduled, Forms, Webhooks, Manual) — change it ' +
+        "with Group in the sidebar. n8n's API does not say which folder a workflow is in. On a self-hosted instance, paste a " +
+        "read-only Postgres URL for n8n's database under Folders on the n8n card, and workflows nest " +
+        'by folder under n8n after the next sync. The role needs five columns and nothing else.'
     },
     {
       label: 'Run output is the steps, not the data',

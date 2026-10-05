@@ -211,17 +211,18 @@ export function matchesSource(task: Task, filter: string): boolean {
 }
 
 /**
- * A Windows task's subfolder path *beneath its root category*, as segments —
+ * A task's subfolder path *beneath its category*, as segments —
  * `\Work\Backups\Old\Nightly` (category `Work`) yields `['Backups', 'Old']`.
  *
- * Derived from `externalId` rather than a server-sent field: the server already
- * derives `category` from this same path (`extractCategory`, root segment
- * only) and nothing downstream needs the deeper segments, so there was never a
- * reason to send them separately. Empty for any task whose id isn't a
- * multi-segment Windows path — which every other platform's id naturally is
- * not, so this needs no platform check to stay a no-op elsewhere.
+ * Windows: derived from `externalId`, because the server derives `category`
+ * from this same path (`extractCategory`, root segment only). n8n: its ids
+ * carry no folder (a move keeps the id), so the server sends the n8n folder
+ * names as `metadata.folderPath` and they nest under the `n8n` category.
+ * Every other platform yields `[]`, so this is a no-op there.
  */
-export function windowsSubfolderPath(task: Task): string[] {
+export function subfolderPath(task: Task): string[] {
+  const sent = task.metadata?.folderPath;
+  if (Array.isArray(sent) && sent.every(s => typeof s === 'string' && s.length > 0)) return sent as string[];
   const parts = task.externalId.split(/[\\/]/).filter(p => p.length > 0);
   // parts: [category, ...subfolders, taskName]. Fewer than 3 means no subfolder.
   return parts.length > 2 ? parts.slice(1, -1) : [];
@@ -236,7 +237,7 @@ export function windowsSubfolderPath(task: Task): string[] {
  */
 export function matchesFolderPath(task: Task, filter: string): boolean {
   if (filter === 'All') return true;
-  const path = windowsSubfolderPath(task).join('/');
+  const path = subfolderPath(task).join('/');
   return path === filter || path.startsWith(`${filter}/`);
 }
 

@@ -648,10 +648,12 @@ function scoreN8nRuns(
 
   const runCount = typeof m.executionCount === 'number' ? m.executionCount : 0;
   if (runCount === 0) {
+    // An on-demand workflow nobody has started yet is unused, not broken.
+    const onDemand = m.onDemand === true;
     if (!disabled) {
       add(
         'never-run',
-        'warn',
+        onDemand ? 'info' : 'warn',
         'n8n has no finished run of this workflow.',
         `n8n returned no finished executions ${asOf} — it may never have run, or the instance pruned its history`,
         WEIGHTS.neverRun

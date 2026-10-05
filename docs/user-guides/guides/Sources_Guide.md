@@ -542,7 +542,7 @@ shows as *Unsupported* on the Sources tab — that tab stating a boundary, not w
 
 ## n8n
 
-**The workflows on your n8n instance that run on a Schedule Trigger.** Connect on the **Sources**
+**The workflows on your n8n instance — scheduled, and (by default) on demand.** Connect on the **Sources**
 tab: paste your instance address and an API key (n8n → *Settings › n8n API*), and set the
 **instance time zone**. Self-hosted and n8n Cloud both work; one key reaches one instance, so there
 is nothing to pick.
@@ -570,9 +570,10 @@ link to its page in n8n), and **Remove from Cronsole** on a single workflow.
   the instance's `GENERIC_TIMEZONE`, and its API does not report which zone that is. Cronsole stores
   every schedule in UTC, so without the zone it shows the schedule as unavailable *with that reason*
   rather than reading 06:00 as 06:00 UTC. A workflow with its own time zone setting uses that one.
-- **Only scheduled workflows become tasks.** Workflows started by a form, a webhook, a chat or the
-  editor's button are not scheduled work. The sync note says how many it read and how many had a
-  schedule — *"read 90 workflows, 20 with a schedule"* — so a short list never reads as a broken one.
+- **On-demand workflows are tracked too.** A workflow started by a form, a webhook, a chat or by hand
+  shows as *On demand*, with run history and no schedule. Turn **Include on-demand workflows** off on
+  the n8n card to track scheduled ones only. The sync note says what it read — *"read 89 workflows,
+  24 with a schedule and 65 on demand"*.
 - **Some schedules have no cron, and say so.** *Every 2 weeks* (or N days or months) counts from the
   previous run rather than from the calendar, so no cron expression describes it. Neither does an
   interval in seconds, *every 5 hours* (it does not divide the day), or a workflow with several
@@ -583,9 +584,10 @@ link to its page in n8n), and **Remove from Cronsole** on a single workflow.
 - **A run's output is its steps, not its data.** Opening a run shows which nodes ran, in order, where
   a failed run stopped and n8n's error message. The data each node produced stays in n8n — the run
   links to its own page there.
-- **Your n8n folders don't carry over.** n8n's public API lists your folders but not which workflow
-  is in which, so every workflow lands under one **n8n** category. Recategorize in Cronsole if you
-  want groups — sync never overwrites a category.
+- **Folders need a database URL.** n8n's public API lists your folders but not which workflow is in
+  which. On a self-hosted instance, a read-only Postgres role (five columns) under **Folders** on the
+  n8n card nests workflows by folder under **n8n** — see [n8n › Folders](../sources/n8n.md#folders).
+  On n8n Cloud, recategorize in Cronsole instead; sync never overwrites a category.
 - **There is no next-run time.** n8n does not report one, and a time computed from the cron would
   disagree with n8n's own scheduler with nothing on screen to say which was right.
 - **The UTC schedule uses today's offset.** Like Gemini, the conversion is done at sync time, so

@@ -406,8 +406,12 @@ Non-negotiable rules. **Every one has a reason recorded in
 - **`buildNativeJob` / `validateJob` have one definition**, shared by create, edit and the connector —
   a second definition is how an edit produces a spec creation would have refused.
 - **n8n is an observer that reports outcomes, and the one source whose zone the user must declare.**
-  A task is a workflow with an enabled Schedule Trigger; everything else is counted in the sync note,
-  not dropped silently. Its rules are not cron and the API **omits defaults** (`{ field: "weeks",
+  A task is a workflow with an enabled Schedule Trigger **or, by default, any other enabled trigger**
+  (`includeOnDemand`, on unless explicitly `false`) — an on-demand task has `schedule: null` and
+  `metadata.onDemand` + `triggers` + `scheduleReason`, never `scheduleUnavailableReason` (no
+  schedule by design is not a schedule Cronsole failed to read). Turning the setting off **deletes**
+  those rows in the route, or the next complete sync would call them MISSING. Workflows with no
+  trigger are counted in the sync note, not dropped silently. Its rules are not cron and the API **omits defaults** (`{ field: "weeks",
   triggerAtHour: 6 }` is Sunday 06:00), so `services/n8nSchedule.ts` carries the node's defaults and
   refuses with a reason what no cron says — seconds, every *N* > 1 days/weeks/months (n8n counts from
   the last run), hours not dividing 24, several rules. The rules are wall-clock in the instance's
@@ -417,6 +421,12 @@ Non-negotiable rules. **Every one has a reason recorded in
   lookalike), `setStatus` (activate switches the whole workflow, webhooks too) and `create` are in
   `unsupportedVerbs`. Only schedule nodes keep their parameters at the parse (`toNode`), so a
   hardcoded HTTP token never enters a row; run output is node **names**, never node data.
+  **Folders are metadata, never identity**: the API cannot report membership (`parentFolderId` is
+  write-only), so an optional read-only Postgres role — five granted columns, less reach than the
+  key — supplies `metadata.folderPath`, rewritten every sync and nested under `n8n` by the rail's
+  one `subfolderPath`. Putting it in `externalId` would retire a workflow's history on every move.
+  A failed folder read is a warning, never `partial`. Without readable folders the same field
+  carries a **trigger group** (`groupBy`, default `trigger`: Scheduled / Forms / Webhooks / Manual…).
 - Prefer the connector that unlocks several sources (one POSIX agent → launchd + cron + systemd) over
   one that unlocks a single cloud scheduler. An **observer** (read-only) connector is a finished
   state, not a stalled one.
@@ -501,7 +511,9 @@ Non-negotiable rules. **Every one has a reason recorded in
   hit** — the three band folds are persisted, so a query must open them the way it opens a branch,
   or a shut band answers with a heading, a coverage note and nothing at all.
 - **No rail list draws unbounded, and none truncates silently.** Every band and every folder list
-  stops at `RAIL_ROW_CAP` and states the remainder (*Show 11 more folders*) — one definition in
+  stops at `RAIL_ROW_CAP` (10) and states the remainder (*Show 5 more folders*). **The source list
+  is exempt**: which sources appear is already the user's choice (`shownSources`), so capping it
+  hid sources they had asked for — Gemini and n8n, sorted last, at the old cap of 4. One definition in
   `capRows`, one over the cap left alone because *Show 1 more* costs a row to save a row. **A list
   of filter matches is never capped and a list a match dragged along with it always is**: capping
   the first hides the row you typed for, lifting the second turns one hit on `AI-Lab` into all

@@ -69,12 +69,23 @@ draft/publish model, so it is not a safe edit to make from outside.
 
 ## 📋 What becomes a task
 
-A workflow becomes a task when it has an **enabled** `Schedule Trigger` (or the legacy `Cron` node)
-and is not archived. Workflows started only by a form, a webhook, a chat or the editor's button are
-not scheduled work and are counted out loud instead: the sync note says *"read 90 workflows, 20 with a
-schedule"*, so a short list never reads as a broken one.
+Every workflow that is not archived and has an **enabled trigger** becomes a task:
 
-- **Published** → Active. **Unpublished** → Disabled, since it fires nothing.
+- **Scheduled** — an enabled `Schedule Trigger` (or the legacy `Cron` node). Its schedule is
+  converted to UTC.
+- **On demand** — started by a form, webhook, chat, another workflow, an error, or by hand in the
+  editor. It has no schedule (the card says *On demand (form)*), no place on the calendar, and the
+  same run history and health score as a scheduled one. A never-used on-demand workflow is not
+  flagged as unhealthy.
+
+Turn **Include on-demand workflows** off on the n8n card to track scheduled workflows only. Turning
+it off removes the on-demand rows from the dashboard right away (nothing changes in n8n). Workflows
+with no trigger at all are skipped. The sync note says what it read — *"read 89 workflows, 24 with a
+schedule and 65 on demand"*.
+
+- **Published** → Active. **Unpublished** → Disabled, since it fires nothing — except a workflow
+  whose only trigger is manual: n8n cannot publish one, and it runs from the editor either way, so
+  it stays Active.
 - Cronsole reads the **published** version. If you have unpublished edits and n8n does not return the
   published version, the schedule is shown as unavailable rather than read off a draft that may not
   be live.
@@ -95,16 +106,49 @@ These are kept on the task (the rules, in n8n's own zone) and shown as unavailab
 A Custom (Cron) rule with a seconds field is read with the seconds dropped when they are a single
 value — they only move the run within its minute.
 
-## 🗂️ Why your n8n folders don't show up
+<a id="folders"></a>
 
-Every n8n workflow lands under one **n8n** category, even if you have organised them into folders.
-**n8n's public API does not say which folder a workflow is in** — it lists the folders and their
-paths, but a workflow record has no folder field, and asking for a folder's workflows is refused.
-The n8n editor uses a separate internal API that does carry it, and that API does not accept API
-keys. ([Troubleshooting #96](../../troubleshooting/README.md#96-your-n8n-folders-do-not-appear-in-cronsole))
+## 🗂️ Folders
 
-Until there is a supported way to read it, you can give the tasks categories inside Cronsole —
-categories are Cronsole's own labels and a sync never overwrites them.
+**By default, workflows nest under n8n by how they start** — *Scheduled*, *Forms*, *Webhooks*,
+*Manual*, *Error handlers*… — because that is readable on every instance. Change it with **Group in
+the sidebar** on the n8n card (*Not grouped* puts them all directly under n8n). Your real n8n folders
+replace it whenever they can be read, as below.
+
+**n8n's public API does not say which folder a workflow is in**: a workflow's `parentFolderId` is write-only, `/workflows` takes no folder filter,
+and the package export that does carry folders needs a licensed feature. The editor's internal API
+carries it but refuses API keys.
+([Troubleshooting #96](../../troubleshooting/README.md#96-your-n8n-folders-do-not-appear-in-cronsole))
+
+**On a self-hosted instance, Cronsole can read folders from n8n's Postgres database instead.** It
+is optional, and it needs less access than the API key: a role that can read five columns and
+nothing else — no workflow nodes, no credentials, no executions.
+
+1. On the n8n database, create the role (pick your own password):
+
+   ```sql
+   CREATE ROLE cronsole_reader LOGIN PASSWORD 'change-me';
+   GRANT CONNECT ON DATABASE n8n TO cronsole_reader;
+   GRANT USAGE ON SCHEMA public TO cronsole_reader;
+   GRANT SELECT (id, "parentFolderId") ON workflow_entity TO cronsole_reader;
+   GRANT SELECT (id, name, "parentFolderId") ON folder TO cronsole_reader;
+   ```
+
+2. Make Postgres reachable from the machine Cronsole runs on (a published port, a VPN such as
+   Tailscale, or an SSH tunnel). Prefer not to expose it to the internet.
+3. Sources tab → **n8n** → **Folders (optional)**: paste
+   `postgresql://cronsole_reader:change-me@host:5432/n8n` and **Verify and save**. Cronsole runs the
+   real folder query before storing anything, and says how many workflows it found in a folder.
+4. **Sync.** Workflows nest under **n8n** in the sidebar by folder, e.g. *n8n › AI-Library › News*.
+
+The URL is encrypted like the API key and never shown again — the panel shows only `host:port/db`.
+
+- **The folder is refreshed on every sync**, so moving a workflow in n8n moves it in Cronsole — its
+  id, history and favorites stay put.
+- **A failed folder read never fails the sync.** The tasks still arrive, without their folders,
+  and the sync says why.
+- **Not on n8n Cloud** — its database is not reachable. An instance with `DB_TABLE_PREFIX` set is
+  not supported yet.
 
 ## 📈 Health and run history
 

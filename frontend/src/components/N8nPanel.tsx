@@ -4,6 +4,8 @@ import {
   useDisconnectN8n,
   useN8nConnection,
   useSetN8nConnection,
+  useSetN8nFolderDb,
+  useSetN8nOptions,
   useSetN8nTimeZone
 } from '../hooks/useN8nConnection';
 import { errorMessage } from '../utils/errorMessage';
@@ -38,6 +40,9 @@ export const N8nPanel = () => {
   const setConnection = useSetN8nConnection();
   const setTimeZone = useSetN8nTimeZone();
   const disconnect = useDisconnectN8n();
+  const setFolderDb = useSetN8nFolderDb();
+  const setOptions = useSetN8nOptions();
+  const [folderDbUrl, setFolderDbUrl] = useState('');
 
   const [formOpen, setFormOpen] = useState(false);
   const [baseUrl, setBaseUrl] = useState('');
@@ -89,6 +94,39 @@ export const N8nPanel = () => {
       setNote(result.message);
     } catch (e) {
       setError(errorMessage(e, 'Could not save that time zone.'));
+    }
+  };
+
+  const submitFolderDb = async (url: string) => {
+    clear();
+    try {
+      const result = await setFolderDb.mutateAsync(url);
+      setFolderDbUrl('');
+      setNote(result.message);
+    } catch (e) {
+      setError(errorMessage(e, 'Could not read folders from that database.'));
+    }
+  };
+
+  const toggleOnDemand = async (next: boolean) => {
+    if (!next && !window.confirm(
+      'Stop tracking on-demand workflows?\n\nWorkflows with no schedule are removed from the dashboard ' +
+        '(with their Cronsole history). Nothing changes in n8n, and turning this back on brings them back on the next sync.'
+    )) return;
+    clear();
+    try {
+      setNote((await setOptions.mutateAsync({ includeOnDemand: next })).message);
+    } catch (e) {
+      setError(errorMessage(e, 'Could not change that setting.'));
+    }
+  };
+
+  const changeGroupBy = async (groupBy: 'trigger' | 'none') => {
+    clear();
+    try {
+      setNote((await setOptions.mutateAsync({ groupBy })).message);
+    } catch (e) {
+      setError(errorMessage(e, 'Could not change that setting.'));
     }
   };
 
@@ -220,6 +258,89 @@ export const N8nPanel = () => {
                 Save time zone
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {connected && (
+        <label className="flex items-start gap-2.5 bg-muted/40 border border-border rounded-xl px-3 py-2 cursor-pointer">
+          <input
+            type="checkbox"
+            className="mt-0.5 accent-[hsl(var(--n8n))]"
+            checked={data?.includeOnDemand ?? true}
+            disabled={setOptions.isPending}
+            onChange={e => toggleOnDemand(e.target.checked)}
+          />
+          <span className="min-w-0">
+            <span className="block text-xs font-bold">Include on-demand workflows</span>
+            <span className="block text-[10px] text-subtle-foreground">
+              Track workflows with no schedule too — forms, webhooks, chat and manual runs — with their run history.
+              They show as On demand and have no place on the calendar.
+            </span>
+          </span>
+        </label>
+      )}
+
+      {connected && (
+        <div className="flex items-center justify-between gap-3 flex-wrap bg-muted/40 border border-border rounded-xl px-3 py-2">
+          <div className="min-w-0">
+            <label htmlFor="n8n-group-by" className="block text-xs font-bold">Group in the sidebar</label>
+            <span className="block text-[10px] text-subtle-foreground">
+              {data?.hasFolderDb
+                ? 'Your n8n folders are used. This applies only if they cannot be read.'
+                : 'Until n8n folders can be read (below), workflows nest by how they start.'}
+            </span>
+          </div>
+          <select
+            id="n8n-group-by"
+            value={data?.groupBy ?? 'trigger'}
+            disabled={setOptions.isPending}
+            onChange={e => changeGroupBy(e.target.value as 'trigger' | 'none')}
+            className="shrink-0 bg-surface border border-border rounded-xl px-2.5 py-1.5 text-[11px] font-bold"
+          >
+            <option value="trigger">By trigger — Scheduled, Forms, Webhooks…</option>
+            <option value="none">Not grouped</option>
+          </select>
+        </div>
+      )}
+
+      {/*
+        Optional. n8n's API cannot say which folder a workflow is in, so folders
+        come from n8n's database through a role granted five columns — less reach
+        than the API key. The URL holds a password and never comes back.
+      */}
+      {connected && (
+        <div className="bg-muted/40 border border-border rounded-xl px-3 py-2 space-y-2">
+          <Field
+            label="Folders (optional)"
+            hint={
+              data?.hasFolderDb
+                ? `Reading folders from ${data.folderDbHint ?? 'the stored database'}. Paste a new URL to replace it.`
+                : "n8n's API does not report folders. A read-only Postgres URL for n8n's database lets Cronsole nest workflows by folder — the source guide has the GRANT statements."
+            }
+            value={folderDbUrl}
+            onChange={setFolderDbUrl}
+            placeholder="postgresql://cronsole_reader:…@host:5432/n8n"
+            secret
+          />
+          <div className="flex justify-end gap-2">
+            {data?.hasFolderDb && (
+              <button
+                onClick={() => submitFolderDb('')}
+                disabled={setFolderDb.isPending}
+                className="px-3 py-1.5 rounded-xl text-[11px] font-bold text-muted-foreground hover:text-danger-text transition-colors disabled:opacity-40"
+              >
+                Stop reading folders
+              </button>
+            )}
+            <button
+              onClick={() => submitFolderDb(folderDbUrl.trim())}
+              disabled={!folderDbUrl.trim() || setFolderDb.isPending}
+              className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-surface border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 disabled:opacity-40 transition-all active:scale-95"
+            >
+              {setFolderDb.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+              Verify and save
+            </button>
           </div>
         </div>
       )}

@@ -19,8 +19,12 @@ import {
   type N8nExecution,
   type N8nWorkflow
 } from '../services/n8nApi.js';
-import { readWorkflowSchedule } from '../services/n8nSchedule.js';
+import { readWorkflowSchedule, readOnDemandTriggers } from '../services/n8nSchedule.js';
+
+/** Execution reads in flight at once — enough to keep a sync short, few enough not to load the instance. */
+const EXECUTION_READ_CONCURRENCY = 6;
 import { readConfig, N8N_CATEGORY } from '../services/n8nConnection.js';
+import { readFolderPaths, type FolderPaths } from '../services/n8nFolders.js';
 
 /**
  * **n8n — an observer that reports outcomes.**
@@ -70,7 +74,8 @@ export class N8nConnector implements PlatformConnector {
   }
 
   async syncTasks(config: any): Promise<SyncOutcome> {
-    const { baseUrl, apiKey, timeZone } = readConfig(config);
+    const { baseUrl, apiKey, timeZone, folderDbUrl, includeOnDemand: onDemandSetting, groupBy = 'trigger' } = readConfig(config);
+    const includeOnDemand = onDemandSetting !== false;
     if (!baseUrl || !apiKey) return { tasks: [] };
 
     const listed = await listWorkflows(baseUrl, apiKey);
@@ -80,6 +85,16 @@ export class N8nConnector implements PlatformConnector {
 
     const notes: string[] = [];
     const warnings: string[] = [];
+
+    // Opt-in, and decoration: a failed read costs this sync its folders, never
+    // its tasks — so a warning, not `partial`. Said out loud, because every
+    // workflow jumping to the root otherwise reads as n8n having moved them.
+    let folders: FolderPaths | null = null;
+    if (folderDbUrl) {
+      const read = await readFolderPaths(folderDbUrl);
+      if (read.ok) folders = read.data;
+      else warnings.push(`${read.message} Workflows are shown without their n8n folders until the next good sync.`);
+    }
     let historyFailures = 0;
     let unpublishedGraphs = 0;
     let missingZone = 0;
@@ -87,7 +102,12 @@ export class N8nConnector implements PlatformConnector {
 
     const live = listed.data.workflows.filter(w => !w.isArchived);
     let scheduledCount = 0;
+    let onDemandCount = 0;
 
+    // Classify first, then read run history in small parallel batches: with
+    // on-demand workflows included this is one execution read per workflow,
+    // and ninety sequential round trips is a Sync click that feels broken.
+    const picked: { workflow: N8nWorkflow; schedule: ReturnType<typeof readWorkflowSchedule>; triggers?: string[] }[] = [];
     for (const listedWorkflow of live) {
       let workflow = listedWorkflow;
       // The listing returned the draft without the published graph. Ask for the
@@ -102,14 +122,45 @@ export class N8nConnector implements PlatformConnector {
         workflowZone: workflow.timezone,
         instanceZone: timeZone
       });
-      if (!schedule.scheduled) continue;
-      scheduledCount += 1;
+      if (schedule.scheduled) {
+        scheduledCount += 1;
+        picked.push({ workflow, schedule });
+        continue;
+      }
+      if (!includeOnDemand) continue;
+      const triggers = readOnDemandTriggers(workflow.nodes);
+      // Nothing can start it — a fragment, or every trigger disabled.
+      if (triggers.length === 0) continue;
+      onDemandCount += 1;
+      picked.push({ workflow, schedule, triggers });
+    }
 
-      const runs = await listExecutions(baseUrl, apiKey, workflow.id);
+    const runsById = new Map<string, Awaited<ReturnType<typeof listExecutions>>>();
+    for (let i = 0; i < picked.length; i += EXECUTION_READ_CONCURRENCY) {
+      const batch = picked.slice(i, i + EXECUTION_READ_CONCURRENCY);
+      const results = await Promise.all(batch.map(p => listExecutions(baseUrl, apiKey, p.workflow.id)));
+      batch.forEach((p, j) => runsById.set(p.workflow.id, results[j]!));
+    }
+
+    for (const { workflow, schedule, triggers } of picked) {
+      const runs = runsById.get(workflow.id)!;
       if (!runs.ok) historyFailures += 1;
-      if (workflow.graph === 'draft-only') unpublishedGraphs += 1;
+      const runData = runs.ok ? runs.data : null;
+      // Real n8n folders when they can be read; otherwise the chosen fallback.
+      // A workflow at the project root of a read folder tree stays at the root.
+      const extra = {
+        folderPath: folders
+          ? folders.get(workflow.id)
+          : groupBy === 'trigger' ? [triggerGroup(triggers)] : undefined
+      };
 
-      const task = toTaskInfo(workflow, schedule, runs.ok ? runs.data : null);
+      if (triggers) {
+        tasks.push(toTaskInfo(workflow, schedule, runData, { ...extra, onDemandTriggers: triggers }));
+        continue;
+      }
+
+      if (workflow.graph === 'draft-only') unpublishedGraphs += 1;
+      const task = toTaskInfo(workflow, schedule, runData, extra);
       tasks.push(task);
 
       // A missing zone is one sentence for the whole sync, below; every other
@@ -121,7 +172,7 @@ export class N8nConnector implements PlatformConnector {
       else if (workflow.graph !== 'draft-only' && schedule.reason) warnings.push(`${workflow.name}: ${schedule.reason}`);
     }
 
-    notes.push(coverageNote(live.length, scheduledCount));
+    notes.push(coverageNote(live.length, scheduledCount, includeOnDemand ? onDemandCount : null));
 
     if (missingZone > 0) {
       warnings.push(
@@ -138,8 +189,8 @@ export class N8nConnector implements PlatformConnector {
     }
     if (historyFailures > 0) {
       warnings.push(
-        `Could not read run history for ${historyFailures} of ${scheduledCount} scheduled workflow` +
-          `${scheduledCount === 1 ? '' : 's'}. Their schedules are current; run results return on the next sync.`
+        `Could not read run history for ${historyFailures} of ${picked.length} workflow` +
+          `${picked.length === 1 ? '' : 's'}. Their schedules are current; run results return on the next sync.`
       );
     }
     if (listed.data.truncated) {
@@ -299,8 +350,15 @@ export class N8nConnector implements PlatformConnector {
 export function toTaskInfo(
   workflow: N8nWorkflow,
   schedule: ReturnType<typeof readWorkflowSchedule>,
-  runs: N8nExecution[] | null
+  runs: N8nExecution[] | null,
+  extra: {
+    /** Folder names root-down; absent at the project root or when folders are not read. */
+    folderPath?: string[];
+    /** Set for a workflow with no schedule — how it starts instead (`readOnDemandTriggers`). */
+    onDemandTriggers?: string[];
+  } = {}
 ): TaskInfo {
+  const { folderPath, onDemandTriggers } = extra;
   const draftOnly = workflow.graph === 'draft-only';
   const finished = (runs ?? []).filter(r => !isN8nPendingStatus(r.status));
   const latest = finished[0] ?? null;
@@ -311,26 +369,46 @@ export function toTaskInfo(
     streak += 1;
   }
 
-  const reason = draftOnly
-    ? 'This workflow has unpublished edits and n8n did not return the published version, so Cronsole cannot tell which schedule is live.'
-    : schedule.reason;
+  const reason = onDemandTriggers
+    ? null
+    : draftOnly
+      ? 'This workflow has unpublished edits and n8n did not return the published version, so Cronsole cannot tell which schedule is live.'
+      : schedule.reason;
+
+  // An unpublished workflow fires nothing — DISABLED in Cronsole's words. The
+  // exception is a manual-only one: n8n will not publish a workflow with no
+  // activatable trigger, and it runs from the editor either way, so "unpublished"
+  // says nothing about whether it works.
+  const manualOnly = onDemandTriggers?.length === 1 && onDemandTriggers[0] === 'manual';
+  const status = workflow.active || manualOnly ? 'ACTIVE' : 'DISABLED';
 
   return {
     externalId: workflow.id,
     name: workflow.name,
-    // An unpublished workflow fires nothing — that is DISABLED in Cronsole's words.
-    status: workflow.active ? 'ACTIVE' : 'DISABLED',
-    schedule: draftOnly ? null : schedule.cron,
+    status,
+    schedule: draftOnly || onDemandTriggers ? null : schedule.cron,
     // n8n reports no next run, and computing one locally would disagree with
     // the platform's own scheduler with nothing on screen to say which was right.
     nextRunTime: null,
     metadata: {
-      platformRules: schedule.rules,
-      ...(schedule.timeZone ? { platformTimeZone: schedule.timeZone } : {}),
-      ...(workflow.timezone && workflow.timezone !== 'DEFAULT' ? { workflowTimeZone: workflow.timezone } : {}),
+      ...(onDemandTriggers
+        ? {
+            onDemand: true,
+            triggers: onDemandTriggers,
+            // `scheduleReason` is the key the calendar reads: "no schedule, by
+            // design" is a different fact from "could not read the schedule".
+            scheduleReason: `Runs on demand — started by ${listTriggers(onDemandTriggers)}, not a schedule.`
+          }
+        : {
+            platformRules: schedule.rules,
+            ...(schedule.timeZone ? { platformTimeZone: schedule.timeZone } : {}),
+            ...(workflow.timezone && workflow.timezone !== 'DEFAULT' ? { workflowTimeZone: workflow.timezone } : {})
+          }),
       ...(reason ? { scheduleUnavailableReason: reason } : {}),
       graph: workflow.graph,
       ...(workflow.tags.length ? { tags: workflow.tags } : {}),
+      // Metadata, not identity: rewritten every sync, so a move in n8n follows.
+      ...(folderPath?.length ? { folderPath } : {}),
       // Present-and-boolean, never absent — see taskHealth.
       reportsRunResult: runs !== null,
       ...(runs !== null
@@ -345,12 +423,48 @@ export function toTaskInfo(
   };
 }
 
-function coverageNote(total: number, scheduled: number): string {
+/** Sidebar groups by how a workflow starts, most specific trigger first. */
+const TRIGGER_GROUPS: [string, string][] = [
+  ['form', 'Forms'],
+  ['webhook', 'Webhooks'],
+  ['chat', 'Chat'],
+  ['another workflow', 'Sub-workflows'],
+  ['error', 'Error handlers']
+];
+
+/**
+ * `undefined` (scheduled) → "Scheduled"; `['manual','webhook']` → "Webhooks".
+ * Manual sorts last because every workflow can also be run by hand — it is the
+ * defining trigger only when it is the only one.
+ */
+export function triggerGroup(triggers: string[] | undefined): string {
+  if (!triggers) return 'Scheduled';
+  const known = TRIGGER_GROUPS.find(([word]) => triggers.includes(word));
+  if (known) return known[1];
+  const other = triggers.find(t => t !== 'manual');
+  return other ? `${other[0]!.toUpperCase()}${other.slice(1)} triggers` : 'Manual';
+}
+
+/** `['form','webhook']` → "a form or a webhook". */
+function listTriggers(words: string[]): string {
+  const phrase = (w: string) =>
+    w === 'manual' ? 'hand in the editor'
+      : w === 'another workflow' ? w
+        : `${/^[aeiou]/.test(w) ? 'an' : 'a'} ${w}`;
+  const parts = words.map(phrase);
+  return parts.length === 1 ? parts[0]! : `${parts.slice(0, -1).join(', ')} or ${parts.at(-1)}`;
+}
+
+/** `onDemand` is null when the setting is off — then the unscheduled ones are said to be left out. */
+function coverageNote(total: number, scheduled: number, onDemand: number | null): string {
   if (total === 0) return 'n8n: read 0 workflows — this instance has none.';
-  return (
-    `n8n: read ${total} workflow${total === 1 ? '' : 's'}, ${scheduled} with a schedule. ` +
-    'Workflows started only by a form, webhook or the editor are not scheduled tasks.'
-  );
+  const head = `n8n: read ${total} workflow${total === 1 ? '' : 's'}, ${scheduled} with a schedule`;
+  if (onDemand === null) {
+    return `${head}. Workflows with no schedule are not tracked — turn on "Include on-demand workflows" on the n8n card to add them.`;
+  }
+  const skipped = total - scheduled - onDemand;
+  return `${head} and ${onDemand} on demand (form, webhook, manual…)` +
+    (skipped > 0 ? `; ${skipped} with no trigger at all were skipped.` : '.');
 }
 
 function toDate(value: string | null): Date | null {

@@ -22,7 +22,8 @@ import { SourceDocLink } from './SourceDocLink';
  * screens before you had opened anything. Now the only thing rendered by
  * default is identity: tile, name, badges, one-line summary, health pill. A
  * single "Show details" toggle reveals the stats, the platform's own setup
- * panel, the capability chips and table, and the doc link together.
+ * panel, and the capability chips and table together. The doc link stays in
+ * the header (2026-10-05) — reading how a source works should not need a click.
  *
  * **A problem is never behind the disclosure.** `healthReason` and any verb that
  * failed more recently than it succeeded break out above the toggle, always.
@@ -62,6 +63,8 @@ export const ConnectedSourceCard = ({ row, shownSources, onToggleShown }: {
           <div className="min-w-0 flex-1 space-y-1">
             <SourceHeading row={row} />
             <p className="text-xs text-subtle-foreground leading-relaxed">{row.summary}</p>
+            {/* Outside the disclosure: the guide is how to use a source, not a detail of its state. */}
+            <div className="pt-1.5"><SourceDocLink platform={row.platform} label={row.label} /></div>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
@@ -231,10 +234,6 @@ export const ConnectedSourceCard = ({ row, shownSources, onToggleShown }: {
                 })}
               </tbody>
             </table>
-          </div>
-
-          <div className="p-5 border-t border-border">
-            <SourceDocLink platform={row.platform} label={row.label} />
           </div>
         </div>
       )}

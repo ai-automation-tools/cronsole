@@ -1,5 +1,5 @@
 import type { Task } from '../types';
-import { windowsSubfolderPath, type TaskFilters } from './taskFilters';
+import { subfolderPath, type TaskFilters } from './taskFilters';
 import { sourceLabel, sourceSubtypeLabel, sourcePlatform, platformSourceLabel } from '../platform';
 import { pinKey, pinIdFromKey, type RailPin } from './railPins';
 import { byStoredOrder } from './railOrder';
@@ -172,11 +172,11 @@ function groupBy(tasks: Task[], keyOf: (t: Task) => string): Map<string, Task[]>
  * ancestors — `[]` at the category's direct children.
  *
  * Works unmodified for the `\Microsoft\` group too (`extraPatch` carries its
- * `system: 'include'`): `windowsSubfolderPath` reads `externalId`, which every
+ * `system: 'include'`): `subfolderPath` reads `externalId`, which every
  * task has regardless of which side of the system lens it's on.
  *
  * A category with no subfolders — or a platform whose ids aren't Windows
- * paths at all — yields `[]` from `windowsSubfolderPath` for every task, so
+ * paths at all — yields `[]` from `subfolderPath` for every task, so
  * this returns `undefined` and the row stays a leaf. No platform check needed.
  */
 function subfolderChildren(
@@ -188,8 +188,8 @@ function subfolderChildren(
 ): RailNode[] | undefined {
   const depth = parentSegments.length;
   const groups = groupBy(
-    tasks.filter(t => windowsSubfolderPath(t).length > depth),
-    t => windowsSubfolderPath(t)[depth]
+    tasks.filter(t => subfolderPath(t).length > depth),
+    t => subfolderPath(t)[depth]
   );
   if (groups.size === 0) return undefined;
 

@@ -126,3 +126,27 @@ describe('buildPlatformMatrix — health is live, not cached', () => {
     expect(claude.healthReason).toBeNull();
   });
 });
+
+describe('buildPlatformMatrix — a boundary carries no evidence', () => {
+  it('drops a failure recorded before the verb became unsupported', async () => {
+    // Gemini's `updateSchedule` was removed after v1beta 400'd it. The old
+    // failure row stayed and headlined the card as "failed more recently than
+    // it succeeded" over a verb the route now refuses before calling anything.
+    capabilities.mockResolvedValue([{
+      platform: PlatformType.GEMINI_TRIGGERS,
+      verb: 'updateSchedule',
+      lastSuccessAt: null,
+      lastFailureAt: new Date(),
+      lastFailureReason: "Gemini rejected the request (400): Unknown parameter 'schedule'."
+    }]);
+
+    const matrix = await buildPlatformMatrix('user_1');
+    const cell = matrix
+      .find(r => r.platform === PlatformType.GEMINI_TRIGGERS)!
+      .capabilities.find(c => c.verb === 'updateSchedule')!;
+
+    expect(cell.support).toBe('unsupported');
+    expect(cell.lastFailureAt).toBeNull();
+    expect(cell.lastFailureReason).toBeNull();
+  });
+});

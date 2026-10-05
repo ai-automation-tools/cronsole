@@ -150,7 +150,13 @@ export function taskSchedulePreview(
   now: Date = new Date()
 ): SchedulePreview {
   const cron = taskCron(task);
-  if (!cron) return { kind: 'none', text: 'No cron schedule', cron: null };
+  if (!cron) {
+    // A connector that knows *how* the task starts instead (n8n's on-demand
+    // workflows) says so; "no cron" alone reads like something is missing.
+    const meta = (task.metadata ?? {}) as Record<string, unknown>;
+    const triggers = meta.onDemand === true && Array.isArray(meta.triggers) ? meta.triggers.filter(t => typeof t === 'string') : [];
+    return { kind: 'none', text: triggers.length ? `On demand (${triggers.join(', ')})` : 'No cron schedule', cron: null };
+  }
   const human = describeCron(cron, tz, now);
   return human ? { kind: 'human', text: human, cron } : { kind: 'cron', text: cron, cron };
 }

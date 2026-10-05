@@ -726,13 +726,12 @@ export const SourceRail = ({
           {(collapsed || !sourcesCollapsed || filtering) && (
             <ul className="space-y-0.5">
               {(() => {
-                const { shown, hidden } = capRows(
-                  sections.source,
-                  isUncapped('band:source') || collapsed
-                );
+                // Never capped: the user chose which sources to show (Manage
+                // sources), so folding the last ones away hid platforms they
+                // had asked for — Gemini and n8n, sorted last, on a real rail.
                 return (
                   <>
-                    {shown.map(node => {
+                    {sections.source.map(node => {
                       const open = isOpen(node.key);
                       const conn = health.get(node.key);
 
@@ -767,14 +766,6 @@ export const SourceRail = ({
                         </li>
                       );
                     })}
-                    {hidden > 0 && (
-                      <li>
-                        <MoreButton
-                          label={`Show ${hidden} more source${hidden === 1 ? '' : 's'}`}
-                          onClick={() => uncap('band:source')}
-                        />
-                      </li>
-                    )}
                   </>
                 );
               })()}

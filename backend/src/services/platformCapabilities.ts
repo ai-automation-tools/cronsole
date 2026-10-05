@@ -585,14 +585,19 @@ export async function buildPlatformMatrix(userId: string): Promise<PlatformMatri
       const reachable = verbReachability(platform, verb);
       const seen = evidenceByKey.get(evidenceKey(platform, verb));
       const support = capabilitySupport(reachable, seen?.lastSuccessAt);
+      // A boundary carries no evidence. A row left from before the verb became
+      // unsupported (Gemini's `updateSchedule`, removed once `v1beta` 400'd it)
+      // would otherwise headline the card as a live failure forever, since the
+      // route now refuses before anything can record a success to clear it.
+      const kept = support === 'unsupported' ? undefined : seen;
       return {
         verb,
         label,
         description,
         support,
-        lastSuccessAt: seen?.lastSuccessAt ?? null,
-        lastFailureAt: seen?.lastFailureAt ?? null,
-        lastFailureReason: seen?.lastFailureReason ?? null
+        lastSuccessAt: kept?.lastSuccessAt ?? null,
+        lastFailureAt: kept?.lastFailureAt ?? null,
+        lastFailureReason: kept?.lastFailureReason ?? null
       };
     });
 

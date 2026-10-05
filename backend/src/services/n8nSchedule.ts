@@ -306,3 +306,28 @@ export function readWorkflowSchedule(
     ? { ...base, cron: null, reason: shifted.reason }
     : { ...base, cron: shifted.cron };
 }
+
+/** n8n's trigger node types, in the words a dashboard uses. */
+const TRIGGER_WORDS: Record<string, string> = {
+  'n8n-nodes-base.manualTrigger': 'manual',
+  'n8n-nodes-base.formTrigger': 'form',
+  'n8n-nodes-base.webhook': 'webhook',
+  '@n8n/n8n-nodes-langchain.chatTrigger': 'chat',
+  'n8n-nodes-base.errorTrigger': 'error',
+  'n8n-nodes-base.executeWorkflowTrigger': 'another workflow'
+};
+
+/**
+ * **How an unscheduled workflow starts** — the enabled trigger nodes, as words.
+ *
+ * Empty means nothing can start it (a fragment, or every trigger disabled), so
+ * it is not a task even on demand. Matched by name rather than a closed list
+ * because n8n ships a trigger per integration (`slackTrigger`, `gmailTrigger`…);
+ * the unknown ones are named by their node type.
+ */
+export function readOnDemandTriggers(nodes: readonly N8nScheduleNode[]): string[] {
+  const words = nodes
+    .filter(n => n.disabled !== true && (n.type in TRIGGER_WORDS || /Trigger$/.test(n.type)))
+    .map(n => TRIGGER_WORDS[n.type] ?? n.type.replace(/^.*\./, '').replace(/Trigger$/, ''));
+  return [...new Set(words)].sort();
+}

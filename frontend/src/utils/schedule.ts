@@ -60,6 +60,20 @@ export function describeCron(
     return `Every ${hourStep[1]} hour${hourStep[1] === '1' ? '' : 's'}${suffix}`;
   }
 
+  // A list of hours — what a stepped hour becomes once `shiftCron` moves it into
+  // the reader's zone (`0 */6` UTC is `0 1,7,13,19` in Chicago). Still "every
+  // N hours" when evenly spaced round the clock; a short list reads as times.
+  if (isNum(min) && /^\d+(,\d+)+$/.test(hour) && wildDate && dow === '*') {
+    const hours = hour.split(',').map(Number).sort((a, b) => a - b);
+    const step = hours[1] - hours[0];
+    const even = 24 % step === 0 && hours.length === 24 / step && hours.every((h, i) => i === 0 || h - hours[i - 1] === step);
+    if (even) return `Every ${step} hours at :${min.padStart(2, '0')}`;
+    if (hours.length <= 4) {
+      const times = hours.map(h => clock12h(h, Number(min)));
+      if (times.every(Boolean)) return `Daily at ${times.join(', ')} ${marker}`;
+    }
+  }
+
   // Hourly at a fixed minute
   if (isNum(min) && hour === '*' && wildDate && dow === '*') {
     return `Hourly at :${min.padStart(2, '0')}`;

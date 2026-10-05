@@ -128,7 +128,7 @@ export class N8nConnector implements PlatformConnector {
         continue;
       }
       if (!includeOnDemand) continue;
-      const triggers = readOnDemandTriggers(workflow.nodes);
+      const triggers = readOnDemandTriggers(workflow.nodes, workflow.triggerCount);
       // Nothing can start it — a fragment, or every trigger disabled.
       if (triggers.length === 0) continue;
       onDemandCount += 1;
@@ -429,7 +429,9 @@ const TRIGGER_GROUPS: [string, string][] = [
   ['webhook', 'Webhooks'],
   ['chat', 'Chat'],
   ['another workflow', 'Sub-workflows'],
-  ['error', 'Error handlers']
+  ['error', 'Error handlers'],
+  ['email', 'Email'],
+  ['event', 'Other triggers']
 ];
 
 /**

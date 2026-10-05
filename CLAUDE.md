@@ -258,7 +258,10 @@ Non-negotiable rules. **Every one has a reason recorded in
   UTC contract — so `utils/cron.ts`'s `shiftCronToUtc` is the single server-side conversion in the repo:
   everything Cronsole writes is `UTC` (exact round trip), everything it reads is normalized with the
   platform's original pair kept in metadata, and an expression with no honest UTC equivalent is `null`
-  **with its reason**, never a guessed cron.
+  **with its reason**, never a guessed cron. A multi-value hour at one minute is **enumerated**
+  (`0 */6` → `0 4,10,16,22`) when every day fires or no hour crosses midnight — so every reader of
+  a stored cron must accept an hour list: `describeCron`, the picker's `cronToShape`, and the
+  Windows converter (an evenly spaced list is a `PT{n}H` repetition, never the hourly fallback).
 - **A read-only observer is a finished connector, and its boundary is fixed rather than derived.**
   **Two of them ship** — GitHub Actions and Vercel Cron — and both refuse the same three verbs by
   different routes, which is the point: the boundary is a property of the *connector's design*, not
@@ -414,7 +417,10 @@ Non-negotiable rules. **Every one has a reason recorded in
   trigger are counted in the sync note, not dropped silently. Its rules are not cron and the API **omits defaults** (`{ field: "weeks",
   triggerAtHour: 6 }` is Sunday 06:00), so `services/n8nSchedule.ts` carries the node's defaults and
   refuses with a reason what no cron says — seconds, every *N* > 1 days/weeks/months (n8n counts from
-  the last run), hours not dividing 24, several rules. The rules are wall-clock in the instance's
+  the last run), hours not dividing 24, several rules. (Hours that *do* divide 24 convert: the
+  shared `expandHours` enumerates a multi-value hour into a UTC list — see the Gemini bullet's
+  `shiftCronToUtc`.) Trigger detection is by name plus n8n's own `triggerCount` as the backstop
+  for a trigger type nothing here names. The rules are wall-clock in the instance's
   `GENERIC_TIMEZONE`, **which the public API does not report**, so the connection declares it and
   with no zone the schedule is `null` with that reason — never read as UTC (#60). It reads the
   **published** graph (`activeVersion`), never the draft. `run` (no execute endpoint; a webhook is a

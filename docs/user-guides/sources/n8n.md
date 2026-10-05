@@ -106,6 +106,9 @@ These are kept on the task (the rules, in n8n's own zone) and shown as unavailab
 A Custom (Cron) rule with a seconds field is read with the seconds dropped when they are a single
 value — they only move the run within its minute.
 
+**Every 2, 3, 4, 6, 8 or 12 hours does convert.** Its UTC form lists the hours — *every 6 hours*
+in New York is stored as `0 4,10,16,22 * * *` — and the card still reads *Every 6 hours*.
+
 <a id="folders"></a>
 
 ## 🗂️ Folders

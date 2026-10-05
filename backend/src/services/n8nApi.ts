@@ -61,6 +61,12 @@ export interface N8nWorkflow {
   graph: N8nGraphSource;
   updatedAt: string | null;
   tags: string[];
+  /**
+   * n8n's own count of triggers that start the workflow by themselves (forms,
+   * webhooks, schedules, polling nodes) — manual and error triggers excluded,
+   * published or not (measured on 2.91). Null when the response omits it.
+   */
+  triggerCount: number | null;
 }
 
 export interface N8nExecution {
@@ -317,7 +323,8 @@ export function toWorkflow(raw: unknown): N8nWorkflow | null {
     updatedAt: typeof w.updatedAt === 'string' ? w.updatedAt : null,
     tags: (Array.isArray(w.tags) ? w.tags : [])
       .map(t => (t && typeof t === 'object' ? (t as { name?: unknown }).name : t))
-      .filter((t): t is string => typeof t === 'string' && t.length > 0)
+      .filter((t): t is string => typeof t === 'string' && t.length > 0),
+    triggerCount: typeof w.triggerCount === 'number' ? w.triggerCount : null
   };
 }
 

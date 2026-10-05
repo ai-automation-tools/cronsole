@@ -205,6 +205,25 @@ function parseDays(dow: string): number[] | null {
 const mod = (n: number, m: number) => ((n % m) + m) % m;
 
 /**
+ * Expand a cron hour field (`*`, `*\/6`, `9-17`, `1-23/2`, `4,16`) to its hours,
+ * ascending, or null for anything else. Mirrors the backend's `expandHours`.
+ */
+export function expandHours(field: string): number[] | null {
+  const out = new Set<number>();
+  for (const part of field.split(',')) {
+    const m = /^(?:(\*)|(\d+)(?:-(\d+))?)(?:\/(\d+))?$/.exec(part);
+    if (!m) return null;
+    const step = m[4] !== undefined ? Number(m[4]) : 1;
+    const from = m[1] ? 0 : Number(m[2]);
+    // `5/6` is "from 5, every 6" — cron's shorthand for `5-23/6`.
+    const to = m[1] ? 23 : m[3] !== undefined ? Number(m[3]) : m[4] !== undefined ? 23 : from;
+    if (step < 1 || from > 23 || to > 23 || from > to) return null;
+    for (let h = from; h <= to; h += step) out.add(h);
+  }
+  return out.size > 0 ? [...out].sort((a, b) => a - b) : null;
+}
+
+/**
  * Move a 5-field cron by `offsetMinutes`, or explain why it can't move.
  *
  * Only expressions with a fixed clock time carry a zone at all:
@@ -256,6 +275,25 @@ export function shiftCron(cron: string, offsetMinutes: number): CronShift {
     //                   moves a multi-value minute field.
     const pinsHours = hour !== '*';
     const minutesWouldMove = mod(offsetMinutes, 60) !== 0 && min !== '*';
+    // Several hours at one minute: shift each and list them — mirrors the
+    // backend's `shiftCronToUtc`. Safe when every day fires, or when no hour
+    // crosses midnight; otherwise cron cannot say which day each hour is on.
+    const hours = pinsHours && isNum(min) ? expandHours(hour) : null;
+    if (hours) {
+      const totals = hours.map(h => h * 60 + Number(min) + offsetMinutes);
+      const sameDay = totals.every(t => Math.floor(t / 1440) === 0);
+      if (sameDay || (dom === '*' && month === '*' && dow === '*')) {
+        const moved = [...new Set(totals.map(t => Math.floor(mod(t, 1440) / 60)))].sort((a, b) => a - b);
+        return { cron: [String(mod(totals[0], 60)), moved.join(','), dom, month, dow].join(' '), shifted: true };
+      }
+      return {
+        cron,
+        shifted: false,
+        reason:
+          'Converting these hours between zones moves some of them across midnight and not others, and ' +
+          'the schedule is limited to certain days — so it is shown and stored in UTC exactly as typed.'
+      };
+    }
     if (pinsHours) {
       return {
         cron,

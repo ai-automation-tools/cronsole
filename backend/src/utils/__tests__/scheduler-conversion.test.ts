@@ -440,6 +440,19 @@ describe('Schedule Conversion Utility', () => {
       expect(back.cron).toBe('0 9 * * 1,2,3,4,5');
     });
 
+    it('round-trips "every 6 hours" after a zone shift — a repetition, never the hourly fallback', () => {
+      // `0 */6` typed in Chicago is stored as this list since 2026-10-05.
+      const forward = convertCronToWindowsTrigger('0 5,11,17,23 * * *');
+      expect(forward).toMatchObject({
+        confidence: 1.0,
+        trigger: { type: 'Time', startBoundary: '05:00', repetition: { interval: 'PT6H', duration: 'P1D' } }
+      });
+      expect(forward.lossy).toBeUndefined();
+      expect(convertWindowsTriggerToCron(forward.trigger!).cron).toBe('0 5,11,17,23 * * *');
+      // An uneven list is still not a repetition.
+      expect(convertCronToWindowsTrigger('0 5,11,18 * * *').lossy).toBe('replaced');
+    });
+
     // This path reads triggers off real machines, so it cannot assume its input
     // came from us: a task may be hand-written, made by another tool, or left by
     // an older Cronsole that emitted exactly these malformed boundaries. Reading

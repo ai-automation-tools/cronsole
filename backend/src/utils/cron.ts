@@ -131,11 +131,13 @@ export function zoneOffsetMinutes(timeZone: string, at: Date = new Date()): numb
  * Two refusals, and each is a case where a plausible expression would fire on
  * the wrong day:
  *
- *  - **The hour field names more than one hour** — a range, a step or a list. A zone
- *    change moves every one of them and cron has no way to say "these seven
- *    hours, shifted" without enumerating them, so it is declined rather than
- *    enumerated — the same call `shiftCron` makes, and the same one Cronsole's
- *    own multi-value-hour conversion still owes (ROADMAP › Next up).
+ *  - **Several hours that do not all land on the same day.** A range, step or
+ *    list at one minute is enumerated and shifted (`0 *\/6 * * *` from New York
+ *    is `0 4,10,16,22 * * *`) — but only when every day fires, or no hour
+ *    crosses midnight. Otherwise some hours move to the next day and some do
+ *    not, and cron cannot say which (2026-10-05; before that, any multi-value
+ *    hour was refused). A multi-value hour with a multi-value minute is still
+ *    refused.
  *  - **The shift crosses midnight while a day-of-month or month is pinned**
  *    (`0 4 1 1 *`). "The 1st at 04:00 in Tokyo" is the 31st of December in UTC,
  *    and a 5-field cron cannot express that.
@@ -191,6 +193,25 @@ export function shiftCronToUtc(
   if (!isNum(min) || !isNum(hour)) {
     const pinsHours = hour !== '*';
     const minutesWouldMove = mod(delta, 60) !== 0 && min !== '*';
+    // Several hours at one minute (`0 */6 * * *`, `30 9-17 * * 1-5`): shift each
+    // and list them. Safe whenever every day is a firing day, or when no hour
+    // crosses midnight — otherwise some hours land on the next day and some do
+    // not, and cron has no way to say which.
+    const hours = pinsHours && isNum(min) ? expandHours(hour) : null;
+    if (hours) {
+      const moved = shiftHours(Number(min), hours, delta);
+      if (moved.dayDeltas.every(d => d === 0) || (dom === '*' && month === '*' && dow === '*')) {
+        return { cron: [String(moved.minute), moved.hours.join(','), dom, month, dow].join(' '), shifted: true };
+      }
+      return {
+        cron: null,
+        shifted: false,
+        reason:
+          `Converting the hours "${hour}" from ${timeZone} to UTC moves some of them across midnight and ` +
+          'not others, and the schedule is limited to certain days — cron cannot say which day each hour ' +
+          'now falls on, so Cronsole will not approximate it.'
+      };
+    }
     if (pinsHours) {
       return {
         cron: null,
@@ -249,6 +270,36 @@ export function shiftCronToUtc(
 
   const rolled = [...new Set(days.map(d => mod(d + dayDelta, 7)))].sort((a, b) => a - b);
   return { cron: [...shiftedTime, dom, month, rolled.join(',')].join(' '), shifted: true };
+}
+
+/**
+ * Expand a cron hour field (`*`, `*\/6`, `9-17`, `1-23/2`, `4,16`) to its hours,
+ * ascending. Null for anything else, so the caller refuses rather than guesses.
+ * Mirrors the frontend's `expandHours`.
+ */
+export function expandHours(field: string): number[] | null {
+  const out = new Set<number>();
+  for (const part of field.split(',')) {
+    const m = /^(?:(\*)|(\d+)(?:-(\d+))?)(?:\/(\d+))?$/.exec(part);
+    if (!m) return null;
+    const step = m[4] !== undefined ? Number(m[4]) : 1;
+    const from = m[1] ? 0 : Number(m[2]);
+    // `5/6` is "from 5, every 6" — cron's shorthand for `5-23/6`.
+    const to = m[1] ? 23 : m[3] !== undefined ? Number(m[3]) : m[4] !== undefined ? 23 : from;
+    if (step < 1 || from > 23 || to > 23 || from > to) return null;
+    for (let h = from; h <= to; h += step) out.add(h);
+  }
+  return out.size > 0 ? [...out].sort((a, b) => a - b) : null;
+}
+
+/** Move `minute` past each of `hours` by `delta` minutes. Every hour lands on the same new minute. */
+function shiftHours(minute: number, hours: number[], delta: number) {
+  const totals = hours.map(h => h * 60 + minute + delta);
+  return {
+    minute: mod(totals[0]!, 60),
+    hours: [...new Set(totals.map(t => Math.floor(mod(t, 1440) / 60)))].sort((a, b) => a - b),
+    dayDeltas: totals.map(t => Math.floor(t / 1440))
+  };
 }
 
 const DAY_FIELD = /^(\d+|\d+-\d+)(,(\d+|\d+-\d+))*$/;

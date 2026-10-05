@@ -47,6 +47,7 @@ const weekly = (over: Partial<N8nWorkflow> = {}): N8nWorkflow => ({
   graph: 'body',
   updatedAt: '2026-09-27T23:08:58.645Z',
   tags: [],
+  triggerCount: 1,
   nodes: [
     { name: 'Manual Trigger', type: 'n8n-nodes-base.manualTrigger' },
     {
@@ -151,9 +152,17 @@ describe('on-demand workflows', () => {
     id: 'manualOnly0000001',
     name: 'Manual Trigger — Weekly Comic (agent-runner)',
     active: false,
+    // n8n does not count a manual trigger (measured: 48 manual-only workflows, all 0).
+    triggerCount: 0,
     nodes: [{ name: 'Run', type: 'n8n-nodes-base.manualTrigger' }]
   });
-  const fragment = (): N8nWorkflow => ({ ...weekly(), id: 'noTrigger00000001', name: 'Helper', nodes: [{ name: 'Set', type: 'n8n-nodes-base.set' }] });
+  const fragment = (): N8nWorkflow => ({
+    ...weekly(),
+    id: 'noTrigger00000001',
+    name: 'Helper',
+    triggerCount: 0,
+    nodes: [{ name: 'Set', type: 'n8n-nodes-base.set' }]
+  });
 
   beforeEach(() => {
     listWorkflowsMock.mockResolvedValue({ ok: true, data: { workflows: [weekly(), form(), manual(), fragment()], truncated: false } });
@@ -177,6 +186,19 @@ describe('on-demand workflows', () => {
     const task = (await connector.syncTasks(config())).tasks.find(t => t.externalId === 'manualOnly0000001')!;
     expect(task.status).toBe('ACTIVE');
     expect(task.metadata).toMatchObject({ triggers: ['manual'], scheduleReason: expect.stringMatching(/by hand in the editor/) });
+  });
+
+  it('names the core triggers that do not end in "Trigger", and falls back on n8n\'s own count', async () => {
+    const imap = { ...weekly(), id: 'imapOnly000000001', nodes: [{ name: 'Mail', type: 'n8n-nodes-base.emailReadImap' }] };
+    // A community trigger whose type matches nothing here — n8n still counts it.
+    const unknown = { ...weekly(), id: 'communityTrig0001', triggerCount: 1, nodes: [{ name: 'Hook', type: 'n8n-nodes-acme.onCall' }] };
+    const helper = { ...unknown, id: 'helperNoTrigger01', triggerCount: 0 };
+    listWorkflowsMock.mockResolvedValue({ ok: true, data: { workflows: [imap, unknown, helper], truncated: false } });
+
+    const byId = new Map((await connector.syncTasks(config())).tasks.map(t => [t.externalId, t]));
+    expect(byId.get('imapOnly000000001')!.metadata).toMatchObject({ triggers: ['email'], folderPath: ['Email'] });
+    expect(byId.get('communityTrig0001')!.metadata).toMatchObject({ triggers: ['event'], folderPath: ['Other triggers'] });
+    expect(byId.has('helperNoTrigger01')).toBe(false);
   });
 
   it('marks an unpublished form workflow DISABLED — its form is offline', async () => {

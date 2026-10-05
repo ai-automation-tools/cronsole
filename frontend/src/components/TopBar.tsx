@@ -126,7 +126,7 @@ export const TopBar = ({ activeTab, setActiveTab }: TopBarProps) => {
         {/* ── Account ───────────────────────────────────────────────────── */}
         <div className="ml-auto flex items-center gap-1 shrink-0 pl-1.5 sm:pl-3">
           <ThemeToggle compact />
-          {/* Same plate as the compact theme picker so the two read as a pair.
+          {/* Filled with the brand primary: the one outbound link in the bar.
               Below `sm` the label drops, like the section tabs. */}
           <a
             href={REGISTRY_URL}
@@ -134,11 +134,11 @@ export const TopBar = ({ activeTab, setActiveTab }: TopBarProps) => {
             rel="noopener noreferrer"
             aria-label="Template registry (opens in a new tab)"
             title="Template registry"
-            className="flex items-center gap-1.5 rounded-xl bg-muted/60 px-2 py-1 text-[11px] font-bold text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+            className="flex items-center gap-1.5 rounded-xl bg-primary px-2 py-1 text-[11px] font-bold text-primary-foreground shadow-[0_0_12px_hsl(var(--primary)/0.35)] hover:brightness-110 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
           >
-            <Library size={13} className="shrink-0 text-muted-foreground" aria-hidden />
+            <Library size={13} className="shrink-0" aria-hidden />
             <span className="hidden sm:inline">Registry</span>
-            <ExternalLink size={11} className="hidden sm:block shrink-0 text-subtle-foreground" aria-hidden />
+            <ExternalLink size={11} className="hidden sm:block shrink-0 opacity-80" aria-hidden />
           </a>
           <span aria-hidden className="hidden lg:block h-5 w-px bg-border mx-1.5" />
           <span

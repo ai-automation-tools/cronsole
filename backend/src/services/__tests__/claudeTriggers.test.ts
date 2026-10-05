@@ -101,6 +101,23 @@ describe('the wire format', () => {
   });
 });
 
+describe('listTriggers returns routines only', () => {
+  it("drops a session's one-off reminders, which the same endpoint lists", async () => {
+    // Real shapes from the API (2026-10-05): a routine's created_kind is
+    // ROUTINE_CREATED_KIND_UNSPECIFIED; a check-in is 'reminder' with run_once_at.
+    request.mockResolvedValue({
+      data: {
+        data: [
+          { id: 'trig_routine', name: 'Navigate Site', cron_expression: '55 11 * * *', enabled: true, created_kind: 'ROUTINE_CREATED_KIND_UNSPECIFIED' },
+          { id: 'trig_reminder', name: 'Re-check Pages run #27', cron_expression: '', enabled: false, created_kind: 'reminder', run_once_at: '2026-10-05T15:20:00Z' }
+        ]
+      }
+    });
+    const result = await listTriggers(TOKEN);
+    expect(result.ok && result.data.map(t => t.id)).toEqual(['trig_routine']);
+  });
+});
+
 describe('errors name their cause', () => {
   it('sends an expired session to /login rather than to Cronsole settings', async () => {
     rejectWith(401);

@@ -107,6 +107,16 @@ describe('useTheme', () => {
     expect(indexHtml).toMatch(/\|\|\s*'dark'/);
   });
 
+  it('a change made through one caller reaches every other mounted caller', () => {
+    // The top bar's switch stays mounted while Settings picks a theme; without
+    // the broadcast it would keep showing the old mode.
+    setSystemPrefersDark(true);
+    const topBar = renderHook(() => useTheme());
+    const settings = renderHook(() => useTheme());
+    act(() => settings.result.current.setTheme('nord'));
+    expect(topBar.result.current.theme).toBe('nord');
+  });
+
   it("index.html reads the pre-rename theme key too, so the first load doesn't flash", () => {
     // This script runs BEFORE the module that migrates the key, so on the very
     // first load after the rename the only place the user's choice still exists

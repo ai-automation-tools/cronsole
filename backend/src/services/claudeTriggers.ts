@@ -64,6 +64,8 @@ export interface ClaudeTrigger {
   updated_at?: string;
   last_fired_at?: string;
   next_run_at?: string;
+  /** `'reminder'` for a session's one-off check-in (see `isReminder`); unset for a routine. */
+  created_kind?: string;
   /** Zero-value `0001-01-01T…` when unscheduled — see {@link parseTimestamp}. */
   suspension_reason?: string;
   api_token_hint?: string;
@@ -216,7 +218,17 @@ export async function listTriggers(token: string): Promise<TriggerResult<ClaudeT
   if (!Array.isArray(result.data?.data)) {
     return { ok: false, message: 'Unexpected response shape from /v1/code/triggers.', surfaceMoved: true };
   }
-  return { ok: true, data: result.data.data };
+  return { ok: true, data: result.data.data.filter(t => !isReminder(t)) };
+}
+
+/**
+ * A one-off check-in a Claude session scheduled for itself ("re-check the
+ * deploy in 10 minutes"), not a routine. The same endpoint lists both, but
+ * claude.ai's routines page shows only routines, and syncing reminders put
+ * every past check-in on the dashboard as a disabled task.
+ */
+function isReminder(t: ClaudeTrigger): boolean {
+  return t.created_kind === 'reminder';
 }
 
 export async function getTrigger(token: string, id: string): Promise<TriggerResult<ClaudeTrigger>> {

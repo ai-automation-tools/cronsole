@@ -123,6 +123,7 @@ export const bundledPacks: BundledPack[] = [
       'bkp-folder-zip',
       'bkp-robocopy-mirror',
       'bkp-registry-export',
+      'bkp-sqlite-backup',
       'bkp-system-restore-point',
       'cln-old-files',
       'cln-recycle-bin',
@@ -143,6 +144,8 @@ export const bundledPacks: BundledPack[] = [
       'mon-log-error-scan',
       'mon-failed-scheduled-tasks',
       'mon-top-processes',
+      'mon-physical-disk-health',
+      'mon-macos-time-machine-status',
       'dev-docker-compose-up',
       'tpl_starter_webhook_windows',
       'tpl_starter_webhook_macos'
@@ -262,7 +265,8 @@ export const bundledPacks: BundledPack[] = [
       'sys-process-watchdog',
       'sys-macos-update-check',
       'data-rsync-folder-sync',
-      'sys-installed-software-inventory'
+      'sys-installed-software-inventory',
+      'sys-windows-time-resync'
     ]
   }
 ];

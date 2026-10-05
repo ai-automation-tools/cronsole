@@ -23,6 +23,10 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
   See the [n8n source guide](user-guides/sources/n8n.md). Known limit: n8n folders do not carry over
   — its API does not report which folder a workflow is in ([#96](troubleshooting/README.md#96-your-n8n-folders-do-not-appear-in-cronsole)).
 
+- **Four extended templates** (2026-10-01): `mon-physical-disk-health`, `sys-windows-time-resync`,
+  `mon-macos-time-machine-status` and `bkp-sqlite-backup`, joining the Monitoring, System & Utilities
+  and Backup & Cleanup packs.
+
 - **`docs/UPSTREAMS.md`** (2026-09-29): every platform, protocol, library and host Cronsole
   depends on, what the code assumes about each, and where to check it. It is the worklist for
   the biweekly **Cronsole Upstream Check** routine (`upstream/auto-*` PRs), which catches drift
@@ -35,6 +39,13 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
   never noticed. A connector can now vouch that an empty listing is real (`SyncOutcome.complete`),
   and Claude's OAuth read does — the rows go `MISSING` on the next sync ([#95](troubleshooting/README.md#95-every-claude-routine-was-deleted-and-cronsole-still-shows-them-active)).
 
+- **`update_task_schedule` no longer presents a time it computed as one the platform reported**
+  (2026-10-02). The response's `Next run:` came from `computeNextRun(cron)` on every platform, while
+  the platform's real value (Anthropic's jitter, the Windows trigger) only lands on the next sync —
+  [#42](troubleshooting/README.md#42-the-dashboard-says-synced-7m-ago-over-a-task-list-from-yesterday)'s
+  shape, a timestamp whose label does not name the event that produced it. On any platform but
+  Cronsole-native (which owns its scheduler, so the value is real) the MCP line now says it is
+  computed by Cronsole from the cron. Wording only; the REST response shape is unchanged.
 - **A `MISSING` Claude row could not be removed by anything** (2026-09-25). `untrack_task`
   (`POST /tasks/:id/untrack`) refused every `CLAUDE_CODE` task unconditionally, on the assumption
   that a Claude row always exists because its routine is **declared** in

@@ -1121,6 +1121,18 @@ describe('update_task_schedule', () => {
     expect(out).toMatch(/2026-07-16T06:00:00.000Z/);
   });
 
+  it('labels a computed next run as computed on a non-native platform only', async () => {
+    const run = async (platform: string) => {
+      const { client } = stubClient({
+        'PATCH /tasks/id1/schedule': task({ platform, schedule: '0 6 * * *', nextRunTime: '2026-07-16T06:00:00.000Z' })
+      });
+      const mcp = await connect(client);
+      return text(await call(mcp, 'update_task_schedule', { taskId: 'id1', schedule: '0 6 * * *' }));
+    };
+    expect(await run('WINDOWS_TASK_SCHEDULER')).toMatch(/computed by Cronsole.*2026-07-16T06:00:00/);
+    expect(await run('TASKHUB_NATIVE')).toMatch(/\nNext run: 2026-07-16T06:00:00/);
+  });
+
   it('warns about the hourly replacement in its description', async () => {
     // This tool can silently re-schedule a task to run 8,760x/year via the
     // fallback. If the description stops saying "read the trigger, not the

@@ -307,27 +307,46 @@ export function readWorkflowSchedule(
     : { ...base, cron: shifted.cron };
 }
 
-/** n8n's trigger node types, in the words a dashboard uses. */
+/**
+ * n8n's trigger node types, in the words a dashboard uses. Includes the core
+ * triggers whose type does **not** end in `Trigger`, which the suffix rule
+ * below would otherwise miss.
+ */
 const TRIGGER_WORDS: Record<string, string> = {
   'n8n-nodes-base.manualTrigger': 'manual',
+  'n8n-nodes-base.start': 'manual', // the pre-1.0 Start node
   'n8n-nodes-base.formTrigger': 'form',
   'n8n-nodes-base.webhook': 'webhook',
+  'n8n-nodes-base.emailReadImap': 'email',
+  'n8n-nodes-base.interval': 'interval', // legacy Interval node
   '@n8n/n8n-nodes-langchain.chatTrigger': 'chat',
   'n8n-nodes-base.errorTrigger': 'error',
   'n8n-nodes-base.executeWorkflowTrigger': 'another workflow'
 };
 
+/** Words for triggers n8n does not count in `triggerCount` — they cannot start a workflow by themselves. */
+const UNCOUNTED_WORDS = new Set(['manual', 'error']);
+
 /**
  * **How an unscheduled workflow starts** — the enabled trigger nodes, as words.
  *
  * Empty means nothing can start it (a fragment, or every trigger disabled), so
- * it is not a task even on demand. Matched by name rather than a closed list
- * because n8n ships a trigger per integration (`slackTrigger`, `gmailTrigger`…);
- * the unknown ones are named by their node type.
+ * it is not a task even on demand. Matched by name, with the known exceptions
+ * in {@link TRIGGER_WORDS}, because n8n ships a trigger per integration
+ * (`slackTrigger`, `gmailTrigger`…); those are named by their node type.
+ *
+ * **`triggerCount` is the backstop for a name nothing here recognises** — a
+ * community node whose type is not `…Trigger`. n8n counts every trigger that
+ * starts a workflow by itself; when it counts one and the names found none,
+ * the workflow is still on demand, started by an `event`.
  */
-export function readOnDemandTriggers(nodes: readonly N8nScheduleNode[]): string[] {
-  const words = nodes
-    .filter(n => n.disabled !== true && (n.type in TRIGGER_WORDS || /Trigger$/.test(n.type)))
-    .map(n => TRIGGER_WORDS[n.type] ?? n.type.replace(/^.*\./, '').replace(/Trigger$/, ''));
-  return [...new Set(words)].sort();
+export function readOnDemandTriggers(nodes: readonly N8nScheduleNode[], triggerCount: number | null = null): string[] {
+  const words = new Set(
+    nodes
+      .filter(n => n.disabled !== true && (n.type in TRIGGER_WORDS || /Trigger$/.test(n.type)))
+      .map(n => TRIGGER_WORDS[n.type] ?? n.type.replace(/^.*\./, '').replace(/Trigger$/, ''))
+  );
+  const counted = [...words].filter(w => !UNCOUNTED_WORDS.has(w)).length;
+  if ((triggerCount ?? 0) > 0 && counted === 0) words.add('event');
+  return [...words].sort();
 }

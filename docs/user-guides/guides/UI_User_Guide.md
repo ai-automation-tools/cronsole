@@ -128,7 +128,8 @@ SOURCES
      AI-Tools                    8
      Backups                     4
      Claude                      5
-     ▸ Show 11 more folders
+     …
+     ▸ Show 5 more folders
    ⃠ System tasks     HIDDEN    300
 ▸ ● Cronsole (Native)           12
 ▸ ● Claude Code                  3
@@ -210,11 +211,12 @@ When it finds nothing it says what it looked at, and when it finds something it 
 searched without a match — "found nothing" and "looked at nothing" are different facts and they
 would otherwise look identical.
 
-#### Long lists stop at four
+#### Long lists stop at ten
 
-Every band and every folder list draws four rows, then a **Show 11 more folders** control stating
+Every band and every folder list draws ten rows, then a **Show 5 more folders** control stating
 exactly how many are behind it. One platform with fifteen Task Scheduler folders cannot take over
-the whole sidebar, and nothing is ever hidden without its count beside it. Filter matches are never
+the whole sidebar, and nothing is ever hidden without its count beside it. **The list of sources
+itself is never shortened** — you chose which sources to show, so every one of them is drawn. Filter matches are never
 capped — that would hide the row you typed for — and neither is the **System tasks** group, whose
 whole job is telling you what is being held back.
 

@@ -511,7 +511,9 @@ Non-negotiable rules. **Every one has a reason recorded in
   hit** — the three band folds are persisted, so a query must open them the way it opens a branch,
   or a shut band answers with a heading, a coverage note and nothing at all.
 - **No rail list draws unbounded, and none truncates silently.** Every band and every folder list
-  stops at `RAIL_ROW_CAP` and states the remainder (*Show 11 more folders*) — one definition in
+  stops at `RAIL_ROW_CAP` (10) and states the remainder (*Show 5 more folders*). **The source list
+  is exempt**: which sources appear is already the user's choice (`shownSources`), so capping it
+  hid sources they had asked for — Gemini and n8n, sorted last, at the old cap of 4. One definition in
   `capRows`, one over the cap left alone because *Show 1 more* costs a row to save a row. **A list
   of filter matches is never capped and a list a match dragged along with it always is**: capping
   the first hides the row you typed for, lifting the second turns one hit on `AI-Lab` into all

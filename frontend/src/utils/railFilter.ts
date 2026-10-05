@@ -74,8 +74,13 @@ export function filterRailNodes(nodes: RailNode[], query: string): FilteredRail 
   };
 }
 
-/** How many rows a band shows before it offers the rest behind one control. */
-export const RAIL_ROW_CAP = 4;
+/**
+ * How many rows a folder list or band shows before it offers the rest behind
+ * one control. Was 4 until 2026-10-05: a source with six folders folded two
+ * away, which read as missing rather than tidy. The source list itself is
+ * never capped (`SourceRail`).
+ */
+export const RAIL_ROW_CAP = 10;
 
 /**
  * Split a list into what is drawn and what is held back.

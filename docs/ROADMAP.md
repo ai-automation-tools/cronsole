@@ -930,6 +930,9 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
         not behind *Show details*; an `unsupported` capability cell drops stale run evidence, and a
         create refused before calling the platform (`refusedBeforeCalling`) is no longer recorded as
         a platform failure (both put false "failed" verbs on the Gemini card).
+      - [x] **Rail caps** *(2026-10-05)* — the source list is never capped (visibility is already
+        the user's `shownSources` choice; the cap of 4 hid the two alphabetically-last sources);
+        `RAIL_ROW_CAP` raised 4 → 10 for folder lists and bands.
 
       **Still open:**
       - **Every-N-hours in a whole-hour zone** has an exact UTC answer (`0 */6` in UTC−4 is

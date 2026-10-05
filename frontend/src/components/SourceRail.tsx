@@ -726,10 +726,10 @@ export const SourceRail = ({
           {(collapsed || !sourcesCollapsed || filtering) && (
             <ul className="space-y-0.5">
               {(() => {
-                const { shown, hidden } = capRows(
-                  sections.source,
-                  isUncapped('band:source') || collapsed
-                );
+                // Never capped: the user chose which sources to show (Manage
+                // sources), so folding the last ones away hid platforms they
+                // had asked for — Gemini and n8n, sorted last, on a real rail.
+                const { shown, hidden } = capRows(sections.source, true);
                 return (
                   <>
                     {shown.map(node => {

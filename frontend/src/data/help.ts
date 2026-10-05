@@ -116,10 +116,11 @@ const sources: HelpTopic = {
         'search task names instead, use the search and filters above the task list.'
     },
     {
-      label: 'Long lists stop at four and say what is left',
+      label: 'Long lists stop at ten and say what is left',
       body:
-        'A source with fifteen folders shows four and a "Show 11 more folders" control, so one ' +
-        'platform cannot own the whole sidebar. Nothing is ever hidden without its count.'
+        'A source with fifteen folders shows ten and a "Show 5 more folders" control, so one ' +
+        'platform cannot own the whole sidebar. Nothing is ever hidden without its count, and the ' +
+        'list of sources itself is never shortened.'
     },
     {
       label: 'It composes with views',

@@ -661,12 +661,12 @@ describe('SourceRail row caps', () => {
     renderRail(folders(15), { source: 'WINDOWS_TASK_SCHEDULER' });
     await screen.findByText('Folder-00');
 
-    // Four shown, eleven behind one control that states the remainder — a cap
+    // Ten shown, five behind one control that states the remainder — a cap
     // with no count is a silent truncation.
-    expect(screen.getByText('Folder-03')).toBeInTheDocument();
-    expect(screen.queryByText('Folder-04')).not.toBeInTheDocument();
+    expect(screen.getByText('Folder-09')).toBeInTheDocument();
+    expect(screen.queryByText('Folder-10')).not.toBeInTheDocument();
 
-    const more = screen.getByRole('button', { name: 'Show 11 more folders' });
+    const more = screen.getByRole('button', { name: 'Show 5 more folders' });
     fireEvent.click(more);
     expect(screen.getByText('Folder-14')).toBeInTheDocument();
   });
@@ -684,15 +684,22 @@ describe('SourceRail row caps', () => {
 
     expect(screen.getByText('System tasks')).toBeInTheDocument();
     // The cap counts the folders it governs and not the disclosure it exempts.
-    expect(screen.getByRole('button', { name: 'Show 11 more folders' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show 5 more folders' })).toBeInTheDocument();
   });
 
   it('leaves a list one over the cap alone', async () => {
     // "Show 1 more" costs a row to save a row and hides something for no gain.
-    renderRail(folders(5), { source: 'WINDOWS_TASK_SCHEDULER' });
+    renderRail(folders(11), { source: 'WINDOWS_TASK_SCHEDULER' });
     await screen.findByText('Folder-00');
-    expect(screen.getByText('Folder-04')).toBeInTheDocument();
+    expect(screen.getByText('Folder-10')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /show 1 more/i })).toBeNull();
+  });
+
+  it('never caps the source list — every source you chose to show is drawn', async () => {
+    const platforms = ['WINDOWS_TASK_SCHEDULER', 'TASKHUB_NATIVE', 'CLAUDE_CODE', 'GITHUB_ACTIONS', 'VERCEL_CRON', 'GEMINI_TRIGGERS', 'N8N'];
+    renderRail(platforms.map((platform, i) => task({ platform, category: `C${i}`, externalId: `x${i}` })));
+    await screen.findByText('Windows Task Scheduler');
+    expect(screen.queryByRole('button', { name: /more source/i })).toBeNull();
   });
 
   it('lifts the cap on a list of matches — capping one would hide the hit', async () => {
@@ -700,14 +707,13 @@ describe('SourceRail row caps', () => {
     await screen.findByText('Folder-00');
 
     fireEvent.change(screen.getByLabelText('Filter sources and folders'), {
-      target: { value: 'folder-0' }
+      target: { value: 'folder-' }
     });
 
-    // Folder-00 … Folder-09 all match: ten rows, well past the cap, all drawn.
-    // Capping a result set would put the row you typed for behind a "Show 6
-    // more" you have no reason to expect.
+    // All fifteen match, past the cap, all drawn. Capping a result set would
+    // put the row you typed for behind a "Show 5 more" you have no reason to expect.
     expect(screen.getByText('Folder-00')).toBeInTheDocument();
-    expect(screen.getByText('Folder-09')).toBeInTheDocument();
+    expect(screen.getByText('Folder-14')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /more folders/i })).toBeNull();
   });
 
@@ -718,8 +724,8 @@ describe('SourceRail row caps', () => {
     // not hits — the folder above them is — so they keep their cap.
     renderRail(
       [
-        ...Array.from({ length: 9 }, (_, i) =>
-          task({ category: 'AI-Lab', externalId: `\\AI-Lab\\Sub-${i}\\t${i}` })
+        ...Array.from({ length: 14 }, (_, i) =>
+          task({ category: 'AI-Lab', externalId: `\\AI-Lab\\Sub-${String(i).padStart(2, '0')}\\t${i}` })
         ),
         task({ category: 'Reports' })
       ],
@@ -732,9 +738,9 @@ describe('SourceRail row caps', () => {
     });
 
     expect(screen.getByText('AI-Lab')).toBeInTheDocument();
-    expect(screen.getByText('Sub-0')).toBeInTheDocument();
-    expect(screen.queryByText('Sub-8')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Show 5 more folders' })).toBeInTheDocument();
+    expect(screen.getByText('Sub-00')).toBeInTheDocument();
+    expect(screen.queryByText('Sub-13')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show 4 more folders' })).toBeInTheDocument();
   });
 });
 

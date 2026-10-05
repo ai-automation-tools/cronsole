@@ -48,6 +48,10 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 ### Changed
 
 - **Each source card shows its *Read: using X* guide link without expanding it** (2026-10-05).
+- **The sidebar no longer hides sources** (2026-10-05). The source list used to fold everything past
+  the fourth behind *Show more* — on a rail with seven sources, Gemini and n8n disappeared. It now
+  draws every source you chose to show, and folder lists show ten rows (was four) before *Show N
+  more folders*.
 
 ### Fixed
 

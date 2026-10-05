@@ -87,9 +87,16 @@ function withLightPool(dbUrl: string): string {
  */
 function describeError(err: unknown, dbUrl: string): string {
   const raw = err instanceof Error ? err.message : String(err);
-  const code = (err as { code?: string })?.code;
-  if (code === 'P1000') return 'n8n database rejected the user name or password.';
-  if (code === 'P1001') return 'Could not reach the n8n database — check the host, port and firewall.';
+  // A connection failure is a PrismaClientInitializationError whose `errorCode`
+  // is often left undefined (measured: refused port), so the code alone never
+  // matched and every connection failure fell through to the driver's sentence.
+  // The message is the reliable signal there.
+  const e = err as { code?: string; errorCode?: string } | null;
+  const code = e?.errorCode ?? e?.code;
+  if (code === 'P1000' || /authentication failed/i.test(raw)) return 'n8n database rejected the user name or password.';
+  if (code === 'P1001' || /can't reach database server|database server is running/i.test(raw)) {
+    return 'Could not reach the n8n database — check the host, port and firewall.';
+  }
   if (code === 'P1003') return 'That database does not exist on the server.';
   if (/permission denied/i.test(raw)) {
     return 'The database user cannot read the folder columns. Run the GRANT statements from the n8n source guide.';

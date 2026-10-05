@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 export type ThemeMode = 'light' | 'dark' | 'system' | 'dracula' | 'nord' | 'solarized' | 'tokyo-night';
 
 const STORAGE_KEY = 'cronsole.theme';
+const CHANGE_EVENT = 'cronsole:theme';
 
 /** Named palettes: a fixed theme, not resolved against the OS like `dark`/`light`/`system` are. */
 const NAMED_THEMES = ['dracula', 'nord', 'solarized', 'tokyo-night'] as const;
@@ -66,9 +67,18 @@ export function useTheme() {
     return () => mq.removeEventListener('change', onChange);
   }, [theme]);
 
+  // Every caller holds its own copy of the mode, and the top bar's switch stays
+  // mounted while Settings changes the theme, so a change is broadcast to all.
+  useEffect(() => {
+    const onChange = (e: Event) => setThemeState((e as CustomEvent<ThemeMode>).detail);
+    window.addEventListener(CHANGE_EVENT, onChange);
+    return () => window.removeEventListener(CHANGE_EVENT, onChange);
+  }, []);
+
   const setTheme = useCallback((mode: ThemeMode) => {
     window.localStorage.setItem(STORAGE_KEY, mode);
     setThemeState(mode);
+    window.dispatchEvent(new CustomEvent<ThemeMode>(CHANGE_EVENT, { detail: mode }));
   }, []);
 
   return { theme, setTheme };

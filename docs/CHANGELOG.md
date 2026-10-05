@@ -14,6 +14,9 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **Registry button in the top bar** (2026-10-05). A **Registry** link to the right of the theme
+  picker opens the public template catalog (`mikesailab.com/cronsole-registry/`) in a new tab,
+  in the app and in the demo. Below the `sm` breakpoint it shows the icon only.
 - **"Every N hours" schedules convert between time zones** (2026-10-05). A schedule with several
   hours at one minute — *every 6 hours*, *hourly 9–5* — used to be refused when converted to or
   from UTC. It is now converted exactly whenever every day fires or no hour crosses midnight:

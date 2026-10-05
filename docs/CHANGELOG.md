@@ -57,6 +57,18 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Changed
 
+- **Front door redesigned in the org design vocabulary** (2026-10-05). The public gallery at
+  `cronsole.ai-automation-tools.dev` (and its two mirror hosts) now shares the ground, surfaces
+  and type scale of `ai-automation-tools.dev`, Edge-Radar and Edge Spectrum: `#060606` with a
+  dot grid, one hero glow, zinc panels, spotlight cards whose ring follows the pointer in each
+  card's accent, bands that fade up as they scroll into view, and a hero that draws the seven
+  platforms Cronsole connects to in a live orbit around the mark (hover for the README's status
+  word, click for the connectors table). The accent stays Cronsole's violet with the mark's
+  emerald as the runnable signal; the light theme is kept and re-tokenised. Still one
+  self-contained file with no external fonts or CDN, the same hash router, facet rail, detail
+  renderer, downloads and theme toggle; every claim on the page is unchanged. Footer gains the
+  org links and the shared cookie-settings hook. `prefers-reduced-motion` stills every animation.
+
 - **Each source card shows its *Read: using X* guide link without expanding it** (2026-10-05).
 - **The sidebar no longer hides sources** (2026-10-05). The source list used to fold everything past
   the fourth behind *Show more* — on a rail with seven sources, Gemini and n8n disappeared. It now

@@ -1,4 +1,4 @@
-import { LayoutDashboard, Settings, Layers, Library, LogOut, Wrench } from 'lucide-react';
+import { LayoutDashboard, Settings, Layers, Library, LogOut, Wrench, ExternalLink } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { useAuth } from '../hooks/useAuth';
 
@@ -36,6 +36,9 @@ const NAV = [
   { id: 'tools', label: 'Tools', Icon: Wrench },
   { id: 'settings', label: 'Settings', Icon: Settings }
 ] as const;
+
+/** The public template catalog's browsable front page (michaelschecht/cronsole-registry). */
+const REGISTRY_URL = 'https://mikesailab.com/cronsole-registry/';
 
 interface TopBarProps {
   activeTab: string;
@@ -76,7 +79,7 @@ export const TopBar = ({ activeTab, setActiveTab }: TopBarProps) => {
         <span aria-hidden className="hidden sm:block h-5 w-px bg-border mx-3 shrink-0" />
 
         {/* ── Sections ──────────────────────────────────────────────────── */}
-        <nav aria-label="Sections" className="flex items-stretch h-full gap-0.5 min-w-0">
+        <nav aria-label="Sections" className="flex items-stretch h-full sm:gap-0.5 min-w-0">
           {NAV.map(({ id, label, Icon }) => {
             const active = activeTab === id;
             return (
@@ -98,7 +101,7 @@ export const TopBar = ({ activeTab, setActiveTab }: TopBarProps) => {
                   button here is highlighted"; this says "you are in here", which
                   is the actual question a nav answers.
                 */
-                className={`group relative flex items-center gap-2 px-2.5 sm:px-3 text-sm font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 rounded-t-lg ${
+                className={`group relative flex items-center gap-2 px-1.5 sm:px-3 text-sm font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 rounded-t-lg ${
                   active
                     ? 'text-foreground'
                     : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
@@ -121,8 +124,22 @@ export const TopBar = ({ activeTab, setActiveTab }: TopBarProps) => {
         </nav>
 
         {/* ── Account ───────────────────────────────────────────────────── */}
-        <div className="ml-auto flex items-center gap-1 shrink-0 pl-3">
+        <div className="ml-auto flex items-center gap-1 shrink-0 pl-1.5 sm:pl-3">
           <ThemeToggle compact />
+          {/* Same plate as the compact theme picker so the two read as a pair.
+              Below `sm` the label drops, like the section tabs. */}
+          <a
+            href={REGISTRY_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Template registry (opens in a new tab)"
+            title="Template registry"
+            className="flex items-center gap-1.5 rounded-xl bg-muted/60 px-2 py-1 text-[11px] font-bold text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          >
+            <Library size={13} className="shrink-0 text-muted-foreground" aria-hidden />
+            <span className="hidden sm:inline">Registry</span>
+            <ExternalLink size={11} className="hidden sm:block shrink-0 text-subtle-foreground" aria-hidden />
+          </a>
           <span aria-hidden className="hidden lg:block h-5 w-px bg-border mx-1.5" />
           <span
             className="hidden lg:block max-w-[18ch] truncate text-xs text-subtle-foreground"

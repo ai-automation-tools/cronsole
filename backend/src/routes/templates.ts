@@ -410,7 +410,11 @@ router.post('/:id/apply', validateBody(applySchema), async (req: Request, res: R
   // Applying a template IS a create through the connector, so it is evidence
   // about this install exactly like `POST /api/tasks` is — a platform whose only
   // successful create came from the Templates tab must not read `declared`.
-  await recordCapability(userId, platform, 'create', result.success, result.message);
+  // A refusal reached without calling the platform is evidence about the
+  // request, not the platform — recording it put "Create failed" on the card.
+  if (!result.refusedBeforeCalling) {
+    await recordCapability(userId, platform, 'create', result.success, result.message);
+  }
 
   if (!result.success) {
     // A platform with no create API at all is a client error, not a server one —

@@ -27,8 +27,9 @@ import { SourceDocLink } from './SourceDocLink';
 /**
  * A source you added to your sidebar that has nothing connected behind it.
  *
- * **Just the header by default** (2026-09-07). The setup hint, the *Set up*
- * button, the hand-composed panel and the doc link all sit behind a single
+ * **Just the header and the doc link by default** (2026-09-07; link moved up
+ * 2026-10-05 — reading how a source works is what you do before connecting it).
+ * The setup hint, the *Set up* button and the hand-composed panel sit behind a single
  * "Show details" disclosure — the same pattern `ConnectedSourceCard` uses —
  * so a row of added-but-unconnected sources reads as a list of names rather
  * than a stack of "what now?" paragraphs. The status pill still says "Not
@@ -68,6 +69,7 @@ export const PendingSourceCard = ({ row, shownSources, onToggleShown }: {
           <div className="min-w-0 flex-1 space-y-1">
             <SourceHeading row={row} />
             <p className="text-xs text-subtle-foreground leading-relaxed">{row.summary}</p>
+            <div className="pt-1.5"><SourceDocLink platform={row.platform} label={row.label} /></div>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
@@ -110,14 +112,6 @@ export const PendingSourceCard = ({ row, shownSources, onToggleShown }: {
                 Set up {row.label}
               </button>
             )}
-
-            {/*
-              Below the setup control rather than beside it. Reading how a source
-              works is what you do BEFORE connecting it — this is the card that says
-              "you have added this and not set it up yet", so the guide is the more
-              useful of the two things on offer more often than you would think.
-            */}
-            <SourceDocLink platform={row.platform} label={row.label} />
           </div>
 
           {setup.hasPanel && setupOpen && (

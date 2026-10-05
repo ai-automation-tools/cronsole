@@ -35,8 +35,9 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 |:--|:---|:---|:--|
 | 94 | **A `MISSING` Claude row survives untrack, disconnect and delete** — the routine was deleted at claude.ai, Cronsole correctly flags the row `MISSING`, and nothing removes it | **Untrack refused every `CLAUDE_CODE` row unconditionally**, assuming the routine was always *declared* in `PlatformConnection.config`. An OAuth-discovered routine is never declared there, so `disconnect_claude_routine` also 404s (nothing to disconnect) and the row is stranded. Untrack now checks whether the routine is actually declared first | [→](#94-a-missing-claude-row-survives-untrack-disconnect-and-delete) |
 | 95 | **Every Claude routine was deleted at claude.ai, and Cronsole still shows them all `ACTIVE`** — sync reports `count: 0, missing: 0` | The route skipped `reconcileMissingTasks` on any **empty** listing, a net against an offline reader flipping a whole platform. Deleting your *last* routine is a truthful empty listing, so nothing was ever retired. Connectors can now vouch for an empty answer (`SyncOutcome.complete`); Claude's OAuth read does | [→](#95-every-claude-routine-was-deleted-and-cronsole-still-shows-them-active) |
-| 96 | **Your n8n folders do not appear in Cronsole** — every workflow lands under one flat `n8n` category | **n8n's public API does not report a workflow's folder.** The folder tree is readable, the membership is not; the editor's internal API has it and refuses API keys. Not a bug — options listed | [→](#96-your-n8n-folders-do-not-appear-in-cronsole) |
+| 96 | **Your n8n folders do not appear in Cronsole** — every workflow lands under one flat `n8n` category | **n8n's public API does not report a workflow's folder.** The folder tree is readable, the membership is not (`parentFolderId` is write-only). Self-hosted: add a read-only Postgres URL under **Folders** on the n8n card | [→](#96-your-n8n-folders-do-not-appear-in-cronsole) |
 | 97 | **One n8n workflow shows no schedule while the others convert** — sync warns about the instance time zone | That workflow has no Timezone setting of its own and uses `GENERIC_TIMEZONE`, which the API does not report. Set **Instance time zone** on the n8n card | [→](#97-one-n8n-workflow-shows-no-schedule-while-the-others-convert-fine) |
+| 98 | **`sync_tasks` over MCP fails with `ECONNABORTED` — "Could not reach the Cronsole backend"** while `/api/health` is fine | The MCP client timed out on a sync of **every** source (426 Windows tasks + 89 n8n workflows); the backend kept going and finished. Check the result rather than re-running | [→](#98-sync_tasks-over-mcp-says-the-backend-is-unreachable-and-the-sync-finished-anyway) |
 | 93 | **A restored backup succeeds and every platform connection is unreadable** — `pg_restore` exits 0, every row count matches, your tasks are all there, and every source is broken | **The credentials in the dump are ciphertext and the key is not in the dump.** `PlatformConnection.config` and `TaskSecret` are AES-256-GCM encrypted with `ENCRYPTION_KEY`, which lives in `.env`. A restore onto a stack with a different key genuinely succeeds and leaves every value permanently unreadable, discovered one failing sync at a time | [→](#93-a-restore-succeeds-and-every-platform-connection-is-unreadable) |
 | 92 | **A restore verification says the data does not match, and the restore was perfect** — the *restored* copy reports more rows than the original it came from | **The check is reading an estimate, not a count.** `pg_stat_user_tables.n_live_tup` is a planner input maintained by autovacuum: stale (often zero) on a database not analysed recently, accurate on a freshly-restored one. It can be wrong in **both** directions, so it can also report a match over a restore that dropped rows. Generate real `count(*)` queries | [→](#92-a-restored-database-reports-different-row-counts-and-the-restore-was-perfect) |
 | 91 | **A second clone of the repo is not a second install** — `docker compose up` from a fresh checkout adopts the first one's database, or fails with `port is already allocated`. Shifting the ports in a `docker-compose.override.yml` does not help | **The Compose project name is pinned in the file, not derived from the folder** (`name: taskhub`, deliberately — it is what stops a renamed checkout orphaning the Postgres volume). Every clone on the machine is therefore the *same* project. And a plain override **appends** to `ports:` rather than replacing it, so both bindings are attempted and the old one still collides. Use `docker compose -p <name>` **and** the `!override` tag on every port list | [→](#91-a-second-clone-of-the-repo-shares-the-first-ones-database-and-ports) |
@@ -6339,16 +6340,21 @@ category.
 - The editor's internal API (`/rest/workflows?includeFolders=true`) carries the link, and answers
   `401 Unauthorized` to an `X-N8N-API-KEY` — it takes a logged-in session only.
 
+Re-checked against the instance's own `/api/v1/openapi.yml` on 2026-10-05: `parentFolderId` *is* on
+the workflow schema, marked **`writeOnly`** — you can move a workflow into a folder and never read it
+back. The beta `POST /n8n-packages/export` takes `folderIds`, but needs a licensed feature and returns
+whole workflow bodies (variable values included by default).
+
 So the membership exists and is not published to the credential Cronsole holds. Nothing is broken.
 
-**Options** (none built yet — ROADMAP › Sources › n8n):
-
-- **Internal API with an n8n login** — exact and automatic, but Cronsole would hold your n8n email
-  and password, and the API is undocumented (2FA/SSO complicate it).
-- **Read-only access to n8n's database** — `workflow_entity."parentFolderId"` is exact and stable,
-  if Cronsole can reach that Postgres.
-- **Tags** — they are in the public API; one tag per workflow could name its category.
-- Today: recategorize the tasks in Cronsole (category is a Cronsole label; sync never overwrites it).
+**Fix (self-hosted).** Give Cronsole a read-only Postgres role on n8n's database, granted only
+`workflow_entity(id, "parentFolderId")` and `folder(id, name, "parentFolderId")`, and paste its URL
+under **Folders (optional)** on the n8n card — steps and the GRANT statements are in the
+[n8n source guide › Folders](../user-guides/sources/n8n.md#folders). Verified on a live n8n
+Postgres under exactly those grants: the folder query works and `SELECT nodes` is denied.
+Folders arrive as `metadata.folderPath` and nest beneath the `n8n` category, so a workflow moved
+between folders keeps its id and history. **n8n Cloud:** not possible — recategorize the tasks in
+Cronsole instead (category is a Cronsole label; sync never overwrites it).
 
 ## 97. One n8n workflow shows no schedule while the others convert fine
 
@@ -6363,6 +6369,23 @@ Cronsole refuses to read a local time as UTC rather than store it hours off ([#6
 it off a run: a rule at 9:00 whose executions start at `14:00Z` in October is UTC−5 — America/Chicago.
 A local `docker exec … printenv GENERIC_TIMEZONE` only helps if that container *is* the instance
 Cronsole is connected to; check that the workflow names match first.
+
+## 98. `sync_tasks` over MCP says the backend is unreachable, and the sync finished anyway
+
+**Symptom.** `sync_tasks` returns *"Could not reach the Cronsole backend at http://localhost:3000/api
+(ECONNABORTED)"*, yet `GET /api/health` answers `200` and the backend log shows the sync running.
+Hit 2026-10-05, right after n8n started tracking on-demand workflows (89 execution reads per sync).
+
+**Cause.** `ECONNABORTED` is the MCP client's **request timeout**, not a refused connection. A plain
+refresh syncs every connected source in one request — here 426 Windows tasks through the agent plus
+89 n8n workflows — and that outlived the client. The server does not cancel on a dropped client, so
+the sync completed and its rows were written. The message names the backend because, from the
+client's side, a timeout and an unreachable server look the same. A `tsx watch` restart mid-request
+(the backend reloads on any `src/` edit) produces the same message.
+
+**Fix.** Do not re-run blind — read the result first (`list_tasks`, or the dashboard's *Synced* time).
+To get the sync's own report, call `POST /api/tasks/sync` `{"scope":"tracked"}` directly with a long
+timeout. The n8n connector now reads execution history six workflows at a time to keep this short.
 
 ---
 

@@ -77,8 +77,11 @@ import {
   readConfig as readN8nConfig,
   redactConfig as redactN8nConfig,
   connectionInputSchema as n8nConnectionInputSchema,
-  timeZoneInputSchema as n8nTimeZoneInputSchema
+  timeZoneInputSchema as n8nTimeZoneInputSchema,
+  folderDbInputSchema as n8nFolderDbInputSchema,
+  optionsInputSchema as n8nOptionsInputSchema
 } from '../services/n8nConnection.js';
+import { readFolderPaths as readN8nFolderPaths } from '../services/n8nFolders.js';
 import { verifyKey as verifyN8nKey, normalizeBaseUrl as normalizeN8nBaseUrl } from '../services/n8nApi.js';
 import { parseTaskBundle, TaskImportError } from '../services/taskImport.js';
 import { createNativeTask, NativeTaskCreateError } from '../services/nativeTaskCreate.js';
@@ -3377,7 +3380,9 @@ router.put(
 
     const { connection, config } = await loadN8nConnection(userId);
     const timeZone = body.timeZone === undefined ? config.timeZone : body.timeZone.trim() || undefined;
-    const next = { baseUrl, apiKey, ...(timeZone ? { timeZone } : {}) };
+    // Rotating the key keeps every other setting, the folder database included.
+    const { timeZone: _old, ...kept } = config;
+    const next = { ...kept, baseUrl, apiKey, ...(timeZone ? { timeZone } : {}) };
     await saveN8nConnection(userId, connection?.id, next);
 
     res.json(redactN8nConfig(next));
@@ -3404,6 +3409,97 @@ router.put(
       timeZone: next.timeZone ?? null,
       // Schedules are converted at sync time, so the change shows on the next one.
       message: 'Saved. Sync n8n to re-read its schedules in this time zone.'
+    });
+  }
+);
+
+/**
+ * Track on-demand workflows (no schedule) or not. Turning it off removes the
+ * on-demand rows here, in the same gesture: left to the next sync, a complete
+ * listing that no longer names them would mark them MISSING — "n8n deleted
+ * this" — when the user only stopped asking for them.
+ */
+router.put(
+  '/platforms/n8n/options',
+  validateBody(n8nOptionsInputSchema),
+  async (req: Request, res: Response) => {
+    const userId = (req as AuthRequest).user!.id;
+    const body = req.body as { includeOnDemand?: boolean; groupBy?: 'trigger' | 'none' };
+
+    const { connection, config } = await loadN8nConnection(userId);
+    if (!connection) {
+      throw new HttpError(400, 'Connect n8n first — there is no connection to configure yet.');
+    }
+    const next = {
+      ...config,
+      ...(body.includeOnDemand !== undefined ? { includeOnDemand: body.includeOnDemand } : {}),
+      ...(body.groupBy ? { groupBy: body.groupBy } : {})
+    };
+    await saveN8nConnection(userId, connection.id, next);
+
+    let removed = 0;
+    if (body.includeOnDemand === false) {
+      const doomed = await prisma.task.findMany({
+        where: { userId, platform: PlatformType.N8N, metadata: { path: ['onDemand'], equals: true } },
+        select: { id: true }
+      });
+      const ids = doomed.map(t => t.id);
+      if (ids.length) {
+        await prisma.$transaction([
+          // ExecutionLog has no cascade on its Task relation, so it goes first.
+          prisma.executionLog.deleteMany({ where: { taskId: { in: ids } } }),
+          prisma.task.deleteMany({ where: { id: { in: ids } } })
+        ]);
+        removed = ids.length;
+        notifyTasksChanged(userId);
+      }
+    }
+
+    res.json({
+      ...redactN8nConfig(next),
+      removed,
+      message: body.includeOnDemand === false
+        ? `On-demand workflows are no longer tracked${removed ? ` — removed ${removed} from the dashboard` : ''}. Nothing changed in n8n.`
+        : body.includeOnDemand === true
+          ? 'Sync n8n to bring in workflows that run on demand.'
+          : 'Saved. Sync n8n to regroup the sidebar.'
+    });
+  }
+);
+
+/**
+ * Set or clear the read-only database URL folders are read through. Verified
+ * by running the real folder query before it is stored, so a bad grant fails
+ * at the click with the GRANT hint rather than as a warning on every sync.
+ */
+router.put(
+  '/platforms/n8n/folder-db',
+  validateBody(n8nFolderDbInputSchema),
+  async (req: Request, res: Response) => {
+    const userId = (req as AuthRequest).user!.id;
+    const url = String((req.body as { url: string }).url).trim();
+
+    const { connection, config } = await loadN8nConnection(userId);
+    if (!connection) {
+      throw new HttpError(400, 'Connect n8n first — there is no connection to configure yet.');
+    }
+
+    let placed = 0;
+    if (url) {
+      const read = await readN8nFolderPaths(url);
+      if (!read.ok) throw new HttpError(400, read.message);
+      placed = read.data.size;
+    }
+
+    const { folderDbUrl: _old, ...rest } = config;
+    const next = { ...rest, ...(url ? { folderDbUrl: url } : {}) };
+    await saveN8nConnection(userId, connection.id, next);
+
+    res.json({
+      ...redactN8nConfig(next),
+      message: url
+        ? `Connected. ${placed} workflow${placed === 1 ? ' is' : 's are'} in a folder. Sync n8n to show them.`
+        : 'Folders are no longer read. Sync n8n to flatten the list.'
     });
   }
 );

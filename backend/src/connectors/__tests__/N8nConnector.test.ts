@@ -8,11 +8,17 @@ vi.mock('../../services/n8nApi.js', async importOriginal => {
   const real = await importOriginal<typeof import('../../services/n8nApi.js')>();
   return { ...real, listWorkflows: vi.fn(), getWorkflow: vi.fn(), listExecutions: vi.fn(), getExecution: vi.fn() };
 });
+vi.mock('../../services/n8nFolders.js', async importOriginal => {
+  const real = await importOriginal<typeof import('../../services/n8nFolders.js')>();
+  return { ...real, readFolderPaths: vi.fn() };
+});
 
-import { N8nConnector } from '../N8nConnector.js';
+import { N8nConnector, triggerGroup } from '../N8nConnector.js';
 import { prisma } from '../../db.js';
 import { listWorkflows, getWorkflow, listExecutions, getExecution, type N8nWorkflow } from '../../services/n8nApi.js';
 import { TaskService } from '../../services/TaskService.js';
+import { readFolderPaths } from '../../services/n8nFolders.js';
+import { redactConfig } from '../../services/n8nConnection.js';
 import { scoreTask } from '../../services/taskHealth.js';
 
 const listWorkflowsMock = vi.mocked(listWorkflows);
@@ -97,9 +103,96 @@ describe('the boundary is declared', () => {
   });
 });
 
-describe('syncTasks', () => {
-  it('keeps only scheduled workflows, converts to UTC and says what it looked at', async () => {
+describe('folders', () => {
+  const dbUrl = 'postgresql://reader:s3cret@db.example.com:5432/n8n';
+
+  it('without a folder database, groups by trigger by default — or not at all when asked', async () => {
+    const grouped = await connector.syncTasks(config());
+    expect(readFolderPaths).not.toHaveBeenCalled();
+    expect(grouped.tasks.map(t => t.metadata.folderPath)).toEqual([['Scheduled'], ['Forms']]);
+
+    const flat = await connector.syncTasks(config({ groupBy: 'none' }));
+    expect(flat.tasks[0]!.metadata).not.toHaveProperty('folderPath');
+  });
+
+  it('names a group by its most specific trigger; manual only when it is the only one', () => {
+    expect(triggerGroup(['manual', 'webhook'])).toBe('Webhooks');
+    expect(triggerGroup(['manual'])).toBe('Manual');
+    expect(triggerGroup(['manual', 'slack'])).toBe('Slack triggers');
+  });
+
+  it('puts the folder path in metadata and leaves the id and category alone', async () => {
+    vi.mocked(readFolderPaths).mockResolvedValue({ ok: true, data: new Map([['9zGpyQGdTftmUvq9', ['Finance', 'Weekly']]]) });
+    const outcome = await connector.syncTasks(config({ folderDbUrl: dbUrl }));
+    const [task] = outcome.tasks;
+    expect(task!.externalId).toBe('9zGpyQGdTftmUvq9');
+    expect(task!.metadata).toMatchObject({ folderPath: ['Finance', 'Weekly'] });
+    expect(TaskService.extractCategory(task!.externalId, PlatformType.N8N)).toBe('n8n');
+  });
+
+  it('a failed folder read warns and keeps every task — it is not a partial sync', async () => {
+    vi.mocked(readFolderPaths).mockResolvedValue({ ok: false, message: 'Could not reach the n8n database.' });
+    const outcome = await connector.syncTasks(config({ folderDbUrl: dbUrl }));
+    expect(outcome.tasks).toHaveLength(2);
+    expect(outcome.partial).toBe(false);
+    expect(outcome.warnings!.join(' ')).toMatch(/without their n8n folders/);
+  });
+
+  it('never returns the database URL, only where it points', () => {
+    const shown = redactConfig({ baseUrl: 'https://n8n.example.com', apiKey: 'k', folderDbUrl: dbUrl });
+    expect(shown).toMatchObject({ hasFolderDb: true, folderDbHint: 'db.example.com:5432/n8n' });
+    expect(JSON.stringify(shown)).not.toContain('s3cret');
+  });
+});
+
+describe('on-demand workflows', () => {
+  const manual = (): N8nWorkflow => ({
+    ...weekly(),
+    id: 'manualOnly0000001',
+    name: 'Manual Trigger — Weekly Comic (agent-runner)',
+    active: false,
+    nodes: [{ name: 'Run', type: 'n8n-nodes-base.manualTrigger' }]
+  });
+  const fragment = (): N8nWorkflow => ({ ...weekly(), id: 'noTrigger00000001', name: 'Helper', nodes: [{ name: 'Set', type: 'n8n-nodes-base.set' }] });
+
+  beforeEach(() => {
+    listWorkflowsMock.mockResolvedValue({ ok: true, data: { workflows: [weekly(), form(), manual(), fragment()], truncated: false } });
+  });
+
+  it('tracks unscheduled workflows by default, with no cron and how they start', async () => {
     const outcome = await connector.syncTasks(config());
+    const byId = new Map(outcome.tasks.map(t => [t.externalId, t]));
+    expect(byId.size).toBe(3);
+    expect(byId.get('0Cbgw8bdlSwfgnNI')).toMatchObject({
+      schedule: null,
+      status: 'ACTIVE',
+      metadata: { onDemand: true, triggers: ['form'], scheduleReason: expect.stringMatching(/started by a form/) }
+    });
+    expect(byId.get('0Cbgw8bdlSwfgnNI')!.metadata).not.toHaveProperty('scheduleUnavailableReason');
+    expect(outcome.notes![0]).toMatch(/1 with a schedule and 2 on demand.*1 with no trigger at all were skipped/);
+    expect(listExecutionsMock).toHaveBeenCalledTimes(3);
+  });
+
+  it('keeps an unpublished manual-only workflow ACTIVE — n8n cannot publish it, and it runs anyway', async () => {
+    const task = (await connector.syncTasks(config())).tasks.find(t => t.externalId === 'manualOnly0000001')!;
+    expect(task.status).toBe('ACTIVE');
+    expect(task.metadata).toMatchObject({ triggers: ['manual'], scheduleReason: expect.stringMatching(/by hand in the editor/) });
+  });
+
+  it('marks an unpublished form workflow DISABLED — its form is offline', async () => {
+    listWorkflowsMock.mockResolvedValue({ ok: true, data: { workflows: [{ ...form(), active: false }], truncated: false } });
+    expect((await connector.syncTasks(config())).tasks[0]!.status).toBe('DISABLED');
+  });
+
+  it('names the setting when it is off', () => {
+    expect(redactConfig({})).toMatchObject({ includeOnDemand: true, groupBy: 'trigger' });
+    expect(redactConfig({ includeOnDemand: false })).toMatchObject({ includeOnDemand: false });
+  });
+});
+
+describe('syncTasks', () => {
+  it('with on-demand off, keeps only scheduled workflows, converts to UTC and says what it looked at', async () => {
+    const outcome = await connector.syncTasks(config({ includeOnDemand: false }));
     expect(outcome.tasks).toHaveLength(1);
     const [task] = outcome.tasks;
     expect(task).toMatchObject({
@@ -115,7 +208,7 @@ describe('syncTasks', () => {
       lastStatus: 'success',
       platformTimeZone: 'America/New_York'
     });
-    expect(outcome.notes).toEqual([expect.stringMatching(/read 2 workflows, 1 with a schedule/)]);
+    expect(outcome.notes).toEqual([expect.stringMatching(/read 2 workflows, 1 with a schedule\. Workflows with no schedule are not tracked/)]);
     expect(outcome.complete).toBe(true);
     expect(outcome.partial).toBe(false);
     // One execution read, for the scheduled workflow only.
@@ -190,7 +283,7 @@ describe('syncTasks', () => {
 
   it('vouches for an empty instance, so unscheduling the last workflow retires its row', async () => {
     listWorkflowsMock.mockResolvedValue({ ok: true, data: { workflows: [form()], truncated: false } });
-    expect(await connector.syncTasks(config())).toMatchObject({ tasks: [], complete: true });
+    expect(await connector.syncTasks(config({ includeOnDemand: false }))).toMatchObject({ tasks: [], complete: true });
   });
 
   it('counts the failure streak from the newest finished runs, skipping one in flight', async () => {

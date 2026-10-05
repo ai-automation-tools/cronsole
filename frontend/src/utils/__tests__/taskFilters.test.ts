@@ -17,7 +17,7 @@ import {
   matchesSystem,
   needsHealthData,
   nextRunOf,
-  windowsSubfolderPath,
+  subfolderPath,
   withheldBy,
   type HealthTier
 } from '../taskFilters';
@@ -486,23 +486,29 @@ describe('matchesSource — the outer lens', () => {
   });
 });
 
-describe('windowsSubfolderPath', () => {
+describe('subfolderPath', () => {
   it('is empty for a task directly in its root folder', () => {
-    expect(windowsSubfolderPath(task('a', { externalId: '\\Backup\\a' }))).toEqual([]);
+    expect(subfolderPath(task('a', { externalId: '\\Backup\\a' }))).toEqual([]);
   });
 
   it('returns every segment between the root folder and the task name', () => {
-    expect(windowsSubfolderPath(task('a', { externalId: '\\Backup\\Old\\Nightly\\a' })))
+    expect(subfolderPath(task('a', { externalId: '\\Backup\\Old\\Nightly\\a' })))
       .toEqual(['Old', 'Nightly']);
   });
 
   it('is empty for an id with no folder at all', () => {
-    expect(windowsSubfolderPath(task('a', { externalId: '\\a' }))).toEqual([]);
+    expect(subfolderPath(task('a', { externalId: '\\a' }))).toEqual([]);
   });
 
   it('is empty for a non-Windows id, no platform check needed', () => {
-    expect(windowsSubfolderPath(task('a', { platform: 'CLAUDE_CODE', externalId: 'trig_abc123' })))
+    expect(subfolderPath(task('a', { platform: 'CLAUDE_CODE', externalId: 'trig_abc123' })))
       .toEqual([]);
+  });
+
+  it('reads an n8n folder path from metadata, whose id carries none', () => {
+    const wf = task('a', { platform: 'N8N', externalId: '4VxaKaojJKkR4LFF', metadata: { folderPath: ['Marketing', 'Daily/Weekly'] } });
+    expect(subfolderPath(wf)).toEqual(['Marketing', 'Daily/Weekly']);
+    expect(matchesFolderPath(wf, 'Marketing')).toBe(true);
   });
 });
 

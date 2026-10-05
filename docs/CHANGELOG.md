@@ -24,6 +24,15 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
   moon. System and the named palettes (Dracula, Nord, Solarized, Tokyo Night) are still in
   **Settings → Appearance**; while one is active neither half of the switch is pressed. A theme
   picked in Settings now updates the top bar straight away.
+
+### Fixed
+
+- **Claude Code routines: session reminders are no longer imported as tasks** (2026-10-05). The
+  endpoint Cronsole reads routines from also lists the one-off check-ins a Claude session
+  schedules for itself ("re-check the deploy in 10 minutes", `created_kind: "reminder"`). Each
+  arrived as a disabled task with no schedule, so an account with one routine showed four. Only
+  routines are synced now; reminders already imported go **Missing** on the next sync and can be
+  untracked.
 - **"Every N hours" schedules convert between time zones** (2026-10-05). A schedule with several
   hours at one minute — *every 6 hours*, *hourly 9–5* — used to be refused when converted to or
   from UTC. It is now converted exactly whenever every day fires or no hour crosses midnight:

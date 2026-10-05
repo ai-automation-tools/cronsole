@@ -1,4 +1,8 @@
 @import "tailwindcss";
+/* Tailwind v4 does not read tailwind.config.js, so the plugin it listed never
+   loaded and the `animate-in fade-in slide-in-from-*` classes used across the
+   screens compiled to nothing. `@plugin` is the v4 way to load it. */
+@plugin "tailwindcss-animate";
 
 /* Class-based dark mode: `.dark` (or any element inside it) opts into dark tokens. */
 @custom-variant dark (&:where(.dark, .dark *));
@@ -58,17 +62,24 @@
      near-white --foreground. This is the actual fix; colouring individual
      <option> elements is a per-control patch for a page-wide problem. */
   color-scheme: dark;
-  --background: 0 0% 4%;
-  --surface: 0 0% 7%;
+  /* The fill ladder, retuned 2026-10-05 to the org design vocabulary that the
+     front door and the other ai-automation-tools sites now share: a #060606
+     ground with zinc-tinted panels (hue 240 at 5-6% saturation — zinc-900 is
+     `240 6% 10%`). Same ORDER as before (background < surface < raised <
+     muted < border) and every text role still clears 4.5 on all four fills;
+     the saturation is low enough that it moves relative luminance by a few
+     thousandths, which `themeContrast.test.ts` measures rather than trusts. */
+  --background: 0 0% 2.4%;
+  --surface: 240 6% 6%;
   /* The step that was missing: a panel that sits *above* surface. Without it,
      background → surface → muted gave no "raised" level, which is the
      mechanical reason every control read at one weight. */
-  --raised: 0 0% 11%;
-  --muted: 0 0% 14%;
-  --border: 0 0% 22%;
-  --foreground: 0 0% 96%;
-  --muted-foreground: 0 0% 64%;
-  --subtle-foreground: 0 0% 55%;
+  --raised: 240 6% 10%;
+  --muted: 240 5% 14%;
+  --border: 240 5% 24%;
+  --foreground: 240 5% 96%;
+  --muted-foreground: 240 5% 65%;
+  --subtle-foreground: 240 4% 56%;
   --primary: 262 83% 58%;
   --primary-foreground: 0 0% 100%;
   --primary-hover: 262 84% 63%;
@@ -154,14 +165,14 @@
 
 .dark {
   color-scheme: dark;
-  --background: 0 0% 4%;
-  --surface: 0 0% 7%;
-  --raised: 0 0% 11%;
-  --muted: 0 0% 14%;
-  --border: 0 0% 22%;
-  --foreground: 0 0% 96%;
-  --muted-foreground: 0 0% 64%;
-  --subtle-foreground: 0 0% 55%;
+  --background: 0 0% 2.4%;
+  --surface: 240 6% 6%;
+  --raised: 240 6% 10%;
+  --muted: 240 5% 14%;
+  --border: 240 5% 24%;
+  --foreground: 240 5% 96%;
+  --muted-foreground: 240 5% 65%;
+  --subtle-foreground: 240 4% 56%;
   --primary: 262 83% 58%;
   --primary-foreground: 0 0% 100%;
   --primary-hover: 262 84% 63%;
@@ -239,7 +250,7 @@
      real concern and the wrong trade: on a white page every step away from the
      background is darker, so "lifted" cannot be expressed as "lighter" and the
      honest choice is a step you can actually see. Compare the two ramps against
-     their own background — dark 1.05/1.16/1.27, light 1.07/1.14/1.25. */
+     their own background — dark 1.09/1.19/1.29 (since 2026-10-05), light 1.07/1.14/1.25. */
   --raised: 0 0% 94%;
   --muted: 0 0% 90%;
   --border: 0 0% 80%;
@@ -586,6 +597,105 @@ body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
   font-feature-settings: "rlig" 1, "calt" 1;
+}
+
+/*
+ * ---------------------------------------------------------------------------
+ * SURFACE & MOTION LAYER  (added 2026-10-05)
+ * ---------------------------------------------------------------------------
+ * The shell polish that the 2026-10-05 redesign of the org's sites shares:
+ * a dot-grid ground with one soft glow, a pointer-tracked spotlight ring on
+ * cards, and a staggered rise for lists. Three rules hold it inside §9:
+ *
+ *  1. **Colour comes from the role tokens only** — every value below is
+ *     `hsl(var(--x) / alpha)`, so the same classes are correct in `.light`
+ *     and in every named palette without a second definition.
+ *  2. **Nothing here changes layout.** Grid, glow, ring and wash are paint
+ *     on existing boxes; a status readout may not move (#43).
+ *  3. **Reduced motion is a fold, not a slower version**: the stagger and the
+ *     ring transition are removed under `prefers-reduced-motion`.
+ */
+:root {
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* The page ground: the dot grid at 3.5% of the foreground, so it is white
+   dots on the dark page and dark dots on the light one, plus one radial
+   bloom of the brand colour behind the top of the page. */
+.ground {
+  background-color: hsl(var(--background));
+  background-image:
+    radial-gradient(ellipse 70% 45% at 50% -8%, hsl(var(--primary) / 0.13), transparent 70%),
+    radial-gradient(hsl(var(--foreground) / 0.035) 1px, transparent 1px);
+  background-size: 100% 100%, 24px 24px;
+  background-repeat: no-repeat, repeat;
+}
+
+/* A spotlight surface. The card sets `--mx` / `--my` from the pointer (see
+   `useSpotlight`); the ring is a 1px radial gradient masked to the border
+   box, and the wash is the same gradient, wider and fainter, inside it. Both
+   are opacity 0 until hover, so a card at rest is exactly what it was. */
+.spot {
+  position: relative;
+  --mx: 50%;
+  --my: 50%;
+}
+.spot::before,
+.spot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.35s var(--ease);
+}
+.spot::before {
+  padding: 1px;
+  background: radial-gradient(240px circle at var(--mx) var(--my), hsl(var(--primary) / 0.7), transparent 65%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+.spot::after {
+  background: radial-gradient(360px circle at var(--mx) var(--my), hsl(var(--primary) / 0.08), transparent 65%);
+}
+.spot:hover::before,
+.spot:hover::after,
+.spot:focus-within::before,
+.spot:focus-within::after {
+  opacity: 1;
+}
+
+/* Lists rise in, each item 40ms after the one before it; the element sets
+   `--i` to its index (capped by the caller, so a 300-card list does not take
+   twelve seconds to settle). */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+.rise {
+  animation: rise 0.5s var(--ease) both;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+
+/* The scrollbars are chrome too: thin, and drawn in the border token rather
+   than the browser's light-mode grey, which `color-scheme` alone does not fix
+   on every engine. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--border)) transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise {
+    animation: none;
+  }
+  .spot::before,
+  .spot::after {
+    transition: none;
+  }
 }
 
 /*

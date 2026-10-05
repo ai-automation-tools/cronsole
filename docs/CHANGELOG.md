@@ -57,6 +57,18 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Changed
 
+- **The app's default dark theme now matches the org's 2026-10-05 design vocabulary** (2026-10-05).
+  The page is the same `#060606` ground the front door and the other ai-automation-tools sites
+  use, with zinc-tinted panels in place of the old pure-grey ladder, a faint dot grid and one
+  brand-coloured glow behind the top of the page. Task cards light up with a ring that follows
+  the pointer instead of a flat violet border, and lists rise in with a short stagger. Every
+  value is still a role token — `.light` and the four named palettes are unchanged, `:root`
+  still mirrors `.dark`, and every text role still clears WCAG AA on all four fills (the
+  contrast suite measures it). Reduced-motion users get the same page with no motion. Also
+  in this change: the `animate-in` / `fade-in` / `slide-in-*` classes that twelve screens and
+  panels already carried never did anything — Tailwind v4 does not read `tailwind.config.js`,
+  so the plugin they came from was never loaded. It is loaded now, and those transitions play.
+
 - **Each source card shows its *Read: using X* guide link without expanding it** (2026-10-05).
 - **The sidebar no longer hides sources** (2026-10-05). The source list used to fold everything past
   the fourth behind *Show more* — on a rail with seven sources, Gemini and n8n disappeared. It now

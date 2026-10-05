@@ -1,4 +1,5 @@
 import { memo, useState } from 'react';
+import type { CSSProperties } from 'react';
 import { ChevronRight, Folder, Plus, XOctagon } from 'lucide-react';
 import type { Task } from '../types';
 import { platformLabel, platformBadgeClass } from '../platform';
@@ -6,6 +7,7 @@ import { TaskRowActions } from './TaskRowActions';
 import { TaskSchedule } from './TaskSchedule';
 import { TaskFavoriteStar } from './TaskFavoriteStar';
 import { TaskCollectionMenu } from './TaskCollectionMenu';
+import { useSpotlight } from '../hooks/useSpotlight';
 
 interface TaskCardProps {
   task: Task;
@@ -17,6 +19,13 @@ interface TaskCardProps {
   /** Optional so the card stays renderable outside the dashboard's mutations. */
   onToggleFavorite?: (task: Task) => void;
   isTogglingStatus?: boolean;
+  /**
+   * Position in the list, for the staggered rise-in (`.rise` in index.css).
+   * Capped at 12 steps so a long list settles in half a second rather than
+   * animating for as long as it has rows. Optional: a card rendered on its
+   * own rises at once.
+   */
+  index?: number;
 }
 
 /**
@@ -38,13 +47,23 @@ export const TaskCard = memo(({
   onToggleStatus,
   onToggleFavorite,
   isTogglingStatus,
+  index = 0,
 }: TaskCardProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [tempCat, setTempCat] = useState(task.category || 'Uncategorized');
+  const onPointerMove = useSpotlight();
 
   return (
+    /*
+      A spotlight surface (`.spot`): the hover state is a ring of the brand
+      colour that follows the pointer, drawn by index.css from `--mx`/`--my`,
+      in place of the flat `hover:border-primary/50` it replaces. The lift and
+      press stay; the ring is what says "this one" on a grid of 24 lookalikes.
+    */
     <div
-      className="bg-surface border border-border rounded-2xl p-5 hover:border-primary/50 focus-within:border-primary/50 cursor-pointer transition-all shadow-xl group hover:-translate-y-1 active:scale-[0.98]"
+      className="spot rise bg-surface border border-border rounded-2xl p-5 focus-within:border-primary/50 cursor-pointer transition-[transform,box-shadow,border-color] duration-300 shadow-xl group hover:-translate-y-1 hover:shadow-2xl active:scale-[0.98]"
+      style={{ '--i': Math.min(index, 12) } as CSSProperties}
+      onPointerMove={onPointerMove}
       onClick={() => !isEditing && onSelect(task)}
     >
       <div className="flex justify-between items-start mb-4">

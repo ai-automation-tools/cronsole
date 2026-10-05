@@ -2,7 +2,7 @@
 // styling. Cronsole-native tasks get a distinct violet identity so they're
 // immediately separable from platform-synced tasks (docs/resources/Native_Tasks.md).
 import {
-  Activity, Cpu, FileCode, Globe, Monitor, Terminal, Zap,
+  Activity, Cpu, FileCode, Globe, Monitor, Terminal, Workflow, Zap,
   type LucideIcon
 } from 'lucide-react';
 import { AppleGlyph, ClaudeCodeGlyph, GitHubActionsGlyph, GoogleGeminiGlyph, VercelGlyph } from './components/sources/BrandIcons';
@@ -54,7 +54,8 @@ export const platformLabel = (p: string) =>
     TASKHUB_NATIVE: 'Cronsole',
     GITHUB_ACTIONS: 'GitHub',
     VERCEL_CRON: 'Vercel',
-    GEMINI_TRIGGERS: 'Gemini'
+    GEMINI_TRIGGERS: 'Gemini',
+    N8N: 'n8n'
   }[p] ?? asKey(p).split('_')[0]!);
 
 /**
@@ -81,7 +82,8 @@ export const platformSourceLabel = (p: string) =>
     TASKHUB_NATIVE: 'Cronsole (Native)',
     GITHUB_ACTIONS: 'GitHub Actions',
     VERCEL_CRON: 'Vercel Cron',
-    GEMINI_TRIGGERS: 'Gemini API Triggers'
+    GEMINI_TRIGGERS: 'Gemini API Triggers',
+    N8N: 'n8n'
   }[p] ?? platformLabel(p));
 
 /**
@@ -181,7 +183,12 @@ export const sourceDescription = (key: string): string | null => {
     // reader who has learned "hosted means read-only" from those two would
     // carry that assumption here and never press a button that works.
     GEMINI_TRIGGERS:
-      'Scheduled prompts Google runs on its own agents in the cloud. Cronsole runs, pauses, reschedules, creates and deletes them, and reads how their last runs actually went.'
+      'Scheduled prompts Google runs on its own agents in the cloud. Cronsole runs, pauses, reschedules, creates and deletes them, and reads how their last runs actually went.',
+    // The third read-only row, and the first with run outcomes on a platform
+    // that is not CI — so its sentence says both halves: read-only, and real
+    // results.
+    N8N:
+      'Workflows on your n8n instance that run on a Schedule Trigger. Read-only — Cronsole shows their schedules and how their last runs actually went, and changes nothing.'
   };
   return exact[key] ?? exact[sourcePlatform(key)] ?? null;
 };
@@ -194,7 +201,8 @@ export const platformBadgeClass = (p: string) =>
     CHATGPT: 'bg-chatgpt/10 text-chatgpt-text border-chatgpt/20',
     GITHUB_ACTIONS: 'bg-github/10 text-github-text border-github/30',
     VERCEL_CRON: 'bg-vercel/10 text-vercel-text border-vercel/30',
-    GEMINI_TRIGGERS: 'bg-gemini/10 text-gemini-text border-gemini/30'
+    GEMINI_TRIGGERS: 'bg-gemini/10 text-gemini-text border-gemini/30',
+    N8N: 'bg-n8n/10 text-n8n-text border-n8n/30'
   }[p] ?? 'bg-muted/10 text-muted-foreground border-border/20');
 
 export const isNativePlatform = (p: string) => p === 'TASKHUB_NATIVE';
@@ -262,7 +270,10 @@ const SOURCE_ICON: Record<string, LucideIcon> = {
   CHATGPT: Cpu,
   GITHUB_ACTIONS: GitHubActionsGlyph,
   VERCEL_CRON: VercelGlyph,
-  GEMINI_TRIGGERS: GoogleGeminiGlyph
+  GEMINI_TRIGGERS: GoogleGeminiGlyph,
+  // A lucide stand-in rather than n8n's mark: no vendored path data for it here,
+  // and a hand-drawn approximation of somebody's logo is worse than a plain glyph.
+  N8N: Workflow
 };
 
 export const sourceIcon = (key: string): LucideIcon =>
@@ -316,6 +327,11 @@ const PLATFORM_ACCENT: Record<string, { tile: string; rule: string; glyph: strin
     tile: 'bg-gemini/10 text-gemini-text',
     rule: 'bg-gemini/40',
     glyph: 'text-gemini-text'
+  },
+  N8N: {
+    tile: 'bg-n8n/10 text-n8n-text',
+    rule: 'bg-n8n/40',
+    glyph: 'text-n8n-text'
   }
 };
 
@@ -394,5 +410,9 @@ export const sourceSetupHint = (p: string): { hasPanel: boolean; hint: string } 
     GEMINI_TRIGGERS: {
       hasPanel: true,
       hint: 'Paste a Gemini API key. There is nothing else to pick — a key sees every trigger in its own Google Cloud project, and Cronsole can act on all of them.'
+    },
+    N8N: {
+      hasPanel: true,
+      hint: "Paste your n8n address and an API key, and say which time zone the instance runs in — n8n's API does not report it. Read-only: it changes nothing in n8n."
     }
   }[p] ?? { hasPanel: false, hint: 'Nothing to connect here yet.' });

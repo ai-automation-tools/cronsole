@@ -35,6 +35,7 @@
 import { PlatformType, TaskStatus, ExecutionStatus } from '@prisma/client';
 import { TaskService } from './TaskService.js';
 import { isSuccessStatus, isPendingStatus } from './geminiApi.js';
+import { isN8nSuccessStatus, isN8nPendingStatus } from './n8nApi.js';
 
 export type HealthTier = 'ok' | 'attention' | 'critical' | 'unknown';
 
@@ -279,6 +280,12 @@ export function scoreTask(task: HealthInputTask, now: Date): TaskHealth {
     // the runs, not a reason to withhold the auto-pause signal that was already
     // added.
     if (!scoreGeminiRuns(task, now, add, disabled)) {
+      return { ...base, tier: 'unknown', score: null, signals };
+    }
+  } else if (task.platform === PlatformType.N8N) {
+    // Real run evidence on an observer, so a real arm — and the same early
+    // return as GitHub and Gemini when this sync could not read the executions.
+    if (!scoreN8nRuns(task, now, add, disabled)) {
       return { ...base, tier: 'unknown', score: null, signals };
     }
   } else if (task.platform === PlatformType.WINDOWS_TASK_SCHEDULER) {
@@ -606,6 +613,75 @@ function scoreGeminiRuns(
       chosen ? 'warn' : 'critical',
       `The most recent run ${chosen ? 'was cancelled' : `ended as "${status}"`}.`,
       `Gemini reports status "${status}" for the execution ${when}`,
+      chosen ? WEIGHTS.terminated : WEIGHTS.recentFailure
+    );
+  }
+
+  return true;
+}
+
+/**
+ * n8n executions, as the last sync summarized them.
+ *
+ * The streak is counted by the connector from the newest finished runs, since
+ * n8n publishes no failure count of its own. Statuses go through the same
+ * `isN8n*Status` definitions the connector uses — #83's lesson from Gemini.
+ */
+function scoreN8nRuns(
+  task: HealthInputTask,
+  now: Date,
+  add: (c: string, s: HealthSignal['severity'], sum: string, ev: string, w?: number) => void,
+  disabled: boolean
+): boolean {
+  const m = (task.metadata && typeof task.metadata === 'object' ? task.metadata : {}) as Record<string, unknown>;
+  const asOf = `as of the sync at ${task.updatedAt.toISOString()}`;
+
+  if (m.reportsRunResult !== true) {
+    add(
+      'no-run-evidence',
+      'info',
+      'Cronsole has no run results for this workflow yet.',
+      'n8n did not return an execution list on the last sync — sync again to check'
+    );
+    return false;
+  }
+
+  const runCount = typeof m.executionCount === 'number' ? m.executionCount : 0;
+  if (runCount === 0) {
+    if (!disabled) {
+      add(
+        'never-run',
+        'warn',
+        'n8n has no finished run of this workflow.',
+        `n8n returned no finished executions ${asOf} — it may never have run, or the instance pruned its history`,
+        WEIGHTS.neverRun
+      );
+    }
+    return true;
+  }
+
+  const failures = typeof m.consecutiveFailureCount === 'number' ? m.consecutiveFailureCount : 0;
+  if (failures >= 3) {
+    add(
+      'failure-streak',
+      'critical',
+      `The last ${failures} runs all failed.`,
+      `n8n's ${failures} most recent finished executions did not succeed ${asOf}`,
+      WEIGHTS.failureStreak
+    );
+  }
+
+  const status = typeof m.lastStatus === 'string' ? m.lastStatus : null;
+  const lastRun = typeof m.lastRunTime === 'string' ? new Date(m.lastRunTime) : null;
+  const when = lastRun && !Number.isNaN(lastRun.getTime()) ? ago(lastRun, now) : 'at an unreported time';
+
+  if (status && !isN8nSuccessStatus(status) && !isN8nPendingStatus(status)) {
+    const chosen = status === 'canceled';
+    add(
+      chosen ? 'run-terminated' : 'recent-failure',
+      chosen ? 'warn' : 'critical',
+      `The most recent run ${chosen ? 'was cancelled' : `ended as "${status}"`}.`,
+      `n8n reports status "${status}" for the execution ${when}`,
       chosen ? WEIGHTS.terminated : WEIGHTS.recentFailure
     );
   }

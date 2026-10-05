@@ -111,6 +111,13 @@ Vercel publishes no run history for a cron job, so its tasks show a schedule and
 health however well they are running. Read that as *no evidence*, not as a problem — and do not
 suggest a sync or a reconnect to "fix" it, because nothing will.
 
+**`platform` also accepts `N8N`** (2026-10-04) — scheduled workflows on one n8n instance. Read-only
+like the two above, but it **does** report run outcomes, so its tasks get real health and
+`list_platform_runs` / `get_run_output` return the platform's executions (the nodes that ran, the
+error, and a link to the run in n8n). An `N8N` task with no schedule usually means the instance time
+zone is not set on the connection — n8n's API does not report it — or the rule (every 2 weeks,
+seconds, several rules) has no cron equivalent; the task's metadata says which.
+
 **`platform` also accepts `GEMINI_TRIGGERS`** (2026-08-24), and it is the opposite case in every
 respect — the **only hosted source that is not read-only**. Run, pause, create and delete all reach
 real endpoints there, so an assistant that has learned "hosted means read-only" from the two above

@@ -1,0 +1,14 @@
+-- Adds N8N to PlatformType — scheduled workflows on one n8n instance.
+--
+-- An observer that reports outcomes: Cronsole reads which workflows carry a
+-- Schedule Trigger, converts their rules to UTC cron (or says why not), and
+-- reads their executions — but runs, pauses and edits nothing. The public API
+-- has no execute endpoint, and `activate` switches a whole workflow, webhooks
+-- included, rather than its schedule.
+--
+-- Nothing else in this file: a new PlatformType needs no table, no column and no
+-- backfill. `PlatformConnection`, `Task`, `TaskExclusion` and `PlatformCapability`
+-- are all keyed on the enum and gain the value for free.
+--
+-- See docs/ROADMAP.md › "Sources — where a task comes from".
+ALTER TYPE "PlatformType" ADD VALUE IF NOT EXISTS 'N8N';

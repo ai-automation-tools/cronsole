@@ -7,19 +7,19 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/sources-6-8B5CF6?style=for-the-badge" alt="Six sources">
+  <img src="https://img.shields.io/badge/sources-7-8B5CF6?style=for-the-badge" alt="Seven sources">
   <img src="https://img.shields.io/badge/shapes-controller_·_observer-0078D4?style=for-the-badge" alt="Controllers and observers">
   <a href="../README.md"><img src="https://img.shields.io/badge/↩-user_guides-6B7280?style=for-the-badge" alt="User guides"></a>
 </p>
 
 ---
 
-A **source** is where a task comes from. Cronsole shows six of them side by side on one dashboard,
+A **source** is where a task comes from. Cronsole shows seven of them side by side on one dashboard,
 and they are not the same kind of thing: one lives on your machine, one *is* a row in Cronsole's
-database, and four are somebody else's cloud service reached over HTTP.
+database, and five are somebody else's service reached over HTTP.
 
 That difference decides what Cronsole can do with each. The [Sources Guide](../guides/Sources_Guide.md)
-compares all six in one place — start there if you are choosing between them. **These documents are
+compares all seven in one place — start there if you are choosing between them. **These documents are
 the deep dive for one source at a time**: how to connect it, what each capability actually does, and
 the failures worth knowing about before you hit them.
 
@@ -34,13 +34,14 @@ the failures worth knowing about before you hit them.
 
 ## 👁️ Observers — Cronsole reads and changes nothing
 
-Read-only is the **design** in both cases, not an unfinished first version. Each refuses the same
+Read-only is the **design** in every case, not an unfinished first version. Each refuses the same
 three verbs by different routes, and each says which.
 
 | Source | What it is |
 |:---|:---|
 | [**🐙 GitHub Actions**](GitHub_Actions.md) | Every workflow with an `on: schedule` trigger in the repositories you watch, with real run outcomes and GitHub's silent 60-day auto-disable surfaced as a health signal. |
 | [**▲ Vercel Cron**](Vercel_Cron.md) | The cron jobs your projects declare. Exact counts before you add a project — and no run history at all, which is stated rather than papered over. |
+| [**🔀 n8n**](n8n.md) | Workflows on your n8n instance that run on a Schedule Trigger, with real run outcomes and each run's steps. The one source that needs you to state its time zone, because its API does not. |
 
 > [!NOTE]
 > **Not listed here: quick links.** ChatGPT Tasks, Grok, Jules and the rest are bookmarks, not
@@ -52,7 +53,7 @@ three verbs by different routes, and each says which.
 
 | Resource | Why you'd go there |
 |:---|:---|
-| [**🧭 Sources Guide**](../guides/Sources_Guide.md) | All six compared in one place, plus quick links and how to add a source. |
+| [**🧭 Sources Guide**](../guides/Sources_Guide.md) | All seven compared in one place, plus quick links and how to add a source. |
 | [**🖥️ UI User Guide**](../guides/UI_User_Guide.md) | The dashboard itself — views, filters, the task modal, run history. |
 | [**🤖 Windows Agent Setup**](../guides/Agent_Setup_Guide.md) | Installing and troubleshooting the agent that Windows Task Scheduler needs. |
 | [**🧯 Troubleshooting**](../../troubleshooting/README.md) | Symptom → cause → fix for problems already hit, including several per-source ones linked from these pages. |

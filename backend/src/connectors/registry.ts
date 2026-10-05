@@ -6,6 +6,7 @@ import { CronsoleNativeConnector } from './CronsoleNativeConnector.js';
 import { GitHubActionsConnector } from './GitHubActionsConnector.js';
 import { VercelCronConnector } from './VercelCronConnector.js';
 import { GeminiTriggersConnector } from './GeminiTriggersConnector.js';
+import { N8nConnector } from './N8nConnector.js';
 
 class ConnectorRegistry {
   private connectors: Map<PlatformType, PlatformConnector> = new Map();
@@ -17,6 +18,7 @@ class ConnectorRegistry {
     this.register(new GitHubActionsConnector());
     this.register(new VercelCronConnector());
     this.register(new GeminiTriggersConnector());
+    this.register(new N8nConnector());
   }
 
   register(connector: PlatformConnector) {

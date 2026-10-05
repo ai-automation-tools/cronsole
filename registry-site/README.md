@@ -33,9 +33,12 @@ views:
   which reads as complete and is not. Adding a field to `HttpProbe` obliges a line here.
 
 Every template offers **Download JSON** and **Copy JSON**, which flow into the app's shipped
-**Templates → Import** path (`POST /api/templates/import`). Aesthetic direction: a dark, textured
-"automation control catalog" with a monospace-forward technical identity and a phosphor-green
-"runnable" signal. A one-click "Add to my Cronsole" protocol handoff is a deliberate future
+**Templates → Import** path (`POST /api/templates/import`). Aesthetic direction (since 2026-10-05): the org design
+vocabulary shared with `ai-automation-tools.dev`, Edge-Radar and Edge Spectrum — `#060606` ground
+with a dot grid, one hero glow, zinc surfaces, spotlight cards, a live orbit of the connected
+platforms in the hero — with Cronsole's violet as the accent and the mark's emerald as the
+"runnable" signal. Dark is the default, light is the toggle, and the page stays self-contained
+(system font stacks, no CDN). A one-click "Add to my Cronsole" protocol handoff is a deliberate future
 follow-up (roadmap part 3).
 
 ## How it ships

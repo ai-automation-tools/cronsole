@@ -188,7 +188,7 @@ export const sourceDescription = (key: string): string | null => {
     // that is not CI — so its sentence says both halves: read-only, and real
     // results.
     N8N:
-      'Workflows on your n8n instance, scheduled or on demand. Read-only — Cronsole shows their schedules and how their last runs actually went, and changes nothing.'
+      'Workflows on your n8n instance, scheduled or on demand. Cronsole shows their schedules and how their last runs actually went, and with an MCP access token can start one through its own Schedule Trigger.'
   };
   return exact[key] ?? exact[sourcePlatform(key)] ?? null;
 };

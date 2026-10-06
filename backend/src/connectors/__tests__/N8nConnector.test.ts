@@ -12,8 +12,13 @@ vi.mock('../../services/n8nFolders.js', async importOriginal => {
   const real = await importOriginal<typeof import('../../services/n8nFolders.js')>();
   return { ...real, readFolderPaths: vi.fn() };
 });
+vi.mock('../../services/n8nMcp.js', async importOriginal => {
+  const real = await importOriginal<typeof import('../../services/n8nMcp.js')>();
+  return { ...real, executeWorkflow: vi.fn() };
+});
 
-import { N8nConnector, triggerGroup } from '../N8nConnector.js';
+import { N8nConnector, triggerGroup, RUN_NEEDS_MCP } from '../N8nConnector.js';
+import { executeWorkflow } from '../../services/n8nMcp.js';
 import { prisma } from '../../db.js';
 import { listWorkflows, getWorkflow, listExecutions, getExecution, type N8nWorkflow } from '../../services/n8nApi.js';
 import { TaskService } from '../../services/TaskService.js';
@@ -26,6 +31,7 @@ const getWorkflowMock = vi.mocked(getWorkflow);
 const listExecutionsMock = vi.mocked(listExecutions);
 const getExecutionMock = vi.mocked(getExecution);
 const findFirst = vi.mocked(prisma.platformCapability.findFirst);
+const executeWorkflowMock = vi.mocked(executeWorkflow);
 
 const connector = new N8nConnector();
 
@@ -84,8 +90,8 @@ beforeEach(() => {
 });
 
 describe('the boundary is declared', () => {
-  it('refuses run, create and setStatus by name, and leaves the optional verbs absent', () => {
-    expect([...connector.unsupportedVerbs].sort()).toEqual(['create', 'run', 'setStatus']);
+  it('refuses create and setStatus by name, leaves run declared, and the optional verbs absent', () => {
+    expect([...connector.unsupportedVerbs].sort()).toEqual(['create', 'setStatus']);
     const c = connector as unknown as Record<string, unknown>;
     for (const verb of ['deleteTask', 'updateSchedule', 'updateActions', 'exportTask', 'importTask', 'listFolders']) {
       expect(c[verb]).toBeUndefined();
@@ -98,9 +104,87 @@ describe('the boundary is declared', () => {
   });
 
   it('answers each refused verb with a sentence, and create is a 400', async () => {
-    expect((await connector.runTask()).message).toMatch(/no execute endpoint/);
     expect((await connector.setTaskStatus()).message).toMatch(/whole workflow/);
     expect(await connector.createTask()).toMatchObject({ success: false, refusedBeforeCalling: true });
+  });
+});
+
+describe('runTask goes through the MCP door, and says what is missing without it', () => {
+  it('without a token it refuses with the two switches named, and never calls out', async () => {
+    const r = await connector.runTask('9zGpyQGdTftmUvq9', config());
+    expect(r).toEqual({ success: false, ran: false, message: RUN_NEEDS_MCP });
+    expect(RUN_NEEDS_MCP).toMatch(/MCP access/);
+    expect(RUN_NEEDS_MCP).toMatch(/Available in MCP/);
+    expect(executeWorkflowMock).not.toHaveBeenCalled();
+  });
+
+  it('with a token it starts the published workflow in production mode and reports the execution id', async () => {
+    getWorkflowMock.mockResolvedValue({ ok: true, data: weekly() });
+    executeWorkflowMock.mockResolvedValue({ ok: true, data: { executionId: '4242', status: 'started' } });
+    const r = await connector.runTask('9zGpyQGdTftmUvq9', config({ mcpToken: 'mcp-tok' }));
+    expect(r).toMatchObject({ success: true, ran: false, platformRunId: '4242', message: expect.stringMatching(/Schedule Trigger/) });
+    // A manual trigger beside the schedule is not a choice in production mode, so n8n picks alone.
+    expect(executeWorkflowMock).toHaveBeenCalledWith('https://n8n.example.com', 'mcp-tok', '9zGpyQGdTftmUvq9', undefined);
+  });
+
+  it('names the schedule node when a webhook sits beside it', async () => {
+    getWorkflowMock.mockResolvedValue({
+      ok: true,
+      data: weekly({ nodes: [...weekly().nodes, { name: 'Hook', type: 'n8n-nodes-base.webhook' }] })
+    });
+    executeWorkflowMock.mockResolvedValue({ ok: true, data: { executionId: '1', status: 'started' } });
+    await connector.runTask('9zGpyQGdTftmUvq9', config({ mcpToken: 'mcp-tok' }));
+    expect(executeWorkflowMock).toHaveBeenCalledWith('https://n8n.example.com', 'mcp-tok', '9zGpyQGdTftmUvq9', 'Weekly Trigger');
+  });
+
+  it('a failed workflow read costs the trigger name, never the run', async () => {
+    getWorkflowMock.mockResolvedValue({ ok: false, status: 500, message: 'n8n server error (500).' });
+    executeWorkflowMock.mockResolvedValue({ ok: true, data: { executionId: '2', status: 'started' } });
+    const r = await connector.runTask('9zGpyQGdTftmUvq9', config({ mcpToken: 'mcp-tok' }));
+    expect(r.success).toBe(true);
+    expect(executeWorkflowMock).toHaveBeenCalledWith(expect.any(String), 'mcp-tok', '9zGpyQGdTftmUvq9', undefined);
+  });
+
+  it("n8n's own refusal is a failure to start carrying its sentence", async () => {
+    getWorkflowMock.mockResolvedValue({ ok: true, data: weekly() });
+    executeWorkflowMock.mockResolvedValue({
+      ok: true,
+      data: { executionId: null, status: 'error', error: 'Workflow is not available in MCP' }
+    });
+    const r = await connector.runTask('9zGpyQGdTftmUvq9', config({ mcpToken: 'mcp-tok' }));
+    expect(r).toEqual({ success: false, ran: false, message: 'n8n refused the run: Workflow is not available in MCP' });
+  });
+
+  it('a transport failure is a failure, unless a run started since the request went out', async () => {
+    getWorkflowMock.mockResolvedValue({ ok: true, data: weekly() });
+    executeWorkflowMock.mockResolvedValue({ ok: false, status: null, message: 'Could not reach n8n.' });
+
+    listExecutionsMock.mockResolvedValueOnce({ ok: true, data: [exec('old', 'success', '2020-01-01T00:00:00.000Z')] });
+    expect(await connector.runTask('9zGpyQGdTftmUvq9', config({ mcpToken: 'mcp-tok' }))).toEqual({
+      success: false,
+      ran: false,
+      message: 'Could not reach n8n.'
+    });
+
+    listExecutionsMock.mockResolvedValueOnce({ ok: true, data: [exec('fresh', 'running', new Date().toISOString())] });
+    expect(await connector.runTask('9zGpyQGdTftmUvq9', config({ mcpToken: 'mcp-tok' }))).toMatchObject({
+      success: true,
+      ran: false,
+      platformRunId: 'fresh'
+    });
+  });
+
+  it('a 4xx from the MCP server is never re-read as a success', async () => {
+    getWorkflowMock.mockResolvedValue({ ok: true, data: weekly() });
+    executeWorkflowMock.mockResolvedValue({ ok: false, status: 401, message: 'n8n rejected the MCP access token (401).' });
+    listExecutionsMock.mockResolvedValueOnce({ ok: true, data: [exec('fresh', 'running', new Date().toISOString())] });
+    expect(await connector.runTask('9zGpyQGdTftmUvq9', config({ mcpToken: 'mcp-tok' }))).toMatchObject({ success: false });
+  });
+
+  it('the token is a credential: redacted to a boolean, never echoed', () => {
+    const redacted = redactConfig({ baseUrl: 'https://n8n.example.com', apiKey: 'k', mcpToken: 'mcp-secret' });
+    expect(redacted.hasMcpToken).toBe(true);
+    expect(JSON.stringify(redacted)).not.toContain('mcp-secret');
   });
 });
 

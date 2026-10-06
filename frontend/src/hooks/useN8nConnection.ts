@@ -19,6 +19,8 @@ export interface N8nConnection {
   hasFolderDb: boolean;
   /** `host:port/db` of that database — never the credentials. */
   folderDbHint: string | null;
+  /** An MCP access token is stored, so Run now reaches n8n. The token never comes back. */
+  hasMcpToken: boolean;
   /** Workflows with no schedule are tracked as on-demand tasks. On unless turned off. */
   includeOnDemand: boolean;
   /** Sidebar grouping when no folder database is connected. Real folders always win. */
@@ -91,6 +93,18 @@ export const useSetN8nFolderDb = () => {
     mutationFn: async (url: string) => {
       const { data } = await api.put('/tools/platforms/n8n/folder-db', { url });
       return data as { message: string };
+    },
+    onSuccess: () => invalidateAll(qc)
+  });
+};
+
+/** Set the MCP access token Run now uses — verified by the server. An empty string removes it. */
+export const useSetN8nMcpToken = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (token: string) => {
+      const { data } = await api.put('/tools/platforms/n8n/mcp', { token });
+      return data as { hasMcpToken: boolean; message: string };
     },
     onSuccess: () => invalidateAll(qc)
   });

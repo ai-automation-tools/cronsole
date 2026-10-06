@@ -19,7 +19,13 @@ import {
   type N8nExecution,
   type N8nWorkflow
 } from '../services/n8nApi.js';
-import { readWorkflowSchedule, readOnDemandTriggers } from '../services/n8nSchedule.js';
+import { readWorkflowSchedule, readOnDemandTriggers, N8N_SCHEDULE_NODE_TYPES } from '../services/n8nSchedule.js';
+import { executeWorkflow } from '../services/n8nMcp.js';
+
+/** The refusal a connection without an MCP token gives Run now — the setup is the message. */
+export const RUN_NEEDS_MCP =
+  "Run now needs n8n's MCP access. In n8n turn on Settings › MCP access, mark the workflow \"Available in MCP\", " +
+  'and paste the access token under Run now on the n8n card in Sources. Until then, use "Execute workflow" in n8n.';
 
 /** Execution reads in flight at once — enough to keep a sync short, few enough not to load the instance. */
 const EXECUTION_READ_CONCURRENCY = 6;
@@ -44,9 +50,18 @@ import { readFolderPaths, type FolderPaths } from '../services/n8nFolders.js';
  *
  * ## What is refused, and why
  *
- * - **`run`** — the public API has no execute endpoint. A webhook would start a
- *   run, but not the *scheduled* one: different trigger node, different input,
- *   and n8n records it as `mode: webhook`. Vercel's and GitHub's reason.
+ * - **`run` is real, through one specific door, and refused with the setup
+ *   named without it.** The public API still has no execute endpoint, and a
+ *   webhook would start a *different* run (another trigger node, other input,
+ *   recorded as `mode: webhook`) — Vercel's and GitHub's reason, and this
+ *   connector's until 2026-10-05. n8n's instance-level MCP server
+ *   (`services/n8nMcp.ts`, 1.121+) changed the fact behind it: its
+ *   `execute_workflow` runs the **published** version through the **Schedule
+ *   Trigger** in production mode, which is the scheduled invocation by the same
+ *   test Gemini's `run` passes. It needs a token the user generates for it
+ *   (Settings › MCP access, and *Available in MCP* per workflow), so `run` is a
+ *   **declared** verb — not in `unsupportedVerbs` — and a connection without
+ *   the token answers "could not start" with the two switches to flip.
  * - **`setStatus`** — `activate` / `deactivate` exist, and switch the **whole
  *   workflow**: its webhook, form and chat triggers go dark with its schedule.
  *   A per-task toggle that silently disables a form somebody shares is a
@@ -61,8 +76,13 @@ import { readFolderPaths, type FolderPaths } from '../services/n8nFolders.js';
 export class N8nConnector implements PlatformConnector {
   platform = PlatformType.N8N;
 
-  /** A constant — a property of this connector's design, not of the install. */
-  readonly unsupportedVerbs: readonly CapabilityVerb[] = ['run', 'create', 'setStatus'];
+  /**
+   * A constant — a property of this connector's design, not of the install.
+   * `run` is absent on purpose: it depends on a stored token, which is a fact
+   * about the connection and not about the platform, so it stays *declared*
+   * and `runTask` says what is missing.
+   */
+  readonly unsupportedVerbs: readonly CapabilityVerb[] = ['create', 'setStatus'];
 
   /**
    * Declared and constant, Gemini's reason: one key sees one instance. Without
@@ -209,14 +229,100 @@ export class N8nConnector implements PlatformConnector {
     };
   }
 
-  async runTask(): Promise<{ success: boolean; ran?: boolean; message?: string }> {
+  /**
+   * Start the published workflow through its own Schedule Trigger, over n8n's
+   * MCP server. A dispatch, never an execution: `ran` stays false and the
+   * outcome is read back off the platform's execution list like every other run.
+   *
+   * Three refusals, each with its fix in the sentence: no connection, no MCP
+   * token (the two switches in n8n), and n8n's own reason — an unpublished
+   * workflow, a trigger that needs input, a workflow not marked *Available in
+   * MCP*. The last is the platform answering, so it is a plain failure to
+   * start and the route's 502; the first two are configuration.
+   */
+  async runTask(
+    externalId: string,
+    config: any
+  ): Promise<{ success: boolean; ran?: boolean; platformRunId?: string; message?: string }> {
+    const { baseUrl, apiKey, mcpToken } = readConfig(config);
+    if (!baseUrl || !apiKey) return { success: false, ran: false, message: 'No n8n connection is stored.' };
+    if (!mcpToken) return { success: false, ran: false, message: RUN_NEEDS_MCP };
+
+    // Which trigger to fire. Named only when n8n could not pick it alone — a
+    // workflow with a webhook beside its schedule, or two schedules — so an
+    // instance older than the `triggerNodeName` parameter still runs the
+    // common case. A failed read here costs the name, never the run.
+    const triggerNodeName = await this.scheduleTriggerName(baseUrl, apiKey, externalId);
+
+    // Noted before the request so a timeout can be answered with evidence —
+    // Gemini's rule. One second of slack absorbs clock skew.
+    const dispatchedAt = new Date(Date.now() - 1000);
+    const result = await executeWorkflow(baseUrl, mcpToken, externalId, triggerNodeName);
+
+    if (!result.ok) {
+      // A transport timeout is not a failed dispatch. On that — and only that,
+      // `status === null` — ask the platform whether a run started since.
+      if (result.status === null) {
+        const started = await this.executionStartedSince(baseUrl, apiKey, externalId, dispatchedAt);
+        if (started) {
+          return {
+            success: true,
+            ran: false,
+            platformRunId: started,
+            message: 'n8n did not answer within the request timeout, but a run started and is in progress. Its outcome appears in Run History.'
+          };
+        }
+      }
+      return { success: false, ran: false, message: result.message };
+    }
+
+    if (result.data.status === 'error') {
+      return { success: false, ran: false, message: `n8n refused the run: ${result.data.error ?? 'no reason given.'}` };
+    }
+
     return {
-      success: false,
+      success: true,
       ran: false,
+      ...(result.data.executionId ? { platformRunId: result.data.executionId } : {}),
       message:
-        'Cronsole cannot run an n8n workflow. The n8n API has no execute endpoint, and calling one of its ' +
-        'webhooks would start a different run than the scheduled one. Use "Execute workflow" in n8n.'
+        'n8n started the published workflow through its Schedule Trigger. It runs in the background — ' +
+        'its outcome appears under Run History → Runs on the platform.'
     };
+  }
+
+  /**
+   * The schedule node to fire by name, or undefined when n8n can choose alone.
+   * Reads the published graph (`toWorkflow` keeps every node's name and type,
+   * so a webhook beside the schedule is visible even though its parameters are
+   * dropped at the parse).
+   */
+  private async scheduleTriggerName(baseUrl: string, apiKey: string, externalId: string): Promise<string | undefined> {
+    const read = await getWorkflow(baseUrl, apiKey, externalId);
+    if (!read.ok || !read.data) return undefined;
+    const enabled = read.data.nodes.filter(n => !n.disabled);
+    const schedules = enabled.filter(n => (N8N_SCHEDULE_NODE_TYPES as readonly string[]).includes(n.type));
+    if (schedules.length === 0) return undefined;
+    // Manual and error triggers never fire in production mode, so n8n does not
+    // count them as choices (nor does its own `triggerCount`).
+    const otherTriggers = enabled.filter(
+      n => !schedules.includes(n) && /trigger|webhook/i.test(n.type) && !/manualTrigger|errorTrigger/i.test(n.type)
+    );
+    return schedules.length > 1 || otherTriggers.length > 0 ? schedules[0]!.name : undefined;
+  }
+
+  /**
+   * Did a run start since this moment? Returns its id. The corroborating read
+   * behind the timeout branch — silent on its own failure, because a second
+   * error about the check would replace the one describing what the user did.
+   */
+  private async executionStartedSince(baseUrl: string, apiKey: string, externalId: string, since: Date): Promise<string | null> {
+    const runs = await listExecutions(baseUrl, apiKey, externalId);
+    if (!runs.ok) return null;
+    const started = runs.data.find(r => {
+      const at = toDate(r.startedAt);
+      return at !== null && at >= since;
+    });
+    return started?.id ?? null;
   }
 
   async setTaskStatus(): Promise<{ success: boolean; message?: string }> {

@@ -14,6 +14,14 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **Run now for n8n workflows** (2026-10-05). n8n's REST API cannot start a workflow, but its
+  instance-level MCP server (n8n 1.121 or newer) can — through the workflow's own Schedule
+  Trigger, so it is the scheduled run and not a webhook lookalike. Turn on **Settings › MCP
+  access** in n8n, mark each workflow **Available in MCP**, and paste the access token under
+  **Run now (optional)** on the n8n card in Sources. Cronsole verifies the token (and that the
+  server actually offers `execute_workflow`) before storing it, encrypted and never shown again.
+  Without a token Run now refuses and names those steps. The n8n source is now listed as a
+  **controller** on the Sources tab; enable/disable and create stay in n8n.
 - **Registry button in the top bar** (2026-10-05). A violet **Registry** button to the right of
   the theme switch opens the public template catalog (`mikesailab.com/cronsole-registry/`) in a
   new tab, in the app and in the demo. Below the `sm` breakpoint it shows the icon only.

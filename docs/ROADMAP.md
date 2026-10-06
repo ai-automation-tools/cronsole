@@ -887,9 +887,9 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
 
       **Verbs.** `sync` · `listPlatformRuns` / `getRunOutput` (`/executions`, `mode: trigger` vs
       `manual` tells a scheduled fire from a click; n8n has a real page per run, so `url` is set) ·
-      a real `scoreTask` arm (`reportsRunResult: true`). `run` is **refused**: the public API has no
+      a real `scoreTask` arm (`reportsRunResult: true`). `run` was **refused** on day one: the public API has no
       execute endpoint, and calling a webhook is a lookalike, not the scheduled run — Vercel's
-      reasoning. `create` / `updateSchedule` / `delete` are out: `PUT /workflows/{id}` replaces the
+      reasoning *(overturned 2026-10-05 by the MCP door below; the REST half is still true)*. `create` / `updateSchedule` / `delete` are out: `PUT /workflows/{id}` replaces the
       whole body and collides with draft/publish. **`setStatus` is the open question** —
       `activate`/`deactivate` is real, but it switches the *whole workflow*, webhooks included, so a
       per-schedule toggle would be a control the platform does not have. First pass ships without it.
@@ -908,6 +908,22 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
       be `America/Chicago`, read off a run's UTC start — [#97](troubleshooting/README.md#97-one-n8n-workflow-shows-no-schedule-while-the-others-convert-fine)),
       and an every-6-hours rule is refused by `shiftCronToUtc`'s multi-hour rule.
 
+      - [x] **Run now over n8n's MCP server** *(shipped 2026-10-05)* — n8n 1.121+ serves an
+        instance-level MCP server (`{base}/mcp-server/http`, bearer token from *Settings › MCP
+        access*) whose `execute_workflow` runs the **published** version through its **Schedule
+        Trigger** in `production` mode — the scheduled invocation, so `run` passes the test Gemini's
+        passes and the webhook objection does not apply. `services/n8nMcp.ts` speaks the three
+        requests (initialize → initialized → tools/call, JSON or SSE, session closed after) with no
+        SDK; `PUT /api/tools/platforms/n8n/mcp` verifies the token by handshake **and** by the tool
+        being listed before storing it write-only as `mcpToken`; the n8n card gains a *Run now
+        (optional)* field. `run` left `unsupportedVerbs` and stays **declared** — that list has no
+        config, and this is a fact about the connection — while `runTask` names the two n8n switches
+        without a token. The trigger node is named only when n8n could not pick it alone (a webhook
+        beside the schedule, two schedules), so pre-2.36 instances still run the common case; a
+        transport timeout re-reads the execution list (Gemini's rule). n8n is now `access:
+        controller`, by Claude's declared-mode argument. `setStatus` and `create` stay refused.
+        Open: n8n's `execute_workflow` reports `status` and `error` only — a run that n8n *accepts* and
+        then fails inside the trigger is read back off the execution list like any other.
       - [x] **Folders** *(decided and shipped 2026-10-05)* — the public API does not publish
         membership (`parentFolderId` is `writeOnly` in the instance's own OpenAPI; package export is
         licensed and ships whole bodies; `/rest/` refuses API keys — [#96](troubleshooting/README.md#96-your-n8n-folders-do-not-appear-in-cronsole)).

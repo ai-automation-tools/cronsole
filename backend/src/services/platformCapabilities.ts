@@ -276,15 +276,20 @@ export const PLATFORM_DESCRIPTORS: Record<string, PlatformDescriptor> = {
   [PlatformType.N8N]: {
     platform: PlatformType.N8N,
     label: 'n8n',
-    // An observer, though the platform has write endpoints: `activate` switches
-    // a whole workflow (its webhooks and forms too) rather than its schedule,
-    // and there is no execute endpoint at all. Chosen, not unfinished.
-    access: 'observer',
-    // Leads with the refusal, like the other observers, then with what this one
-    // has that Vercel does not: real run outcomes.
+    // A controller since 2026-10-05, by Claude's declared-mode argument: a
+    // connector that can only *fire* still changes something on the platform.
+    // `run` goes through n8n's instance MCP server (`execute_workflow`, the
+    // published version via its Schedule Trigger — the scheduled invocation),
+    // behind a token the user stores on the connection; without it `run` is
+    // refused with the setup named and the cell stays `declared`. `setStatus`
+    // is still refused (`activate` switches a whole workflow, webhooks and
+    // forms too) and so is `create`. Chosen, not unfinished.
+    access: 'controller',
+    // The summary hedges the way Claude's does, because the install decides.
     summary:
-      'Read-only. Cronsole reads the workflows on your n8n instance that have a Schedule Trigger, their ' +
-      'schedules and their real run outcomes, and changes nothing — running, publishing and editing happen in n8n.',
+      'Cronsole reads the workflows on your n8n instance, their schedules and their real run outcomes, and — ' +
+      'with an MCP access token on the connection — starts one through its own Schedule Trigger. Publishing ' +
+      'and editing stay in n8n.',
     // `/api/v1` is n8n's stable, documented public API.
     maturity: 'functional'
   }

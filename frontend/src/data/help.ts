@@ -548,8 +548,8 @@ const sourceN8n: HelpTopic = {
   id: 'source:N8N',
   title: 'n8n',
   summary:
-    'Workflows on your n8n instance — scheduled and on demand. Read-only, with real run outcomes — ' +
-    'Cronsole shows their schedules and how their runs went, and changes nothing.',
+    'Workflows on your n8n instance — scheduled and on demand, with real run outcomes. Cronsole shows ' +
+    'their schedules and how their runs went, and with an MCP access token can start one.',
   points: [
     {
       label: 'On-demand workflows are tracked too',
@@ -573,10 +573,18 @@ const sourceN8n: HelpTopic = {
         'several rules. Those read as unavailable with the reason, never as a guess.'
     },
     {
-      label: 'Run now, pause and edit stay in n8n',
+      label: 'Run now needs an MCP access token',
       body:
-        "n8n's API has no way to start a run, and publishing or unpublishing switches a whole workflow " +
-        '— its webhooks and forms too, not only its schedule. So all three are refused here, by design.'
+        "n8n's REST API cannot start a workflow, but its MCP server can — through the workflow's own " +
+        'Schedule Trigger, so it is the scheduled run. In n8n turn on Settings › MCP access, mark the ' +
+        'workflows "Available in MCP" (the folder menu on the Workflows tab does a whole folder at once), ' +
+        'and paste the token under Run now on the n8n card. Without it, Run now refuses and says so.'
+    },
+    {
+      label: 'Pause and edit stay in n8n',
+      body:
+        'Publishing or unpublishing switches a whole workflow — its webhooks and forms too, not only ' +
+        'its schedule — so Cronsole refuses it by design. Editing a workflow is building one; do it in n8n.'
     },
     {
       label: 'Cronsole reads what is published, not your draft',

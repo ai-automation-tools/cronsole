@@ -14,6 +14,13 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **Phone shortcuts** (2026-10-05). A **Phone shortcut** button on any runnable task issues a
+  token that can only run that task, and shows the URL, the header and setup steps for an iPhone
+  Shortcut or an Android HTTP Shortcuts icon — one tap on the home screen runs the task. The token
+  is refused by every other route and by the live-update socket, needs your password to issue, and
+  is listed (*Runs only: …*) and revocable under **Settings › API tokens**. Needs remote access
+  (Tailscale or an Access-gated tunnel) so the phone can reach Cronsole. See the
+  [Phone Shortcuts Guide](user-guides/guides/Phone_Shortcuts_Guide.md).
 - **Run now for n8n workflows** (2026-10-05). n8n's REST API cannot start a workflow, but its
   instance-level MCP server (n8n 1.121 or newer) can — through the workflow's own Schedule
   Trigger, so it is the scheduled run and not a webhook lookalike. Turn on **Settings › MCP

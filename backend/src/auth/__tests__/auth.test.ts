@@ -191,3 +191,40 @@ describe('resolving the identity from the database', () => {
     expect(findUser).not.toHaveBeenCalled();
   });
 });
+
+// A phone-shortcut token lives on a device that can be lost, so it can do
+// exactly one thing — and the refusal lives in `checkToken`, so every route and
+// the socket get it without remembering to.
+describe('run-only (phone shortcut) tokens', () => {
+  const scoped = { id: 'tok_s', revokedAt: null, expiresAt: null, lastUsedAt: new Date(), runTaskId: 'task_1' };
+  const RUN = { method: 'POST', path: '/api/tasks/task_1/run' };
+
+  it('may run its own task', async () => {
+    const { checkToken } = await loadAuth('24h');
+    findApiToken.mockResolvedValue(scoped);
+    const token = jwt.sign({ ...USER, jti: 'jti-s' }, SECRET);
+    expect(await checkToken(token, RUN)).toMatchObject({ ok: true, user: { id: USER.id } });
+  });
+
+  it.each([
+    ['another task', { method: 'POST', path: '/api/tasks/task_2/run' }],
+    ['a read of its own task', { method: 'GET', path: '/api/tasks/task_1' }],
+    ['the task list', { method: 'GET', path: '/api/tasks' }],
+    ['minting a broader token', { method: 'POST', path: '/api/auth/tokens' }],
+    ['a trailing slash', { method: 'POST', path: '/api/tasks/task_1/run/' }],
+    ['the live-update socket (no request)', undefined]
+  ])('refuses %s', async (_label, request) => {
+    const { checkToken } = await loadAuth('24h');
+    findApiToken.mockResolvedValue(scoped);
+    const token = jwt.sign({ ...USER, jti: 'jti-s' }, SECRET);
+    expect(await checkToken(token, request)).toMatchObject({ ok: false, status: 403, error: 'This token can only run one task' });
+  });
+
+  it('leaves an unscoped token unrestricted', async () => {
+    const { checkToken } = await loadAuth('24h');
+    findApiToken.mockResolvedValue({ ...scoped, runTaskId: null });
+    const token = jwt.sign({ ...USER, jti: 'jti-u' }, SECRET);
+    expect(await checkToken(token, { method: 'GET', path: '/api/tasks' })).toMatchObject({ ok: true });
+    expect(await checkToken(token)).toMatchObject({ ok: true });
+  });
+});

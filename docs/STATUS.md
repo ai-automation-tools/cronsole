@@ -24,7 +24,7 @@ answer is the two questions a new reader actually has.
 |:---|:---|
 | **Windows 10 / 11** | ✅ Fully supported — the agent talks to Task Scheduler directly |
 | **macOS / Linux** | 🟡 Partial. The backend, database and dashboard run anywhere Docker does, and every source that is reached over HTTP works normally. What is missing is the **agent**: nothing yet drives launchd, cron or systemd timers. One POSIX agent covering all three is the next major piece of work |
-| **Phone / tablet** | ✅ The dashboard is mobile-first. Reaching it from another device is [opt-in remote access](user-guides/guides/Remote_Access_Guide.md), never a public URL |
+| **Phone / tablet** | ✅ The dashboard is mobile-first. Reaching it from another device is [opt-in remote access](user-guides/guides/Remote_Access_Guide.md), never a public URL; any task can then be a [home-screen shortcut](user-guides/guides/Phone_Shortcuts_Guide.md) |
 
 ## 🚧 What isn't there yet
 

@@ -120,8 +120,8 @@ const LAST_USED_THROTTLE_MS = 60_000;
  */
 export async function issueApiToken(
   user: { id: string; email: string },
-  opts: { name: string; lifetime: ApiTokenLifetime }
-): Promise<{ token: string; record: { id: string; name: string; expiresAt: Date | null; createdAt: Date } }> {
+  opts: { name: string; lifetime: ApiTokenLifetime; runTaskId?: string }
+): Promise<{ token: string; record: { id: string; name: string; expiresAt: Date | null; createdAt: Date; runTaskId: string | null } }> {
   const seconds = API_TOKEN_LIFETIMES[opts.lifetime];
   const jti = randomUUID();
   const expiresAt = seconds === null ? null : new Date(Date.now() + seconds * 1000);
@@ -136,8 +136,10 @@ export async function issueApiToken(
   );
 
   const record = await prisma.apiToken.create({
-    data: { userId: user.id, name: opts.name, jti, expiresAt },
-    select: { id: true, name: true, expiresAt: true, createdAt: true }
+    // The scope lives on the row, not in the claims: the row is already read on
+    // every request (revocation), and a claim could not be narrowed after issue.
+    data: { userId: user.id, name: opts.name, jti, expiresAt, runTaskId: opts.runTaskId ?? null },
+    select: { id: true, name: true, expiresAt: true, createdAt: true, runTaskId: true }
   });
 
   return { token, record };
@@ -166,7 +168,18 @@ export type TokenCheck =
  * socket ignores is not revocation — a withdrawn token would keep an open channel
  * streaming task updates, which is the half nobody would think to test.
  */
-export async function checkToken(token: string): Promise<TokenCheck> {
+/**
+ * The one request a run-only (phone shortcut) token may make. Exact match, so a
+ * trailing slash or an encoded id is refused rather than reasoned about.
+ */
+export const runScopeAllows = (runTaskId: string, request?: { method: string; path: string }): boolean =>
+  !!request && request.method === 'POST' && request.path === `/api/tasks/${runTaskId}/run`;
+
+/**
+ * `request` is what the token is being used FOR. Omitted (the Socket.IO
+ * handshake) means "not a REST call", which a run-only token is never allowed.
+ */
+export async function checkToken(token: string, request?: { method: string; path: string }): Promise<TokenCheck> {
   let payload: { id?: unknown; jti?: unknown };
   try {
     payload = jwt.verify(token, JWT_SECRET) as typeof payload;
@@ -186,7 +199,7 @@ export async function checkToken(token: string): Promise<TokenCheck> {
     try {
       record = await prisma.apiToken.findUnique({
         where: { jti: payload.jti },
-        select: { id: true, revokedAt: true, expiresAt: true, lastUsedAt: true }
+        select: { id: true, revokedAt: true, expiresAt: true, lastUsedAt: true, runTaskId: true }
       });
     } catch {
       // The database is the only thing that can answer "was this revoked?", so
@@ -204,6 +217,14 @@ export async function checkToken(token: string): Promise<TokenCheck> {
     // date is a second check that does not depend on the claim inside the token.
     if (record.expiresAt && record.expiresAt.getTime() <= Date.now()) {
       return { ok: false, status: 403, error: 'Invalid or expired token' };
+    }
+
+    // A phone-shortcut token sits on a device that can be lost, so it can do one
+    // thing. Enforced here, in the one door, rather than in the run route: every
+    // other route (including the token routes — it must not mint a broader one)
+    // and the live-update socket then refuse it without having to remember to.
+    if (record.runTaskId && !runScopeAllows(record.runTaskId, request)) {
+      return { ok: false, status: 403, error: 'This token can only run one task' };
     }
 
     const stale = !record.lastUsedAt || Date.now() - record.lastUsedAt.getTime() > LAST_USED_THROTTLE_MS;
@@ -260,7 +281,9 @@ export const authenticateToken = async (req: AuthRequest, res: Response, next: N
     return res.status(401).json({ error: 'Access token required' });
   }
 
-  const result = await checkToken(token);
+  // `originalUrl`, not `path`: behind `app.use('/api/tasks', …)` `req.path` is
+  // relative to the mount, and the scope names the full route.
+  const result = await checkToken(token, { method: req.method, path: req.originalUrl.split('?')[0] });
   if (!result.ok) {
     return res.status(result.status).json({ error: result.error });
   }

@@ -5,6 +5,9 @@ import { api } from '../../api';
 import { useToast } from '../../hooks/useToast';
 import { useConfirm } from '../../hooks/useConfirm';
 import { errorMessage } from '../../utils/errorMessage';
+import { LIFETIMES, type ApiTokenLifetime } from '../../utils/apiTokenLifetimes';
+
+export type { ApiTokenLifetime };
 
 /**
  * Manage long-lived API tokens for non-browser clients — the MCP server above
@@ -16,8 +19,6 @@ import { errorMessage } from '../../utils/errorMessage';
  * session it replaces.
  */
 
-export type ApiTokenLifetime = '30d' | '60d' | '90d' | 'never';
-
 export interface ApiTokenRecord {
   id: string;
   name: string;
@@ -25,14 +26,11 @@ export interface ApiTokenRecord {
   expiresAt: string | null;
   lastUsedAt: string | null;
   revokedAt: string | null;
+  /** Set → a phone-shortcut token that can only run this task. */
+  runTaskId?: string | null;
+  /** `null` with a `runTaskId` means the task has since been deleted. */
+  runTaskName?: string | null;
 }
-
-const LIFETIMES: { value: ApiTokenLifetime; label: string }[] = [
-  { value: '30d', label: '30 days' },
-  { value: '60d', label: '60 days' },
-  { value: '90d', label: '90 days' },
-  { value: 'never', label: 'Never expires' }
-];
 
 const fmt = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : null;
@@ -176,6 +174,11 @@ export const ApiTokensRow = () => {
                     {' · '}
                     {t.lastUsedAt ? `last used ${fmt(t.lastUsedAt)}` : 'never used'}
                   </div>
+                  {t.runTaskId && (
+                    <div className="truncate text-[11px] text-muted-foreground">
+                      Runs only: {t.runTaskName ?? 'a task that no longer exists'}
+                    </div>
+                  )}
                 </div>
                 {!t.revokedAt && (
                   <button

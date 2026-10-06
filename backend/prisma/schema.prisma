@@ -569,6 +569,15 @@ model ApiToken {
   /// client does not turn every request into a write.
   lastUsedAt DateTime?
 
+  /// Set → a phone-shortcut token that may only `POST /api/tasks/<runTaskId>/run`
+  /// (`checkToken` refuses it everywhere else). NULL → a full-account token.
+  ///
+  /// Deliberately **not** a foreign key. `onDelete: SetNull` would turn a scoped
+  /// token into a full-account one the moment its task was deleted, and
+  /// `Cascade` would erase the record of a credential that existed. A plain id
+  /// fails closed: the task is gone, the run 404s, the row stays listed.
+  runTaskId  String?
+
   /// Set instead of deleting the row, so a revoked token stays visible as a
   /// thing that once existed rather than silently vanishing from the list.
   revokedAt  DateTime?

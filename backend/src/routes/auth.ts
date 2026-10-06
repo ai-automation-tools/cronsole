@@ -184,7 +184,9 @@ const createTokenSchema = z.object({
   // Not a free-form duration. A fixed set keeps the UI, the API and the docs
   // describing the same thing, and stops "90" (days? seconds?) being a question.
   expiresIn: z.enum(['30d', '60d', '90d', 'never']),
-  password: z.string().min(1, 'Your password is required to issue a token')
+  password: z.string().min(1, 'Your password is required to issue a token'),
+  // Present → a phone-shortcut token that can only run this one task.
+  runTaskId: z.string().min(1).optional()
 });
 
 /**
@@ -199,7 +201,7 @@ const createTokenSchema = z.object({
  */
 router.post('/tokens', authenticateToken, authLimiter, validateBody(createTokenSchema), async (req: Request, res: Response) => {
   const userId = (req as AuthRequest).user!.id;
-  const { name, expiresIn, password } = req.body;
+  const { name, expiresIn, password, runTaskId } = req.body;
 
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user || !user.password) {
@@ -209,9 +211,17 @@ router.post('/tokens', authenticateToken, authLimiter, validateBody(createTokenS
     throw new HttpError(401, 'Password is incorrect');
   }
 
+  // Owner-scoped like the run route itself. A token scoped to someone else's
+  // task could never run it (the run route checks `userId` too), but issuing one
+  // would still confirm the id exists.
+  if (runTaskId) {
+    const task = await prisma.task.findFirst({ where: { id: runTaskId, userId }, select: { id: true } });
+    if (!task) throw new HttpError(404, 'Task not found');
+  }
+
   const { token, record } = await issueApiToken(
     { id: user.id, email: user.email },
-    { name, lifetime: expiresIn as ApiTokenLifetime }
+    { name, lifetime: expiresIn as ApiTokenLifetime, runTaskId }
   );
 
   res.status(201).json({
@@ -223,6 +233,7 @@ router.post('/tokens', authenticateToken, authLimiter, validateBody(createTokenS
       name: record.name,
       expiresAt: record.expiresAt,
       createdAt: record.createdAt,
+      runTaskId: record.runTaskId,
       revokedAt: null,
       lastUsedAt: null
     }
@@ -242,9 +253,16 @@ router.get('/tokens', authenticateToken, async (req: Request, res: Response) => 
   const tokens = await prisma.apiToken.findMany({
     where: { userId },
     orderBy: { createdAt: 'desc' },
-    select: { id: true, name: true, createdAt: true, expiresAt: true, lastUsedAt: true, revokedAt: true }
+    select: { id: true, name: true, createdAt: true, expiresAt: true, lastUsedAt: true, revokedAt: true, runTaskId: true }
   });
-  res.json({ tokens });
+  // Name the task a run-only token is for. Not a relation (see the schema), so
+  // one lookup; a task that has since gone reads as `null`, said as such in the UI.
+  const runIds = [...new Set(tokens.map(t => t.runTaskId).filter((id): id is string => !!id))];
+  const tasks = runIds.length
+    ? await prisma.task.findMany({ where: { id: { in: runIds }, userId }, select: { id: true, name: true } })
+    : [];
+  const names = new Map(tasks.map(t => [t.id, t.name]));
+  res.json({ tokens: tokens.map(t => ({ ...t, runTaskName: t.runTaskId ? names.get(t.runTaskId) ?? null : null })) });
 });
 
 /**

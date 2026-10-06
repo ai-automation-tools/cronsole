@@ -1360,6 +1360,37 @@ const preferenceSync: HelpTopic = {
   }
 };
 
+const phoneShortcut: HelpTopic = {
+  id: 'phone-shortcut',
+  title: 'Phone shortcut',
+  summary:
+    'Puts this task behind a home-screen icon on your phone. The shortcut holds a token that can ' +
+    'run this one task and do nothing else.',
+  points: [
+    {
+      label: 'Run-only, by design',
+      body:
+        'The token is refused everywhere except this task’s Run. It cannot list tasks, change ' +
+        'anything, or issue another token. Revoke it under Settings › API tokens.'
+    },
+    {
+      label: 'Use the address your phone uses',
+      body:
+        'Your Tailscale or tunnel URL, not localhost. On the phone, localhost is the phone.'
+    },
+    {
+      label: 'Started is not finished',
+      body:
+        'For a Windows task the shortcut reports that the agent started it. Whether it worked shows ' +
+        'up later in Cronsole.'
+    }
+  ],
+  doc: {
+    label: 'Phone Shortcuts Guide',
+    url: docLink(`${GUIDES}/Phone_Shortcuts_Guide.md`, 'create-the-token')
+  }
+};
+
 const runOutcomeWebhook: HelpTopic = {
   id: 'run-outcome-webhook',
   title: 'Run-outcome webhook',
@@ -1795,7 +1826,8 @@ const TOPIC_LIST: HelpTopic[] = [
   diagnostics,
   taskHealth,
   preferenceSync,
-  runOutcomeWebhook
+  runOutcomeWebhook,
+  phoneShortcut
 ];
 
 export const HELP_TOPICS: Record<string, HelpTopic> = Object.fromEntries(

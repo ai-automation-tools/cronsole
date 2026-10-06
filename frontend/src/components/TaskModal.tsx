@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { XCircle, Folder, Play, History, Info, Loader2, CheckCircle2, XOctagon, Clock, Trash2, CalendarClock, Terminal, SlidersHorizontal, Pencil, BookmarkPlus, EyeOff, Wrench, RefreshCw, Copy } from 'lucide-react';
+import { XCircle, Folder, Play, History, Info, Loader2, CheckCircle2, XOctagon, Clock, Trash2, CalendarClock, Terminal, SlidersHorizontal, Pencil, BookmarkPlus, EyeOff, Wrench, RefreshCw, Copy, Smartphone } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Task, ExecutionLogEntry } from '../types';
 import { PlatformRunHistory } from './PlatformRunHistory';
@@ -17,6 +17,7 @@ import { describeCron, taskCron } from '../utils/schedule';
 import { hhmmInZone, resolveZone, zoneAbbrev, zoneLabel } from '../utils/timezone';
 import { isRunnable, runButtonTitle } from '../utils/taskActions';
 import { TaskExportMenu } from './TaskExportMenu';
+import { PhoneShortcutModal } from './PhoneShortcutModal';
 import { useRemoveClaudeRoutine } from '../hooks/useClaudeRoutines';
 import { TaskFavoriteStar } from './TaskFavoriteStar';
 import { TaskCollectionMenu } from './TaskCollectionMenu';
@@ -279,6 +280,7 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
    * entry point for everything editable about a task; this modal is a read-only
    * view of it plus the verbs (run, remove, delete, export).
    */
+  const [showPhoneShortcut, setShowPhoneShortcut] = useState(false);
   const [showEditor, setShowEditor] = useState(false);
 
   // A native job runs wherever the BACKEND runs, which on a Dockerized stack is
@@ -968,6 +970,15 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
             vanishing and leaving no way to ask.
           */}
           <TaskExportMenu task={task} onExport={handleExport} exporting={exporting} />
+          {isRunnable(task) && (
+            <button
+              onClick={() => setShowPhoneShortcut(true)}
+              title="Create a home-screen shortcut on your phone that runs this task"
+              className="bg-muted hover:bg-muted/80 px-4 py-3 rounded-xl font-bold transition-all border border-border active:scale-95 text-sm flex items-center gap-2"
+            >
+              <Smartphone size={16} /> Phone shortcut
+            </button>
+          )}
           {/*
             The one edit control. Never disabled: name and category are editable
             on every platform, so there is no task for which "nothing can be
@@ -992,6 +1003,7 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
           </button>
         </footer>
     </Modal>
+      {showPhoneShortcut && <PhoneShortcutModal task={task} onClose={() => setShowPhoneShortcut(false)} />}
       {showEditor && (
         <EditTaskModal
           task={task}

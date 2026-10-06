@@ -20,7 +20,7 @@ import {
   type N8nWorkflow
 } from '../services/n8nApi.js';
 import { readWorkflowSchedule, readOnDemandTriggers, N8N_SCHEDULE_NODE_TYPES } from '../services/n8nSchedule.js';
-import { executeWorkflow } from '../services/n8nMcp.js';
+import { executeWorkflow, type ExecuteOptions } from '../services/n8nMcp.js';
 
 /** The refusal a connection without an MCP token gives Run now — the setup is the message. */
 export const RUN_NEEDS_MCP =
@@ -230,15 +230,24 @@ export class N8nConnector implements PlatformConnector {
   }
 
   /**
-   * Start the published workflow through its own Schedule Trigger, over n8n's
-   * MCP server. A dispatch, never an execution: `ran` stays false and the
-   * outcome is read back off the platform's execution list like every other run.
+   * Start the workflow through its own trigger, over n8n's MCP server. A
+   * dispatch, never an execution: `ran` stays false and the outcome is read
+   * back off the platform's execution list like every other run.
+   *
+   * **Two modes, chosen from the graph, and each is the run that workflow
+   * really has.** A scheduled workflow runs its **published** version through
+   * its Schedule Trigger (`production`) — the scheduled invocation. A workflow
+   * whose only trigger is a Manual Trigger has nothing to publish and never
+   * runs any other way than the editor's *Execute workflow* button, so it runs
+   * its **current** version in `manual` mode, which is that button. The
+   * webhook objection does not reach either: neither starts a different run
+   * than the one the workflow is built around.
    *
    * Three refusals, each with its fix in the sentence: no connection, no MCP
-   * token (the two switches in n8n), and n8n's own reason — an unpublished
-   * workflow, a trigger that needs input, a workflow not marked *Available in
-   * MCP*. The last is the platform answering, so it is a plain failure to
-   * start and the route's 502; the first two are configuration.
+   * token (the two switches in n8n), and n8n's own reason — a form, webhook or
+   * chat trigger that needs input, a workflow not marked *Available in MCP*.
+   * The last is the platform answering, so it is a plain failure to start and
+   * the route's 502; the first two are configuration.
    */
   async runTask(
     externalId: string,
@@ -248,16 +257,14 @@ export class N8nConnector implements PlatformConnector {
     if (!baseUrl || !apiKey) return { success: false, ran: false, message: 'No n8n connection is stored.' };
     if (!mcpToken) return { success: false, ran: false, message: RUN_NEEDS_MCP };
 
-    // Which trigger to fire. Named only when n8n could not pick it alone — a
-    // workflow with a webhook beside its schedule, or two schedules — so an
-    // instance older than the `triggerNodeName` parameter still runs the
-    // common case. A failed read here costs the name, never the run.
-    const triggerNodeName = await this.scheduleTriggerName(baseUrl, apiKey, externalId);
+    // Which mode, and which trigger. A failed read here costs the plan, never
+    // the run: the fallback is production with n8n choosing the trigger.
+    const plan = await this.planRun(baseUrl, apiKey, externalId);
 
     // Noted before the request so a timeout can be answered with evidence —
     // Gemini's rule. One second of slack absorbs clock skew.
     const dispatchedAt = new Date(Date.now() - 1000);
-    const result = await executeWorkflow(baseUrl, mcpToken, externalId, triggerNodeName);
+    const result = await executeWorkflow(baseUrl, mcpToken, externalId, plan);
 
     if (!result.ok) {
       // A transport timeout is not a failed dispatch. On that — and only that,
@@ -285,29 +292,46 @@ export class N8nConnector implements PlatformConnector {
       ran: false,
       ...(result.data.executionId ? { platformRunId: result.data.executionId } : {}),
       message:
-        'n8n started the published workflow through its Schedule Trigger. It runs in the background — ' +
-        'its outcome appears under Run History → Runs on the platform.'
+        plan.executionMode === 'manual'
+          ? 'n8n started the workflow from its Manual Trigger — the current version, as the editor\'s Execute ' +
+            'workflow button runs it; n8n lists it as a manual run. Its outcome appears under Run History → Runs on the platform.'
+          : 'n8n started the published workflow through its Schedule Trigger. It runs in the background — ' +
+            'its outcome appears under Run History → Runs on the platform.'
     };
   }
 
   /**
-   * The schedule node to fire by name, or undefined when n8n can choose alone.
-   * Reads the published graph (`toWorkflow` keeps every node's name and type,
-   * so a webhook beside the schedule is visible even though its parameters are
-   * dropped at the parse).
+   * Which mode to run in, and which trigger to name. Reads the graph
+   * (`toWorkflow` keeps every node's name and type, so a webhook beside the
+   * schedule is visible even though its parameters are dropped at the parse).
+   *
+   * - A schedule node → `production`, named only when n8n could not pick it
+   *   alone (a webhook beside it, or two schedules), so an instance older than
+   *   the `triggerNodeName` parameter still runs the common case.
+   * - No schedule and only Manual Triggers → `manual`: the workflow has nothing
+   *   to publish and this is the one way it runs.
+   * - Anything else, or an unreadable graph → `production` with no name, and
+   *   n8n's answer stands (a form or webhook needs input it does not have).
    */
-  private async scheduleTriggerName(baseUrl: string, apiKey: string, externalId: string): Promise<string | undefined> {
+  private async planRun(baseUrl: string, apiKey: string, externalId: string): Promise<ExecuteOptions> {
+    const fallback: ExecuteOptions = { executionMode: 'production' };
     const read = await getWorkflow(baseUrl, apiKey, externalId);
-    if (!read.ok || !read.data) return undefined;
+    if (!read.ok || !read.data) return fallback;
     const enabled = read.data.nodes.filter(n => !n.disabled);
     const schedules = enabled.filter(n => (N8N_SCHEDULE_NODE_TYPES as readonly string[]).includes(n.type));
-    if (schedules.length === 0) return undefined;
+    const manual = enabled.filter(n => /manualTrigger/i.test(n.type));
     // Manual and error triggers never fire in production mode, so n8n does not
     // count them as choices (nor does its own `triggerCount`).
     const otherTriggers = enabled.filter(
       n => !schedules.includes(n) && /trigger|webhook/i.test(n.type) && !/manualTrigger|errorTrigger/i.test(n.type)
     );
-    return schedules.length > 1 || otherTriggers.length > 0 ? schedules[0]!.name : undefined;
+    if (schedules.length > 0) {
+      return schedules.length > 1 || otherTriggers.length > 0
+        ? { executionMode: 'production', triggerNodeName: schedules[0]!.name }
+        : fallback;
+    }
+    if (manual.length > 0 && otherTriggers.length === 0) return { executionMode: 'manual' };
+    return fallback;
   }
 
   /**

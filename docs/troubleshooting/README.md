@@ -6406,9 +6406,14 @@ recorded as a fact about the platform, and nobody re-checks a boundary.
 **Available in MCP** — a folder's menu on the project's *Workflows* tab does a whole folder at once;
 the Instance-level MCP page's *Enable workflows* picker is a multi-select — and paste the access token under **Run now
 (optional)** on the n8n card in Sources. Cronsole verifies the handshake and that `execute_workflow`
-is listed before storing the token. Three refusals you can still meet, each in n8n's words: the
-workflow is not marked *Available in MCP*; it has no published version; or its only trigger needs
-input (a form, a webhook, a chat) — start those where their input comes from. A `404` at save means
+is listed before storing the token. Two refusals you can still meet, each in n8n's words: the
+workflow is not marked *Available in MCP*; or its only trigger needs input (a form, a webhook, a
+chat) — start those where their input comes from. *"No published version"* on a workflow whose only
+trigger is a Manual Trigger was a third, for about an hour: production mode needs a published
+version and a manual trigger cannot be published. Cronsole now reads the graph and runs such a
+workflow in n8n's `manual` mode — the editor's *Execute workflow* button, the current version —
+because that is the only run it has. Driven live on an agent-runner launcher: execution recorded,
+`success`. A `404` at save means
 the instance predates MCP access or the switch is off; a `401` means the token was not copied in
 full (it is shown once).
 

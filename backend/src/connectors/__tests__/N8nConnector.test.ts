@@ -124,7 +124,26 @@ describe('runTask goes through the MCP door, and says what is missing without it
     const r = await connector.runTask('9zGpyQGdTftmUvq9', config({ mcpToken: 'mcp-tok' }));
     expect(r).toMatchObject({ success: true, ran: false, platformRunId: '4242', message: expect.stringMatching(/Schedule Trigger/) });
     // A manual trigger beside the schedule is not a choice in production mode, so n8n picks alone.
-    expect(executeWorkflowMock).toHaveBeenCalledWith('https://n8n.example.com', 'mcp-tok', '9zGpyQGdTftmUvq9', undefined);
+    expect(executeWorkflowMock).toHaveBeenCalledWith('https://n8n.example.com', 'mcp-tok', '9zGpyQGdTftmUvq9', { executionMode: 'production' });
+  });
+
+  it('a manual-only workflow runs its current version in manual mode, and says so', async () => {
+    getWorkflowMock.mockResolvedValue({
+      ok: true,
+      data: weekly({ active: false, nodes: [{ name: 'Manual Trigger', type: 'n8n-nodes-base.manualTrigger' }, { name: 'Run', type: 'n8n-nodes-base.executeCommand' }] })
+    });
+    executeWorkflowMock.mockResolvedValue({ ok: true, data: { executionId: '77', status: 'started' } });
+    const r = await connector.runTask('9zGpyQGdTftmUvq9', config({ mcpToken: 'mcp-tok' }));
+    expect(executeWorkflowMock).toHaveBeenCalledWith('https://n8n.example.com', 'mcp-tok', '9zGpyQGdTftmUvq9', { executionMode: 'manual' });
+    expect(r).toMatchObject({ success: true, platformRunId: '77', message: expect.stringMatching(/Manual Trigger.*current version/) });
+  });
+
+  it('a form-only workflow is left to n8n in production mode, not forced through manual', async () => {
+    getWorkflowMock.mockResolvedValue({ ok: true, data: form() });
+    executeWorkflowMock.mockResolvedValue({ ok: true, data: { executionId: null, status: 'error', error: 'Trigger requires input' } });
+    const r = await connector.runTask('0Cbgw8bdlSwfgnNI', config({ mcpToken: 'mcp-tok' }));
+    expect(executeWorkflowMock).toHaveBeenCalledWith(expect.any(String), 'mcp-tok', '0Cbgw8bdlSwfgnNI', { executionMode: 'production' });
+    expect(r).toMatchObject({ success: false, message: 'n8n refused the run: Trigger requires input' });
   });
 
   it('names the schedule node when a webhook sits beside it', async () => {
@@ -134,7 +153,7 @@ describe('runTask goes through the MCP door, and says what is missing without it
     });
     executeWorkflowMock.mockResolvedValue({ ok: true, data: { executionId: '1', status: 'started' } });
     await connector.runTask('9zGpyQGdTftmUvq9', config({ mcpToken: 'mcp-tok' }));
-    expect(executeWorkflowMock).toHaveBeenCalledWith('https://n8n.example.com', 'mcp-tok', '9zGpyQGdTftmUvq9', 'Weekly Trigger');
+    expect(executeWorkflowMock).toHaveBeenCalledWith('https://n8n.example.com', 'mcp-tok', '9zGpyQGdTftmUvq9', { executionMode: 'production', triggerNodeName: 'Weekly Trigger' });
   });
 
   it('a failed workflow read costs the trigger name, never the run', async () => {
@@ -142,7 +161,7 @@ describe('runTask goes through the MCP door, and says what is missing without it
     executeWorkflowMock.mockResolvedValue({ ok: true, data: { executionId: '2', status: 'started' } });
     const r = await connector.runTask('9zGpyQGdTftmUvq9', config({ mcpToken: 'mcp-tok' }));
     expect(r.success).toBe(true);
-    expect(executeWorkflowMock).toHaveBeenCalledWith(expect.any(String), 'mcp-tok', '9zGpyQGdTftmUvq9', undefined);
+    expect(executeWorkflowMock).toHaveBeenCalledWith(expect.any(String), 'mcp-tok', '9zGpyQGdTftmUvq9', { executionMode: 'production' });
   });
 
   it("n8n's own refusal is a failure to start carrying its sentence", async () => {

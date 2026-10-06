@@ -922,8 +922,12 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
         beside the schedule, two schedules), so pre-2.36 instances still run the common case; a
         transport timeout re-reads the execution list (Gemini's rule). n8n is now `access:
         controller`, by Claude's declared-mode argument. `setStatus` and `create` stay refused.
-        Open: n8n's `execute_workflow` reports `status` and `error` only — a run that n8n *accepts* and
-        then fails inside the trigger is read back off the execution list like any other.
+        A **manual-only** workflow (the agent-runner launchers) runs in `manual` mode — its current
+        version, the editor's button — because a manual trigger cannot be published and that is the
+        one run it has; the mode is chosen from the graph (`planRun`), never from the row. Driven
+        live both ways. Open: n8n's `execute_workflow` reports `status` and `error` only — a run that
+        n8n *accepts* and then fails inside the trigger is read back off the execution list like any
+        other.
       - [x] **Folders** *(decided and shipped 2026-10-05)* — the public API does not publish
         membership (`parentFolderId` is `writeOnly` in the instance's own OpenAPI; package export is
         licensed and ships whole bodies; `/rest/` refuses API keys — [#96](troubleshooting/README.md#96-your-n8n-folders-do-not-appear-in-cronsole)).

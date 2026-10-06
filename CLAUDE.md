@@ -436,7 +436,10 @@ Non-negotiable rules. **Every one has a reason recorded in
   **controller** by Claude's declared-mode argument: a connector that can only fire still changes
   the platform. The trigger is **named only when n8n could not choose alone** (a webhook beside the
   schedule, two schedules), so an instance older than `triggerNodeName` still runs the common case;
-  manual and error triggers are not choices in production mode. A transport timeout re-reads the
+  manual and error triggers are not choices in production mode. **A manual-only workflow runs in
+  `manual` mode** — it has nothing to publish and never runs any other way than the editor's button,
+  so the current version *is* the run it has; a form, webhook or chat trigger is left to n8n's
+  refusal (it needs input). Both modes are chosen from the graph (`planRun`), never from the row. A transport timeout re-reads the
   execution list, Gemini's rule. Only schedule nodes keep their parameters at the parse (`toNode`), so a
   hardcoded HTTP token never enters a row; run output is node **names**, never node data.
   **Folders are metadata, never identity**: the API cannot report membership (`parentFolderId` is

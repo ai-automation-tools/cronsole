@@ -89,8 +89,12 @@ Three things to know:
 - **A workflow with a webhook or form beside its schedule still runs the schedule.** Cronsole names
   the Schedule Trigger node when n8n would otherwise have to choose (n8n 2.36 or newer accepts the
   name; older instances run the one eligible trigger on their own).
-- **An on-demand workflow cannot be started this way.** Its trigger needs input — a form, a webhook
-  payload, a chat message — and n8n says so. Start it where its input comes from.
+- **A workflow with only a Manual Trigger runs too, in n8n's manual mode.** It has nothing to
+  publish — a manual trigger is not a production trigger — so Cronsole runs its **current** version,
+  which is exactly what the editor's *Execute workflow* button does and the only way such a workflow
+  ever runs. n8n lists it as a *manual* run. The agent-runner launchers are this shape.
+- **A form, webhook or chat workflow cannot be started this way.** Its trigger needs input — a form
+  submission, a webhook payload, a chat message — and n8n says so. Start it where its input comes from.
 
 ## 🚫 The two refusals
 

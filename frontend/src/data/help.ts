@@ -578,7 +578,8 @@ const sourceN8n: HelpTopic = {
         "n8n's REST API cannot start a workflow, but its MCP server can — through the workflow's own " +
         'Schedule Trigger, so it is the scheduled run. In n8n turn on Settings › MCP access, mark the ' +
         'workflows "Available in MCP" (the folder menu on the Workflows tab does a whole folder at once), ' +
-        'and paste the token under Run now on the n8n card. Without it, Run now refuses and says so.'
+        'and paste the token under Run now on the n8n card. A workflow with only a Manual Trigger runs its ' +
+        'current version, as the Execute workflow button does. Without a token, Run now refuses and says so.'
     },
     {
       label: 'Pause and edit stay in n8n',

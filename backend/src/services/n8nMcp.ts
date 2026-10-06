@@ -233,19 +233,31 @@ export async function verifyMcpToken(baseUrl: string, token: string): Promise<N8
   }
 }
 
+/** How n8n runs the workflow — the tool's own two words. */
+export type N8nExecutionMode =
+  /** The published version through a production trigger (schedule, webhook, form, chat). */
+  | 'production'
+  /** The current version, as the editor's *Execute workflow* button does; accepts a Manual Trigger. */
+  | 'manual';
+
+export interface ExecuteOptions {
+  executionMode: N8nExecutionMode;
+  /** Picks the trigger when the workflow has several (n8n 2.36+); omitted, n8n runs the one eligible trigger or refuses naming them. */
+  triggerNodeName?: string;
+}
+
 /**
- * Start a workflow's published version through its own trigger.
+ * Start a workflow through its own trigger.
  *
- * `triggerNodeName` picks the trigger when the workflow has several (n8n
- * 2.36+); omitted, n8n runs the one eligible trigger or refuses naming them.
- * `error` on the result is n8n's refusal, e.g. an unpublished workflow or a
- * trigger that needs input — a refusal, not a transport failure.
+ * `error` on the result is n8n's refusal, e.g. an unpublished workflow in
+ * production mode or a trigger that needs input — a refusal, not a transport
+ * failure.
  */
 export async function executeWorkflow(
   baseUrl: string,
   token: string,
   workflowId: string,
-  triggerNodeName?: string
+  { executionMode, triggerNodeName }: ExecuteOptions
 ): Promise<N8nResult<N8nMcpExecution>> {
   const session = new McpSession(baseUrl, token);
   try {
@@ -257,7 +269,7 @@ export async function executeWorkflow(
         name: EXECUTE_TOOL,
         arguments: {
           workflowId,
-          executionMode: 'production',
+          executionMode,
           ...(triggerNodeName ? { triggerNodeName } : {})
         }
       },

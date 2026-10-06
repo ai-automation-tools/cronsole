@@ -141,7 +141,7 @@ describe('verifyMcpToken', () => {
 describe('executeWorkflow', () => {
   it('calls execute_workflow in production mode and returns the execution id', async () => {
     replies(initOk(), accepted, json({ jsonrpc: '2.0', id: 2, result: { structuredContent: { executionId: '4242', status: 'started' } } }));
-    expect(await executeWorkflow('https://n8n.example.com', 'tok', 'wf-1')).toEqual({
+    expect(await executeWorkflow('https://n8n.example.com', 'tok', 'wf-1', { executionMode: 'production' })).toEqual({
       ok: true,
       data: { executionId: '4242', status: 'started' }
     });
@@ -154,19 +154,25 @@ describe('executeWorkflow', () => {
 
   it('names the trigger when asked to', async () => {
     replies(initOk(), accepted, json({ jsonrpc: '2.0', id: 2, result: { structuredContent: { executionId: '1', status: 'started' } } }));
-    await executeWorkflow('https://n8n.example.com', 'tok', 'wf-1', 'Weekly Trigger');
+    await executeWorkflow('https://n8n.example.com', 'tok', 'wf-1', { executionMode: 'production', triggerNodeName: 'Weekly Trigger' });
     expect(post.mock.calls[2]![1]).toMatchObject({ params: { arguments: { triggerNodeName: 'Weekly Trigger' } } });
+  });
+
+  it('sends manual mode when asked to', async () => {
+    replies(initOk(), accepted, json({ jsonrpc: '2.0', id: 2, result: { structuredContent: { executionId: '7', status: 'started' } } }));
+    await executeWorkflow('https://n8n.example.com', 'tok', 'wf-1', { executionMode: 'manual' });
+    expect(post.mock.calls[2]![1]).toMatchObject({ params: { arguments: { workflowId: 'wf-1', executionMode: 'manual' } } });
   });
 
   it('a JSON-RPC error is a refusal with the server sentence', async () => {
     replies(initOk(), accepted, json({ jsonrpc: '2.0', id: 2, error: { code: -32602, message: 'Unknown tool' } }));
-    const r = await executeWorkflow('https://n8n.example.com', 'tok', 'wf-1');
+    const r = await executeWorkflow('https://n8n.example.com', 'tok', 'wf-1', { executionMode: 'production' });
     expect(r).toMatchObject({ ok: false, message: expect.stringContaining('Unknown tool') });
   });
 
   it('a failed handshake never reaches the call', async () => {
     replies({ status: 403, data: 'MCP access disabled' });
-    const r = await executeWorkflow('https://n8n.example.com', 'tok', 'wf-1');
+    const r = await executeWorkflow('https://n8n.example.com', 'tok', 'wf-1', { executionMode: 'production' });
     expect(r).toMatchObject({ ok: false, status: 403 });
     expect(post).toHaveBeenCalledTimes(1);
   });

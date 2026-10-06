@@ -4,6 +4,7 @@ import bcrypt from 'bcrypt';
 import { createApp } from '../../src/app.js';
 import { prisma } from '../../src/db.js';
 import { generateToken } from '../../src/auth/auth.js';
+import { createNativeTask } from './helpers.js';
 
 /**
  * Long-lived API tokens for non-browser clients (the MCP server above all), and
@@ -189,5 +190,55 @@ describe('listing API tokens', () => {
 
     const list = await request(app).get('/api/auth/tokens').set('Authorization', bob.auth);
     expect(list.body.tokens).toEqual([]);
+  });
+});
+
+// Phone shortcuts. The unit suite pins `checkToken`'s matching; this pins that
+// the real routes are behind it, and the two properties only the DB can show.
+describe('run-only (phone shortcut) tokens', () => {
+  async function scopedFor(email: string) {
+    const owner = await createOwner(email);
+    const task = await createNativeTask(owner.user.id, { name: 'Agent-Chat Weekly Roadmap' });
+    const res = await issue(owner.auth, { name: 'Phone', expiresIn: '90d', password: PASSWORD, runTaskId: task.id });
+    expect(res.status).toBe(201);
+    return { ...owner, task, scoped: `Bearer ${res.body.token}` };
+  }
+
+  it('is refused by every route but its own run, including the token routes', async () => {
+    const { task, scoped } = await scopedFor('scope@example.com');
+
+    expect((await request(app).get('/api/tasks').set('Authorization', scoped)).status).toBe(403);
+    expect((await request(app).get(`/api/tasks/${task.id}`).set('Authorization', scoped)).status).toBe(403);
+    expect((await issue(scoped, { name: 'Wider', expiresIn: 'never', password: PASSWORD })).status).toBe(403);
+  });
+
+  // Deleting the task must not widen the token (the SetNull trap) nor erase the
+  // row (the Cascade one). Reaching the run route's own 404 also proves the
+  // scope let the request through.
+  it('fails closed when its task is deleted, and stays listed', async () => {
+    const { auth, task, scoped } = await scopedFor('gone@example.com');
+    await prisma.task.delete({ where: { id: task.id } });
+
+    const run = await request(app).post(`/api/tasks/${task.id}/run`).set('Authorization', scoped);
+    expect(run.status).toBe(404);
+    expect((await request(app).get('/api/tasks').set('Authorization', scoped)).status).toBe(403);
+
+    const list = await request(app).get('/api/auth/tokens').set('Authorization', auth);
+    expect(list.body.tokens[0]).toMatchObject({ runTaskId: task.id, runTaskName: null });
+  });
+
+  it('names its task in the list', async () => {
+    const { auth, task } = await scopedFor('named@example.com');
+    const list = await request(app).get('/api/auth/tokens').set('Authorization', auth);
+    expect(list.body.tokens[0]).toMatchObject({ runTaskId: task.id, runTaskName: 'Agent-Chat Weekly Roadmap' });
+  });
+
+  it('cannot be issued for another user\'s task', async () => {
+    const { auth } = await createOwner('thief@example.com');
+    const victim = await createOwner('victim@example.com');
+    const task = await createNativeTask(victim.user.id);
+
+    const res = await issue(auth, { name: 'Phone', expiresIn: '30d', password: PASSWORD, runTaskId: task.id });
+    expect(res.status).toBe(404);
   });
 });

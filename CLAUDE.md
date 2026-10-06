@@ -789,6 +789,14 @@ Non-negotiable rules. **Every one has a reason recorded in
   request; the browser session's `jti`-free "no round trip" property was traded for it deliberately.
   There is **one door** — `verifyToken`, a synchronous payload-trusting helper with no caller left,
   was deleted in the same change rather than left as the cheap second definition.
+- **A credential on a phone can do one thing.** A phone-shortcut token is an `ApiToken` with
+  `runTaskId`, and `checkToken` — the one door — refuses it for anything but an exact
+  `POST /api/tasks/<runTaskId>/run`: every other route, the token routes (so it cannot mint a
+  broader one) and the Socket.IO handshake (no request → refused). Enforced in the door, never in
+  the run route, so no route has to remember it. `runTaskId` is **deliberately not a foreign key**:
+  `SetNull` would widen the token to the whole account when its task is deleted, `Cascade` would
+  erase the record that it existed; a plain id fails closed (404) and stays listed. It is a `POST`
+  because a GET capability link is fired by link previews and prefetchers.
 - **Exactly one account-creation path: `POST /api/auth/setup`** (first run only). **Never re-add a
   register route for a test** — an integration test pins its 404.
 - **`ALLOWED_ORIGINS` is one list gating two surfaces** (REST CORS + the Socket.IO handshake), parsed

@@ -343,6 +343,14 @@ places at the same moment", not anything you have to manage.
 always followed your account. Before preference sync, half the source rail crossed over and half
 did not, which is why the gap read as a bug rather than as a boundary.
 
+## Run a task from a phone shortcut
+
+Once your phone can reach Cronsole, any runnable task can become a home-screen icon or widget:
+open the task and choose **Phone shortcut**. It issues a token that can **only run that task**,
+for iOS Shortcuts or Android HTTP Shortcuts. Setup, responses, revoking and troubleshooting
+(including the extra headers Cloudflare Access needs) are in the
+[**📱 Phone Shortcuts Guide**](Phone_Shortcuts_Guide.md).
+
 ## Security checklist
 
 - [ ] Cronsole is reachable **only** over Tailscale or an Access-gated tunnel — never a raw
@@ -367,6 +375,9 @@ did not, which is why the gap read as a bug rather than as a boundary.
 - [ ] You understand that anyone who reaches the dashboard **and knows the one password** can
       run/create tasks on your machine, so the access gate (VPN membership / Access login) is
       your real security boundary — Cronsole's login is the layer behind it, not instead of it.
+- [ ] **A phone shortcut holds a run-only token, never a full API token.** A full token in a
+      shortcut is your whole account on a device that can be lost; use the task's **Phone
+      shortcut** button, and revoke its token if the phone goes missing.
 - [ ] Keep your `JWT_SECRET`, `ENCRYPTION_KEY`, and `AGENT_PAIRING_SECRET` strong and private
       (see [Setup](../../setup/README.md)).
 
@@ -398,6 +409,7 @@ did not, which is why the gap read as a bug rather than as a boundary.
 |:---|:---|
 | [**⚙️ Setup & Configuration**](../../setup/README.md) | Environment variables (`ALLOWED_ORIGINS`, `VITE_API_URL`, secrets). |
 | [**🖥️ UI User Guide**](UI_User_Guide.md) | Using the dashboard once you can reach it. |
+| [**📱 Phone Shortcuts Guide**](Phone_Shortcuts_Guide.md) | A home-screen icon that runs one task, with a token that can do nothing else. |
 | [**🗺️ Roadmap**](../../ROADMAP.md) | Where remote access sits — the final, optional P3 enhancement. |
 
 ---

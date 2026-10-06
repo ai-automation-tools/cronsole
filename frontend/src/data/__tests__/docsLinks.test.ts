@@ -12,6 +12,7 @@ import templatesDoc from '../../../../docs/reports/templates/Templates.md?raw';
 import troubleshooting from '../../../../docs/troubleshooting/README.md?raw';
 import adrPerJobSecrets from '../../../../docs/adr/0003-per-job-secrets.md?raw';
 import remoteAccessGuide from '../../../../docs/user-guides/guides/Remote_Access_Guide.md?raw';
+import phoneShortcutsGuide from '../../../../docs/user-guides/guides/Phone_Shortcuts_Guide.md?raw';
 import addingASource from '../../../../docs/contributing/Adding_A_Source.md?raw';
 import sourceDocsIndexDoc from '../../../../docs/user-guides/sources/README.md?raw';
 import sourceWindows from '../../../../docs/user-guides/sources/Windows_Task_Scheduler.md?raw';
@@ -55,6 +56,7 @@ const DOC_SOURCES: Record<string, string> = {
   'docs/troubleshooting/README.md': troubleshooting,
   'docs/adr/0003-per-job-secrets.md': adrPerJobSecrets,
   'docs/user-guides/guides/Remote_Access_Guide.md': remoteAccessGuide,
+  'docs/user-guides/guides/Phone_Shortcuts_Guide.md': phoneShortcutsGuide,
   'docs/contributing/Adding_A_Source.md': addingASource,
   'docs/user-guides/sources/README.md': sourceDocsIndexDoc,
   'docs/user-guides/sources/Windows_Task_Scheduler.md': sourceWindows,

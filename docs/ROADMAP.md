@@ -1086,6 +1086,16 @@ Shipped P3 work is in [Part II](#completed--p3-expansion).
       Access. **The tooling shipped 2026-08-15 → 2026-08-17**; what remains is polish, not plumbing.
   - [ ] **PWA manifest + icons** so the dashboard installs to a phone home screen — the last piece
         of the "trigger from your phone in under 30 seconds" goal.
+  - [x] **Phone shortcuts — run-only tokens for one task** *(2026-10-05)*. A home-screen icon
+        (iOS Shortcuts, Android HTTP Shortcuts) that runs one task. The shortcut holds a credential
+        on a device that can be lost, so it is an `ApiToken` **scoped to `POST /api/tasks/:id/run`
+        and nothing else** (`ApiToken.runTaskId`), refused by `checkToken` everywhere else —
+        including the live-update socket and the token routes, so it cannot mint a broader one.
+        Issued from the task's **Phone shortcut** button (password required, revocable in Settings).
+        Rejected alternatives: a full API token in the shortcut (whole-account blast radius); a GET
+        capability URL (link previews and prefetchers would run it); the PWA manifest's `shortcuts`
+        (static, Android-only); a native widget app (a second codebase for what Shortcuts does).
+        Guide: [Phone Shortcuts](user-guides/guides/Phone_Shortcuts_Guide.md).
   - [ ] **Auth hardening for an internet-facing gate** *(deliberately deferred 2026-08-15 — the
         network gate does this job today)*: there is no password reset, so forgetting the one
         password while travelling is only fixable at the keyboard; and the 24h JWT lives in

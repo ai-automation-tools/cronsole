@@ -456,6 +456,15 @@ Two smaller things worth knowing:
 Some tasks can't be templated, and the refusal says which fact stopped it: a task with no
 cron-expressible schedule (a boot or logon trigger isn't one), or with more than one action.
 
+### Phone shortcut
+
+**Phone shortcut** in the footer of any runnable task turns it into a home-screen icon on your
+phone. It issues a token that can **only run this task** — it is refused for reading, changing or
+running anything else — and shows the URL and header to paste into iOS Shortcuts or Android HTTP
+Shortcuts. These tokens are listed under **Settings › API tokens** as *Runs only: …*, where you
+revoke them. Your phone has to reach Cronsole first ([Remote Access](Remote_Access_Guide.md));
+the full walkthrough is the [Phone Shortcuts Guide](Phone_Shortcuts_Guide.md).
+
 ## Changing many tasks at once
 
 Bulk changes live in one place: **Mass actions**, on the [Tools tab](#mass-actions). There are no

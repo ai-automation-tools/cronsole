@@ -25,6 +25,7 @@ Windows agent. If you haven't set Cronsole up yet, start with
 | [**🧩 MCP Server Guide**](guides/MCP_Server_Guide.md) | Wiring the MCP server into Claude / Codex / Cursor to list, run, and create tasks in natural language. |
 | [**💾 Backup & Restore**](guides/Backup_Restore_Guide.md) | Backing up Cronsole's database, scheduling it as a Cronsole job, restoring it — and testing the restore, which is the part that makes the backup real. Includes the trap: a dump without `ENCRYPTION_KEY` restores cleanly and leaves every stored credential unreadable. |
 | [**🌐 Remote Access Guide**](guides/Remote_Access_Guide.md) <sub>· advanced · optional</sub> | Reach your own local Cronsole from your phone or another device — a single-origin reverse proxy behind **Tailscale** (private, no domain needed) or a **Cloudflare Tunnel + Access** (public HTTPS hostname, gated). Tooling ships in the repo; Cronsole stays local-first, and this is opt-in. |
+| [**📱 Phone Shortcuts Guide**](guides/Phone_Shortcuts_Guide.md) <sub>· optional</sub> | A home-screen icon or widget on your phone that runs one task — iOS Shortcuts or Android HTTP Shortcuts, using a token that can run that task and nothing else. Needs remote access first. |
 
 ## 🔗 Related
 

@@ -79,8 +79,10 @@ import {
   connectionInputSchema as n8nConnectionInputSchema,
   timeZoneInputSchema as n8nTimeZoneInputSchema,
   folderDbInputSchema as n8nFolderDbInputSchema,
-  optionsInputSchema as n8nOptionsInputSchema
+  optionsInputSchema as n8nOptionsInputSchema,
+  mcpTokenInputSchema as n8nMcpTokenInputSchema
 } from '../services/n8nConnection.js';
+import { verifyMcpToken as verifyN8nMcpToken } from '../services/n8nMcp.js';
 import { readFolderPaths as readN8nFolderPaths } from '../services/n8nFolders.js';
 import { verifyKey as verifyN8nKey, normalizeBaseUrl as normalizeN8nBaseUrl } from '../services/n8nApi.js';
 import { parseTaskBundle, TaskImportError } from '../services/taskImport.js';
@@ -3500,6 +3502,42 @@ router.put(
       message: url
         ? `Connected. ${placed} workflow${placed === 1 ? ' is' : 's are'} in a folder. Sync n8n to show them.`
         : 'Folders are no longer read. Sync n8n to flatten the list.'
+    });
+  }
+);
+
+/**
+ * Set or clear the MCP access token Run now uses. Verified before it is stored
+ * by a real handshake and tool listing — `execute_workflow` must actually be
+ * served, or the stored token is a promise `run` cannot keep. A token n8n
+ * rejects is a 400; an instance that cannot be reached is a 502.
+ */
+router.put(
+  '/platforms/n8n/mcp',
+  validateBody(n8nMcpTokenInputSchema),
+  async (req: Request, res: Response) => {
+    const userId = (req as AuthRequest).user!.id;
+    const token = String((req.body as { token: string }).token).trim();
+
+    const { connection, config } = await loadN8nConnection(userId);
+    if (!connection || !config.baseUrl) {
+      throw new HttpError(400, 'Connect n8n first — there is no connection to configure yet.');
+    }
+
+    if (token) {
+      const verified = await verifyN8nMcpToken(config.baseUrl, token);
+      if (!verified.ok) throw new HttpError(verified.status === null ? 502 : 400, verified.message);
+    }
+
+    const { mcpToken: _old, ...rest } = config;
+    const next = { ...rest, ...(token ? { mcpToken: token } : {}) };
+    await saveN8nConnection(userId, connection.id, next);
+
+    res.json({
+      ...redactN8nConfig(next),
+      message: token
+        ? 'Connected. Run now starts a workflow through its Schedule Trigger — for workflows marked "Available in MCP" in n8n.'
+        : 'The MCP token is removed. Run now refuses again until one is stored; nothing changed in n8n.'
     });
   }
 );

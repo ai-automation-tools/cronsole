@@ -30,6 +30,12 @@ export interface N8nConfig {
    */
   folderDbUrl?: string;
   /**
+   * Optional token for the instance's MCP server (n8n → Settings › MCP access),
+   * the one door that starts a workflow — `services/n8nMcp.ts`. Without it
+   * `run` is refused with the setup named. A credential, so write-only.
+   */
+  mcpToken?: string;
+  /**
    * Also track workflows with no schedule (form, webhook, manual, chat…) as
    * on-demand tasks. Absent means **on**; only an explicit `false` turns it off.
    */
@@ -52,6 +58,8 @@ export interface RedactedN8nConfig {
   hasFolderDb: boolean;
   /** `host:port/db` — never the credentials. */
   folderDbHint: string | null;
+  /** An MCP access token is stored, so Run now reaches n8n. */
+  hasMcpToken: boolean;
   includeOnDemand: boolean;
   groupBy: N8nGroupBy;
 }
@@ -75,17 +83,19 @@ export function readConfig(raw: unknown): N8nConfig {
   const apiKey = str(c.apiKey);
   const timeZone = str(c.timeZone);
   const folderDbUrl = str(c.folderDbUrl);
+  const mcpToken = str(c.mcpToken);
   return {
     ...(baseUrl ? { baseUrl: normalizeBaseUrl(baseUrl) } : {}),
     ...(apiKey ? { apiKey } : {}),
     ...(timeZone ? { timeZone } : {}),
     ...(folderDbUrl ? { folderDbUrl } : {}),
+    ...(mcpToken ? { mcpToken } : {}),
     ...(typeof c.includeOnDemand === 'boolean' ? { includeOnDemand: c.includeOnDemand } : {}),
     ...(c.groupBy === 'trigger' || c.groupBy === 'none' ? { groupBy: c.groupBy } : {})
   };
 }
 
-/** Everything except the two credentials. The only shape that leaves the server. */
+/** Everything except the three credentials. The only shape that leaves the server. */
 export function redactConfig(config: N8nConfig): RedactedN8nConfig {
   return {
     baseUrl: config.baseUrl ?? null,
@@ -94,6 +104,7 @@ export function redactConfig(config: N8nConfig): RedactedN8nConfig {
     timeZone: config.timeZone ?? null,
     hasFolderDb: Boolean(config.folderDbUrl),
     folderDbHint: config.folderDbUrl ? describeDbUrl(config.folderDbUrl) : null,
+    hasMcpToken: Boolean(config.mcpToken),
     includeOnDemand: config.includeOnDemand !== false,
     groupBy: config.groupBy ?? 'trigger'
   };
@@ -144,4 +155,9 @@ export const folderDbInputSchema = z.object({
     .trim()
     .max(1024)
     .refine(v => v === '' || isPostgresUrl(v), { message: 'Use a postgres:// connection URL.' })
+});
+
+export const mcpTokenInputSchema = z.object({
+  /** Blank clears it and Run now goes back to refusing with the setup named. */
+  token: z.string().trim().max(4096)
 });

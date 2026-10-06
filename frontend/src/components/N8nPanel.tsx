@@ -5,6 +5,7 @@ import {
   useN8nConnection,
   useSetN8nConnection,
   useSetN8nFolderDb,
+  useSetN8nMcpToken,
   useSetN8nOptions,
   useSetN8nTimeZone
 } from '../hooks/useN8nConnection';
@@ -23,7 +24,8 @@ const browserZone = (): string => {
 /**
  * **Connect an n8n instance so Cronsole can read its scheduled workflows.**
  *
- * Read-only, and it says so first, like the other observers. Two controls:
+ * Reads by default and says so first; Run now is the one write, and it is
+ * opt-in with its own token (below). Two controls to start:
  *
  * **The instance and key.** Verified before they are stored. One key reaches
  * one instance, so there is nothing to pick.
@@ -42,7 +44,9 @@ export const N8nPanel = () => {
   const disconnect = useDisconnectN8n();
   const setFolderDb = useSetN8nFolderDb();
   const setOptions = useSetN8nOptions();
+  const setMcpToken = useSetN8nMcpToken();
   const [folderDbUrl, setFolderDbUrl] = useState('');
+  const [mcpToken, setMcpTokenDraft] = useState('');
 
   const [formOpen, setFormOpen] = useState(false);
   const [baseUrl, setBaseUrl] = useState('');
@@ -108,6 +112,17 @@ export const N8nPanel = () => {
     }
   };
 
+  const submitMcpToken = async (token: string) => {
+    clear();
+    try {
+      const result = await setMcpToken.mutateAsync(token);
+      setMcpTokenDraft('');
+      setNote(result.message);
+    } catch (e) {
+      setError(errorMessage(e, "Could not reach n8n's MCP server with that token."));
+    }
+  };
+
   const toggleOnDemand = async (next: boolean) => {
     if (!next && !window.confirm(
       'Stop tracking on-demand workflows?\n\nWorkflows with no schedule are removed from the dashboard ' +
@@ -152,9 +167,9 @@ export const N8nPanel = () => {
       <div className="min-w-0">
         <h5 className="text-xs font-black uppercase tracking-widest text-subtle-foreground">n8n connection</h5>
         <p className="text-[11px] text-muted-foreground mt-1 max-w-prose">
-          <span className="font-bold text-foreground">Read-only.</span> Cronsole reads the workflows that have a
-          Schedule Trigger, their schedules and how their runs went, and changes nothing — running, publishing and
-          editing stay in n8n.
+          <span className="font-bold text-foreground">Reads, and runs on request.</span> Cronsole reads your
+          workflows, their schedules and how their runs went. With an MCP access token (below) Run now starts a
+          workflow through its own Schedule Trigger. Publishing and editing stay in n8n.
         </p>
       </div>
 
@@ -339,6 +354,47 @@ export const N8nPanel = () => {
               className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-surface border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 disabled:opacity-40 transition-all active:scale-95"
             >
               {setFolderDb.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+              Verify and save
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/*
+        Optional. n8n's REST API cannot start a workflow; its instance MCP server
+        can, through the workflow's own Schedule Trigger. The token is a
+        credential and never comes back — `hasMcpToken` only.
+      */}
+      {connected && (
+        <div className="bg-muted/40 border border-border rounded-xl px-3 py-2 space-y-2" data-testid="n8n-mcp">
+          <Field
+            label="Run now (optional)"
+            hint={
+              data?.hasMcpToken
+                ? 'An MCP access token is stored, so Run now starts a workflow in n8n. Paste a new token to replace it.'
+                : 'In n8n turn on Settings › MCP access, mark the workflows "Available in MCP" (the folder menu on the Workflows tab does a whole folder), and paste the access token here. Needs n8n 1.121 or newer.'
+            }
+            value={mcpToken}
+            onChange={setMcpTokenDraft}
+            placeholder="n8n MCP access token"
+            secret
+          />
+          <div className="flex justify-end gap-2">
+            {data?.hasMcpToken && (
+              <button
+                onClick={() => submitMcpToken('')}
+                disabled={setMcpToken.isPending}
+                className="px-3 py-1.5 rounded-xl text-[11px] font-bold text-muted-foreground hover:text-danger-text transition-colors disabled:opacity-40"
+              >
+                Remove token
+              </button>
+            )}
+            <button
+              onClick={() => submitMcpToken(mcpToken.trim())}
+              disabled={!mcpToken.trim() || setMcpToken.isPending}
+              className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-surface border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 disabled:opacity-40 transition-all active:scale-95"
+            >
+              {setMcpToken.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
               Verify and save
             </button>
           </div>

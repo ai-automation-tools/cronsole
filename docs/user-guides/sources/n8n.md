@@ -3,11 +3,11 @@
 <h1 align="center">🔀 n8n</h1>
 
 <p align="center">
-  <em>The workflows on your n8n instance that run on a schedule — read, never written, with real run outcomes.</em>
+  <em>The workflows on your n8n instance — read with real run outcomes, and started on request through n8n's MCP server.</em>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/shape-observer-2ea44f?style=for-the-badge" alt="Observer">
+  <img src="https://img.shields.io/badge/shape-controller_(run_only)-2ea44f?style=for-the-badge" alt="Controller, run only">
   <img src="https://img.shields.io/badge/run_history-yes-2ea44f?style=for-the-badge" alt="Run history">
   <a href="README.md"><img src="https://img.shields.io/badge/↩-source_guides-6B7280?style=for-the-badge" alt="Source guides"></a>
 </p>
@@ -18,8 +18,10 @@ Cronsole reads every workflow on your n8n instance that has a **Schedule Trigger
 schedule to UTC, and reads its executions — so you get a real health score and each run's steps on
 the same dashboard as everything else.
 
-**Read-only is the design**, like [GitHub Actions](GitHub_Actions.md) and
-[Vercel Cron](Vercel_Cron.md). Unlike Vercel, n8n publishes how every run went.
+**Reading is the default and running is opt-in.** Like [GitHub Actions](GitHub_Actions.md) and
+[Vercel Cron](Vercel_Cron.md) Cronsole changes nothing in n8n by default; unlike Vercel, n8n
+publishes how every run went. With an MCP access token on the connection, **Run now** starts a
+workflow through its own Schedule Trigger — see [Run now](#run-now) below.
 
 ## 🔌 Connecting
 
@@ -30,6 +32,8 @@ the same dashboard as everything else.
 3. **Set the instance time zone** — see below. The panel offers your browser's zone as a one-click
    fill, but a cloud instance often runs in a zone that is not yours.
 4. **Sync.**
+5. *(Optional)* **Paste an MCP access token** under *Run now* on the card, so Run now works — see
+   [Run now](#run-now).
 
 Self-hosted and n8n Cloud both work. One key reaches one instance, so there is nothing to pick:
 every scheduled workflow lands under a single **n8n** category.
@@ -53,11 +57,43 @@ it hours off with nothing on screen to say so. Changing the zone takes effect on
 own, scheduled for Friday 9:00, whose executions start at `14:00Z` in October is running at UTC−5 —
 `America/Chicago`. ([Troubleshooting #97](../../troubleshooting/README.md#97-one-n8n-workflow-shows-no-schedule-while-the-others-convert-fine))
 
-## 🚫 The three refusals
+<a id="run-now"></a>
 
-- **Run now** — n8n's public API has no endpoint that starts a workflow. Calling one of its webhooks
-  would start a *different* run than the scheduled one, and n8n would record it as a webhook run.
-  Use *Execute workflow* in n8n.
+## ▶️ Run now
+
+n8n's public REST API has no endpoint that starts a workflow, and calling one of its webhooks would
+start a *different* run than the scheduled one (another trigger node, other input, recorded by n8n as
+a webhook run). So Run now goes through the one door that does start the scheduled one: **n8n's
+instance-level MCP server** (n8n 1.121 or newer). Its `execute_workflow` tool runs the **published**
+version of the workflow through its **Schedule Trigger**, and n8n records it on the workflow's own
+execution list, where Cronsole's *Runs on the platform* reads it back.
+
+To turn it on:
+
+1. In n8n, **Settings › MCP access → Enable MCP Access**, and copy the access token it shows (once).
+2. Mark the workflows **Available in MCP**. The quick way is the project's **Workflows** tab
+   (*Personal › Workflows*): a folder's menu enables MCP for **every workflow inside it** at once,
+   and a single workflow's menu does the same for one. The *Enable workflows* picker on the
+   Instance-level MCP page is a searchable multi-select, and each workflow's own settings has the
+   switch too. n8n refuses to run a workflow that is not marked — Cronsole shows that refusal as is.
+3. Sources tab → the n8n card → **Run now (optional)** → paste the token → **Verify and save**.
+   Cronsole checks the handshake and that `execute_workflow` is actually served before storing it.
+
+Without a token, Run now refuses and names these three steps. The token is a credential: stored
+encrypted beside the API key, never shown again, removable with **Remove token**.
+
+Three things to know:
+
+- **It is the scheduled run.** Same published graph, same trigger node — not a webhook lookalike.
+  n8n lists it as a *trigger* run, so it scores like one.
+- **A workflow with a webhook or form beside its schedule still runs the schedule.** Cronsole names
+  the Schedule Trigger node when n8n would otherwise have to choose (n8n 2.36 or newer accepts the
+  name; older instances run the one eligible trigger on their own).
+- **An on-demand workflow cannot be started this way.** Its trigger needs input — a form, a webhook
+  payload, a chat message — and n8n says so. Start it where its input comes from.
+
+## 🚫 The two refusals
+
 - **Enable / disable** — publishing and unpublishing switch a **whole workflow**: its webhooks,
   forms and chat triggers go dark with its schedule. A per-task toggle that silently took down a form
   somebody shares would be a control n8n does not have.
@@ -66,6 +102,9 @@ own, scheduled for Friday 9:00, whose executions start at `14:00Z` in October is
 
 Editing a schedule is absent too: n8n's update replaces the whole workflow and collides with its
 draft/publish model, so it is not a safe edit to make from outside.
+
+> Until 2026-10-05 Run now was the third refusal, on the grounds above about the REST API. The REST
+> half is still true; the MCP server is what changed.
 
 ## 📋 What becomes a task
 

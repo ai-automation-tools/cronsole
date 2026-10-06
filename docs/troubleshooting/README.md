@@ -6389,6 +6389,31 @@ timeout. The n8n connector now reads execution history six workflows at a time t
 
 ---
 
+## 99. Run now on an n8n workflow says the API has no execute endpoint
+
+**Symptom.** *Run now* on any n8n task answered *"Cronsole cannot run an n8n workflow. The n8n API
+has no execute endpoint…"* (a `400`, the verb struck through on the Sources tab), while the same
+workflow runs fine from n8n's own **Execute workflow** button and from other MCP clients.
+
+**Cause.** The refusal was written against the **public REST API**, where it is true, and recorded
+as a boundary of the **platform**, where it is not: n8n 1.121+ serves an instance-level **MCP
+server** (`{base}/mcp-server/http`, *Settings › MCP access*) whose `execute_workflow` tool runs the
+published workflow through its own Schedule Trigger in production mode — the scheduled run, not a
+webhook lookalike. Troubleshooting #50's shape in a second connector: a documentation finding
+recorded as a fact about the platform, and nobody re-checks a boundary.
+
+**Fix** *(shipped 2026-10-05)*. In n8n turn on **Settings › MCP access**, mark the workflows
+**Available in MCP** — a folder's menu on the project's *Workflows* tab does a whole folder at once;
+the Instance-level MCP page's *Enable workflows* picker is a multi-select — and paste the access token under **Run now
+(optional)** on the n8n card in Sources. Cronsole verifies the handshake and that `execute_workflow`
+is listed before storing the token. Three refusals you can still meet, each in n8n's words: the
+workflow is not marked *Available in MCP*; it has no published version; or its only trigger needs
+input (a form, a webhook, a chat) — start those where their input comes from. A `404` at save means
+the instance predates MCP access or the switch is off; a `401` means the token was not copied in
+full (it is shown once).
+
+---
+
 <p align="center">
   <a href="../README.md">Docs Home</a> ·
   <a href="../setup/README.md">Setup</a> ·

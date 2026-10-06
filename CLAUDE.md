@@ -408,7 +408,7 @@ Non-negotiable rules. **Every one has a reason recorded in
   shape: grep what you produce, and if every hit writes it, the feature is half-built.
 - **`buildNativeJob` / `validateJob` have one definition**, shared by create, edit and the connector —
   a second definition is how an edit produces a spec creation would have refused.
-- **n8n is an observer that reports outcomes, and the one source whose zone the user must declare.**
+- **n8n reports outcomes, runs through one door, and is the one source whose zone the user must declare.**
   A task is a workflow with an enabled Schedule Trigger **or, by default, any other enabled trigger**
   (`includeOnDemand`, on unless explicitly `false`) — an on-demand task has `schedule: null` and
   `metadata.onDemand` + `triggers` + `scheduleReason`, never `scheduleUnavailableReason` (no
@@ -423,9 +423,21 @@ Non-negotiable rules. **Every one has a reason recorded in
   for a trigger type nothing here names. The rules are wall-clock in the instance's
   `GENERIC_TIMEZONE`, **which the public API does not report**, so the connection declares it and
   with no zone the schedule is `null` with that reason — never read as UTC (#60). It reads the
-  **published** graph (`activeVersion`), never the draft. `run` (no execute endpoint; a webhook is a
-  lookalike), `setStatus` (activate switches the whole workflow, webhooks too) and `create` are in
-  `unsupportedVerbs`. Only schedule nodes keep their parameters at the parse (`toNode`), so a
+  **published** graph (`activeVersion`), never the draft. `setStatus` (activate switches the whole workflow, webhooks too) and `create` are in
+  `unsupportedVerbs`. **`run` is declared, not refused, since 2026-10-05**: the REST API still has
+  no execute endpoint and a webhook is still a lookalike, but n8n's instance-level MCP server
+  (`services/n8nMcp.ts`, 1.121+, `execute_workflow` in `production` mode) runs the **published**
+  version through its **Schedule Trigger** — the scheduled invocation by Gemini's test. It needs a
+  token the user generates (Settings › MCP access, *Available in MCP* per workflow), stored
+  write-only as `mcpToken` beside the API key and verified at save by a real handshake plus a tool
+  listing that must serve `execute_workflow`. The cell stays `declared` and `runTask` names the
+  setup without it; `unsupportedVerbs` cannot say this because it has no config, and a getter
+  reading the filesystem (Claude's) has no analogue for a per-connection fact. So n8n is a
+  **controller** by Claude's declared-mode argument: a connector that can only fire still changes
+  the platform. The trigger is **named only when n8n could not choose alone** (a webhook beside the
+  schedule, two schedules), so an instance older than `triggerNodeName` still runs the common case;
+  manual and error triggers are not choices in production mode. A transport timeout re-reads the
+  execution list, Gemini's rule. Only schedule nodes keep their parameters at the parse (`toNode`), so a
   hardcoded HTTP token never enters a row; run output is node **names**, never node data.
   **Folders are metadata, never identity**: the API cannot report membership (`parentFolderId` is
   write-only), so an optional read-only Postgres role — five granted columns, less reach than the
@@ -435,7 +447,8 @@ Non-negotiable rules. **Every one has a reason recorded in
   carries a **trigger group** (`groupBy`, default `trigger`: Scheduled / Forms / Webhooks / Manual…).
 - Prefer the connector that unlocks several sources (one POSIX agent → launchd + cron + systemd) over
   one that unlocks a single cloud scheduler. An **observer** (read-only) connector is a finished
-  state, not a stalled one.
+  state, not a stalled one — and a boundary stays a *finding about the platform*, re-checked when
+  the platform ships a new door (n8n's `run`, above, was a correct refusal for one day).
 
 ### Agent ↔ server protocol
 - The agent **always initiates** the WebSocket; the server never connects in. No `0.0.0.0` binds — it

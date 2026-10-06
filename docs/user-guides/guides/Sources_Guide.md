@@ -9,7 +9,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/shapes-controller_·_observer_·_quick_link-8B5CF6?style=for-the-badge" alt="Shapes: controller, observer, quick link">
-  <img src="https://img.shields.io/badge/read--only_sources-GitHub_·_Vercel_·_n8n-2ea44f?style=for-the-badge" alt="Read-only sources: GitHub Actions, Vercel Cron and n8n">
+  <img src="https://img.shields.io/badge/read--only_sources-GitHub_·_Vercel-2ea44f?style=for-the-badge" alt="Read-only sources: GitHub Actions and Vercel Cron">
   <a href="../../contributing/Adding_A_Source.md"><img src="https://img.shields.io/badge/extend-add_a_source-0078D4?style=for-the-badge" alt="Add a source"></a>
 </p>
 
@@ -547,22 +547,25 @@ tab: paste your instance address and an API key (n8n → *Settings › n8n API*)
 **instance time zone**. Self-hosted and n8n Cloud both work; one key reaches one instance, so there
 is nothing to pick.
 
-**Read-only, like GitHub Actions and Vercel Cron — but with real run outcomes.** n8n publishes an
-execution per run with a status, so these tasks get a real health score and a full *Runs on the
-platform* list, where Vercel's sit at `unknown` forever.
+**Reads like GitHub Actions and Vercel Cron, with real run outcomes — and runs on request.** n8n
+publishes an execution per run with a status, so these tasks get a real health score and a full
+*Runs on the platform* list, where Vercel's sit at `unknown` forever. **Run now** works once an
+**MCP access token** is stored on the connection (n8n → *Settings › MCP access*, and *Available in
+MCP* on each workflow): n8n's REST API cannot start a workflow, but its MCP server starts the
+published version through its own Schedule Trigger — the scheduled run, not a webhook lookalike.
+Without the token Run now refuses and names the setup. See [n8n › Run now](../sources/n8n.md#run-now).
 
-The three refusals:
+The two refusals:
 
-- **Run now** — n8n's API has no endpoint that starts a workflow. Calling one of its webhooks would
-  start a *different* run than the scheduled one, and n8n would record it as a webhook run.
 - **Enable / disable** — publishing and unpublishing switch a **whole workflow**: its webhooks, forms
   and chat triggers go dark with its schedule. A per-task toggle would hide that.
 - **Create** — a workflow is a graph of nodes and credentials. Build it in n8n, publish it, sync.
 
 ### What Cronsole can do here
 
-**Sync**, **health**, **Run History** (the platform's own executions, with each run's steps and a
-link to its page in n8n), and **Remove from Cronsole** on a single workflow.
+**Sync**, **health**, **Run now** (with an MCP access token), **Run History** (the platform's own
+executions, with each run's steps and a link to its page in n8n), and **Remove from Cronsole** on a
+single workflow.
 
 ### Things that surprise people
 

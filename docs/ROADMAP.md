@@ -506,6 +506,17 @@ the class is finished.*
 New correctness work lands here as it is found. Everything logged before 2026-08-16 is closed —
 see [Part II](#completed--p1-correctness--honesty).
 
+- [ ] **Move the Dockerfiles off Node 20, which reached end of life 2026-03-24** *(logged 2026-10-08
+      by the upstream check)*. `backend/Dockerfile` and `frontend/Dockerfile` both start
+      `FROM node:20-alpine`, so the shipped backend runs on a runtime that no longer gets security
+      fixes. Node 22 and 24 are both LTS (source: nodejs.org/en/about/previous-releases); CI already
+      runs 22. **What**: pin both images to the same major CI uses (22, or 24 if the suite passes
+      there), with a pinned alpine tag per §3 ("never `:latest`"), and add an `engines` field to the
+      three `package.json` files. **Where**: the two Dockerfiles, `backend/`, `frontend/` and
+      `mcp-server/` `package.json`, and the Node row in `docs/UPSTREAMS.md`. **Hold paths**: the
+      Dockerfiles need Mike's review. **Done when**: `docker compose build` succeeds, the backend and
+      frontend suites pass on the new major, and `/doctor` reports a healthy stack.
+
 <a id="connector-contract-test"></a>
 
 - [ ] **A connector contract test — diff a real API response against what the parser consumes**

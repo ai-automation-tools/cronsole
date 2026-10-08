@@ -14,6 +14,10 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **Four extended templates** (2026-10-08). `bkp-git-bundle` (Backup & Cleanup),
+  `mon-dns-resolution-check` (Monitoring), and the Claude routines
+  `claude-routine-flaky-test-report` and `claude-routine-todo-backlog`. Catalog is now 115.
+
 - **Phone shortcuts** (2026-10-05). A **Phone shortcut** button on any runnable task issues a
   token that can only run that task, and shows the URL, the header and setup steps for an iPhone
   Shortcut or an Android HTTP Shortcuts icon — one tap on the home screen runs the task. The token

@@ -1548,6 +1548,42 @@ const extendedPack: RegistryTemplate[] = [
       { key: 'backupPath', label: 'Backup file path', type: 'path', default: '', required: true, help: 'Absolute path of the backup file to write. It is overwritten on every run, so point it at a dated name or rotate it separately if you want history. Avoid spaces in both paths.' }
     ],
     compatibleTargets: ['windows', 'macos']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'bkp-git-bundle',
+    name: 'Back Up a Git Repository as a Bundle',
+    description: 'Write a complete, single-file copy of a git repository with all its branches and tags using git bundle on a schedule, so a lost laptop or a force-pushed remote does not take the only copy of your history with it.',
+    runtime: 'executable',
+    os: 'cross-platform',
+    category: 'backup',
+    tags: ['backup', 'git', 'repository'],
+    icon: 'Archive',
+    trigger: sched('0 3 * * 0'),
+    commandTemplate: 'git -C "{{repoPath}}" bundle create "{{bundlePath}}" --all',
+    parameters: [
+      P.repoPath,
+      { key: 'bundlePath', label: 'Bundle file path', type: 'path', default: '', required: true, help: 'Absolute path of the .bundle file to write, ideally on a different drive or a synced folder. It is overwritten on every run, so rotate it separately if you want history.' }
+    ],
+    compatibleTargets: ['windows', 'macos']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'mon-dns-resolution-check',
+    name: 'Check DNS Resolution & Log',
+    description: 'Resolve a hostname through the machine DNS resolver and append the answer to a log on a schedule. The task fails when the name does not resolve, so a broken resolver or an expired domain shows up as a failed run instead of a mystery later.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'monitoring',
+    tags: ['monitoring', 'windows', 'network', 'dns'],
+    icon: 'Globe',
+    trigger: sched('*/30 * * * *'),
+    commandTemplate: 'powershell.exe -NoProfile -Command "Resolve-DnsName \'{{hostname}}\' -ErrorAction Stop | Out-File -Append \'{{logPath}}\'"',
+    parameters: [
+      { key: 'hostname', label: 'Hostname', type: 'text', default: '', required: true, help: 'The domain name to resolve, for example example.com. Use one you depend on, such as your own site or API host.' },
+      { key: 'logPath', label: 'Log file path', type: 'path', default: 'C:\\logs\\dns-check.log', required: true, help: 'Where to append each successful answer.' }
+    ],
+    compatibleTargets: ['windows']
   }
 ];
 
@@ -2633,6 +2669,45 @@ const claudeRoutinesPack: RegistryTemplate[] = [
     parameters: [
       { key: 'repo', label: 'Repository', type: 'text', default: '', required: true, help: 'The owner/name of the repository to sweep. Attach the same repository to the routine so it has a checkout.' },
       { key: 'staleDays', label: 'Stale after (days)', type: 'number', default: '90', required: true, help: 'Branches with no commits in this many days are reported as stale.' }
+    ],
+    compatibleTargets: ['claude-code']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'claude-routine-flaky-test-report',
+    name: 'Routine: Flaky Test Report',
+    description:
+      'A weekly routine that reads recent CI runs, finds tests that failed and then passed on a retry or a later commit with no relevant change, and ranks them by how often they flip, so intermittent failures get fixed instead of re-run.',
+    runtime: 'ai-prompt',
+    os: 'cross-platform',
+    category: 'dev-workflow',
+    tags: ['ai', 'claude-code', 'routine', 'ci', 'testing'],
+    icon: 'FlaskConical',
+    trigger: sched('0 14 * * 4'),
+    commandTemplate:
+      'Look at the CI runs on {{repo}} from the last {{windowDays}} days. Identify tests that failed on one run and passed on a retry or a later run without a change that explains it. Rank them by how many times they flipped, and for each give the test name, the flip count, the most recent failing run, and one sentence on the likely cause. Report only — do not edit a test, re-run a job, or push anything.',
+    parameters: [
+      { key: 'windowDays', label: 'Window (days)', type: 'number', default: '14', required: true, help: 'How far back to read CI runs. A longer window finds rarer flakes but costs more to read.' },
+      { key: 'repo', label: 'Repository', type: 'text', default: '', required: true, help: 'The owner/name of the repository to review. Attach the same repository to the routine so it has a checkout.' }
+    ],
+    compatibleTargets: ['claude-code']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'claude-routine-todo-backlog',
+    name: 'Routine: TODO Backlog Digest',
+    description:
+      'A weekly routine that finds TODO, FIXME and HACK comments added or still open in a repository, groups them by area, and ranks the ones that look risky, so deferred work is a list someone reads instead of comments nobody revisits.',
+    runtime: 'ai-prompt',
+    os: 'cross-platform',
+    category: 'dev-workflow',
+    tags: ['ai', 'claude-code', 'routine', 'hygiene', 'backlog'],
+    icon: 'ListTodo',
+    trigger: sched('0 15 * * 1'),
+    commandTemplate:
+      'Search {{repo}} for TODO, FIXME, HACK and XXX comments. Group them by directory, note which ones were added since your last run, and rank the ten that look most likely to cause a bug or block a release, with the file, the line and one sentence of reasoning each. Report only — do not edit any file or open an issue.',
+    parameters: [
+      { key: 'repo', label: 'Repository', type: 'text', default: '', required: true, help: 'The owner/name of the repository to search. Attach the same repository to the routine so it has a checkout.' }
     ],
     compatibleTargets: ['claude-code']
   }

@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "id": "bkp-git-bundle",
+  "name": "Back Up a Git Repository as a Bundle",
+  "description": "Write a complete, single-file copy of a git repository with all its branches and tags using git bundle on a schedule, so a lost laptop or a force-pushed remote does not take the only copy of your history with it.",
+  "runtime": "executable",
+  "os": "cross-platform",
+  "category": "backup",
+  "tags": [
+    "backup",
+    "git",
+    "repository"
+  ],
+  "icon": "Archive",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 3 * * 0"
+  },
+  "commandTemplate": "git -C \"{{repoPath}}\" bundle create \"{{bundlePath}}\" --all",
+  "parameters": [
+    {
+      "key": "repoPath",
+      "label": "Repository path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Absolute path to the local git repository."
+    },
+    {
+      "key": "bundlePath",
+      "label": "Bundle file path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Absolute path of the .bundle file to write, ideally on a different drive or a synced folder. It is overwritten on every run, so rotate it separately if you want history."
+    }
+  ],
+  "compatibleTargets": [
+    "windows",
+    "macos"
+  ]
+}

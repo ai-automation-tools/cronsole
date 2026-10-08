@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "1.0",
+  "id": "claude-routine-todo-backlog",
+  "name": "Routine: TODO Backlog Digest",
+  "description": "A weekly routine that finds TODO, FIXME and HACK comments added or still open in a repository, groups them by area, and ranks the ones that look risky, so deferred work is a list someone reads instead of comments nobody revisits.",
+  "runtime": "ai-prompt",
+  "os": "cross-platform",
+  "category": "dev-workflow",
+  "tags": [
+    "ai",
+    "claude-code",
+    "routine",
+    "hygiene",
+    "backlog"
+  ],
+  "icon": "ListTodo",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 15 * * 1"
+  },
+  "commandTemplate": "Search {{repo}} for TODO, FIXME, HACK and XXX comments. Group them by directory, note which ones were added since your last run, and rank the ten that look most likely to cause a bug or block a release, with the file, the line and one sentence of reasoning each. Report only — do not edit any file or open an issue.",
+  "parameters": [
+    {
+      "key": "repo",
+      "label": "Repository",
+      "type": "text",
+      "default": "",
+      "required": true,
+      "help": "The owner/name of the repository to search. Attach the same repository to the routine so it has a checkout."
+    }
+  ],
+  "compatibleTargets": [
+    "claude-code"
+  ]
+}

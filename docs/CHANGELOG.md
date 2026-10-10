@@ -14,6 +14,10 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **Sync reports how many tasks are missing now, not only how many it just flagged** (2026-10-09).
+  `POST /api/tasks/sync` results gain `missingTotal` (rows currently `MISSING` on that platform)
+  beside `missing` (newly flagged by this pass), and `sync_tasks` prints the total, so `0` beside
+  two retired rows no longer reads as "nothing is missing".
 - **Phone shortcuts** (2026-10-05). A **Phone shortcut** button on any runnable task issues a
   token that can only run that task, and shows the URL, the header and setup steps for an iPhone
   Shortcut or an Android HTTP Shortcuts icon — one tap on the home screen runs the task. The token

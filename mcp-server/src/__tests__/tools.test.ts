@@ -2383,6 +2383,26 @@ describe('sync_tasks', () => {
     expect(calls[0].body).toEqual({ categories: ['Claude'] });
     expect(text(r)).toMatch(/Imported categories: Claude/);
   });
+
+  it('reports rows already MISSING, not only the ones this pass flipped', async () => {
+    // `missing` is a delta; reading "0" beside two retired rows is the wrong answer.
+    const { client } = stubClient({
+      'POST /tasks/sync': { results: [{ platform: 'CLAUDE_CODE', count: 5, missing: 0, missingTotal: 2 }] }
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'sync_tasks', {});
+    expect(text(r)).toMatch(/5 tracked, 2 missing/);
+    expect(text(r)).not.toMatch(/newly/);
+  });
+
+  it('names the delta when it differs from the state', async () => {
+    const { client } = stubClient({
+      'POST /tasks/sync': { results: [{ platform: 'CLAUDE_CODE', count: 5, missing: 1, missingTotal: 3 }] }
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'sync_tasks', {});
+    expect(text(r)).toMatch(/3 missing \(1 newly\)/);
+  });
 });
 
 describe('get_diagnostics', () => {

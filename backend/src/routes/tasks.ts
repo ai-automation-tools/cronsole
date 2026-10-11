@@ -1347,11 +1347,20 @@ router.post('/sync', validateBody(syncSchema), async (req: Request, res: Respons
           data: { lastSync: conn.platform === 'TASKHUB_NATIVE' ? null : new Date() }
         });
 
+        // `missing` is this pass's delta; `missingTotal` is the state. Both are
+        // sent because `missing: 0` beside `count: 5` reads as "nothing is
+        // missing" while two rows sit MISSING from an earlier sync. Read after
+        // reconciliation so it includes what this pass just flipped.
+        const missingTotal = await prisma.task.count({
+          where: { userId, platform: conn.platform, status: TaskStatus.MISSING }
+        });
+
         await recordCapability(userId, conn.platform, 'sync', true);
         results.push({
           platform: conn.platform,
           count: tasks.length,
           missing,
+          missingTotal,
           untracked,
           exclusionsCleared,
           // What this sync covered, in the connector's own words. Present only

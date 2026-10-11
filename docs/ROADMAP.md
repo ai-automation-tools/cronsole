@@ -462,9 +462,11 @@ of that list which have since shipped are in Part II.
       trigger) only lands on the next sync. Storage converges, so this is the response shape only —
       but it is the [#42](troubleshooting/README.md#42-the-dashboard-says-synced-7m-ago-over-a-task-list-from-yesterday)
       shape: a timestamp whose label does not name the event that produced it.
-- [ ] **The sync response's `missing` is a delta, not a state** — it counts rows *newly* marked
-      `MISSING` by that pass, so it reads `0` beside `count: 5` while two rows sit `MISSING`.
-      Defensible, but it is presented next to a state field and invites the wrong reading.
+- [x] **The sync response's `missing` is a delta, not a state** — **shipped 2026-10-09**. It counts
+      rows *newly* marked `MISSING` by that pass, so it read `0` beside `count: 5` while two rows sat
+      `MISSING`. `missing` is unchanged (a delta, kept for compatibility); each result row now also
+      carries `missingTotal` (a count of `MISSING` rows on the platform, read after reconciliation),
+      and `sync_tasks` prints the total, naming the delta only when it differs.
 - [x] **Convert a multi-value hour between zones** *(carved out 2026-08-15, shipped 2026-10-05)*.
       Several hours at one minute are enumerated and shifted, in both `shiftCronToUtc` (backend)
       and `shiftCron` (browser) via one mirrored `expandHours`: `0 */6 * * *` from New York is

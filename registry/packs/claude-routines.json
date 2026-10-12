@@ -319,6 +319,84 @@
     },
     {
       "schemaVersion": "1.0",
+      "id": "claude-routine-flaky-test-report",
+      "name": "Routine: Flaky Test Report",
+      "description": "A weekly routine that reads recent CI runs, finds tests that failed and then passed on a retry or a later commit with no relevant change, and ranks them by how often they flip, so intermittent failures get fixed instead of re-run.",
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "category": "dev-workflow",
+      "tags": [
+        "ai",
+        "claude-code",
+        "routine",
+        "ci",
+        "testing"
+      ],
+      "icon": "FlaskConical",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 14 * * 4"
+      },
+      "commandTemplate": "Look at the CI runs on {{repo}} from the last {{windowDays}} days. Identify tests that failed on one run and passed on a retry or a later run without a change that explains it. Rank them by how many times they flipped, and for each give the test name, the flip count, the most recent failing run, and one sentence on the likely cause. Report only — do not edit a test, re-run a job, or push anything.",
+      "parameters": [
+        {
+          "key": "windowDays",
+          "label": "Window (days)",
+          "type": "number",
+          "default": "14",
+          "required": true,
+          "help": "How far back to read CI runs. A longer window finds rarer flakes but costs more to read."
+        },
+        {
+          "key": "repo",
+          "label": "Repository",
+          "type": "text",
+          "default": "",
+          "required": true,
+          "help": "The owner/name of the repository to review. Attach the same repository to the routine so it has a checkout."
+        }
+      ],
+      "compatibleTargets": [
+        "claude-code"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "claude-routine-todo-backlog",
+      "name": "Routine: TODO Backlog Digest",
+      "description": "A weekly routine that finds TODO, FIXME and HACK comments added or still open in a repository, groups them by area, and ranks the ones that look risky, so deferred work is a list someone reads instead of comments nobody revisits.",
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "category": "dev-workflow",
+      "tags": [
+        "ai",
+        "claude-code",
+        "routine",
+        "hygiene",
+        "backlog"
+      ],
+      "icon": "ListTodo",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 15 * * 1"
+      },
+      "commandTemplate": "Search {{repo}} for TODO, FIXME, HACK and XXX comments. Group them by directory, note which ones were added since your last run, and rank the ten that look most likely to cause a bug or block a release, with the file, the line and one sentence of reasoning each. Report only — do not edit any file or open an issue.",
+      "parameters": [
+        {
+          "key": "repo",
+          "label": "Repository",
+          "type": "text",
+          "default": "",
+          "required": true,
+          "help": "The owner/name of the repository to search. Attach the same repository to the routine so it has a checkout."
+        }
+      ],
+      "compatibleTargets": [
+        "claude-code"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
       "id": "tpl_starter_claude_routine",
       "name": "Claude Code Routine",
       "description": "Run a natural-language Claude Code routine on a schedule.",

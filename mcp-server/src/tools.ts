@@ -268,7 +268,10 @@ interface ClaudeSessionInfo {
 interface SyncResultRow {
   platform: string;
   count: number;
+  /** Rows newly marked MISSING by this pass — a delta. */
   missing: number;
+  /** Rows currently MISSING on this platform — the state. Absent from an older backend. */
+  missingTotal?: number;
   untracked?: { count: number; folders: string[]; systemCount: number; excludedCount: number };
   /**
    * What this platform's sync **covered**, not only what it kept — e.g. "read 9
@@ -2884,7 +2887,12 @@ Next run: ${task.nextRunTime}` : '')
                 const untracked = r.untracked?.count
                   ? ` — ${r.untracked.count} still untracked`
                   : '';
-                const missing = r.missing ? `, ${r.missing} missing` : '';
+                // Delta and state are different claims: "0 newly missing" beside
+                // two rows already MISSING must not read as "nothing missing".
+                const total = r.missingTotal ?? r.missing;
+                const missing = total
+                  ? `, ${total} missing${r.missing && r.missing !== total ? ` (${r.missing} newly)` : ''}`
+                  : '';
                 // Coverage and warnings on their own lines: `count: 0` cannot say
                 // whether a platform has nothing scheduled or could not be read,
                 // and reporting the first as a failure is how an agent sends

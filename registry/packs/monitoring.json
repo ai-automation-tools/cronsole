@@ -312,6 +312,48 @@
     },
     {
       "schemaVersion": "1.0",
+      "id": "mon-dns-resolution-check",
+      "name": "Check DNS Resolution & Log",
+      "description": "Resolve a hostname through the machine DNS resolver and append the answer to a log on a schedule. The task fails when the name does not resolve, so a broken resolver or an expired domain shows up as a failed run instead of a mystery later.",
+      "runtime": "powershell",
+      "os": "windows",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "network",
+        "dns"
+      ],
+      "icon": "Globe",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "*/30 * * * *"
+      },
+      "commandTemplate": "powershell.exe -NoProfile -Command \"Resolve-DnsName '{{hostname}}' -ErrorAction Stop | Out-File -Append '{{logPath}}'\"",
+      "parameters": [
+        {
+          "key": "hostname",
+          "label": "Hostname",
+          "type": "text",
+          "default": "",
+          "required": true,
+          "help": "The domain name to resolve, for example example.com. Use one you depend on, such as your own site or API host."
+        },
+        {
+          "key": "logPath",
+          "label": "Log file path",
+          "type": "path",
+          "default": "C:\\logs\\dns-check.log",
+          "required": true,
+          "help": "Where to append each successful answer."
+        }
+      ],
+      "compatibleTargets": [
+        "windows"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
       "id": "dev-docker-compose-up",
       "name": "Docker Compose Self-Heal",
       "description": "Re-run docker compose up on an interval so a dev stack restarts itself if it stops (the pattern Cronsole uses for its own stack).",

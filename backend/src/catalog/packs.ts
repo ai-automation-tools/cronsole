@@ -124,6 +124,7 @@ export const bundledPacks: BundledPack[] = [
       'bkp-robocopy-mirror',
       'bkp-registry-export',
       'bkp-sqlite-backup',
+      'bkp-git-bundle',
       'bkp-system-restore-point',
       'cln-old-files',
       'cln-recycle-bin',
@@ -146,6 +147,7 @@ export const bundledPacks: BundledPack[] = [
       'mon-top-processes',
       'mon-physical-disk-health',
       'mon-macos-time-machine-status',
+      'mon-dns-resolution-check',
       'dev-docker-compose-up',
       'tpl_starter_webhook_windows',
       'tpl_starter_webhook_macos'
@@ -211,6 +213,8 @@ export const bundledPacks: BundledPack[] = [
       'claude-routine-release-notes',
       'claude-routine-license-compliance',
       'claude-routine-stale-branch-sweep',
+      'claude-routine-flaky-test-report',
+      'claude-routine-todo-backlog',
       'tpl_starter_claude_routine'
     ]
   },

@@ -1,6 +1,6 @@
 {
   "registryVersion": "1.0",
-  "updatedAt": "2026-10-01T14:07:42.581Z",
+  "updatedAt": "2026-10-08T21:01:49.967Z",
   "templates": [
     {
       "id": "tpl_daily_database_backup",
@@ -1522,6 +1522,44 @@
       "sha256": "f9316014cb6587e4f2af5e8d4a92502d188033c303790fb7af0da4238c47a699"
     },
     {
+      "id": "bkp-git-bundle",
+      "name": "Back Up a Git Repository as a Bundle",
+      "description": "Write a complete, single-file copy of a git repository with all its branches and tags using git bundle on a schedule, so a lost laptop or a force-pushed remote does not take the only copy of your history with it.",
+      "category": "backup",
+      "tags": [
+        "backup",
+        "git",
+        "repository"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ],
+      "path": "templates/bkp-git-bundle.json",
+      "sha256": "4d9cea66a3a98169b7e158b8605c6ef1448716fca9f1e5aecffbf21e96780706"
+    },
+    {
+      "id": "mon-dns-resolution-check",
+      "name": "Check DNS Resolution & Log",
+      "description": "Resolve a hostname through the machine DNS resolver and append the answer to a log on a schedule. The task fails when the name does not resolve, so a broken resolver or an expired domain shows up as a failed run instead of a mystery later.",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "network",
+        "dns"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/mon-dns-resolution-check.json",
+      "sha256": "7f7e8ed652aa14b096b4e64be34400c32f25ec42e4302e0a87519dc14b172a10"
+    },
+    {
       "id": "native-run-program",
       "name": "Run a Program (Cronsole)",
       "description": "Run any executable with arguments on the machine hosting Cronsole — no agent, no Task Scheduler entry. Cronsole schedules and runs it itself.",
@@ -2070,6 +2108,46 @@
       "sha256": "48555de5f604f9c4a99c60950a71451c6eba3648e1034a294f70047b24cfcf78"
     },
     {
+      "id": "claude-routine-flaky-test-report",
+      "name": "Routine: Flaky Test Report",
+      "description": "A weekly routine that reads recent CI runs, finds tests that failed and then passed on a retry or a later commit with no relevant change, and ranks them by how often they flip, so intermittent failures get fixed instead of re-run.",
+      "category": "dev-workflow",
+      "tags": [
+        "ai",
+        "claude-code",
+        "routine",
+        "ci",
+        "testing"
+      ],
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "claude-code"
+      ],
+      "path": "templates/claude-routine-flaky-test-report.json",
+      "sha256": "10b52130877673ce2e17c4d991b9da9cc18219952b3a6c2d5067ed7928742bac"
+    },
+    {
+      "id": "claude-routine-todo-backlog",
+      "name": "Routine: TODO Backlog Digest",
+      "description": "A weekly routine that finds TODO, FIXME and HACK comments added or still open in a repository, groups them by area, and ranks the ones that look risky, so deferred work is a list someone reads instead of comments nobody revisits.",
+      "category": "dev-workflow",
+      "tags": [
+        "ai",
+        "claude-code",
+        "routine",
+        "hygiene",
+        "backlog"
+      ],
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "claude-code"
+      ],
+      "path": "templates/claude-routine-todo-backlog.json",
+      "sha256": "5b4e2e8185d53e1d9b916f7accd8d1b6ba99578ee0151958e79a4318e83ee9d7"
+    },
+    {
       "id": "gemini-daily-email-digest",
       "name": "Trigger: Daily Digest by Email",
       "description": "A Gemini trigger that researches a topic every morning and emails the digest through one of your saved MCP servers -- the credential stays on the connection and is never retyped.",
@@ -2233,6 +2311,7 @@
         "bkp-robocopy-mirror",
         "bkp-registry-export",
         "bkp-sqlite-backup",
+        "bkp-git-bundle",
         "bkp-system-restore-point",
         "cln-old-files",
         "cln-recycle-bin",
@@ -2241,7 +2320,7 @@
         "sys-postgres-vacuum"
       ],
       "path": "packs/backup-cleanup.json",
-      "sha256": "c21a156b3fecd7c5599d5e1f4bdffe9f4f8bfcf0cb51589fb78d6de4a201400f"
+      "sha256": "9eae461cc9c68921d8a94911ac66940f918b5b0cbd2639ae591a3a9ebe09cbfb"
     },
     {
       "id": "monitoring",
@@ -2256,12 +2335,13 @@
         "mon-top-processes",
         "mon-physical-disk-health",
         "mon-macos-time-machine-status",
+        "mon-dns-resolution-check",
         "dev-docker-compose-up",
         "tpl_starter_webhook_windows",
         "tpl_starter_webhook_macos"
       ],
       "path": "packs/monitoring.json",
-      "sha256": "ef493d86332e12de1872d9448f4b81c1a1471fa44c477855d7271b4ec2eac76d"
+      "sha256": "a1093c636f672f79438666a3839e802d89a9c10badf55bf71615c4c06030e98b"
     },
     {
       "id": "cronsole-native",
@@ -2305,10 +2385,12 @@
         "claude-routine-release-notes",
         "claude-routine-license-compliance",
         "claude-routine-stale-branch-sweep",
+        "claude-routine-flaky-test-report",
+        "claude-routine-todo-backlog",
         "tpl_starter_claude_routine"
       ],
       "path": "packs/claude-routines.json",
-      "sha256": "e2d25575b7db6e6b9da956eb2d1347d9e8bdbcb6a65be8bddab9627955dd15e7"
+      "sha256": "b721c788309e97b74a9d7683e1f186dea1396501d4d5e5d2018094f62e4ea3da"
     },
     {
       "id": "gemini-triggers",

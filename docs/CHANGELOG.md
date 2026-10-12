@@ -14,6 +14,10 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **Four extended templates** (2026-10-08). `bkp-git-bundle` (Backup & Cleanup),
+  `mon-dns-resolution-check` (Monitoring), and the Claude routines
+  `claude-routine-flaky-test-report` and `claude-routine-todo-backlog`. Catalog is now 115.
+
 - **Sync reports how many tasks are missing now, not only how many it just flagged** (2026-10-09).
   `POST /api/tasks/sync` results gain `missingTotal` (rows currently `MISSING` on that platform)
   beside `missing` (newly flagged by this pass), and `sync_tasks` prints the total, so `0` beside

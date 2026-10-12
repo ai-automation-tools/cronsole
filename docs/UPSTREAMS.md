@@ -42,7 +42,7 @@ read the source. `—` means never checked.
 
 | Upstream | Pinned | Where | Check at | Last checked |
 |:---|:---|:---|:---|:---|
-| **Node.js** | `node:20-alpine` in the Dockerfiles, 22 in CI, no `engines` field | `backend/Dockerfile`, `frontend/Dockerfile`, `.github/workflows/` | nodejs.org/en/about/previous-releases (EOL dates) | 2026-10-08 (20 is EOL since 2026-03-24; queued on ROADMAP) |
+| **Node.js** | `node:20-alpine` in the Dockerfiles, 22 in CI, no `engines` field | `backend/Dockerfile`, `frontend/Dockerfile`, `.github/workflows/` | nodejs.org/en/about/previous-releases (EOL dates) | 2026-10-08 (20 is EOL since 2026-04-30; queued on ROADMAP) |
 | **.NET** | `net10.0` | `agent/**/*.csproj` | dotnet.microsoft.com/platform/support/policy | — |
 | **Prisma** | 6.19.3 exact | `backend/package.json`, `backend/prisma/` | github.com/prisma/prisma/releases | — |
 | **Postgres, Redis, Caddy, cloudflared images** | `postgres:16-alpine`, `redis:7-alpine`, `caddy:2.10-alpine`, `cloudflare/cloudflared:2025.8.1` | `docker-compose.yml` | each project's releases / EOL page | — |

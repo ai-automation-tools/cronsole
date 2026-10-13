@@ -148,6 +148,9 @@ export const bundledPacks: BundledPack[] = [
       'mon-physical-disk-health',
       'mon-macos-time-machine-status',
       'mon-dns-resolution-check',
+      'native-check-healthchecks-badge',
+      'native-script-content-freshness',
+      'native-script-domain-expiry',
       'dev-docker-compose-up',
       'tpl_starter_webhook_windows',
       'tpl_starter_webhook_macos'
@@ -188,7 +191,10 @@ export const bundledPacks: BundledPack[] = [
       'native-script-docker-restart-unhealthy',
       'native-script-http-response-time',
       'native-script-folder-size-check',
-      'native-script-log-rotate'
+      'native-script-log-rotate',
+      'native-check-healthchecks-badge',
+      'native-script-content-freshness',
+      'native-script-domain-expiry'
     ]
   },
   {

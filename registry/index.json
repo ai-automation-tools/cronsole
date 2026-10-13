@@ -1,6 +1,6 @@
 {
   "registryVersion": "1.0",
-  "updatedAt": "2026-10-08T21:01:49.967Z",
+  "updatedAt": "2026-10-13T01:13:34.089Z",
   "templates": [
     {
       "id": "tpl_daily_database_backup",
@@ -1949,6 +1949,66 @@
       "sha256": "4faee76f46b03d1a2dcacdce4163efafccdf6cba4ec270dcb0c3dc74a7062e4c"
     },
     {
+      "id": "native-check-healthchecks-badge",
+      "name": "Healthchecks.io Status Check (Cronsole)",
+      "description": "Read a Healthchecks.io status badge and fail the run unless every check behind it is up — a second, independent reader for a cron fleet that runs somewhere else, so a silent outage shows up in Cronsole instead of waiting on an alert email.",
+      "category": "monitoring",
+      "tags": [
+        "cronsole-native",
+        "check",
+        "monitoring",
+        "healthchecks",
+        "dead-man-switch"
+      ],
+      "runtime": "http",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-check-healthchecks-badge.json",
+      "sha256": "434e018bcd7e285d8321d97ac86312956fad832419b2deb1ae37cbf1e571371a"
+    },
+    {
+      "id": "native-script-content-freshness",
+      "name": "Published Content Freshness Check (Cronsole)",
+      "description": "Fail the run when a published page or file has not changed recently, read from its Last-Modified header. The dead-man switch for a generator that stops producing without erroring — the site stays up, so an uptime check stays green.",
+      "category": "monitoring",
+      "tags": [
+        "cronsole-native",
+        "script",
+        "monitoring",
+        "http",
+        "dead-man-switch"
+      ],
+      "runtime": "node",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-script-content-freshness.json",
+      "sha256": "b10268536fa60bbdacba47c6f2de3b63852f5ff78b1c354679e4ca9d81f3253d"
+    },
+    {
+      "id": "native-script-domain-expiry",
+      "name": "Domain Expiry Check (Cronsole)",
+      "description": "Look a domain up over RDAP and fail the run when its registration expires within your warning window. No API key; complements the SSL expiry check, which cannot see a domain that lapses with a valid certificate.",
+      "category": "monitoring",
+      "tags": [
+        "cronsole-native",
+        "script",
+        "monitoring",
+        "dns",
+        "domain"
+      ],
+      "runtime": "node",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-script-domain-expiry.json",
+      "sha256": "30405b3e1c64bafedb8a83ea83be433d4aa964c2223d79b566717969180e6b68"
+    },
+    {
       "id": "claude-routine-issue-triage",
       "name": "Routine: Issue Triage",
       "description": "A Claude Code routine that reads new issues each morning, labels them by area and severity, and flags anything that looks like a regression.",
@@ -2336,12 +2396,15 @@
         "mon-physical-disk-health",
         "mon-macos-time-machine-status",
         "mon-dns-resolution-check",
+        "native-check-healthchecks-badge",
+        "native-script-content-freshness",
+        "native-script-domain-expiry",
         "dev-docker-compose-up",
         "tpl_starter_webhook_windows",
         "tpl_starter_webhook_macos"
       ],
       "path": "packs/monitoring.json",
-      "sha256": "a1093c636f672f79438666a3839e802d89a9c10badf55bf71615c4c06030e98b"
+      "sha256": "4a2a06fc3ceb9e8276a69905dbc7f4962cf8b2112d29886bd77c07230f146380"
     },
     {
       "id": "cronsole-native",
@@ -2367,10 +2430,13 @@
         "native-script-docker-restart-unhealthy",
         "native-script-http-response-time",
         "native-script-folder-size-check",
-        "native-script-log-rotate"
+        "native-script-log-rotate",
+        "native-check-healthchecks-badge",
+        "native-script-content-freshness",
+        "native-script-domain-expiry"
       ],
       "path": "packs/cronsole-native.json",
-      "sha256": "a2c247a1acb38217c4e2aaffac4fe63db56133ff162ed3281502368f189d9148"
+      "sha256": "2bdbcb2580863db40f81c870c8d6a043cf124aa836a3d65cc8791ef402091da9"
     },
     {
       "id": "claude-routines",

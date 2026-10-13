@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "1.0",
+  "id": "native-script-content-freshness",
+  "name": "Published Content Freshness Check (Cronsole)",
+  "description": "Fail the run when a published page or file has not changed recently, read from its Last-Modified header. The dead-man switch for a generator that stops producing without erroring — the site stays up, so an uptime check stays green.",
+  "runtime": "node",
+  "os": "cross-platform",
+  "category": "monitoring",
+  "tags": [
+    "cronsole-native",
+    "script",
+    "monitoring",
+    "http",
+    "dead-man-switch"
+  ],
+  "icon": "History",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 */6 * * *"
+  },
+  "action": {
+    "kind": "script",
+    "interpreter": "node",
+    "body": "// Runs on the machine hosting the Cronsole backend (Node 18+ for fetch).\n// A non-zero exit records a failed run.\nconst url = \"{{url}}\";\nconst maxHours = Number(\"{{maxHours}}\");\n\n(async () => {\n  const res = await fetch(url, { signal: AbortSignal.timeout(15000) });\n  if (!res.ok) {\n    console.error(url + \" returned \" + res.status);\n    process.exitCode = 1;\n    return;\n  }\n  const header = res.headers.get(\"last-modified\");\n  // No header is a refusal with its reason, never a pass: \"could not tell\"\n  // and \"fresh\" must not be the same result.\n  if (!header) {\n    console.error(url + \" sends no Last-Modified header, so its age cannot be read.\");\n    process.exitCode = 1;\n    return;\n  }\n  const ageHours = (Date.now() - new Date(header).getTime()) / 3600000;\n  console.log(url + \" last modified \" + header + \" (\" + ageHours.toFixed(1) + \"h ago).\");\n  if (ageHours > maxHours) {\n    console.error(\"Older than the \" + maxHours + \"h limit.\");\n    process.exitCode = 1;\n  }\n})().catch((err) => {\n  console.error(\"Request to \" + url + \" failed: \" + err.message);\n  process.exitCode = 1;\n});\n"
+  },
+  "parameters": [
+    {
+      "key": "url",
+      "label": "URL",
+      "type": "url",
+      "default": "",
+      "required": true,
+      "help": "A page or file the job regenerates — a feed, a sitemap, an index. Must send a Last-Modified header (GitHub Pages and most static hosts do)."
+    },
+    {
+      "key": "maxHours",
+      "label": "Fail when older than (hours)",
+      "type": "number",
+      "default": "36",
+      "required": true,
+      "help": "Set a little above the generator's own cadence: 36 for a daily job, 192 for a weekly one."
+    }
+  ],
+  "compatibleTargets": [
+    "cronsole-native"
+  ]
+}

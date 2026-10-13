@@ -917,6 +917,16 @@ export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
                 />
               </Row>
               <Row
+                label="Quick Links in the top bar"
+                description="Off moves your quick links back under the Sources tab. Nothing is deleted either way."
+              >
+                <Toggle
+                  checked={settings.showQuickLinksNav}
+                  onChange={v => update('showQuickLinksNav', v)}
+                  label="Show Quick Links in the top bar"
+                />
+              </Row>
+              <Row
                 label="Schedule timezone"
                 description="The zone you read and write schedules in. Schedules are still stored — and sent to Windows, the API and the MCP tools — as UTC cron; this converts at the edge so you don't do the arithmetic yourself."
               >
@@ -983,7 +993,7 @@ export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
                   }}
                 />
               </Row>
-              <Row label="Reset quick links" description="Restore the default Sources tab quick links.">
+              <Row label="Reset quick links" description="Restore the default quick links.">
                 <button
                   onClick={resetQuickLinks}
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-background border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-all active:scale-95"

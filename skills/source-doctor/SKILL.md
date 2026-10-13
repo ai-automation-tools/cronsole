@@ -1,6 +1,6 @@
 ---
 name: source-doctor
-description: Run a full test-and-fix session across every Cronsole source (Windows, Cronsole-native, Claude Code, Gemini Triggers, GitHub Actions, Vercel Cron) — diagnose what's actually broken vs. what only looks broken, and apply safe fixes. Use when a task "failed", a source looks unhealthy, or before/after touching a connector.
+description: Run a full test-and-fix session across every Cronsole source (Windows, Cronsole-native, Claude Code, Gemini Triggers, n8n, GitHub Actions, Vercel Cron) — diagnose what's actually broken vs. what only looks broken, and apply safe fixes. Use when a task "failed", a source looks unhealthy, or before/after touching a connector.
 ---
 
 # Source Doctor
@@ -22,13 +22,14 @@ not a real failure.
    and per verb: `verified` / `declared` / `unsupported`, plus `lastFailureReason`. This tells
    you *what kind* of platform you're dealing with before you touch a task: `access: observer`
    (GitHub Actions, Vercel Cron) can never be "fixed" past reading — refusals there are the
-   design. `access: controller` (Windows, Gemini, Claude, native) can actually be repaired.
+   design. `access: controller` (Windows, Gemini, Claude, n8n, native) can actually be repaired —
+   n8n only as far as `run`; its `setStatus` and `create` are refused by design.
 3. **`get_task_health`** (per platform, or `tier: critical`/`attention` across all) — which
    tasks the *platform itself* reports as unhealthy. Remember: `unknown` ≠ `ok`, `disabled` ≠
    unhealthy, and a Windows task's health comes from `lastTaskResult`, never from
    `get_task_history` (that log only holds runs Cronsole triggered).
 4. **For the task in question**: `list_platform_runs` (the platform's own run history — this is
-   where Gemini/GitHub/Vercel/Windows runs actually live) then `get_run_output` on the run in
+   where Gemini/n8n/GitHub/Vercel/Windows runs actually live) then `get_run_output` on the run in
    question. **Read the step list, not just the status** — `completed` means the agent finished
    its turn, not that it did the job (a digest trigger with no mailer finishes `completed` having
    only written a file).
@@ -61,6 +62,8 @@ Every "it failed" report is one of these. Say which, out loud, before proposing 
 | Windows subtree vanished (MISSING) after sync | Don't clear MISSING reflexively — check whether the agent is running **elevated** (#74) before concluding tasks are gone | `CronsoleRestart` scheduled task, then re-sync |
 | A native job fails naming a secret | Working as designed (ADR 0003) — set the value in the UI, never pass it through MCP | UI only |
 | Credential rotated on a Gemini/other hosted target | Rotate via UI, not MCP (`rotateCredentials` takes live values) | UI only |
+| n8n `run` refused, cell stuck at `declared` | No MCP token on the connection, or the workflow isn't marked *Available in MCP* | UI: n8n connection panel (Settings › MCP access in n8n), then the workflow's own toggle |
+| n8n task has `schedule: null` | Either on-demand by design (`metadata.onDemand`, `scheduleReason`) or no instance timezone declared (`scheduleUnavailableReason`) — only the second is fixable | UI: declare `GENERIC_TIMEZONE` on the n8n connection |
 | Platform reachable but capability `unsupported` | Nothing to fix — state the boundary | N/A |
 | Observer platform (GitHub Actions, Vercel) refuses `run`/`create`/`setStatus` | Nothing to fix — by design, not a to-do | N/A |
 

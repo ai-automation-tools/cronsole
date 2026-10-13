@@ -63,6 +63,13 @@ const renderScreen = (search = '') => {
 
 const tab = (name: RegExp) => screen.getByRole('tab', { name });
 
+/** Quick links live on the top bar by default; switched off, they fold back in here. */
+const linksUnderSources = () => {
+  const { result } = renderHook(() => useSettings());
+  act(() => result.current.update('showQuickLinksNav', false));
+  cleanup();
+};
+
 beforeEach(() => {
   localStorage.clear();
   // The settings store is module-level and reads `localStorage` once at import,
@@ -210,6 +217,7 @@ describe('SourcesScreen', () => {
   });
 
   it('keeps quick links in their own view and says nothing is read or written', async () => {
+    linksUnderSources();
     renderScreen();
     await screen.findByTestId('platform-row-WINDOWS_TASK_SCHEDULER');
 
@@ -220,6 +228,7 @@ describe('SourcesScreen', () => {
   });
 
   it('keeps the remove control reachable without a hover', async () => {
+    linksUnderSources();
     renderScreen();
     await screen.findByTestId('platform-row-WINDOWS_TASK_SCHEDULER');
     fireEvent.click(tab(/quick links/i));
@@ -233,6 +242,7 @@ describe('SourcesScreen', () => {
   });
 
   it('adds a quick link to the preference document, not to a bare storage key', async () => {
+    linksUnderSources();
     renderScreen();
     await screen.findByTestId('platform-row-WINDOWS_TASK_SCHEDULER');
     fireEvent.click(tab(/quick links/i));
@@ -248,6 +258,13 @@ describe('SourcesScreen', () => {
     expect(localStorage.getItem('cronsole_platform_links')).toBeNull();
     expect(JSON.parse(localStorage.getItem('cronsole.settings') ?? '{}').quickLinks)
       .toEqual(expect.arrayContaining([expect.objectContaining({ name: 'n8n' })]));
+  });
+
+  it('leaves quick links to the top bar while that item is on', async () => {
+    renderScreen();
+    await screen.findByTestId('platform-row-WINDOWS_TASK_SCHEDULER');
+
+    expect(screen.queryByRole('tab', { name: /quick links/i })).toBeNull();
   });
 
   it('points a custom source at the contributor doc rather than at a form', async () => {
@@ -273,6 +290,7 @@ describe('SourcesScreen', () => {
   });
 
   it('moves between views with the arrow keys, as a tablist should', async () => {
+    linksUnderSources();
     renderScreen();
     await screen.findByTestId('platform-row-WINDOWS_TASK_SCHEDULER');
 

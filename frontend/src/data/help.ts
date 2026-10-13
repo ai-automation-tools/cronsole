@@ -1557,9 +1557,10 @@ const platforms: HelpTopic = {
     {
       label: 'Quick links are bookmarks, not sources',
       body:
-        'Schedulers with no connector, kept apart for that reason — on the top bar by default, or ' +
-        'here if you switch that off in Settings. Nothing is read or written through them, and ' +
-        'no task from one appears in your dashboard.'
+        'Your sources\' web consoles, and schedulers with no connector — kept apart because a bookmark ' +
+        'among connectors reads as a broken connector. On the top bar by default, or here if you ' +
+        'switch that off in Settings. Nothing is read or written through them, and no task from ' +
+        'one appears in your dashboard.'
     }
   ],
   doc: { label: 'UI User Guide › Sources', url: uiGuide('6-sources--what-cronsole-can-actually-do') },

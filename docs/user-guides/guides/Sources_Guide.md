@@ -776,9 +776,15 @@ with its history.
 
 ## Quick links — schedulers with no connector
 
-**Quick Links** is its own item on the top bar: bookmarks to ChatGPT, the Gemini app, Jules, and any
-you add yourself. **Nothing is read or written through them**, and no task from one appears in your
-dashboard. Switch the top-bar item off in **Settings › Behavior** and the links move back under
+**Quick Links** is its own item on the top bar: bookmarks to ChatGPT, the Gemini app and other AI
+tools Cronsole cannot read, to the web console of **every source that has one** (Claude routines,
+Gemini API, GitHub, Vercel), and to any you add yourself. **Nothing is read or written through
+them**, and no task from one appears in your dashboard.
+
+The defaults are kept current by a scheduled job that also adds AI tools that start scheduling work.
+A new default appears **once** on an existing install; one you deleted stays deleted. Windows Task
+Scheduler and Cronsole-native have no web console, and n8n's address is your own instance's, so
+add that one with **Add link**. Switch the top-bar item off in **Settings › Behavior** and the links move back under
 the **Sources** tab as its third view — nothing is deleted either way.
 
 > The **Gemini app**'s scheduled actions and **Gemini API Triggers** are two different things, and

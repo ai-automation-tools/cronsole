@@ -14,6 +14,13 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **Every source with a web console has a default quick link** (2026-10-13): Gemini API (AI
+  Studio), GitHub and Vercel join Claude, ChatGPT and the Gemini app. The defaults live in
+  `frontend/src/data/quickLinks/defaults.json`, kept current by the Cronsole Source Scout job; a
+  test fails if a shipped source has neither a link nor a stated reason (Windows, Cronsole-native,
+  and n8n, whose address is per-instance). A default added later appears **once** on an existing
+  install (`quickLinkDefaultsSeen`); a link you deleted is never brought back.
+
 - **Quick Links is a top-bar item** (2026-10-13). The bookmarks moved out of the Sources tab to
   their own section at `/links`. **Settings › Behavior › Quick Links in the top bar** switches it
   off, which puts them back under Sources as its third view; `?focus=links` and `/links` each

@@ -603,6 +603,16 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
 
 ### Open — UI & product
 
+- [x] **Quick Links is a top-bar item, and every source has one** *(shipped 2026-10-13)*. The
+      bookmarks left the Sources tab for their own section at `/links`; **Settings › Behavior ›
+      Quick Links in the top bar** switches it off and folds them back under Sources, and each
+      address forwards to whichever home is current. The defaults became data
+      (`frontend/src/data/quickLinks/defaults.json`) and gained the web console of every source
+      that has one (Gemini API, GitHub, Vercel beside Claude); `quickLinks.test.ts` fails if a
+      shipped source has neither a link nor a stated reason (Windows, Cronsole-native, and n8n,
+      whose address is per-instance). A default added later reaches an existing install **once**
+      (`quickLinkDefaultsSeen`) and a deleted one never returns. The biweekly **Cronsole Source
+      Scout** routine keeps the URLs current.
 - [~] **Thin the first viewport** *(desktop and mobile both shipped 2026-08-12; the 375px
       verification is automated in `tests/e2e/layout.spec.ts`)*. **Left:** `--raised` exists and is
       applied to exactly one panel, the filter zone. Spending it across the app to build real
@@ -718,6 +728,17 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
 > one.** A POSIX agent covers launchd, cron *and* systemd timers with one protocol and no new auth
 > story. Each cloud scheduler costs its own OAuth surface, rate limit and mental model, for exactly
 > one source.
+
+> **Finding the next source is now scheduled** *(2026-10-13)*. The **Cronsole Source Scout**
+> routine runs every other week: it ranks the AI tools people use most *at the time* from public
+> signals, judges each against the source rules above, and adds buildable ones here as
+> `🔒 Needs Mike` items. Tools that schedule work but have no API go on a dated **👀 Watching**
+> list in this section, re-checked every run, so "it has no API" is a finding with a date rather
+> than a reason to stop looking. First finding while setting it up: **OpenClaw and Hermes both
+> ship a built-in `cron` command** (list, create, pause, run), so their jobs live inside the
+> harness where no current source can see them. Both are still quick-link only in `CLAUDE.md` §2,
+> and the Scout is told to judge them first. A harness whose jobs are Windows Task Scheduler tasks
+> (such as a DeepSeek harness) is already covered by the Windows source.
 
 - [ ] **POSIX agent — launchd · cron · systemd timers** *(the big one, and the one that actually
       broadens the product)*: all three are **local OS schedulers**, structurally identical to

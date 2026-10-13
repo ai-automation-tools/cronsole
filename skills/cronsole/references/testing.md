@@ -184,7 +184,7 @@ mcp-server/src/__tests__/       unit (vitest) — tools via a real MCP client
 
 Two processes run stale and will lie to you:
 
-1. **Dockerized backend** — `docker restart taskhub-backend-1`
-2. **Published .NET agent** — republish from an admin prompt
+1. **The backend** — host mode (default): `Start-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleRestart'`; Docker mode: `docker restart taskhub-backend-1`
+2. **Published .NET agent** — `Start-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleRepublish'`, then wait for `DONE` in `$env:TEMP\cronsole-republish.log`
 
 If offline suites pass but a live check disagrees, it's one of these. Always.

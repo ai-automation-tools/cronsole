@@ -16,7 +16,7 @@ proxy is running:
 
 | Stale thing | Presents as | Because |
 |:---|:---|:---|
-| **Dockerized backend** | New route 404s; live request disagrees with source; offline tests pass | Windows→Linux bind mounts do not propagate inotify, so `tsx watch` never fires |
+| **The backend** | New route 404s; live request disagrees with source; offline tests pass | **Host mode (the default):** a long-running `npm run dev` started by `cronsole up` that hasn't restarted since the change. **Docker mode** (`--profile docker`, opt-in): Windows→Linux bind mounts do not propagate inotify, so `tsx watch` never fires |
 | **Published .NET agent** | New agent command 502s "Agent … timeout" after ~15s; DB-only paths work | It is a host process running a published exe; it never hot-reloads |
 | **`mcp-server/dist/`** | Tool behaves like the old code | The host runs `dist/`, not `src/` — an unbuilt change is invisible |
 | **The database schema** | A whole feature 500s with a bare *"Internal server error"* — every route, including reads | A committed migration was never applied. `schema.prisma`, the client and the tests all agree; only the database disagrees, so nothing else can see it |
@@ -29,23 +29,38 @@ Most "impossible" behavior is one of these. Check them before suspecting your ow
 Work through each check and **report a verdict per check** — do not stop at the first
 finding. Prefer asking the running system over inferring from files.
 
-### 1. Is the stack even up?
+### 1. Is the stack even up — and which mode is it in?
 
-```bash
-docker ps --filter "name=taskhub" --format "table {{.Names}}\t{{.Status}}"
+```powershell
+pwsh -File scripts/cronsole.ps1 status
 ```
 
+**The stack has two modes, and every fix below depends on which one is running.** The default
+(`scripts/cronsole.ps1`, which the `\Cronsole-Stack\` tasks run) keeps only Postgres, Redis and
+the proxy in Docker; the **backend and frontend are host Node processes**. The containerized
+backend is an opt-in compose profile (`docker compose --profile docker up -d`). `status` prints
+`host` or `docker` beside each service — read that before running any `docker` command, because
+in host mode `docker restart taskhub-backend-1` fails with `No such container: taskhub-backend-1`, which reads like a
+renamed container rather than the wrong mode.
+
 If port 3000 is `LISTENING` but requests return `HTTP 000`: **do not chase the port.**
-Docker's port proxy holds it while the app inside crashed. Read `docker logs
-taskhub-backend-1` for why the process died.
+In Docker mode, Docker's port proxy holds it while the app inside crashed — read `docker logs
+taskhub-backend-1`. In host mode, `cronsole logs` tails the backend's own log. Running **both**
+at once is troubleshooting #23: whichever started second cannot bind `:3000`.
 
 ### 2. Is the backend serving current code?
 
 The tell that distinguishes a stale backend from a missing route: a stale backend **404s**
 the new route entirely ("Cannot GET"), whereas a live route with a bad id returns **your
-handler's** error. If a route you just wrote 404s:
+handler's** error. If a route you just wrote 404s, restart the backend **the way the running
+mode starts it**:
 
-```bash
+```powershell
+# Host mode (default). Elevated, because it restarts the agent too. Never use
+# `cronsole up` as a restart: it is idempotent and leaves a running process alone (#86).
+Start-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleRestart'
+
+# Docker mode only
 docker restart taskhub-backend-1
 ```
 
@@ -92,11 +107,19 @@ Get-ChildItem ".\agent\Cronsole.Agent" -Recurse -Filter *.cs |
   Sort-Object LastWriteTime -Descending | Select-Object -First 1 LastWriteTime
 ```
 
-If any `.cs` is **newer** than the dll, the agent is stale — republish it from an
-**Administrator** prompt (see [troubleshooting #7](../../docs/troubleshooting/README.md#7-new-agent-command-502-times-out-until-the-agent-is-republished)).
+If any `.cs` is **newer** than the dll, the agent is stale — republish it. From any prompt,
+`Start-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleRepublish'` runs
+`scripts/Republish-Agent.ps1` elevated; from an Administrator prompt you can run the script
+directly (see [troubleshooting #7](../../docs/troubleshooting/README.md#7-new-agent-command-502-times-out-until-the-agent-is-republished)).
+A stale agent also says so itself: diagnostics shows *"Elevated: not reported — predates
+elevation reporting"*. **Read `$env:TEMP\cronsole-republish.log` only after it says `DONE`.**
+The agent is stopped before `dotnet publish` starts, so a check made in that window finds
+*"Agent not connected"* and an unchanged dll — the republish looks failed and is merely
+unfinished.
 
 If Windows shows `OFFLINE` right after you ran a transient/dogfood agent, the transient one
-displaced the real agent's socket registration: `docker compose restart backend`.
+displaced the real agent's socket registration: restart the backend (check 2 — `CronsoleRestart`
+in host mode, `docker compose restart backend` in Docker mode).
 
 ### 4. Is the MCP server usable?
 
@@ -134,9 +157,10 @@ See [troubleshooting #8](../../docs/troubleshooting/README.md#8-every-mcp-tool-r
 `403 Invalid or expired token` has **two** unrelated causes — check the cheap one first:
 
 - The token is the **unexpanded literal** (check #4). Nothing is expired.
-- Docker baked **dev-only default secrets** that do not match your rotated `backend/.env`.
-  Create a root `.env` mirroring it, then
-  `docker compose up -d --force-recreate backend`.
+- **Docker mode only:** Docker baked **dev-only default secrets** that do not match your
+  rotated `backend/.env`. Create a root `.env` mirroring it, then
+  `docker compose up -d --force-recreate backend`. A host-mode backend reads `backend/.env`
+  directly, so this cause does not exist there.
 
 ### 6. Is the registry in sync?
 
@@ -199,7 +223,7 @@ a failure to find something.
 - `--agent` — only agent connectivity and build currency (check 3)
 - `--mcp` — only the MCP server and token (check 4)
 - `--dist` — only the proxied-bundle freshness check (check 7)
-- `--fix` — apply the safe fixes (`docker restart`, `npm run build` in `mcp-server/` and, when
+- `--fix` — apply the safe fixes (the backend restart for the running mode, `npm run build` in `mcp-server/` and, when
   check 7 reports `STALE`, in `frontend/`). **`prisma migrate deploy` is included**: it applies
   only migrations already committed to this checkout, which is the state the rest of the repo
   already assumes. It is still reported before it is run. **Never** auto-run the agent republish: it needs

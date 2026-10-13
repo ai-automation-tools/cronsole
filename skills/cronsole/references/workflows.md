@@ -92,7 +92,7 @@ dotnet publish ".\agent\Cronsole.Agent" -c Release -r win-x64 --self-contained f
 pwsh .\scripts\cronsole.ps1 up
 ```
 
-5. **Restart the backend too** — bind-mount edits don't hot-reload: `docker restart taskhub-backend-1`
+5. **Restart the backend too** — host mode (default): `Start-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleRestart'`; Docker mode, where bind-mount edits don't hot-reload: `docker restart taskhub-backend-1`
 6. Test: `dotnet test` + backend suites, then hand-verify with the
    [Windows Task Lifecycle runbook](../../../docs/testing/manual-testing/runbooks/Windows_Task_Lifecycle.md).
 
@@ -178,7 +178,7 @@ pwsh .\scripts\cronsole.ps1 up
 4. **Add it to the IDOR sweep** (`backend/test/integration/idor.integration.test.ts`) **in the
    same PR** — reads *and* mutations.
 5. Index any new `WHERE`/`JOIN`/`ORDER BY` column.
-6. `docker restart taskhub-backend-1` before testing live, or you'll debug a stale process.
+6. Restart the backend before testing live (`Start-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleRestart'`, or `docker restart taskhub-backend-1` in Docker mode), or you'll debug a stale process.
 7. **Does an MCP tool map to this route?** (`/api/tasks`, `/api/tasks/:id/run`, `/api/templates`,
    `/api/templates/:id/apply`, `/api/tasks/preview` — see [Change the MCP server](#change-the-mcp-server).)
    If so, the wrapper and its two tool tables move **in this change**, not later.

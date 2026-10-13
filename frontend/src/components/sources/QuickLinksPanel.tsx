@@ -5,7 +5,7 @@ import { DEFAULT_QUICK_LINKS, normalizeLinkUrl } from '../../utils/quickLinks';
 import type { PlatformLink } from '../../types';
 
 /**
- * Bookmarks to schedulers Cronsole has no connector for.
+ * Bookmarks to your sources' web consoles, and to schedulers Cronsole has no connector for.
  *
  * **Nothing here is read or written**, and that sentence ships beside them —
  * it is the whole reason quick links are their own view rather than a fourth

@@ -113,7 +113,7 @@ export const SourcesScreen = () => {
       label: 'Quick links',
       count: settings.quickLinks.length,
       Icon: Link2,
-      hint: 'Bookmarks to schedulers Cronsole has no connector for'
+      hint: "Bookmarks to your sources' web consoles, and to schedulers Cronsole has no connector for"
     }] : [])
   ];
 

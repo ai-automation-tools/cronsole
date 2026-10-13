@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Check,
   ChevronDown,
@@ -18,6 +19,8 @@ import {
   type TaskFilters
 } from '../utils/taskFilters';
 import { HelpButton } from './HelpButton';
+import { useAnchoredPanel } from '../hooks/useAnchoredPanel';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 
 /**
  * The dashboard's secondary filters, collapsed into one control.
@@ -116,13 +119,28 @@ export const TaskFilterMenu = ({
 }: Props) => {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  // Below `sm` the dashboard toolbar is an `overflow-x-auto` strip, which clips
+  // an absolute child to the strip's own ~50px, so the menu opened invisibly.
+  // There it is portalled like the export and sync menus; desktop is unchanged.
+  const phone = useMediaQuery('(max-width: 639.98px)');
+  const pos = useAnchoredPanel({
+    open: open && phone,
+    onClose: () => setOpen(false),
+    triggerRef,
+    panelRef,
+    width: 256
+  });
+  const portal = (node: React.ReactNode) => (phone ? createPortal(node, document.body) : node);
 
   // Close on outside click and on Escape. Not a Modal: this is a menu, and
   // trapping focus for a filter popover would be heavier than the job needs.
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (wrapRef.current && !wrapRef.current.contains(t) && !panelRef.current?.contains(t)) setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false);
@@ -150,6 +168,7 @@ export const TaskFilterMenu = ({
     <div className="flex flex-wrap items-center gap-2">
       <div className="relative" ref={wrapRef}>
         <button
+          ref={triggerRef}
           onClick={() => setOpen(o => !o)}
           aria-expanded={open}
           aria-haspopup="true"
@@ -170,11 +189,13 @@ export const TaskFilterMenu = ({
           <ChevronDown size={12} className={open ? 'rotate-180 transition-transform' : 'transition-transform'} />
         </button>
 
-        {open && (
+        {open && portal(
           <div
+            ref={panelRef}
             role="group"
             aria-label="Filters"
-            className="absolute z-40 mt-2 w-64 bg-raised border border-border rounded-2xl shadow-2xl p-3 space-y-3"
+            style={phone ? { top: pos?.top ?? 0, left: pos?.left ?? 0, visibility: pos ? 'visible' : 'hidden' } : undefined}
+            className={`${phone ? 'fixed z-[70]' : 'absolute z-40 mt-2'} w-64 bg-raised border border-border rounded-2xl shadow-2xl p-3 space-y-3`}
           >
             {/* Inside the drawer, not on the trigger: the trigger already
                 carries a count badge, and a second glyph on it would compete

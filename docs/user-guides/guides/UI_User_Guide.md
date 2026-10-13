@@ -1193,6 +1193,9 @@ is why they get their own view instead of a place among the real sources. Each t
 link's host, and its remove button is always there rather than appearing on hover, so it works on
 a phone. They follow your account rather than this browser.
 
+They live on the top bar as **Quick Links** by default. **Settings › Behavior › Quick Links in the
+top bar** turns that off, and the links return here as the Sources tab's third view.
+
 ## 7. System Status & Connections
 
 - **Sidebar:** Shows a live per-platform health summary plus a "synced N ago" indicator. The four states mean different things, and the difference matters:

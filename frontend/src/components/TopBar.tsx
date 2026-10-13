@@ -1,4 +1,4 @@
-import { LayoutDashboard, Settings, Layers, Library, LogOut, Wrench, ExternalLink } from 'lucide-react';
+import { LayoutDashboard, Settings, Layers, Library, LogOut, Wrench, ExternalLink, Link2 } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { useAuth } from '../hooks/useAuth';
 
@@ -33,6 +33,7 @@ const NAV = [
   { id: 'dashboard', label: 'Dashboard', Icon: LayoutDashboard },
   { id: 'templates', label: 'Templates', Icon: Library },
   { id: 'sources', label: 'Sources', Icon: Layers },
+  { id: 'links', label: 'Quick Links', Icon: Link2 },
   { id: 'tools', label: 'Tools', Icon: Wrench },
   { id: 'settings', label: 'Settings', Icon: Settings }
 ] as const;
@@ -43,9 +44,11 @@ const REGISTRY_URL = 'https://mikesailab.com/cronsole-registry/';
 interface TopBarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  /** Off hides the Quick Links item; the links then live under Sources. */
+  showQuickLinks?: boolean;
 }
 
-export const TopBar = ({ activeTab, setActiveTab }: TopBarProps) => {
+export const TopBar = ({ activeTab, setActiveTab, showQuickLinks = true }: TopBarProps) => {
   const { user, logout } = useAuth();
 
   return (
@@ -80,7 +83,7 @@ export const TopBar = ({ activeTab, setActiveTab }: TopBarProps) => {
 
         {/* ── Sections ──────────────────────────────────────────────────── */}
         <nav aria-label="Sections" className="flex items-stretch h-full sm:gap-0.5 min-w-0">
-          {NAV.map(({ id, label, Icon }) => {
+          {NAV.filter(n => showQuickLinks || n.id !== 'links').map(({ id, label, Icon }) => {
             const active = activeTab === id;
             return (
               <button

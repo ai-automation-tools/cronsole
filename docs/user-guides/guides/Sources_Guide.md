@@ -776,9 +776,10 @@ with its history.
 
 ## Quick links — schedulers with no connector
 
-The **Sources** tab has a *Quick links* view: bookmarks to ChatGPT, the Gemini app, Jules, and any
+**Quick Links** is its own item on the top bar: bookmarks to ChatGPT, the Gemini app, Jules, and any
 you add yourself. **Nothing is read or written through them**, and no task from one appears in your
-dashboard.
+dashboard. Switch the top-bar item off in **Settings › Behavior** and the links move back under
+the **Sources** tab as its third view — nothing is deleted either way.
 
 > The **Gemini app**'s scheduled actions and **Gemini API Triggers** are two different things, and
 > only the second has an API. A scheduled action you set up by talking to the Gemini app is reachable

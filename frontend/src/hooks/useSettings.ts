@@ -148,6 +148,11 @@ export interface Settings {
    * the device.
    */
   quickLinks: PlatformLink[];
+  /**
+   * Quick links as their own top-bar item. Off folds them back into the
+   * Sources tab as its third view, so turning it off never hides the links.
+   */
+  showQuickLinksNav: boolean;
 }
 
 /**
@@ -187,6 +192,7 @@ export const DEFAULT_SETTINGS: Settings = {
   sourceOrder: [],
   shownSources: DEFAULT_SHOWN_SOURCES,
   quickLinks: DEFAULT_QUICK_LINKS,
+  showQuickLinksNav: true,
 };
 
 

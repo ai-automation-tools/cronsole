@@ -802,7 +802,9 @@ export const TemplatesScreen = () => {
           </h2>
           <p className="text-muted-foreground">Prebuilt automation patterns for any platform.</p>
         </div>
-        <div className="flex items-center gap-2">
+        {/* flex-wrap: four controls are ~530px, so on a phone the row pushed
+            `main` into a sideways scroll. A no-op wherever they fit. */}
+        <div className="flex flex-wrap items-center gap-2">
           <TemplateImportExport />
           <TemplateResourcesMenu />
           {hasTemplates && <TemplateViewToggle view={view} onChange={v => update('templateView', v)} />}

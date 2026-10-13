@@ -717,3 +717,31 @@ body {
     zoom: 1.25;
   }
 }
+
+/*
+ * Phone-only. iOS Safari zooms the whole page when a focused field's text is
+ * under 16px, and most fields here are 12-14px. Below `sm` only, so desktop
+ * keeps its denser fields.
+ */
+@media (max-width: 639.98px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/*
+ * Touch only: grow a tiny control's tap area without changing how it draws.
+ * The `?` help buttons are 17px; this makes the hit box 33px.
+ */
+@media (pointer: coarse) {
+  .touch-hit {
+    position: relative;
+  }
+  .touch-hit::after {
+    content: "";
+    position: absolute;
+    inset: -8px;
+  }
+}

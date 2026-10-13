@@ -617,7 +617,9 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
         {activeTab === 'overview' && (
         <div className="p-6 overflow-y-auto space-y-8 flex-1 text-foreground">
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-background p-4 rounded-xl border border-border flex justify-between items-center">
+            {/* Wraps below `sm`: a half-width tile on a phone is ~145px and the
+                Disable button was drawn on top of the status word. */}
+            <div className="bg-background p-4 rounded-xl border border-border flex justify-between items-center max-sm:flex-wrap max-sm:gap-2">
               <div>
                 <span className="text-xs text-subtle-foreground block mb-1">Status</span>
                 <span className="font-semibold text-foreground uppercase tracking-tighter text-sm flex items-center gap-2">

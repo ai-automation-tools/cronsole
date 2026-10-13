@@ -71,6 +71,14 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Fixed
 
+- **Phone fixes, desktop unchanged** (2026-10-13). The dashboard's **Filters** menu opened
+  invisibly on a phone: the toolbar there is a sideways-scrolling strip, which clipped the menu to
+  its own height. Below `sm` it now opens as a floating panel like the Sync and Export menus. Also:
+  the app shell uses `100dvh`, so the bottom of the page no longer sits under Android's URL bar;
+  the Templates header buttons wrap instead of making the page scroll sideways; the task modal's
+  **Disable** button no longer draws over the status word; text fields are 16px on phones, so iOS
+  stops zooming in on focus; and the `?` help buttons get a larger tap area on touch screens.
+  Desktop layout measured identical before and after at 1400px.
 - **Claude Code routines: session reminders are no longer imported as tasks** (2026-10-05). The
   endpoint Cronsole reads routines from also lists the one-off check-ins a Claude session
   schedules for itself ("re-check the deploy in 10 minutes", `created_kind: "reminder"`). Each

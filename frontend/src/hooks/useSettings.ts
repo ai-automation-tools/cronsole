@@ -3,7 +3,7 @@ import { api, subscribeAuthToken } from '../api';
 import type { SavedView } from '../utils/savedViews';
 import type { RailPin } from '../utils/railPins';
 import type { PlatformLink } from '../types';
-import { DEFAULT_QUICK_LINKS, readLegacyQuickLinks } from '../utils/quickLinks';
+import { DEFAULT_QUICK_LINKS, readLegacyQuickLinks, withNewDefaults } from '../utils/quickLinks';
 
 export type DashboardView = 'grid' | 'list' | 'kanban' | 'schedule' | 'calendar';
 export type TemplateView = 'grid' | 'list' | 'kanban';
@@ -139,7 +139,7 @@ export interface Settings {
    */
   shownSources: string[];
   /**
-   * Bookmarks to schedulers Cronsole has no connector for.
+   * Bookmarks to your sources' web consoles, and to schedulers Cronsole has no connector for.
    *
    * Here rather than in `localStorage` under `cronsole_platform_links`, where
    * they used to live, because `localStorage` is scoped to an *origin*: the same
@@ -153,6 +153,12 @@ export interface Settings {
    * Sources tab as its third view, so turning it off never hides the links.
    */
   showQuickLinksNav: boolean;
+  /**
+   * Every default quick-link id this account has been offered, so a default
+   * added later arrives once (`withNewDefaults`) and one somebody deleted is
+   * never brought back.
+   */
+  quickLinkDefaultsSeen: string[];
 }
 
 /**
@@ -193,6 +199,7 @@ export const DEFAULT_SETTINGS: Settings = {
   shownSources: DEFAULT_SHOWN_SOURCES,
   quickLinks: DEFAULT_QUICK_LINKS,
   showQuickLinksNav: true,
+  quickLinkDefaultsSeen: DEFAULT_QUICK_LINKS.map(l => l.id),
 };
 
 
@@ -224,7 +231,7 @@ function read(): Settings {
       const legacy = readLegacyQuickLinks();
       if (legacy) merged.quickLinks = legacy;
     }
-    return merged;
+    return { ...merged, ...withNewDefaults(merged.quickLinks, stored.quickLinkDefaultsSeen) };
   } catch {
     return DEFAULT_SETTINGS;
   }
@@ -321,7 +328,8 @@ export function isDefaultSettings(value: Settings): boolean {
 
 /** Adopt the account's copy, replacing whatever this browser had. */
 function applyRemote(remote: Partial<Settings>): void {
-  const next = { ...DEFAULT_SETTINGS, ...remote };
+  const merged = { ...DEFAULT_SETTINGS, ...remote };
+  const next = { ...merged, ...withNewDefaults(merged.quickLinks, remote.quickLinkDefaultsSeen) };
   if (sameSettings(next, current)) return;
   current = next;
   writeLocal(next);

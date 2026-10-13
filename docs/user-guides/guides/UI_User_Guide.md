@@ -1187,7 +1187,9 @@ a source can take, what a connector must answer, and what will not be accepted.
 
 ### Quick links
 
-Bookmarks to schedulers Cronsole has no connector for — ChatGPT, Gemini, Jules, and any you add.
+Bookmarks to schedulers Cronsole has no connector for — ChatGPT, Gemini, and any you add — and to
+the web console of every source that has one. A default added in a later version appears once; one
+you deleted stays deleted.
 **Nothing is read or written through them** and no task from one appears on your dashboard, which
 is why they get their own view instead of a place among the real sources. Each tile shows the
 link's host, and its remove button is always there rather than appearing on hover, so it works on

@@ -75,6 +75,9 @@ const SOURCE_DOCS: Record<string, string> = {
   N8N: 'n8n.md'
 };
 
+/** Every source Cronsole ships, as `PlatformType` keys: the one list `docsLinks.test.ts` pins. */
+export const SHIPPED_SOURCES = Object.keys(SOURCE_DOCS);
+
 /** Where the per-source guides live, relative to the repo root. */
 export const SOURCE_GUIDES = 'docs/user-guides/sources';
 

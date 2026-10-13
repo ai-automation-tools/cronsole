@@ -29,9 +29,13 @@ Internalize these and you'll diagnose new problems faster than the table can.
 
 This is the single most expensive class of confusion in this repo.
 
-- The **backend** is a Docker container with source bind-mounted. Windows→Linux bind mounts
-  **don't propagate file-change events**, so `tsx watch` never fires. The container can be
-  "up 2 hours" and still be running pre-edit code. → `docker restart taskhub-backend-1`
+- The **backend** runs in one of two modes — check `cronsole status`, which prints `host` or
+  `docker` per service. **Host mode is the default** (`cronsole.ps1`): a `npm run dev` process
+  that keeps running old code until restarted → `Start-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleRestart'`. **Docker mode**
+  (`--profile docker`) bind-mounts the source, and Windows→Linux bind mounts **don't propagate
+  file-change events**, so `tsx watch` never fires: the container can be "up 2 hours" and still
+  be running pre-edit code → `docker restart taskhub-backend-1`. In host mode that command
+  fails with `No such container: taskhub-backend-1`: the wrong mode, not a renamed container.
 - The **agent** is a **host process running a published exe**. It **never** hot-reloads. Until
   you rebuild + republish, it has no handler for your new command, never answers, and the
   backend's 15s wait times out to a 502. → republish (admin prompt required)
@@ -65,7 +69,8 @@ Cuts across several traps. The real agent runs **elevated** (RunLevel Highest):
 - `dotnet publish` **can't overwrite the locked exe** while it runs.
 - So: republishing needs an **Administrator** prompt — stop, publish, relaunch.
 - For a quick dogfood, **don't fight it** — run a *transient* agent instead, then
-  `docker compose restart backend` when you're done to hand the connection back. (That restart
+  restart the backend when you're done to hand the connection back (`CronsoleRestart`, or
+  `docker compose restart backend` in Docker mode). (That restart
   is the fix for #5, which the transient agent causes.)
 
 ## Diagnosing something new
@@ -76,7 +81,7 @@ Cuts across several traps. The real agent runs **elevated** (RunLevel Highest):
 3. **Distinguish "route missing" from "handler missing":** a bad id returning your handler's
    `{"error":"Task not found"}` means the route exists (so it's the agent, #7); an Express
    "Cannot GET" means the backend is stale (#4).
-4. **Read `docker logs taskhub-backend-1`** before theorizing.
+4. **Read the backend's log** before theorizing — `cronsole logs` in host mode, `docker logs taskhub-backend-1` in Docker mode.
 5. **Restart the stale things** and retest before debugging logic.
 
 ## Adding an entry

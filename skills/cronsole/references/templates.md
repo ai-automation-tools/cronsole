@@ -145,7 +145,8 @@ reads `.templates` and ignores the rest.
 > fetched over HTTP**. `backend/.env.example` ships the hosted URL as the **default**, so out
 > of the box a local template change is invisible until it's published *publicly* — you'd have
 > to ship a broken template to the world to test its fix. For the authoring loop, comment
-> `TEMPLATE_REGISTRY_URL` out of `backend/.env` and `docker compose restart backend`; a healthy
+> `TEMPLATE_REGISTRY_URL` out of `backend/.env` and restart the backend (`CronsoleRestart`, or
+> `docker compose restart backend` in Docker mode); a healthy
 > boot logs `[catalog] synced 5 core templates from "bundled"`. Re-enable it to exercise the
 > real fetch + sha256 + cache path.
 

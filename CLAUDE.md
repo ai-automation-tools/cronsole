@@ -83,7 +83,9 @@ cronsole/
 └── docker-compose.yml
 ```
 
-**Three things run stale** and cause most "impossible" behavior: the Dockerized backend, the
+**Three things run stale** and cause most "impossible" behavior: the backend (a **host** Node
+process under the default `cronsole.ps1` stack, restarted by the elevated `CronsoleRestart` task;
+a container only under the opt-in `--profile docker`), the
 published agent (`agent/publish/`), and `mcp-server/dist/`. A fourth — `frontend/dist/` — only while
 the `proxy` profile is running, and it is the one with **no keeper**: `cronsole up` starts the proxy
 and never rebuilds it, so the proxied page can be a complete, working dashboard from another day

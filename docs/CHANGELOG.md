@@ -14,6 +14,13 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **Three credential-free Cronsole-native monitoring templates** (2026-10-12), in the Cronsole
+  Native and Monitoring packs: `native-check-healthchecks-badge` (fails unless a Healthchecks.io
+  JSON badge reads `up` — an independent reader for a cron fleet that runs elsewhere),
+  `native-script-content-freshness` (fails when a published URL's `Last-Modified` is older than
+  N hours — the dead-man switch for a generator that stops without erroring) and
+  `native-script-domain-expiry` (RDAP lookup, fails inside the warning window). Catalog is now 118.
+
 - **Four extended templates** (2026-10-08). `bkp-git-bundle` (Backup & Cleanup),
   `mon-dns-resolution-check` (Monitoring), and the Claude routines
   `claude-routine-flaky-test-report` and `claude-routine-todo-backlog`. Catalog is now 115.

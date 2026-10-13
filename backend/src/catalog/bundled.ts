@@ -2490,6 +2490,179 @@ const nativeScriptCheckPack: RegistryTemplate[] = [
       }
     ],
     compatibleTargets: ['cronsole-native']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'native-check-healthchecks-badge',
+    name: 'Healthchecks.io Status Check (Cronsole)',
+    description:
+      'Read a Healthchecks.io status badge and fail the run unless every check behind it is up — a second, independent reader for a cron fleet that runs somewhere else, so a silent outage shows up in Cronsole instead of waiting on an alert email.',
+    runtime: 'http',
+    os: 'cross-platform',
+    category: 'monitoring',
+    tags: ['cronsole-native', 'check', 'monitoring', 'healthchecks', 'dead-man-switch'],
+    icon: 'HeartPulse',
+    trigger: sched('0 * * * *'),
+    action: {
+      kind: 'check',
+      // The JSON badge needs no API key: its URL is a read-only, unguessable
+      // link meant for embedding, so the template carries no credential and
+      // no `${secret.…}` reference (templateFromTask's rule, from this side).
+      probe: {
+        kind: 'http',
+        url: '{{badgeUrl}}',
+        method: 'GET',
+        expectStatus: { min: 200, max: 299 },
+        expectJsonPath: { path: 'status', equals: 'up' }
+      }
+    },
+    parameters: [
+      {
+        key: 'badgeUrl',
+        label: 'Badge JSON URL',
+        type: 'url',
+        default: '',
+        required: true,
+        help: 'From Healthchecks.io › Badges, the JSON format — e.g. https://healthchecks.io/badge/<key>/<tag>.json. A tag badge covers every check with that tag; "*" covers the whole project. A check that is late (grace) fails this too.'
+      }
+    ],
+    compatibleTargets: ['cronsole-native']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'native-script-content-freshness',
+    name: 'Published Content Freshness Check (Cronsole)',
+    description:
+      'Fail the run when a published page or file has not changed recently, read from its Last-Modified header. The dead-man switch for a generator that stops producing without erroring — the site stays up, so an uptime check stays green.',
+    runtime: 'node',
+    os: 'cross-platform',
+    category: 'monitoring',
+    tags: ['cronsole-native', 'script', 'monitoring', 'http', 'dead-man-switch'],
+    icon: 'History',
+    trigger: sched('0 */6 * * *'),
+    action: {
+      kind: 'script',
+      interpreter: 'node',
+      body: [
+        '// Runs on the machine hosting the Cronsole backend (Node 18+ for fetch).',
+        '// A non-zero exit records a failed run.',
+        'const url = "{{url}}";',
+        'const maxHours = Number("{{maxHours}}");',
+        '',
+        '(async () => {',
+        '  const res = await fetch(url, { signal: AbortSignal.timeout(15000) });',
+        '  if (!res.ok) {',
+        '    console.error(url + " returned " + res.status);',
+        '    process.exitCode = 1;',
+        '    return;',
+        '  }',
+        '  const header = res.headers.get("last-modified");',
+        '  // No header is a refusal with its reason, never a pass: "could not tell"',
+        '  // and "fresh" must not be the same result.',
+        '  if (!header) {',
+        '    console.error(url + " sends no Last-Modified header, so its age cannot be read.");',
+        '    process.exitCode = 1;',
+        '    return;',
+        '  }',
+        '  const ageHours = (Date.now() - new Date(header).getTime()) / 3600000;',
+        '  console.log(url + " last modified " + header + " (" + ageHours.toFixed(1) + "h ago).");',
+        '  if (ageHours > maxHours) {',
+        '    console.error("Older than the " + maxHours + "h limit.");',
+        '    process.exitCode = 1;',
+        '  }',
+        '})().catch((err) => {',
+        '  console.error("Request to " + url + " failed: " + err.message);',
+        '  process.exitCode = 1;',
+        '});',
+        ''
+      ].join('\n')
+    },
+    parameters: [
+      {
+        ...P.url,
+        help: 'A page or file the job regenerates — a feed, a sitemap, an index. Must send a Last-Modified header (GitHub Pages and most static hosts do).'
+      },
+      {
+        key: 'maxHours',
+        label: 'Fail when older than (hours)',
+        type: 'number',
+        default: '36',
+        required: true,
+        help: 'Set a little above the generator\'s own cadence: 36 for a daily job, 192 for a weekly one.'
+      }
+    ],
+    compatibleTargets: ['cronsole-native']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'native-script-domain-expiry',
+    name: 'Domain Expiry Check (Cronsole)',
+    description:
+      'Look a domain up over RDAP and fail the run when its registration expires within your warning window. No API key; complements the SSL expiry check, which cannot see a domain that lapses with a valid certificate.',
+    runtime: 'node',
+    os: 'cross-platform',
+    category: 'monitoring',
+    tags: ['cronsole-native', 'script', 'monitoring', 'dns', 'domain'],
+    icon: 'Globe',
+    trigger: sched('0 9 * * 1'),
+    action: {
+      kind: 'script',
+      interpreter: 'node',
+      body: [
+        '// Runs on the machine hosting the Cronsole backend (Node 18+ for fetch).',
+        '// rdap.org redirects to the registry that is authoritative for the TLD.',
+        'const domain = "{{domain}}";',
+        'const warnDays = Number("{{warnDays}}");',
+        '',
+        '(async () => {',
+        '  const res = await fetch("https://rdap.org/domain/" + encodeURIComponent(domain), {',
+        '    // rdap.org answers 403 to Node\'s default user agent, so name ourselves.',
+        '    headers: { accept: "application/rdap+json", "user-agent": "Cronsole domain-expiry check" },',
+        '    signal: AbortSignal.timeout(20000)',
+        '  });',
+        '  if (!res.ok) {',
+        '    console.error("RDAP lookup for " + domain + " returned " + res.status);',
+        '    process.exitCode = 1;',
+        '    return;',
+        '  }',
+        '  const data = await res.json();',
+        '  const event = (data.events || []).find((e) => e.eventAction === "expiration");',
+        '  if (!event) {',
+        '    console.error("The registry publishes no expiration date for " + domain + ".");',
+        '    process.exitCode = 1;',
+        '    return;',
+        '  }',
+        '  const daysLeft = Math.floor((new Date(event.eventDate).getTime() - Date.now()) / 86400000);',
+        '  console.log(domain + " expires " + event.eventDate + " (" + daysLeft + " days left).");',
+        '  if (daysLeft < warnDays) {',
+        '    console.error("Fewer than " + warnDays + " days remain — renew it.");',
+        '    process.exitCode = 1;',
+        '  }',
+        '})().catch((err) => {',
+        '  console.error("RDAP lookup for " + domain + " failed: " + err.message);',
+        '  process.exitCode = 1;',
+        '});',
+        ''
+      ].join('\n')
+    },
+    parameters: [
+      {
+        key: 'domain',
+        label: 'Domain',
+        type: 'string',
+        required: true,
+        help: 'The registered domain, without a subdomain — e.g. example.com.'
+      },
+      {
+        key: 'warnDays',
+        label: 'Warn within (days)',
+        type: 'number',
+        default: '30',
+        required: true,
+        help: 'Fail the run when fewer than this many days remain before the registration expires.'
+      }
+    ],
+    compatibleTargets: ['cronsole-native']
   }
 ];
 

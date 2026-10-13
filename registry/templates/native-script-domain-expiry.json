@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "1.0",
+  "id": "native-script-domain-expiry",
+  "name": "Domain Expiry Check (Cronsole)",
+  "description": "Look a domain up over RDAP and fail the run when its registration expires within your warning window. No API key; complements the SSL expiry check, which cannot see a domain that lapses with a valid certificate.",
+  "runtime": "node",
+  "os": "cross-platform",
+  "category": "monitoring",
+  "tags": [
+    "cronsole-native",
+    "script",
+    "monitoring",
+    "dns",
+    "domain"
+  ],
+  "icon": "Globe",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 9 * * 1"
+  },
+  "action": {
+    "kind": "script",
+    "interpreter": "node",
+    "body": "// Runs on the machine hosting the Cronsole backend (Node 18+ for fetch).\n// rdap.org redirects to the registry that is authoritative for the TLD.\nconst domain = \"{{domain}}\";\nconst warnDays = Number(\"{{warnDays}}\");\n\n(async () => {\n  const res = await fetch(\"https://rdap.org/domain/\" + encodeURIComponent(domain), {\n    // rdap.org answers 403 to Node's default user agent, so name ourselves.\n    headers: { accept: \"application/rdap+json\", \"user-agent\": \"Cronsole domain-expiry check\" },\n    signal: AbortSignal.timeout(20000)\n  });\n  if (!res.ok) {\n    console.error(\"RDAP lookup for \" + domain + \" returned \" + res.status);\n    process.exitCode = 1;\n    return;\n  }\n  const data = await res.json();\n  const event = (data.events || []).find((e) => e.eventAction === \"expiration\");\n  if (!event) {\n    console.error(\"The registry publishes no expiration date for \" + domain + \".\");\n    process.exitCode = 1;\n    return;\n  }\n  const daysLeft = Math.floor((new Date(event.eventDate).getTime() - Date.now()) / 86400000);\n  console.log(domain + \" expires \" + event.eventDate + \" (\" + daysLeft + \" days left).\");\n  if (daysLeft < warnDays) {\n    console.error(\"Fewer than \" + warnDays + \" days remain — renew it.\");\n    process.exitCode = 1;\n  }\n})().catch((err) => {\n  console.error(\"RDAP lookup for \" + domain + \" failed: \" + err.message);\n  process.exitCode = 1;\n});\n"
+  },
+  "parameters": [
+    {
+      "key": "domain",
+      "label": "Domain",
+      "type": "string",
+      "required": true,
+      "help": "The registered domain, without a subdomain — e.g. example.com."
+    },
+    {
+      "key": "warnDays",
+      "label": "Warn within (days)",
+      "type": "number",
+      "default": "30",
+      "required": true,
+      "help": "Fail the run when fewer than this many days remain before the registration expires."
+    }
+  ],
+  "compatibleTargets": [
+    "cronsole-native"
+  ]
+}

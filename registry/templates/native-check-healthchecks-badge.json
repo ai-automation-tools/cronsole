@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "1.0",
+  "id": "native-check-healthchecks-badge",
+  "name": "Healthchecks.io Status Check (Cronsole)",
+  "description": "Read a Healthchecks.io status badge and fail the run unless every check behind it is up — a second, independent reader for a cron fleet that runs somewhere else, so a silent outage shows up in Cronsole instead of waiting on an alert email.",
+  "runtime": "http",
+  "os": "cross-platform",
+  "category": "monitoring",
+  "tags": [
+    "cronsole-native",
+    "check",
+    "monitoring",
+    "healthchecks",
+    "dead-man-switch"
+  ],
+  "icon": "HeartPulse",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 * * * *"
+  },
+  "action": {
+    "kind": "check",
+    "probe": {
+      "kind": "http",
+      "url": "{{badgeUrl}}",
+      "method": "GET",
+      "expectStatus": {
+        "min": 200,
+        "max": 299
+      },
+      "expectJsonPath": {
+        "path": "status",
+        "equals": "up"
+      }
+    }
+  },
+  "parameters": [
+    {
+      "key": "badgeUrl",
+      "label": "Badge JSON URL",
+      "type": "url",
+      "default": "",
+      "required": true,
+      "help": "From Healthchecks.io › Badges, the JSON format — e.g. https://healthchecks.io/badge/<key>/<tag>.json. A tag badge covers every check with that tag; \"*\" covers the whole project. A check that is late (grace) fails this too."
+    }
+  ],
+  "compatibleTargets": [
+    "cronsole-native"
+  ]
+}

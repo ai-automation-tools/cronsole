@@ -12,6 +12,12 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
+### Changed
+
+- Source scout 2026-10-13: queued OpenClaw cron; watching Hermes, Kimi, Perplexity, Manus, Cursor
+  Automations, Codex scheduled tasks; quick links added Perplexity, Kimi, Manus, Cursor, Vercel URL
+  updated (`/dashboard` now 404s).
+
 ### Added
 
 - **Every source with a web console has a default quick link** (2026-10-13): Gemini API (AI

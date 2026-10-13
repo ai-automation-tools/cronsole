@@ -1051,6 +1051,61 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
       `edit_claude_routine` already re-points properly. **Is there a case for it that is not one of
       those two?**
 
+- [ ] 🔒 Needs Mike — **OpenClaw cron — controller over a local CLI** *(found by the Source Scout
+      2026-10-13)*. **What:** OpenClaw's built-in scheduler (`openclaw automations`, alias
+      `openclaw cron`) keeps jobs inside the harness, where no current source can see them.
+      **Why it is an honest door:** the docs list a real management surface — `list [--all]`,
+      `get <id>` (stored job as JSON), `show`, `enable` / `disable`, `run <id>` (a manual queue of
+      the real job), `runs <id>` (history with `status` `ok`/`error`/`skipped` and `completionStatus`
+      `succeeded`/`failed`/`unknown`), `remove`, plus `create` with `--cron`, `--every`, `--at` and
+      `--tz <iana>` — and a Gateway RPC (`cron.list`, `cron.add`, `cron.update`, `cron.run`,
+      `cron.history`). It **reports outcomes**, so it can get a real `scoreTask` arm. The CLI page
+      says `--json` always requests JSON; the managing-jobs page says only `get` is described as JSON.
+      **Rank:** the harness is outside any traffic ranking (a local tool, not a website), so it
+      is queued for being the clearest local-scheduler door found, not for popularity.
+      **Size:** about n8n-sized or smaller — a machine-local reader, the Windows-agent pattern, so
+      it likely rides the POSIX-agent protocol (outbound WebSocket, signed commands) rather than a
+      hosted connector. **Open questions:** (1) Gateway RPC auth is not documented on the pages
+      read, so the CLI is the only door confirmed; (2) the stored job's timezone field is not
+      documented, so a cron with `--tz` must be `null` with a reason unless it is UTC (#60);
+      (3) event schedules (`--on-exit`, `--stream-command`) have no cron form — refuse with a
+      reason; (4) is it worth a bespoke reader, or should it wait for the POSIX agent to carry it?
+      **Done when:** a job created in OpenClaw appears in Cronsole with its schedule, status and last
+      run, `run` / `enable` / `disable` round-trip, and the observer/controller `access` is declared.
+      Sources: <https://docs.openclaw.ai/cli/cron>, <https://docs.openclaw.ai/automation/cron-jobs>,
+      <https://docs.openclaw.ai/automation/cron-jobs/managing-jobs>.
+
+### 👀 Watching — AI tools that schedule work but have no door yet
+
+- **Hermes** (local harness, no ranking; official docs) — schedules: `every 2h`, `weekdays at 9am`,
+  5-field cron, ISO one-shots, run by the gateway daemon from `~/.hermes/cron/jobs.json`. Missing: a
+  documented machine-readable output (`--json`) on `hermes cron list` / `runs` / `status` — the
+  CLI reference documents none, and the docs advise against reading the jobs file directly; no
+  timezone setting is documented either. Has `list`, `pause`, `resume`, `run`, `runs`, `status`.
+  Checked 2026-10-13, <https://hermes-agent.nousresearch.com/docs/user-guide/features/cron>.
+- **Kimi** (rank not in the top four of Business Today's June 2026 visit ranking; no global figure
+  found) — schedules: daily, weekly, monthly or one-time prompts, cloud or in the Kimi Work desktop
+  app. Missing: any API or CLI; the help page mentions neither. Checked 2026-10-13,
+  <https://www.kimi.com/en/help/features/scheduled-tasks>.
+- **Perplexity** (no global rank found this run) — schedules: recurring background Scheduled Tasks on
+  the Automations dashboard (replaced Perplexity Tasks). Missing: any API. Checked 2026-10-13,
+  <https://www.perplexity.ai/help-center/en/articles/11521526-perplexity-tasks>.
+- **Manus** (no rank found this run) — schedules: recurring or one-off tasks in natural language,
+  plus event triggers, under Automations. Missing: any API or CLI. Checked 2026-10-13,
+  <https://manus.im/docs/automations>.
+- **Cursor Automations** (no rank found this run) — schedules: preset or cron-expression triggers,
+  plus Slack / PR / webhook triggers. Missing: a documented list API (the docs page read names
+  none). Checked 2026-10-13, <https://cursor.com/docs/cloud-agent/automations>.
+- **Codex scheduled tasks** (inside ChatGPT, rank 1 by traffic) — schedules: UI controls or an RFC
+  5545 `RRULE`; event triggers from Gmail, Slack and GitHub. Missing: any list API or CLI — the docs
+  say the CLI and IDE extension have no management interface. Checked 2026-10-13,
+  <https://learn.chatgpt.com/docs/automations?surface=app>.
+- **DeepSeek** — no first-party scheduled-task feature found for its chat app (only third-party
+  extensions). Not watched as a source; a DeepSeek harness whose jobs are Task Scheduler tasks is
+  already covered by Windows. Checked 2026-10-13.
+- **Muse** (<https://muse.ai/>) — not assessed: the site redirected to a sign-in/redirect chain
+  that could not be read. Re-check next run.
+
 ---
 
 ## 🟢 P3 — Expansion

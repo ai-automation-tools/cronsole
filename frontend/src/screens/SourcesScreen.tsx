@@ -89,6 +89,10 @@ export const SourcesScreen = () => {
     // the button that got you here should still be one Back away.
     navigate({ pathname: '/sources', search: `?focus=${next}` }, { replace: true });
 
+  // With Quick Links on the top bar, Sources keeps only its two source views.
+  const linksHere = !settings.showQuickLinksNav;
+  const openLinks = () => (linksHere ? selectTab('links') : navigate('/links'));
+
   const tabs: SourceTabDef<Focus>[] = [
     {
       id: 'connected',
@@ -104,13 +108,13 @@ export const SourcesScreen = () => {
       Icon: Compass,
       hint: 'Everything Cronsole can connect to that is not connected yet'
     },
-    {
-      id: 'links',
+    ...(linksHere ? [{
+      id: 'links' as const,
       label: 'Quick links',
       count: settings.quickLinks.length,
       Icon: Link2,
       hint: 'Bookmarks to schedulers Cronsole has no connector for'
-    }
+    }] : [])
   ];
 
   return (
@@ -218,7 +222,7 @@ export const SourcesScreen = () => {
                   Icon={Compass}
                   title="Every source is connected"
                   body="There is nothing left to add. A scheduler Cronsole has no connector for can still live under Quick links."
-                  action={{ label: 'Open quick links', onClick: () => selectTab('links') }}
+                  action={{ label: 'Open quick links', onClick: openLinks }}
                 />
               )}
 
@@ -229,7 +233,7 @@ export const SourcesScreen = () => {
             </div>
           )}
 
-          {focus === 'links' && <QuickLinksPanel />}
+          {focus === 'links' && linksHere && <QuickLinksPanel />}
         </div>
       </div>
     </div>

@@ -14,6 +14,11 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **Quick Links is a top-bar item** (2026-10-13). The bookmarks moved out of the Sources tab to
+  their own section at `/links`. **Settings › Behavior › Quick Links in the top bar** switches it
+  off, which puts them back under Sources as its third view; `?focus=links` and `/links` each
+  forward to whichever home is current, so old links still land.
+
 - **Three credential-free Cronsole-native monitoring templates** (2026-10-12), in the Cronsole
   Native and Monitoring packs: `native-check-healthchecks-badge` (fails unless a Healthchecks.io
   JSON badge reads `up` — an independent reader for a cron fleet that runs elsewhere),

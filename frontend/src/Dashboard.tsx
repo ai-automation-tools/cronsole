@@ -11,6 +11,7 @@ import { ImportFileModal } from './components/ImportFileModal';
 import { SyncSourcesModal } from './components/SyncSourcesModal';
 import { CreateTaskModal } from './components/CreateTaskModal';
 import { SettingsScreen } from './components/SettingsScreen';
+import { QuickLinksScreen } from './screens/QuickLinksScreen';
 import { SourcesScreen } from './screens/SourcesScreen';
 import { TemplatesScreen } from './screens/TemplatesScreen';
 import { DashboardScreen } from './screens/DashboardScreen';
@@ -47,9 +48,10 @@ const Dashboard = () => {
   const location = useLocation();
   const segments = location.pathname.split('/').filter(Boolean);
   const section = segments[0] ?? '';
+  const { settings, update } = useSettings();
   const activeTab = section === 'platforms'
     ? 'sources'
-    : ['templates', 'sources', 'tools', 'settings'].includes(section) ? section : 'dashboard';
+    : ['templates', 'sources', 'links', 'tools', 'settings'].includes(section) ? section : 'dashboard';
   const setActiveTab = (tab: string) => navigate(tab === 'dashboard' ? '/' : `/${tab}`);
   const routeTaskId = section === 'tasks' ? segments[1] : undefined;
 
@@ -61,7 +63,6 @@ const Dashboard = () => {
   const [showSyncSources, setShowSyncSources] = useState(false);
   const [showCreateNative, setShowCreateNative] = useState(false);
   const queryClient = useQueryClient();
-  const { settings, update } = useSettings();
   const { toast } = useToast();
   const confirm = useConfirm();
 
@@ -72,6 +73,15 @@ const Dashboard = () => {
   useEffect(() => {
     if (section === 'platforms') navigate({ pathname: '/sources', search: location.search }, { replace: true });
   }, [section, location.search, navigate]);
+
+  // Quick links have one home at a time: the top bar's /links, or — with that
+  // item switched off — the Sources tab's third view. Each address forwards to
+  // the other's, so a bookmark to either still lands on the links.
+  useEffect(() => {
+    const onSourcesLinks = section === 'sources' && new URLSearchParams(location.search).get('focus') === 'links';
+    if (section === 'links' && !settings.showQuickLinksNav) navigate('/sources?focus=links', { replace: true });
+    else if (onSourcesLinks && settings.showQuickLinksNav) navigate('/links', { replace: true });
+  }, [section, location.search, settings.showQuickLinksNav, navigate]);
 
   // Push-based live updates: refresh the task list when the backend signals a
   // change (agent sync, scheduled run, another tab), instead of only polling.
@@ -377,7 +387,7 @@ const Dashboard = () => {
       navigate 350 tasks by. Every other tab gets the full width.
     */
     <div className="ground flex flex-col h-screen text-foreground font-sans selection:bg-primary/30 overflow-hidden">
-      <TopBar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <TopBar activeTab={activeTab} setActiveTab={setActiveTab} showQuickLinks={settings.showQuickLinksNav} />
       {/*
         No padding here — each screen owns its own.
 
@@ -438,6 +448,7 @@ const Dashboard = () => {
           <div className="px-4 py-5 md:px-8 md:py-7">
             {activeTab === 'templates' && <TemplatesScreen />}
             {activeTab === 'sources' && <SourcesScreen />}
+            {activeTab === 'links' && settings.showQuickLinksNav && <QuickLinksScreen />}
             {activeTab === 'tools' && <ToolsScreen />}
             {activeTab === 'settings' && <SettingsScreen tasks={tasks} />}
           </div>

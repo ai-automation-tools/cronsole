@@ -64,6 +64,12 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Changed
 
+- **New icon: an indigo clock on a dark tile** (2026-10-14). It replaces the "Command Grid"
+  mark in the browser tab, the top bar, the demo and the product site
+  (`registry-site/index.html`). It's part of one icon family shared by every mikesailab.com
+  and ai-automation-tools.dev site: each uses the same pictogram and colour as its tile on the
+  homepage.
+
 - **The top bar's theme control is a Light / Dark switch** (2026-10-05). Click the sun or the
   moon. System and the named palettes (Dracula, Nord, Solarized, Tokyo Night) are still in
   **Settings → Appearance**; while one is active neither half of the switch is pressed. A theme

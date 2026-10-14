@@ -64,7 +64,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Changed
 
-- **New icon: an indigo clock on a dark tile** (2026-10-14). It replaces the "Command Grid"
+- **New icon: a violet clock on a dark tile** (2026-10-14, violet to match the product site's accent). It replaces the "Command Grid"
   mark in the browser tab, the top bar, the demo and the product site
   (`registry-site/index.html`). It's part of one icon family shared by every mikesailab.com
   and ai-automation-tools.dev site: each uses the same pictogram and colour as its tile on the

@@ -14,6 +14,11 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **Three more extended templates** (2026-10-15): `sys-dism-health-check` (Windows component store
+  health, logged weekly), `mon-listening-ports-snapshot` (daily log of listening TCP ports on
+  Windows) and `cln-macos-trash-purge` (delete macOS Trash items older than N days). Extended
+  tier, not core; the catalog is now 121 templates.
+
 - **README and UI guide link to the recipe catalog** (2026-10-14): [`ai-automation-recipes`](https://github.com/ai-automation-tools/ai-automation-recipes) ships scheduled Claude Code automations as Cronsole templates, and neither doc mentioned it.
 
 - **Templates can be deleted** (2026-10-14), so a template imported for testing no longer lingers

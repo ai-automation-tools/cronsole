@@ -826,6 +826,40 @@
       "compatibleTargets": [
         "windows"
       ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "sys-dism-health-check",
+      "name": "Check Windows Component Store Health (DISM)",
+      "description": "Run DISM’s quick component store check on a schedule and append the result to a log file, so Windows corruption that would break updates or system repair leaves a record before you need it.",
+      "runtime": "powershell",
+      "os": "windows",
+      "category": "system",
+      "tags": [
+        "system",
+        "windows",
+        "dism",
+        "health"
+      ],
+      "icon": "ShieldCheck",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 4 * * 0"
+      },
+      "commandTemplate": "powershell.exe -NoProfile -Command \"DISM /Online /Cleanup-Image /CheckHealth | Out-File -Append '{{logPath}}'\"",
+      "parameters": [
+        {
+          "key": "logPath",
+          "label": "Log file path",
+          "type": "path",
+          "default": "C:\\logs\\dism-health.log",
+          "required": true,
+          "help": "Where to append the DISM result. DISM needs an elevated session, so run this task with highest privileges. CheckHealth only reads a flag set by earlier damage; it does not scan or repair anything."
+        }
+      ],
+      "compatibleTargets": [
+        "windows"
+      ]
     }
   ]
 }

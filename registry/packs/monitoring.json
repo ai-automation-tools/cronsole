@@ -354,6 +354,40 @@
     },
     {
       "schemaVersion": "1.0",
+      "id": "mon-listening-ports-snapshot",
+      "name": "Log Listening TCP Ports (Windows)",
+      "description": "Append the machine’s listening TCP ports and the process IDs that own them to a log file on a schedule, so a service that starts listening unexpectedly shows up as a new line in the history instead of going unnoticed.",
+      "runtime": "powershell",
+      "os": "windows",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "network",
+        "security"
+      ],
+      "icon": "Network",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 7 * * *"
+      },
+      "commandTemplate": "powershell.exe -NoProfile -Command \"Get-NetTCPConnection -State Listen | Sort-Object LocalPort | Select-Object LocalAddress, LocalPort, OwningProcess | Format-Table -AutoSize | Out-File -Append '{{logPath}}'\"",
+      "parameters": [
+        {
+          "key": "logPath",
+          "label": "Log file path",
+          "type": "path",
+          "default": "C:\\logs\\listening-ports.log",
+          "required": true,
+          "help": "Where to append each snapshot. Compare snapshots over time to spot a new listener; this records what is open and does not judge whether it should be."
+        }
+      ],
+      "compatibleTargets": [
+        "windows"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
       "id": "native-check-healthchecks-badge",
       "name": "Healthchecks.io Status Check (Cronsole)",
       "description": "Read a Healthchecks.io status badge and fail the run unless every check behind it is up — a second, independent reader for a cron fleet that runs somewhere else, so a silent outage shows up in Cronsole instead of waiting on an alert email.",

@@ -14,6 +14,18 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **Templates can be deleted** (2026-10-14), so a template imported for testing no longer lingers
+  forever:
+  - **`DELETE /api/templates/:id`** deletes a template you imported or saved from a task
+    (`managed: false`) together with its favorites. Tasks created from it are untouched — no task
+    references its template. A **catalog-synced** (`managed`) template is refused with **409**
+    `{ error, code: "TEMPLATE_MANAGED" }`, because the next catalog sync would restore it. Unknown
+    id → 404. The id is the template's catalog id, the same one list / import / apply use.
+  - **UI:** a trash icon in the Apply Template modal, shown only for deletable templates, with a
+    confirm.
+  - **MCP:** **`delete_template`**, gated with `delete_task` behind
+    `CRONSOLE_MCP_ALLOW_DESTRUCTIVE` (nothing is archived). Connect Pack **v1.12** lists it.
+
 - **Native script templates can run long and use optional keys** (2026-10-14), for Registry v1
   `script` templates that run an AI agent for minutes and need API keys:
   - A template's **`execution.timeoutSec`** now becomes the applied native task's timeout (stored

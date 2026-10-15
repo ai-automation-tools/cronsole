@@ -30,7 +30,7 @@ async function main(): Promise<void> {
   console.error(
     'Cronsole MCP server running on stdio ' +
     `(destructive tools ${config.allowDestructive ? 'ENABLED' : 'disabled'} — ` +
-    'set CRONSOLE_MCP_ALLOW_DESTRUCTIVE=true to expose delete_task)'
+    'set CRONSOLE_MCP_ALLOW_DESTRUCTIVE=true to expose delete_task + delete_template)'
   );
 }
 

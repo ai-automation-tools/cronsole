@@ -5,7 +5,7 @@ description: Create, run, and manage scheduled tasks through a running Cronsole 
 
 # Cronsole
 
-> Cronsole Connect Pack **v1.11** · canonical copy: <https://cronsole.ai-automation-tools.dev>
+> Cronsole Connect Pack **v1.12** · canonical copy: <https://cronsole.ai-automation-tools.dev>
 > If this file is older than your Cronsole install, the install wins — re-download the pack.
 
 Cronsole is a single pane of glass for scheduled tasks. It runs **locally** on the user's own
@@ -67,6 +67,7 @@ leaves it running), or the dashboard. Do not route around a gate.
 | What was deleted, and can it come back | `list_task_archives` | `GET /api/tools/task-archives` — each row carries `restorable` **with its reason** |
 | Bring back a deleted task | `restore_task_archive` | `POST /api/tools/task-archives/:id/restore` — rebuilds a deleted Cronsole-native task as a **new** task. The archived run history is **not** reattached, and the archive is kept, so calling twice makes two tasks |
 | Delete | `delete_task` (gated) | `DELETE /api/tasks/:id` |
+| Delete a template the user imported or saved | `delete_template` (gated) | `DELETE /api/templates/:id` — only an imported / saved-as-template entry. One synced from the built-in catalog is refused **409** (the next sync would restore it). Tasks made from the template are untouched; nothing is archived |
 | Bulk export / backup | — | `POST /api/tools/export/tasks` (`scope: 'all' \| 'folder' \| 'selection'`; `selection` takes `taskIds`) |
 | Restore from a backup | — | `POST /api/tools/restore/tasks` (send `dryRun: true` first) |
 | Run history across all tasks | — | `GET /api/tools/history` (`?format=csv`) |

@@ -1,6 +1,6 @@
 {
   "//": [
-    "Cronsole Connect Pack v1.11 - MCP server wiring.",
+    "Cronsole Connect Pack v1.12 - MCP server wiring.",
     "Newer copy: https://cronsole.ai-automation-tools.dev",
     "",
     "Merge the `cronsole` entry below into your host's MCP config:",

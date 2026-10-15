@@ -147,6 +147,12 @@ export interface Template {
   icon?: string | null;
   /** Per-user favorite flag (from the TemplateFavorite join), enriched by GET /templates. */
   isFavorite?: boolean;
+  /**
+   * True = synced from the bundled catalog / registry (catalogSync owns it and
+   * would restore it), so it cannot be deleted. False = imported or saved from
+   * a task — deletable via DELETE /templates/:id.
+   */
+  managed?: boolean;
 }
 
 export interface PlatformLink {

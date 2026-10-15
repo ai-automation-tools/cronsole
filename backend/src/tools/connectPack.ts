@@ -105,7 +105,9 @@ import { CONNECT_PACK_FILES } from './connectPackBundled.js';
 //   accurate content. Text-only, but the stamp still moves — two copies must
 //   never carry the same version and different words, which is the one thing the
 //   stamp exists to make impossible.
-export const CONNECT_PACK_VERSION = '1.11';
+// 1.12 (2026-10-14): adds `delete_template` / `DELETE /api/templates/:id` to the
+//   surface table — the table is read as complete, so a missing verb is a claim.
+export const CONNECT_PACK_VERSION = '1.12';
 
 /** Where a reader should look for a newer copy than the one in their hand. */
 export const CONNECT_PACK_HOME = 'https://cronsole.ai-automation-tools.dev';

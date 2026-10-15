@@ -288,6 +288,24 @@ a Windows Task Scheduler trigger on apply, and rendered back to cron for display
 
 ---
 
+## 6a. Deleting a template
+
+`DELETE /api/templates/:id` removes a template from the catalog — in the UI, the trash icon in the
+Apply modal's footer; over MCP, `delete_template` (gated with `delete_task` behind
+`CRONSOLE_MCP_ALLOW_DESTRUCTIVE`).
+
+- **Only `managed: false` rows** — templates the user imported or saved from a task. A `managed`
+  row is refused with **`409`** (`{ error, code: "TEMPLATE_MANAGED" }`): `catalogSync` re-upserts
+  every core id on each sync, so a delete would quietly come back. There is no hide/suppress list;
+  a template leaves the managed set by leaving `core` in the catalog, and prune removes it.
+- **The id is the template id** — the registry id (`daily-app-card`-style) *is* the DB id, the same
+  key import upserts on and preview/apply look up. There is no second id form.
+- **Favorites cascade** (`TemplateFavorite.onDelete: Cascade`); **tasks are untouched** — no column
+  on `Task` references a template, because apply copies the command and schedule into the task.
+- **No archive.** The way back is re-importing the file, so export first if it may be wanted.
+- `404` for an unknown id. Any signed-in user may delete, as any user may import: the catalog is
+  shared and owned by the catalog placeholder user, not the viewer.
+
 ## 7. Build order / next steps
 
 1. ~~**Schema migration**~~ ✅ *Done* — `scriptType`, `os`, `category`, `commandTemplate`,

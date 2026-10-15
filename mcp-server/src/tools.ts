@@ -17,9 +17,10 @@ import { CronsoleClient, CronsoleApiError } from './client.js';
  *   modify    set_task_status · update_task_schedule · update_task_action ·
  *             update_native_job · rename_task · untrack_task · sync_tasks ·
  *             connect_claude_routine · edit_claude_routine · disconnect_claude_routine
- *   destroy   delete_task            (native-only, and only when allowDestructive)
+ *   destroy   delete_task · delete_template   (only when allowDestructive; delete_task
+ *             is native-only, delete_template refuses catalog-synced rows)
  *
- * That is 34 tools, and this list is a mirror surface like any other: it drifts
+ * That is 35 tools, and this list is a mirror surface like any other: it drifts
  * silently, because nothing imports it. It was last found describing 17 tools —
  * the set as of the first expansion — while the file registered 33. Regenerate it
  * from the file rather than appending to it by hand:
@@ -80,7 +81,7 @@ const SECRET_REF_NOTE =
 
 export interface ToolOptions {
   /**
-   * Register the irreversible tools (delete_task). Sourced from an env var, not
+   * Register the irreversible tools (delete_task, delete_template). Sourced from an env var, not
    * a tool parameter: a `confirm: true` argument is not a gate, because the model
    * fills it in itself. See CronsoleClientConfig.allowDestructive.
    */
@@ -3356,6 +3357,37 @@ Next run: ${task.nextRunTime}` : '')
             archiveId: result.archiveId,
             executionsArchived: result.executionsArchived
           });
+        } catch (err) {
+          return toolError(err);
+        }
+      }
+    );
+
+    // Gated with delete_task because it is just as final: no archive is kept,
+    // so the template is gone unless the user still has the JSON to re-import.
+    server.registerTool(
+      'delete_template',
+      {
+        title: 'Delete a catalog template',
+        description:
+          'Delete a template the user imported or saved from a task (managed=false) from the Cronsole catalog. ' +
+          'Its favorites go with it. Tasks already created from it are NOT touched — a task never depends on its ' +
+          'template. No archive is kept: the only way back is re-importing the template file (or saving the task ' +
+          'as a template again), so suggest export first if the user may want it later. ' +
+          'REFUSES (409, code TEMPLATE_MANAGED) a template synced from the bundled catalog / template registry: ' +
+          'the next catalog sync would put it straight back, so this is a boundary, not something a retry gets ' +
+          'past. Confirm with the user before calling this.',
+        inputSchema: {
+          templateId: z.string().describe('The template id (from list_templates).')
+        }
+      },
+      async ({ templateId }) => {
+        try {
+          const result = await client.delete<{ name?: string }>(
+            `/templates/${encodeURIComponent(templateId)}`
+          );
+          const label = result.name ? `"${result.name}" ` : '';
+          return ok(`Template ${label}deleted (id: ${templateId}).`, { templateId, deleted: true });
         } catch (err) {
           return toolError(err);
         }

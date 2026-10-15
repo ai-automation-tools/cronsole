@@ -236,4 +236,5 @@ Three non-reseed paths, all first-class:
 | **Import** | `POST /api/templates/import` (`importCatalog.ts`) | `managed: false` — never pruned |
 | **Export** | `GET /api/templates/export` (`exportCatalog.ts`) | Registry-shaped JSON |
 | **Save as template** | `POST /api/tasks/:id/save-as-template` (`templateFromTask.ts`) | A real task → a reusable template, `managed: false` |
+| **Delete** | `DELETE /api/templates/:id` (UI: trash icon in the Apply modal; MCP `delete_template`, gated) | Removes a `managed: false` row + its favorites; a `managed` row is refused `409 TEMPLATE_MANAGED` because the next sync restores it. Tasks are untouched |
 | **Export as template** | `GET /api/tasks/:id/export?format=template` (same `templateFromTask.ts`) | The same template as a **file**, writing no catalog row — which is the whole reason it exists |

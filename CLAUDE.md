@@ -140,8 +140,8 @@ scope** (`~/.claude/agents/`) since 2026-08-23. `Explore` and `Plan` are built i
   [MCP Server Guide](docs/user-guides/guides/MCP_Server_Guide.md)).
 
 MCP rules that don't change: **it owns no logic** — new behavior belongs in a backend route.
-**Destructive-op gating is tiered** — only `delete_task` is gated (`CRONSOLE_MCP_ALLOW_DESTRUCTIVE`),
-and when off it is *absent* from `tools/list`. Bulk verbs are omitted deliberately: friction must
+**Destructive-op gating is tiered** — only `delete_task` and `delete_template` are gated (`CRONSOLE_MCP_ALLOW_DESTRUCTIVE`),
+and when off they are *absent* from `tools/list`. Bulk verbs are omitted deliberately: friction must
 scale with blast radius and MCP has no equivalent of the UI's typed confirmation. The tool suite
 stubs the HTTP client, so it **cannot** prove the wrapper and the API still agree — hand-drive a tool
 after changing a route it wraps.

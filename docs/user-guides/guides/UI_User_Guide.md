@@ -823,6 +823,8 @@ narrow *within* it. Favorites cuts across every category, so it is the one item 
 - **Target filter:** which system a template creates a task on — Windows, Cronsole, Claude Code, macOS. This is the first thing to filter by in the drawer, and it is not the same as the OS row: a Cronsole-native job, a Claude routine and a git command are all *cross-platform*, and only the target says which of them you can actually create. A target Cronsole can't create on here is marked `*`.
 - **OS & Tags filters:** Faceted chips (with counts) narrow by operating system and free-form tag. Like the Dashboard chips, they only show combinations that actually have templates, and collapse when a single choice remains. Use **Clear** to reset search/type/OS/tag/target — the sidebar category is navigation, not a filter, so it is unaffected.
 
+> Looking for more ready-made automations? [`ai-automation-recipes`](https://github.com/ai-automation-tools/ai-automation-recipes) publishes scheduled Claude Code recipes as Cronsole templates; its [registry README](https://github.com/ai-automation-tools/ai-automation-recipes/blob/main/registry/README.md) lists the packs.
+
 ### Applying a template
 - Each card shows its target platforms, script type, intended schedule — read in your schedule timezone, the same reading the Apply modal pre-fills — and the command it will run.
 - Click **"Apply Template"** to open the creation flow. For starters, you'll fill in the required parameters (validated as you go). Cronsole then registers the new task on your machine via the local agent (Windows) or the relevant API.

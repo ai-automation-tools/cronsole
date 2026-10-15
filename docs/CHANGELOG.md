@@ -14,6 +14,8 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **README and UI guide link to the recipe catalog** (2026-10-14): [`ai-automation-recipes`](https://github.com/ai-automation-tools/ai-automation-recipes) ships scheduled Claude Code automations as Cronsole templates, and neither doc mentioned it.
+
 - **Templates can be deleted** (2026-10-14), so a template imported for testing no longer lingers
   forever:
   - **`DELETE /api/templates/:id`** deletes a template you imported or saved from a task

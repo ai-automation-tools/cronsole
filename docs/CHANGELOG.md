@@ -12,6 +12,12 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
+### Changed
+
+- Source scout 2026-10-13: queued OpenClaw cron; watching Hermes, Kimi, Perplexity, Manus, Cursor
+  Automations, Codex scheduled tasks; quick links added Perplexity, Kimi, Manus, Cursor, Vercel URL
+  updated (`/dashboard` now 404s).
+
 ### Added
 
 - **README and UI guide link to the recipe catalog** (2026-10-14): [`ai-automation-recipes`](https://github.com/ai-automation-tools/ai-automation-recipes) ships scheduled Claude Code automations as Cronsole templates, and neither doc mentioned it.

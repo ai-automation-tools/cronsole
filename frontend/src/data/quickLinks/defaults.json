@@ -6,7 +6,11 @@
     { "id": "gemini", "name": "Gemini Scheduled", "url": "https://gemini.google.com/scheduled", "iconType": "gemini" },
     { "id": "gemini-api", "name": "Gemini API (AI Studio)", "url": "https://aistudio.google.com/", "iconType": "gemini", "platform": "GEMINI_TRIGGERS" },
     { "id": "github-actions", "name": "GitHub", "url": "https://github.com/", "iconType": "custom", "platform": "GITHUB_ACTIONS" },
-    { "id": "vercel", "name": "Vercel Dashboard", "url": "https://vercel.com/dashboard", "iconType": "custom", "platform": "VERCEL_CRON" }
+    { "id": "vercel", "name": "Vercel Dashboard", "url": "https://vercel.com/login", "iconType": "custom", "platform": "VERCEL_CRON" },
+    { "id": "perplexity", "name": "Perplexity Scheduled Tasks", "url": "https://www.perplexity.ai/computer/automations", "iconType": "custom" },
+    { "id": "kimi", "name": "Kimi Scheduled Tasks", "url": "https://www.kimi.com/", "iconType": "custom" },
+    { "id": "manus", "name": "Manus Automations", "url": "https://manus.im/app", "iconType": "custom" },
+    { "id": "cursor", "name": "Cursor Automations", "url": "https://cursor.com/automations", "iconType": "custom" }
   ],
   "noWebConsole": {
     "WINDOWS_TASK_SCHEDULER": "Task Scheduler is a desktop app on the machine, not a web page.",

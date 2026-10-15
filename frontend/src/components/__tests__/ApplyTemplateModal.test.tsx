@@ -8,9 +8,13 @@ import type { Template } from '../../types';
 vi.mock('../../api', () => ({
   api: {
     post: vi.fn(),
-    get: vi.fn()
+    get: vi.fn(),
+    delete: vi.fn()
   }
 }));
+
+const { confirmMock } = vi.hoisted(() => ({ confirmMock: vi.fn() }));
+vi.mock('../../hooks/useConfirm', () => ({ useConfirm: () => confirmMock }));
 
 // ApplyTemplateModal calls useToast; expose a shared spy so tests can assert on it.
 const { toastMock } = vi.hoisted(() => ({ toastMock: vi.fn() }));
@@ -486,6 +490,53 @@ describe('ApplyTemplateModal Component', () => {
           expect.objectContaining({ schedule: '0 16 * * *' })
         );
       });
+    });
+  });
+
+  describe('delete', () => {
+    const renderWith = (template: Template, onClose = vi.fn()) => {
+      render(
+        <QueryClientProvider client={queryClient}>
+          <ApplyTemplateModal template={template} onClose={onClose} />
+        </QueryClientProvider>
+      );
+      return onClose;
+    };
+
+    it('is not offered for a managed (catalog-synced) template', () => {
+      renderWith({ ...mockTemplate, managed: true });
+      expect(screen.queryByRole('button', { name: 'Delete template' })).not.toBeInTheDocument();
+    });
+
+    it('does nothing when the confirm is cancelled', async () => {
+      confirmMock.mockResolvedValue(false);
+      renderWith({ ...mockTemplate, managed: false });
+      fireEvent.click(screen.getByRole('button', { name: 'Delete template' }));
+      await waitFor(() => expect(confirmMock).toHaveBeenCalled());
+      expect(api.delete).not.toHaveBeenCalled();
+    });
+
+    it('deletes after confirming, then closes', async () => {
+      confirmMock.mockResolvedValue(true);
+      vi.mocked(api.delete).mockResolvedValue({ data: { deleted: true } });
+      const onClose = renderWith({ ...mockTemplate, managed: false });
+      fireEvent.click(screen.getByRole('button', { name: 'Delete template' }));
+      await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/templates/template-cron-backup'));
+      await waitFor(() => expect(onClose).toHaveBeenCalled());
+      expect(toastMock).toHaveBeenCalledWith('Template "Daily Cron Backup" deleted.', 'success');
+    });
+
+    it('shows the backend refusal when the delete fails', async () => {
+      confirmMock.mockResolvedValue(true);
+      vi.mocked(api.delete).mockRejectedValue(
+        Object.assign(new Error('Request failed'), { response: { data: { error: 'synced from the catalog' } } })
+      );
+      const onClose = renderWith({ ...mockTemplate, managed: false });
+      fireEvent.click(screen.getByRole('button', { name: 'Delete template' }));
+      await waitFor(() =>
+        expect(toastMock).toHaveBeenCalledWith('Delete failed: synced from the catalog', 'error')
+      );
+      expect(onClose).not.toHaveBeenCalled();
     });
   });
 });

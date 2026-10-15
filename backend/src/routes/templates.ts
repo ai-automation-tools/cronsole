@@ -120,6 +120,50 @@ router.post('/import', async (req: Request, res: Response) => {
   res.status(importedCount === 0 ? 400 : 200).json(result);
 });
 
+// Delete a user-authored template (imported or saved-as-template) from the
+// shared catalog. The id is the template id — the same id GET / lists, import
+// upserts on and preview/apply look up (a registry id like `daily-app-card` IS
+// the DB id; there is no second key).
+//
+// - **Managed rows are refused with 409.** catalogSync owns them and re-upserts
+//   every core id on each sync, so a delete would "succeed" and the template
+//   would be back within the sync interval. There is no hide/suppress list; the
+//   honest answer is to say so. (A template leaves the managed set by leaving
+//   `core` in the catalog, and prune removes it.)
+// - **Favorites go with it** — TemplateFavorite cascades in the DB, so the one
+//   statement is atomic. **Tasks never do:** nothing on Task references a
+//   template (apply copies the command/schedule into the task), so every task
+//   created from it keeps running unchanged.
+// - Any signed-in user may delete, exactly as any user may import/overwrite:
+//   the catalog is shared, owned by the catalog placeholder user, not the viewer.
+router.delete('/:id', async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+
+  const template = await prisma.template.findUnique({
+    where: { id },
+    select: { id: true, name: true, managed: true }
+  });
+  if (!template) {
+    throw new HttpError(404, 'Template not found');
+  }
+  if (template.managed) {
+    throw new HttpError(
+      409,
+      `"${template.name}" is synced from the bundled catalog / template registry, so it would come back ` +
+        'on the next catalog sync. Only imported or saved-as-template templates can be deleted.',
+      { code: 'TEMPLATE_MANAGED' }
+    );
+  }
+
+  // Scoped to managed: false so a sync that claimed the row between the read
+  // and this write can't have its row deleted out from under it.
+  const { count } = await prisma.template.deleteMany({ where: { id, managed: false } });
+  if (count === 0) {
+    throw new HttpError(404, 'Template not found');
+  }
+  res.json({ id, name: template.name, deleted: true });
+});
+
 // Mark a template as a favorite for the current user (idempotent — favoriting an
 // already-favorited template is a no-op success). Favorites are per-user and
 // never touch the shared seeded catalog.

@@ -72,6 +72,7 @@ speaks MCP over **stdio** and authenticates as **one user** via a token you prov
 | **`get_task_health`** | "What's broken?" — every task scored and ranked worst-first, with the evidence for each verdict | `GET /api/tools/task-health` |
 | **`list_run_history`** | "What failed this month?" — across all tasks, unlike the per-task history | `GET /api/tools/history` |
 | **`delete_task`** ⚠️ | "Delete the old test task" — **Cronsole-native tasks only**, backed up first, and **off by default**; see below | `DELETE /api/tasks/:id/native` |
+| **`delete_template`** ⚠️ | "Delete that test template I imported" — only templates you **imported or saved from a task**; one synced from the built-in catalog is refused (it would come back on the next sync). Tasks made from it keep running. **Off by default**, same switch as `delete_task` | `DELETE /api/templates/:id` |
 
 **`run_task` reports two different kinds of bad news, and they mean opposite things.** A
 Cronsole-native job runs *inside* the request, so if it executes and fails — a check whose endpoint
@@ -260,7 +261,7 @@ Configuration is via environment variables (see [`mcp-server/.env.example`](../.
 | `CRONSOLE_TOKEN` | ✅ | — | A user JWT sent as `Authorization: Bearer <token>`. |
 | `CRONSOLE_API_URL` |  | `http://localhost:3000/api` | Backend REST base URL (include `/api`). |
 | `CRONSOLE_TIMEOUT_MS` |  | `15000` | Per-request timeout. |
-| `CRONSOLE_MCP_ALLOW_DESTRUCTIVE` |  | `false` | Expose the **`delete_task`** tool. It deletes **Cronsole-native tasks only** and backs each one up first, so it can't reach a Windows task — but it's still off unless you set this to exactly `true` (anything else, including a typo, leaves it off). When off, your assistant doesn't see the tool at all. Prefer disabling a task to deleting it. |
+| `CRONSOLE_MCP_ALLOW_DESTRUCTIVE` |  | `false` | Expose the **`delete_task`** and **`delete_template`** tools (the second deletes only templates you imported or saved, never the built-in catalog). It deletes **Cronsole-native tasks only** and backs each one up first, so it can't reach a Windows task — but it's still off unless you set this to exactly `true` (anything else, including a typo, leaves it off). When off, your assistant doesn't see the tool at all. Prefer disabling a task to deleting it. |
 
 > [!IMPORTANT]
 > The server reads its **process environment only** — it loads no `.env` file, so copying

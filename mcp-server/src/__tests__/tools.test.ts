@@ -207,14 +207,14 @@ describe('the tool surface', () => {
     expect(names).not.toContain('delete_task');
   });
 
-  it('adds delete_task, and only delete_task, when destructive ops are allowed', async () => {
+  it('adds only the destroy verbs (delete_task, delete_template) when destructive ops are allowed', async () => {
     const { client } = stubClient({});
     const guarded = (await connect(client, false)).listTools();
     const allowed = (await connect(client, true)).listTools();
     const before = (await guarded).tools.map(t => t.name);
     const after = (await allowed).tools.map(t => t.name);
     // The gate must open exactly one door — not quietly change the rest.
-    expect(after.filter(n => !before.includes(n))).toEqual(['delete_task']);
+    expect(after.filter(n => !before.includes(n)).sort()).toEqual(['delete_task', 'delete_template']);
     expect(before.filter(n => !after.includes(n))).toEqual([]);
   });
 
@@ -1983,6 +1983,43 @@ describe('untrack_task', () => {
   });
 });
 
+describe('delete_template', () => {
+  it('is absent unless destructive ops are allowed', async () => {
+    const { client } = stubClient({});
+    const names = (await (await connect(client, false)).listTools()).tools.map(t => t.name);
+    expect(names).not.toContain('delete_template');
+  });
+
+  it('calls DELETE /templates/:id with the id url-encoded', async () => {
+    const { client, calls } = stubClient({
+      'DELETE /templates/a%2Fb': { id: 'a/b', name: 'My Template', deleted: true }
+    });
+    const mcp = await connect(client, true);
+    const r = await call(mcp, 'delete_template', { templateId: 'a/b' });
+    expect(r.isError).toBeFalsy();
+    expect(calls[0]).toMatchObject({ method: 'delete', path: '/templates/a%2Fb' });
+    expect(text(r)).toMatch(/"My Template" deleted/);
+    expect(r.structuredContent).toMatchObject({ templateId: 'a/b', deleted: true });
+  });
+
+  it('surfaces the managed-template refusal as an error, not a success', async () => {
+    const { client } = stubClient({
+      'DELETE /templates/core-1': new CronsoleApiError('synced from the bundled catalog', 409)
+    });
+    const mcp = await connect(client, true);
+    const r = await call(mcp, 'delete_template', { templateId: 'core-1' });
+    expect(r.isError).toBe(true);
+    expect(text(r)).toMatch(/HTTP 409/);
+  });
+
+  it('tells the model what it refuses and to confirm first', async () => {
+    const { client } = stubClient({});
+    const tool = (await (await connect(client, true)).listTools()).tools.find(t => t.name === 'delete_template');
+    expect(tool!.description).toMatch(/REFUSES/);
+    expect(tool!.description).toMatch(/Confirm with the user/);
+  });
+});
+
 describe('delete_task', () => {
   it('names untrack_task as the tidy-up alternative', async () => {
     // The dangerous tool must point at the safe one where it is read.
@@ -2105,6 +2142,7 @@ describe('error handling across the surface', () => {
       'PATCH /tasks/x/schedule': boom,
       'PATCH /tasks/x/actions': boom,
       'DELETE /tasks/x/native': boom,
+      'DELETE /templates/x': boom,
       'GET /tools/platforms': boom,
       'GET /tools/platforms/claude/routines': boom,
       'POST /tools/platforms/claude/routines': boom,
@@ -2145,6 +2183,7 @@ describe('error handling across the surface', () => {
       ['update_task_action', { taskId: 'x', command: 'c', runLevel: 'least' }],
       ['untrack_task', { taskId: 'x' }],
       ['delete_task', { taskId: 'x' }],
+      ['delete_template', { templateId: 'x' }],
       ['list_platforms', {}],
       ['list_claude_routines', {}],
       ['connect_claude_routine', { routineId: 'x', token: 't' }],

@@ -86,8 +86,8 @@ surface had moved on without the sentence moving with it — the same way an ear
 the surface reaching 29. A number in prose obligates nobody. Read it mechanically instead:
 `grep -c 'server.registerTool' mcp-server/src/tools.ts`, or just call `tools/list`.
 
-What is stable is the shape: every tool below is always present, and `delete_task` is the one
-gated verb — **absent** from `tools/list` unless the operator set `CRONSOLE_MCP_ALLOW_DESTRUCTIVE`,
+What is stable is the shape: every tool below is always present, and `delete_task` / `delete_template` are the
+gated verbs — **absent** from `tools/list` unless the operator set `CRONSOLE_MCP_ALLOW_DESTRUCTIVE`,
 rather than present and refusing.
 
 | Tier | Tools |
@@ -97,7 +97,7 @@ rather than present and refusing.
 | **Act** | `run_task` · `sync_tasks` |
 | **Modify** (reversible) | `set_task_status` · `update_task_schedule` · `update_task_action` · `update_native_job` · `rename_task` · `untrack_task` |
 | **Connect** | `connect_claude_routine` · `edit_claude_routine` · `disconnect_claude_routine` |
-| **Destroy** (gated, native-only) | `delete_task` — needs `CRONSOLE_MCP_ALLOW_DESTRUCTIVE=true` |
+| **Destroy** (gated) | `delete_task` (native-only) · `delete_template` (imported / saved templates only) — need `CRONSOLE_MCP_ALLOW_DESTRUCTIVE=true` |
 
 One tool has **no write counterpart, deliberately**: `list_task_secrets` reports which secrets a
 native job needs and which are set, and nothing on this surface can store a value. A tool call goes

@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query';
-import { XCircle, Clock, Loader2, ArrowRight, AlertTriangle, CheckCircle2, FolderTree, ShieldCheck } from 'lucide-react';
+import { XCircle, Clock, Loader2, ArrowRight, AlertTriangle, CheckCircle2, FolderTree, ShieldCheck, Trash2 } from 'lucide-react';
 import type { Template } from '../types';
 import { api } from '../api';
 import { platformLabel } from '../platform';
 import { usePlatformCreatability } from '../hooks/usePlatformMatrix';
 import { useToast } from '../hooks/useToast';
+import { useConfirm } from '../hooks/useConfirm';
 import { useSettings } from '../hooks/useSettings';
 import { useScheduleZone } from '../hooks/useScheduleZone';
 import { describeCron } from '../utils/schedule';
@@ -50,6 +51,7 @@ interface ApplyTemplateModalProps {
 export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProps) => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const confirm = useConfirm();
   const params = template.parameters ?? [];
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(params.map(p => [p.key, p.default ?? '']))
@@ -192,6 +194,31 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
       );
     }
   });
+
+  // Only user-authored templates (imported / saved from a task) are deletable —
+  // a managed one is re-synced from the catalog, so the backend 409s it and the
+  // button is not offered. Tasks created from the template are never touched.
+  const deleteMutation = useMutation({
+    mutationFn: () => api.delete(`/templates/${encodeURIComponent(template.id)}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['templates'] });
+      toast(`Template "${template.name}" deleted.`, 'success');
+      onClose();
+    },
+    onError: (error: unknown) => {
+      const err = error as Error & { response?: { data?: { error?: string } } };
+      toast(`Delete failed: ${err.response?.data?.error || err.message}`, 'error');
+    }
+  });
+  const handleDelete = async () => {
+    const ok = await confirm({
+      title: `Delete "${template.name}"?`,
+      message: 'This removes the template from your catalog. Tasks already created from it keep running. Export it first if you may want it back.',
+      confirmText: 'Delete template',
+      tone: 'danger'
+    });
+    if (ok) deleteMutation.mutate();
+  };
 
   const canApply =
     !!platform && creatability(platform) === 'yes' && !!name.trim() && !!schedule.trim() && !incomplete && folderReady && !applyMutation.isPending;
@@ -428,6 +455,17 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
         </div>
 
         <footer className="p-6 bg-background border-t border-border flex gap-4">
+          {!template.managed && (
+            <button
+              onClick={handleDelete}
+              disabled={deleteMutation.isPending}
+              aria-label="Delete template"
+              title="Delete template"
+              className="shrink-0 px-3 py-3 rounded-2xl text-subtle-foreground hover:text-danger-text hover:bg-danger/10 disabled:opacity-50 transition-colors"
+            >
+              {deleteMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+            </button>
+          )}
           <button onClick={onClose} className="flex-1 py-3 text-sm font-bold text-subtle-foreground hover:text-foreground transition-colors">Cancel</button>
           <button 
             onClick={() => applyMutation.mutate()} 

@@ -195,8 +195,9 @@ writable* rather than hidden, so you get "that one's refused" instead of a confu
 > `list_task_secrets` which ones are still unset. It cannot store the value: a tool call goes through
 > the model's context and into your AI host's history file, which is exactly where a credential
 > should not be. **Enter values in Cronsole** — open the task → Edit → Secrets. Until one is set the
-> task refuses to start rather than running with a blank credential, and every create, import and
-> restore says so by name. See [Secrets](UI_User_Guide.md#secrets).
+> task refuses to start rather than running with a blank credential, and every create, import,
+> restore and template apply says so by name. A reference written `${secret.NAME?}` is optional: left
+> unset it becomes an empty string and never blocks a run. See [Secrets](UI_User_Guide.md#secrets).
 
 > [!IMPORTANT]
 > **What's safe, what's real, and what's off by default.**

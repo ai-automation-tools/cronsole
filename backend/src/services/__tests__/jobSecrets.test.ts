@@ -3,6 +3,7 @@ import {
   hasSecretRef,
   illegalSecretRef,
   missingSecretRefs,
+  optionalSecretRefsIn,
   redactSecrets,
   resolveJobSecrets,
   secretRefsIn,
@@ -194,6 +195,46 @@ describe('resolveJobSecrets', () => {
     const job: NativeJob = { jobType: 'HTTP', url: 'https://x', headers: { A: 'Bearer ${secret.X}' } };
     expect((resolveJobSecrets(job, { OTHER: 'value' }) as typeof job).headers)
       .toEqual({ A: 'Bearer ${secret.X}' });
+  });
+});
+
+describe('optional references — ${secret.NAME?}', () => {
+  const script: NativeJob = {
+    jobType: 'SCRIPT',
+    interpreter: 'python',
+    body: 'key = "${secret.OPENAI_API_KEY}"\nimg = "${secret.IMAGE_KEY?}"'
+  };
+
+  it('is referenced, optional, and never missing', () => {
+    expect(secretRefsIn(script)).toEqual(['OPENAI_API_KEY', 'IMAGE_KEY']);
+    expect(optionalSecretRefsIn(script)).toEqual(['IMAGE_KEY']);
+    expect(missingSecretRefs(script, [])).toEqual(['OPENAI_API_KEY']);
+    expect(missingSecretRefs(script, ['OPENAI_API_KEY'])).toEqual([]);
+  });
+
+  it('is required when the same name is also used without the ?', () => {
+    const job = { jobType: 'SCRIPT', interpreter: 'node', body: '${secret.K?} ${secret.K}' };
+    expect(optionalSecretRefsIn(job)).toEqual([]);
+    expect(missingSecretRefs(job, [])).toEqual(['K']);
+  });
+
+  it('resolves to an empty string when unset, and to its value when stored', () => {
+    expect((resolveJobSecrets(script, {}) as typeof script).body)
+      .toBe('key = "${secret.OPENAI_API_KEY}"\nimg = ""');
+    expect((resolveJobSecrets(script, { OPENAI_API_KEY: 'sk-1234', IMAGE_KEY: 'img-5678' }) as typeof script).body)
+      .toBe('key = "sk-1234"\nimg = "img-5678"');
+  });
+
+  it('obeys the same field rules as a required reference', () => {
+    expect(illegalSecretRef({ jobType: 'SCRIPT', interpreter: '${secret.I?}', body: 'x' }))
+      .toMatch(/interpreter/);
+    expect(hasSecretRef('${secret.A?}')).toBe(true);
+    expect(hasSecretRef('${secret.1A?}')).toBe(false);
+  });
+
+  it('is redacted out of the log when it is stored', () => {
+    expect(redactSecrets('cover via img-5678', { IMAGE_KEY: 'img-5678' }))
+      .toBe('cover via ${secret.IMAGE_KEY}');
   });
 });
 

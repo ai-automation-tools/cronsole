@@ -9,9 +9,10 @@
  *
  * The inverse enum maps are derived from the forward maps in ./normalize.ts so
  * the two can't drift. A few v1 fields aren't persisted on the Prisma model
- * (tags, author, version, execution, structured `action`) — they're optional in
- * the schema and simply omitted; the catalog uses `commandTemplate` shorthand,
- * which round-trips exactly.
+ * (author, version, most of `execution`) — they're optional in the schema and
+ * simply omitted; the catalog uses `commandTemplate` shorthand, which
+ * round-trips exactly. `execution.timeoutSec` survives for a script template
+ * because normalize stores it as the job's `timeoutMs`.
  */
 
 import { PlatformType, ScriptType, OsTarget, TemplateCategory } from '@prisma/client';
@@ -194,6 +195,12 @@ export function denormalizeTemplate(t: DbTemplateLike): RegistryTemplate {
   if (parameters) template.parameters = parameters;
   const agentTools = toRegistryAgentTools(t.agentTools);
   if (agentTools) template.agentTools = agentTools;
+  // The inverse of normalize's `executionTimeoutMs`: a SCRIPT job's timeout is
+  // the only `execution` field the DB holds, and it lives on the job.
+  const timeoutMs = (t.nativeJob as { timeoutMs?: unknown } | null | undefined)?.timeoutMs;
+  if (action && typeof timeoutMs === 'number' && timeoutMs > 0) {
+    template.execution = { timeoutSec: Math.ceil(timeoutMs / 1000) };
+  }
 
   return template;
 }

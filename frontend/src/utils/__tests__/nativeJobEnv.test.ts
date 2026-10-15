@@ -7,6 +7,7 @@ import {
   nativeJobIncomplete,
   discardedByTypeSwitch,
   secretRefsIn,
+  optionalSecretRefsIn,
   emptyNativeJobValues,
   type NativeJobValues
 } from '../taskEditing';
@@ -150,5 +151,11 @@ describe('secretRefsIn — the reason this field needed an editor', () => {
 
   it('reports nothing from an env it cannot read, rather than guessing', () => {
     expect(secretRefsIn(exec({ env: 'nope' }))).toEqual([]);
+  });
+
+  it('reads ${secret.NAME?} as a reference, and as optional', () => {
+    const job = script({ env: 'A=${secret.KEY}\nB=${secret.IMG?}' });
+    expect(secretRefsIn(job)).toEqual(['KEY', 'IMG']);
+    expect(optionalSecretRefsIn(job)).toEqual(['IMG']);
   });
 });

@@ -851,6 +851,47 @@ describe('create_task_from_template', () => {
     const mcp = await connect(client);
     expect(text(await call(mcp, 'create_task_from_template', { templateId: 't' }))).toMatch(/lossy thing/);
   });
+
+  it('reports the new task id and the secrets it still needs', async () => {
+    // A native template that names ${secret.X} creates a task with nothing
+    // stored; the moment to say so is the apply, not the first failed run.
+    const { client } = stubClient({
+      'POST /templates/t/apply': { ...applied, taskId: 'task_1', missingSecrets: ['OPENAI_API_KEY'] }
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'create_task_from_template', { templateId: 't', platform: 'TASKHUB_NATIVE' });
+    expect(text(r)).toMatch(/task_1/);
+    expect(text(r)).toMatch(/OPENAI_API_KEY.*refuse to run/s);
+    expect(r.structuredContent).toMatchObject({ taskId: 'task_1', missingSecrets: ['OPENAI_API_KEY'] });
+  });
+
+  it('says nothing about secrets when none are missing', async () => {
+    const { client } = stubClient({ 'POST /templates/t/apply': applied });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'create_task_from_template', { templateId: 't' });
+    expect(text(r)).not.toMatch(/secret/i);
+    expect(r.structuredContent).toMatchObject({ taskId: null, missingSecrets: [] });
+  });
+});
+
+describe('list_task_secrets', () => {
+  it('reports an unset optional secret as optional, not as missing', async () => {
+    const { client } = stubClient({
+      'GET /tasks/x/secrets': {
+        stored: ['OPENAI_API_KEY'],
+        referenced: ['OPENAI_API_KEY', 'IMAGE_KEY'],
+        optional: ['IMAGE_KEY'],
+        missing: [],
+        unreadable: false,
+        secretsUpdatedAt: null
+      }
+    });
+    const mcp = await connect(client);
+    const out = text(await call(mcp, 'list_task_secrets', { taskId: 'x' }));
+    expect(out).toMatch(/Optional and not set: IMAGE_KEY/);
+    expect(out).not.toMatch(/Missing:/);
+    expect(out).not.toMatch(/Every secret this job refers to is set/);
+  });
 });
 
 describe('convert_schedule', () => {

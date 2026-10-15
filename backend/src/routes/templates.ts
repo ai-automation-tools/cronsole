@@ -43,6 +43,7 @@ const router = Router();
 const platformSchema = z.enum(PlatformType, { message: 'Invalid platform' });
 
 import { isValidCron } from '../utils/cron.js';
+import { missingSecretRefs } from '../services/jobSecrets.js';
 
 /**
  * Resolve the platform-native trigger for a schedule. Only Windows needs a
@@ -314,9 +315,14 @@ router.post('/:id/apply', validateBody(applySchema), async (req: Request, res: R
    * Substitution walks the JSON's string values, which is the safest form there
    * is: each field is exactly one value with no tokenizer downstream, so a
    * parameter cannot split into extra arguments the way it can on a command line.
+   *
+   * Substituted **even when `parameters` is omitted**, from the declared
+   * defaults: a script body is stored with its `{{placeholders}}`, and skipping
+   * the walk stored them raw — a task that ran `{{topic}}` literally. A required
+   * parameter with no default, or an undeclared placeholder, is a 400 instead.
    */
   const finalNativeJob =
-    template.nativeJob && parameters !== undefined
+    template.nativeJob
       ? substituteNativeJob(
           template.nativeJob,
           resolveTemplateParams(template.parameters, parameters)
@@ -341,7 +347,7 @@ router.post('/:id/apply', validateBody(applySchema), async (req: Request, res: R
    * list rather than passing through a server the agent cannot authenticate to.
    */
   const finalAgentTools =
-    template.agentTools && parameters !== undefined
+    template.agentTools
       ? substituteNativeJob(
           template.agentTools,
           resolveTemplateParams(template.parameters, parameters)
@@ -442,6 +448,22 @@ router.post('/:id/apply', validateBody(applySchema), async (req: Request, res: R
       });
   }
 
+  let taskId: string | null = null;
+  let missingSecrets: string[] = [];
+  if (platform === PlatformType.TASKHUB_NATIVE && result.externalId) {
+    // The connector wrote the row; read it back for its id and for the secrets
+    // its job names — an applied template stores none, so every *required*
+    // reference is missing until the user sets it (ADR 0003: say so on the write).
+    const created = await prisma.task.findUnique({
+      where: { platform_externalId: { platform, externalId: result.externalId } }
+    });
+    if (created) {
+      taskId = created.id;
+      const meta = (created.metadata ?? {}) as Record<string, unknown>;
+      missingSecrets = missingSecretRefs(meta.job, []);
+    }
+  }
+
   // Track the created task right away (mirrors POST /tasks): the dashboard shows
   // it without waiting for a sync, and the duplicate-name guard above sees it
   // immediately — so a back-to-back re-apply with the same name 409s instead of
@@ -473,6 +495,7 @@ router.post('/:id/apply', validateBody(applySchema), async (req: Request, res: R
       metadata: { schedule: finalSchedule, command: finalCommand, state: 'Ready' }
     }]) : [];
     if (upserted.length > 0) {
+      taskId = upserted[0].id;
       await prisma.task.update({
         where: { id: upserted[0].id },
         data: { schedule: finalSchedule }
@@ -484,6 +507,12 @@ router.post('/:id/apply', validateBody(applySchema), async (req: Request, res: R
   res.json({
     message: 'Template applied successfully',
     externalId: result.externalId,
+    // Cronsole's own id for the new row, when one was written (null when the
+    // platform returned no id to track). Same id every task route takes.
+    taskId,
+    // Required `${secret.NAME}` references the new task cannot satisfy yet —
+    // always present, `[]` off native. Same contract as `POST /tasks/native`.
+    missingSecrets,
     conversion: { confidence: conversion.confidence, warnings: conversion.warnings, lossy: conversion.lossy },
     // Always present (empty when nothing was created), never conditional: a
     // caller must be able to read the answer rather than infer it from an

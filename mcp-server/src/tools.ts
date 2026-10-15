@@ -73,7 +73,10 @@ const SECRET_REF_NOTE =
   'name. Values are set in the app (open the task → Edit → Secrets) and by NO tool on this server, ' +
   'because a tool call is a chat transcript. Create the task with the reference: the result lists it ' +
   'under missingSecrets until the user stores it, list_task_secrets reports the state, and until then ' +
-  'the task refuses to START rather than running with a blank credential.';
+  'the task refuses to START rather than running with a blank credential. ' +
+  'Write `${secret.NAME?}` (trailing ?) for an OPTIONAL credential the job can do without (e.g. a key ' +
+  'that only adds a cover image): unset, it becomes an empty string, never blocks the run, and is not ' +
+  'listed under missingSecrets.';
 
 export interface ToolOptions {
   /**
@@ -940,7 +943,12 @@ export function registerTools(
         'refused with the list of saved servers rather than creating a trigger that cannot authenticate. ' +
         'Read the template\'s `agentTools` with list_templates and TELL THE USER what the trigger will be able to ' +
         'do before calling this. A Gemini trigger cannot be edited in place afterwards — changing its prompt or ' +
-        'schedule means "Recreate with changes" on the task in Cronsole.',
+        'schedule means "Recreate with changes" on the task in Cronsole. ' +
+        'The result carries `taskId` (Cronsole\'s id for the new task, for run_task / list_task_secrets) and ' +
+        '`missingSecrets`: a TASKHUB_NATIVE template whose job refers to `${secret.NAME}` creates a task with ' +
+        'nothing stored, which refuses to run until the user sets those values in Cronsole (open the task → ' +
+        'Edit → Secrets — no MCP tool can set one). `${secret.NAME?}` references are optional and never listed. ' +
+        'A native script template\'s `execution.timeoutSec` becomes the task\'s timeout (max 60 min; default 5).',
       inputSchema: {
         templateId: z.string().describe('The template id (from list_templates).'),
         platform: z
@@ -1032,7 +1040,14 @@ export function registerTools(
             'Removing these again needs administrator rights — Cronsole will not delete them.'
           : '';
         const msg = typeof result.message === 'string' ? result.message : 'Template applied';
-        return ok(`${msg}${warnings}${folders}`, { templateId, platform, result });
+        const created = typeof result.taskId === 'string' ? ` Task id: ${result.taskId}.` : '';
+        return ok(`${msg}${created}${warnings}${folders}${missingSecretsNote(result.missingSecrets)}`, {
+          templateId,
+          platform,
+          taskId: result.taskId ?? null,
+          missingSecrets: Array.isArray(result.missingSecrets) ? result.missingSecrets : [],
+          result
+        });
       } catch (err) {
         return toolError(err);
       }
@@ -2250,6 +2265,8 @@ Next run: ${task.nextRunTime}` : '')
         'makes the run fail to START (it is reported as ran=false, not as a failed check). ' +
         'The three lists mean different things and are kept apart on purpose: `referenced` is what the job ' +
         'asks for, `stored` is what the task has, and `missing` is the intersection that will break it. ' +
+        '`optional` names references written `${secret.NAME?}`: unset, those resolve to an empty string and ' +
+        'never block a run, so they are never in `missing`. ' +
         'A stored secret nothing references is harmless leftovers from an edit. ' +
         'To FIX a missing one, tell the user to open the task in Cronsole → Edit → Secrets and enter the ' +
         'value there; do not ask them to paste it into this conversation. ' +
@@ -2265,10 +2282,12 @@ Next run: ${task.nextRunTime}` : '')
         const result = await client.get<{
           stored: string[];
           referenced: string[];
+          optional?: string[];
           missing: string[];
           unreadable: boolean;
           secretsUpdatedAt: string | null;
         }>(`/tasks/${encodeURIComponent(taskId)}/secrets`);
+        const optionalUnset = (result.optional ?? []).filter(n => !result.stored.includes(n));
 
         const lines = [
           `Referenced by the job: ${result.referenced.length ? result.referenced.join(', ') : 'none'}`,
@@ -2285,6 +2304,12 @@ Next run: ${task.nextRunTime}` : '')
             `⚠ Missing: ${result.missing.join(', ')} — this task will refuse to run until ${
               result.missing.length === 1 ? 'it is' : 'they are'
             } set. Values are entered in Cronsole (open the task → Edit → Secrets); no MCP tool can set one.`
+          );
+        } else if (optionalUnset.length) {
+          lines.push(
+            `Optional and not set: ${optionalUnset.join(', ')} — the job runs without ${
+              optionalUnset.length === 1 ? 'it' : 'them'
+            } (an empty string is substituted). Every required secret is set.`
           );
         } else if (result.referenced.length) {
           lines.push('Every secret this job refers to is set.');

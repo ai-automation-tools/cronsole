@@ -601,7 +601,7 @@ function checkProbePayload(v: NativeJobValues): Record<string, unknown> {
  * a global regex is stateful — it would answer differently on alternate calls.
  */
 const isUrlOrSecretRef = (value: string): boolean =>
-  /^https?:\/\//i.test(value) || /\$\{secret\.[A-Za-z_][A-Za-z0-9_]*\}/.test(value);
+  /^https?:\/\//i.test(value) || /\$\{secret\.[A-Za-z_][A-Za-z0-9_]*\??\}/.test(value);
 
 /**
  * Is the form complete enough to send? Returns the reason it is not.
@@ -666,8 +666,11 @@ export function windowsActionPayload(v: WindowsActionValues): Record<string, unk
 // Secret references
 // ---------------------------------------------------------------------------
 
-/** `${secret.NAME}` — a **mirror** of the backend's `SECRET_REF` (ADR 0003). */
-const SECRET_REF = /\$\{secret\.([A-Za-z_][A-Za-z0-9_]*)\}/g;
+/**
+ * `${secret.NAME}` / `${secret.NAME?}` — a **mirror** of the backend's
+ * `SECRET_REF` (ADR 0003). The `?` marks an optional reference.
+ */
+const SECRET_REF = /\$\{secret\.([A-Za-z_][A-Za-z0-9_]*)(\?)?\}/g;
 
 /**
  * Which secrets the job **currently being typed** refers to.
@@ -683,12 +686,23 @@ const SECRET_REF = /\$\{secret\.([A-Za-z_][A-Za-z0-9_]*)\}/g;
  * on the create response; this only decides what the form can say beforehand.
  */
 export function secretRefsIn(values: NativeJobValues): string[] {
+  return [...new Set(refsIn(values).map(r => r.name))];
+}
+
+/** Names referenced **only** as `${secret.NAME?}` — the backend's `optionalSecretRefsIn`. */
+export function optionalSecretRefsIn(values: NativeJobValues): string[] {
+  const refs = refsIn(values);
+  const required = new Set(refs.filter(r => !r.optional).map(r => r.name));
+  return [...new Set(refs.filter(r => r.optional && !required.has(r.name)).map(r => r.name))];
+}
+
+function refsIn(values: NativeJobValues): { name: string; optional: boolean }[] {
   const payload = nativeJobPayload(values);
   if (!payload) return [];
-  const found: string[] = [];
+  const found: { name: string; optional: boolean }[] = [];
   const take = (v: unknown) => {
     if (typeof v !== 'string') return;
-    for (const m of v.matchAll(SECRET_REF)) found.push(m[1]!);
+    for (const m of v.matchAll(SECRET_REF)) found.push({ name: m[1]!, optional: !!m[2] });
   };
   const takeValues = (v: unknown) => {
     if (v && typeof v === 'object' && !Array.isArray(v)) Object.values(v).forEach(take);
@@ -714,5 +728,5 @@ export function secretRefsIn(values: NativeJobValues): string[] {
       takeValues(probe.headers);
     }
   }
-  return [...new Set(found)];
+  return found;
 }

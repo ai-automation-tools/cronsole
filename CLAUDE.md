@@ -375,7 +375,9 @@ Non-negotiable rules. **Every one has a reason recorded in
   the moment), and **cascade away with the task** — the opposite of `TaskExclusion`. A
   referenced-but-unset secret is a **run-time** refusal (`ran: false`), never a create-time one:
   import, restore and template-apply all legitimately produce one, so every write reports
-  `missingSecrets`. Save-as-template refuses a secret-bearing job outright.
+  `missingSecrets`. **`${secret.NAME?}` is the one declared exception**: optional, resolves to `''`
+  when unset and is never `missing` — for a key that only *enables* something. Save-as-template
+  refuses a secret-bearing job outright.
 - **A dispatch timeout is not a failed dispatch — answer it with evidence.** Gemini's
   `POST /executions` holds the connection while the agent works, past every sane client timeout, so
   a manual run of a healthy task was reported *"Run now failed"*, written to `ExecutionLog` as a

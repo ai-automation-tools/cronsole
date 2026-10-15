@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { KeyRound, Plus, Trash2, Loader2, AlertTriangle, Check } from 'lucide-react';
-import { secretRefsIn, type NativeJobValues } from '../../utils/taskEditing';
+import { optionalSecretRefsIn, secretRefsIn, type NativeJobValues } from '../../utils/taskEditing';
 
 /**
  * The secrets a Cronsole-native job uses — ADR 0003.
@@ -39,6 +39,8 @@ export interface PendingSecret {
 export interface StoredSecretsState {
   stored: string[];
   referenced: string[];
+  /** Referenced only as `${secret.NAME?}` — unset is legal, so never `missing`. */
+  optional?: string[];
   missing: string[];
   unreadable: boolean;
   secretsUpdatedAt: string | null;
@@ -86,6 +88,7 @@ export const TaskSecretsFields = ({
   const [error, setError] = useState<string | null>(null);
 
   const referenced = mode === 'live' ? (state?.referenced ?? []) : secretRefsIn(job);
+  const optional = new Set(mode === 'live' ? (state?.optional ?? []) : optionalSecretRefsIn(job));
   const stored = mode === 'live' ? (state?.stored ?? []) : pending.map(p => p.name);
   const storedSet = new Set(stored);
   const rows = [...new Set([...referenced, ...stored])].sort();
@@ -154,7 +157,9 @@ export const TaskSecretsFields = ({
         Put a credential here instead of in the job. Refer to it from a URL, a header value, a request
         body, an argument or an environment value as{' '}
         <span className="font-mono text-foreground">{'${secret.NAME}'}</span> — Cronsole substitutes it
-        when the task runs and takes the value back out of the run log.{' '}
+        when the task runs and takes the value back out of the run log. Write{' '}
+        <span className="font-mono text-foreground">{'${secret.NAME?}'}</span> for one the job can do
+        without: left unset, it becomes an empty string instead of stopping the run.{' '}
         <span className="text-foreground">Values are never shown again</span>, so a forgotten one is
         replaced rather than read.
       </p>
@@ -193,6 +198,10 @@ export const TaskSecretsFields = ({
                   >
                     <Check size={11} /> {isReferenced ? 'Set' : 'Set · unused'}
                   </span>
+                ) : optional.has(name) ? (
+                  <span className="text-[10px] font-bold text-subtle-foreground shrink-0">
+                    Optional · not set
+                  </span>
                 ) : (
                   <span className="text-[10px] font-bold text-warning-text flex items-center gap-1 shrink-0">
                     <AlertTriangle size={11} /> Not set
@@ -218,7 +227,7 @@ export const TaskSecretsFields = ({
         </ul>
       )}
 
-      {rows.some(n => referenced.includes(n) && !storedSet.has(n)) && (
+      {rows.some(n => referenced.includes(n) && !optional.has(n) && !storedSet.has(n)) && (
         <p className="text-[11px] text-warning-text flex items-start gap-1.5">
           <AlertTriangle size={12} className="shrink-0 mt-0.5" />
           This job refers to a secret that is not set, so it will refuse to start rather than run with a

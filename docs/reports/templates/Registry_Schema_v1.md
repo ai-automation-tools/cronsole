@@ -77,7 +77,7 @@ not a replacement of the concepts:
   "execution": {                       // optional — settings the target applies where supported
     "runLevel": "limited",             // limited|highest  (Windows: Principal.RunLevel)
     "workingDir": "",                  // Windows: ExecAction working directory
-    "timeoutSec": null,                // declared for future; not all targets honor it
+    "timeoutSec": null,                // cronsole-native `script`: the job's timeout (max 3600; null = 5 min default)
     "retries": 0
   },
 

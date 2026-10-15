@@ -19,6 +19,7 @@ import {
   Prisma
 } from '@prisma/client';
 import { formatCommandLine } from '../utils/templateCommand.js';
+import { MAX_EXEC_TIMEOUT_MS } from '../services/NativeTaskExecutor.js';
 import type { RegistryTemplate } from './schema.js';
 
 export const RUNTIME_TO_SCRIPT: Record<string, ScriptType> = {
@@ -131,6 +132,18 @@ function deriveCommand(t: RegistryTemplate): string {
 }
 
 /**
+ * `execution.timeoutSec` → the native job's `timeoutMs`, clamped to the
+ * executor's ceiling. Stored **on the job** rather than in a template column,
+ * because the job is what the native connector copies onto the task — so the
+ * timeout reaches the task with no extra plumbing, and denormalize reads it back.
+ * Absent, null or non-positive keeps the executor's default.
+ */
+export function executionTimeoutMs(timeoutSec: number | null | undefined): number | undefined {
+  if (typeof timeoutSec !== 'number' || !(timeoutSec > 0)) return undefined;
+  return Math.min(timeoutSec * 1000, MAX_EXEC_TIMEOUT_MS);
+}
+
+/**
  * The stored native job spec, for the two action kinds a command line cannot
  * express.
  *
@@ -143,7 +156,13 @@ function deriveNativeJob(t: RegistryTemplate): Prisma.InputJsonValue | typeof Pr
   const a = t.action;
   if (!a) return Prisma.DbNull;
   if (a.kind === 'script') {
-    return { jobType: 'SCRIPT', interpreter: a.interpreter, body: a.body };
+    const timeoutMs = executionTimeoutMs(t.execution?.timeoutSec);
+    return {
+      jobType: 'SCRIPT',
+      interpreter: a.interpreter,
+      body: a.body,
+      ...(timeoutMs !== undefined ? { timeoutMs } : {})
+    };
   }
   if (a.kind === 'check') {
     return { jobType: 'CHECK', probe: a.probe as Prisma.InputJsonValue };

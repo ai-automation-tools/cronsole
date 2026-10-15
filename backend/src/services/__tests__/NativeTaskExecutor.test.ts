@@ -311,6 +311,21 @@ describe('executeJob — stored secrets', () => {
     expect(axios.request).not.toHaveBeenCalled();
   });
 
+  it('runs with an unset optional secret as an empty string, and redacts it when stored', async () => {
+    const job = node('', {
+      args: ['-e', 'console.log("img=[" + process.env.IMG + "]")'],
+      env: { IMG: '${secret.IMAGE_KEY?}' }
+    });
+    const unset = await executeJob(job, {});
+    expect(unset.ran).toBe(true);
+    expect(unset.success).toBe(true);
+    expect(unset.log).toContain('img=[]');
+
+    const set = await executeJob(job, { IMAGE_KEY: 'img_live_secret' });
+    expect(set.log).not.toContain('img_live_secret');
+    expect(set.log).toContain('img=[${secret.IMAGE_KEY}]');
+  });
+
   it('accepts a url that is entirely a reference, and checks its shape after resolving', async () => {
     vi.mocked(axios.request).mockResolvedValue({ status: 200, data: 'ok' });
     // A whole webhook URL is frequently the credential — that has to be storable.

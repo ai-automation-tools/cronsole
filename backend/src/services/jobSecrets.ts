@@ -30,8 +30,17 @@ import type { NativeJob } from './NativeTaskExecutor.js';
  * determined leak — the same class of guarantee as `childEnv()`.
  */
 
-/** `${secret.NAME}`, capturing NAME. Global: a field may hold several. */
-const SECRET_REF = /\$\{secret\.([A-Za-z_][A-Za-z0-9_]*)\}/g;
+/**
+ * `${secret.NAME}` or `${secret.NAME?}`, capturing NAME and the optional marker.
+ * Global: a field may hold several.
+ *
+ * The trailing `?` makes a reference **optional**: unset, it resolves to an
+ * empty string and does not block the run. That is for a credential that only
+ * *enables* something (an image key that adds a cover image), never for one the
+ * job cannot work without — a plain `${secret.NAME}` keeps the refuse-to-start
+ * rule, because a blank required credential fails as a misleading 401.
+ */
+const SECRET_REF = /\$\{secret\.([A-Za-z_][A-Za-z0-9_]*)(\?)?\}/g;
 
 /** What a secret may be called. Env-variable shaped, because that is where most of them end up. */
 export const SECRET_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -92,11 +101,13 @@ export function hasSecretRef(value: unknown): boolean {
   return SECRET_REF.test(value);
 }
 
-/** Every secret name referenced by one string, in order. */
-function refsInString(value: unknown): string[] {
+interface SecretRef { name: string; optional: boolean }
+
+/** Every secret reference in one string, in order. */
+function refsInString(value: unknown): SecretRef[] {
   if (typeof value !== 'string') return [];
-  const out: string[] = [];
-  for (const match of value.matchAll(SECRET_REF)) out.push(match[1]!);
+  const out: SecretRef[] = [];
+  for (const match of value.matchAll(SECRET_REF)) out.push({ name: match[1]!, optional: !!match[2] });
   return out;
 }
 
@@ -104,16 +115,31 @@ const asRecord = (v: unknown): Record<string, unknown> =>
   v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
 
 /**
- * Every secret name a job refers to, deduplicated, in the order first seen.
+ * Every secret name a job refers to, deduplicated, in the order first seen —
+ * required and optional alike.
  *
  * Reads only the **legal** fields, so it agrees with `validateJob` by
  * construction: a ref sitting in an illegal field is not something this reports
  * as required, it is something the spec check refuses outright.
  */
 export function secretRefsIn(job: unknown): string[] {
+  return [...new Set(refsInJob(job).map(r => r.name))];
+}
+
+/**
+ * Names the job refers to **only** as `${secret.NAME?}`. A name used both ways
+ * is required — one required use is enough to make the run need it.
+ */
+export function optionalSecretRefsIn(job: unknown): string[] {
+  const refs = refsInJob(job);
+  const required = new Set(refs.filter(r => !r.optional).map(r => r.name));
+  return [...new Set(refs.filter(r => r.optional && !required.has(r.name)).map(r => r.name))];
+}
+
+function refsInJob(job: unknown): SecretRef[] {
   const j = asRecord(job);
-  const found: string[] = [];
-  const take = (v: unknown) => { for (const name of refsInString(v)) found.push(name); };
+  const found: SecretRef[] = [];
+  const take = (v: unknown) => { found.push(...refsInString(v)); };
   const takeValues = (v: unknown) => { for (const value of Object.values(asRecord(v))) take(value); };
 
   if (j.jobType === 'HTTP') {
@@ -134,7 +160,7 @@ export function secretRefsIn(job: unknown): string[] {
     }
   }
 
-  return [...new Set(found)];
+  return found;
 }
 
 /**
@@ -225,16 +251,20 @@ export function illegalSecretRef(job: unknown): string | null {
 // Resolution and redaction — always together
 // ---------------------------------------------------------------------------
 
-/** Names a job refers to that this secret set cannot supply. */
+/**
+ * **Required** names a job refers to that this secret set cannot supply. An
+ * optional-only reference is never missing — unset is a legal state for it.
+ */
 export function missingSecretRefs(job: unknown, available: readonly string[]): string[] {
   const have = new Set(available);
-  return secretRefsIn(job).filter(name => !have.has(name));
+  const optional = new Set(optionalSecretRefsIn(job));
+  return secretRefsIn(job).filter(name => !have.has(name) && !optional.has(name));
 }
 
 const substitute = (value: unknown, secrets: Record<string, string>): unknown =>
   typeof value === 'string'
-    ? value.replace(SECRET_REF, (whole, name: string) =>
-        Object.prototype.hasOwnProperty.call(secrets, name) ? secrets[name]! : whole)
+    ? value.replace(SECRET_REF, (whole, name: string, optional?: string) =>
+        Object.prototype.hasOwnProperty.call(secrets, name) ? secrets[name]! : optional ? '' : whole)
     : value;
 
 const substituteValues = (
@@ -261,9 +291,12 @@ const substituteValues = (
  * the failure mode matters: a blank would turn `Authorization: Bearer
  * ${secret.X}` into `Authorization: Bearer `, which a server answers with a 401
  * that reads like an expired token rather than like a missing one.
+ *
+ * The one exception is the reference that asked for it: an unset
+ * `${secret.NAME?}` becomes `''`, which is what the author declared it means.
  */
 export function resolveJobSecrets(job: NativeJob, secrets: Record<string, string>): NativeJob {
-  if (!Object.keys(secrets).length) return job;
+  if (!Object.keys(secrets).length && !optionalSecretRefsIn(job).length) return job;
 
   if (job.jobType === 'HTTP') {
     return {

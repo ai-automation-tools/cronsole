@@ -26,7 +26,9 @@ a scheduled task is durable, runs unattended, and runs **elevated** on Windows.
 
 **A credential never goes in the job spec** (ADR 0003). Any free-text field of a native job may
 carry `${secret.NAME}` — legal in a url, a header value, a body, an arg and an env value; refused
-by name in an `executable`, an `interpreter` and a check assertion. The value lives encrypted on
+by name in an `executable`, an `interpreter` and a check assertion. `${secret.NAME?}` (trailing
+`?`) is **optional**: unset, it becomes an empty string, never blocks the run and is never in
+`missing` / `missingSecrets` — for a key that only *enables* something. The value lives encrypted on
 the task, is substituted only inside `executeJob`, and is redacted back out of the run log.
 `POST /api/tasks/native` takes an optional `secrets` map so a create is one gesture; everything
 after that is per secret (`PUT` / `DELETE /api/tasks/:id/secrets/:name`), because a whole-set write

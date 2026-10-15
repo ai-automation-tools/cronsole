@@ -14,6 +14,19 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **Native script templates can run long and use optional keys** (2026-10-14), for Registry v1
+  `script` templates that run an AI agent for minutes and need API keys:
+  - A template's **`execution.timeoutSec`** now becomes the applied native task's timeout (stored
+    as the job's `timeoutMs`, clamped to 60 minutes; absent keeps the 5-minute default), and
+    survives export as `execution.timeoutSec`.
+  - **`${secret.NAME?}`** marks an **optional** secret reference: unset, it is substituted as an
+    empty string and does not block the run; set, it is substituted and redacted like any other.
+    `GET /api/tasks/:id/secrets` gains an `optional` list, `missing` / `missingSecrets` never name
+    one, and the Secrets editor shows it as *Optional · not set*.
+  - **Template apply reports what the new task still needs**: `POST /api/templates/:id/apply` and
+    the MCP `create_task_from_template` return `taskId` and `missingSecrets` (required references
+    with nothing stored), the same contract as `POST /api/tasks/native`.
+
 - **Every source with a web console has a default quick link** (2026-10-13): Gemini API (AI
   Studio), GitHub and Vercel join Claude, ChatGPT and the Gemini app. The defaults live in
   `frontend/src/data/quickLinks/defaults.json`, kept current by the Cronsole Source Scout job; a
@@ -76,6 +89,11 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
   picked in Settings now updates the top bar straight away.
 
 ### Fixed
+
+- **Applying a native script/check template without `parameters` stored its `{{placeholders}}`
+  raw** (2026-10-14). The job spec is now always filled from the declared defaults; a required
+  parameter with no value (or an undeclared placeholder) is a `400` instead of a task that runs
+  `{{topic}}` literally.
 
 - **Phone fixes, desktop unchanged** (2026-10-13). The dashboard's **Filters** menu opened
   invisibly on a phone: the toolbar there is a sideways-scrolling strip, which clipped the menu to

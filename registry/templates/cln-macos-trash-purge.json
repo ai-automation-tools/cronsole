@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "1.0",
+  "id": "cln-macos-trash-purge",
+  "name": "Purge Old Items from the Trash (macOS)",
+  "description": "Permanently delete items that have sat in the macOS Trash longer than a number of days, on a schedule, so deleted files stop holding disk space without wiping something you binned this morning.",
+  "runtime": "bash",
+  "os": "macos",
+  "category": "cleanup",
+  "tags": [
+    "cleanup",
+    "macos",
+    "disk",
+    "trash"
+  ],
+  "icon": "Trash2",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 5 * * 0"
+  },
+  "commandTemplate": "/bin/bash -c \"find $HOME/.Trash -mindepth 1 -maxdepth 1 -mtime +{{days}} -exec rm -rf {} +\"",
+  "parameters": [
+    {
+      "key": "days",
+      "label": "Older than (days)",
+      "type": "number",
+      "default": "30",
+      "required": true,
+      "help": "Items last modified more than this many days ago are deleted permanently. The job may need Full Disk Access to read the Trash."
+    }
+  ],
+  "compatibleTargets": [
+    "macos"
+  ]
+}

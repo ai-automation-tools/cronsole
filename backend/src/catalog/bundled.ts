@@ -1584,6 +1584,57 @@ const extendedPack: RegistryTemplate[] = [
       { key: 'logPath', label: 'Log file path', type: 'path', default: 'C:\\logs\\dns-check.log', required: true, help: 'Where to append each successful answer.' }
     ],
     compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'sys-dism-health-check',
+    name: 'Check Windows Component Store Health (DISM)',
+    description: 'Run DISM\u2019s quick component store check on a schedule and append the result to a log file, so Windows corruption that would break updates or system repair leaves a record before you need it.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'system',
+    tags: ['system', 'windows', 'dism', 'health'],
+    icon: 'ShieldCheck',
+    trigger: sched('0 4 * * 0'),
+    commandTemplate: 'powershell.exe -NoProfile -Command "DISM /Online /Cleanup-Image /CheckHealth | Out-File -Append \'{{logPath}}\'"',
+    parameters: [
+      { key: 'logPath', label: 'Log file path', type: 'path', default: 'C:\\logs\\dism-health.log', required: true, help: 'Where to append the DISM result. DISM needs an elevated session, so run this task with highest privileges. CheckHealth only reads a flag set by earlier damage; it does not scan or repair anything.' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'mon-listening-ports-snapshot',
+    name: 'Log Listening TCP Ports (Windows)',
+    description: 'Append the machine\u2019s listening TCP ports and the process IDs that own them to a log file on a schedule, so a service that starts listening unexpectedly shows up as a new line in the history instead of going unnoticed.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'monitoring',
+    tags: ['monitoring', 'windows', 'network', 'security'],
+    icon: 'Network',
+    trigger: sched('0 7 * * *'),
+    commandTemplate: 'powershell.exe -NoProfile -Command "Get-NetTCPConnection -State Listen | Sort-Object LocalPort | Select-Object LocalAddress, LocalPort, OwningProcess | Format-Table -AutoSize | Out-File -Append \'{{logPath}}\'"',
+    parameters: [
+      { key: 'logPath', label: 'Log file path', type: 'path', default: 'C:\\logs\\listening-ports.log', required: true, help: 'Where to append each snapshot. Compare snapshots over time to spot a new listener; this records what is open and does not judge whether it should be.' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'cln-macos-trash-purge',
+    name: 'Purge Old Items from the Trash (macOS)',
+    description: 'Permanently delete items that have sat in the macOS Trash longer than a number of days, on a schedule, so deleted files stop holding disk space without wiping something you binned this morning.',
+    runtime: 'bash',
+    os: 'macos',
+    category: 'cleanup',
+    tags: ['cleanup', 'macos', 'disk', 'trash'],
+    icon: 'Trash2',
+    trigger: sched('0 5 * * 0'),
+    commandTemplate: '/bin/bash -c "find $HOME/.Trash -mindepth 1 -maxdepth 1 -mtime +{{days}} -exec rm -rf {} +"',
+    parameters: [
+      { key: 'days', label: 'Older than (days)', type: 'number', default: '30', required: true, help: 'Items last modified more than this many days ago are deleted permanently. The job may need Full Disk Access to read the Trash.' }
+    ],
+    compatibleTargets: ['macos']
   }
 ];
 

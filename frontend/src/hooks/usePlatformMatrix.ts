@@ -49,6 +49,8 @@ export interface PlatformMatrixRow {
   healthReason: string | null;
   /** A real sync timestamp or null. The server never stamps one itself. */
   lastSync: string | null;
+  /** Periodic sync, opt-in. `intervalMin: null` is off. */
+  autoSync: { intervalMin: number | null; lastAttemptAt: string | null; lastError: string | null };
   taskCount: number;
   capabilities: CapabilityCell[];
   lastVerifiedAt: string | null;

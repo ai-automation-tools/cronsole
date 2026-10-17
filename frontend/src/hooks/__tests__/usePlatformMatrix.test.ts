@@ -31,6 +31,7 @@ const row = (label: string, capabilities: CapabilityCell[]): PlatformMatrixRow =
   taskCount: 0,
   capabilities,
   lastVerifiedAt: null,
+  autoSync: { intervalMin: null, lastAttemptAt: null, lastError: null },
   executionHost: null
 });
 

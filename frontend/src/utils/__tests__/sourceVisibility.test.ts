@@ -20,6 +20,7 @@ const row = (over: Partial<PlatformMatrixRow> = {}): PlatformMatrixRow => ({
   taskCount: 0,
   capabilities: [],
   lastVerifiedAt: null,
+  autoSync: { intervalMin: null, lastAttemptAt: null, lastError: null },
   executionHost: null,
   ...over
 });

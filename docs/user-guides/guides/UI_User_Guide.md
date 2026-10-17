@@ -1139,6 +1139,11 @@ schedule, Edit action, Export, Restore, Delete) and a table giving each verb's s
 succeeded, and when it last failed and why. The toggle says how many verbs are verified and how
 many are unproven before you open it.
 
+**Sync automatically** (inside the details, every source except Cronsole-native) is off until you
+pick an interval from 5 minutes to a day. It does what the dashboard's plain **Sync** does — refreshes
+the folders you already track — and nothing more: it never adds a new folder or brings back a task you
+removed. The card shows when it last ran and, if the last run failed, why.
+
 **Nothing about a problem is behind that disclosure.** A degraded reason, and any verb that failed
 more recently than it succeeded, are shown on the card itself even collapsed — collapsing a card
 makes it shorter, never quieter.

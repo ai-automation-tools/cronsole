@@ -321,6 +321,11 @@ Non-negotiable rules. **Every one has a reason recorded in
   reason is that **"found nothing" and "looked at nothing" render identically**: a repository whose
   workflows are all push-triggered imports zero tasks and is working perfectly, which is the same
   empty screen as a broken sync — and that ambiguity hid a real defect until the DB was read by hand.
+- **Periodic sync is the refresh half on a timer, and only that.** Opt-in per connection
+  (`syncIntervalMin`, NULL = off), it calls `syncConnection` — the body shared with
+  `POST /tasks/sync` — with `scope: 'tracked'`, so it can neither adopt a folder nor clear an
+  exclusion. `autoSyncAt` records the last *attempt* and `autoSyncError` its failure; a second copy
+  of the sync body is how a timer would learn to import.
 - **`partial` means add and refresh, but retire nothing** — the #74 rule generalized off the agent.
   A truncated listing or one unreadable repository is a *narrowed reader*, not an emptier platform,
   so `reconcileMissingTasks` is skipped for that pass. The 50%-retention guard does not cover it:

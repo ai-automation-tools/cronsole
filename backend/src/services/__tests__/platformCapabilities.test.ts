@@ -287,7 +287,9 @@ describe("runVerbSucceeded — the run cell asks 'could Cronsole run it', not 'd
 
 describe('every route that performs a verb records it', () => {
   const toolsSource = readFileSync(new URL('../../routes/tools.ts', import.meta.url), 'utf8');
-  const combined = routesSource + toolsSource;
+  // `sync` moved into syncConnection.ts (shared by the route and the periodic sync).
+  const syncSource = readFileSync(new URL('../syncConnection.ts', import.meta.url), 'utf8');
+  const combined = routesSource + toolsSource + syncSource;
 
   // Not a proof that the call is on the right code path — only that no verb is
   // silently unrecorded, which is the drift that would make a working platform

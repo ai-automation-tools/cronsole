@@ -11,6 +11,7 @@ import { N8nPanel } from '../N8nPanel';
 import { SidebarToggle, SourceHeading, SourceStatusPill, SourceTile, Stat } from './SourceIdentity';
 import { SUPPORT_STYLE } from './sourceStyles';
 import { SourceDocLink } from './SourceDocLink';
+import { AutoSyncControl } from './AutoSyncControl';
 
 /**
  * A source that is connected: what it can do, what it has actually done, and
@@ -168,6 +169,9 @@ export const ConnectedSourceCard = ({ row, shownSources, onToggleShown }: {
           */}
           {row.platform === 'GEMINI_TRIGGERS' && <GeminiTriggersPanel />}
           {row.platform === 'N8N' && <N8nPanel />}
+
+          {/* Native has nothing external to sync from: its database is the source of truth. */}
+          {row.platform !== 'TASKHUB_NATIVE' && <AutoSyncControl row={row} />}
 
           <div className="border-t border-border p-5 space-y-3">
             <div className="flex flex-wrap gap-1.5">

@@ -379,7 +379,7 @@ moved to [P2](#open--ui--product): `--border` needs a second token.
 
 ### 🔴 Requested 2026-08-18
 
-- [ ] **Periodic sync — promoted from P2** *(asked 2026-08-18; the P2 line is now a pointer here)*.
+- [x] **Periodic sync — promoted from P2** *(shipped 2026-10-16)* *(asked 2026-08-18; the P2 line is now a pointer here)*.
       Nothing in the stack schedules a sync today: `POST /tasks/sync` has three callers — the two
       dashboard buttons, the Claude-routine create path, and the `sync_tasks` MCP tool. The only
       timers are the 45s connection-**health** poll (health is evidence, never a sync), the catalog
@@ -395,6 +395,13 @@ moved to [P2](#open--ui--product): `--border` needs a second token.
       travel in exports. A scheduled Claude routine calling `sync_tasks` avoids that (the token
       lives in the host's environment) but needs Claude routines. Neither is a thing to document as
       the answer.
+      **Shipped as designed:** `PlatformConnection.syncIntervalMin` (NULL = off) +
+      `autoSyncAt` / `autoSyncError` (last *attempt*, so a failing platform retries once per
+      interval); `services/AutoSync.ts` ticks every 60s and calls `syncConnection` — the body of
+      `POST /tasks/sync`, extracted so the route and the timer cannot diverge — with
+      `scope: 'tracked'` only. Control: Sources › Show details › *Sync automatically*. **Left:** an
+      MCP verb (deliberately not added — the toggle is a UI preference), and surfacing a *new
+      folder* as a prompt from the timer's `untracked` count (the manual sync still reports it).
 
 - [x] **A Monthly trigger for the Windows agent** *(surfaced 2026-08-18 by the schedule picker;
       shipped 2026-09-08)*. `scheduler-conversion.ts` had no monthly pattern, so `0 9 1 * *` fell

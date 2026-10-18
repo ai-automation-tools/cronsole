@@ -9,6 +9,7 @@ import { agentAuthMiddleware, assertAgentAuthConfig } from './ws/agentAuth.js';
 import { registerUiChannel } from './ws/uiChannel.js';
 import { serializeConfig } from './auth/connectionConfig.js';
 import { nativeScheduler } from './services/NativeScheduler.js';
+import { autoSync } from './services/AutoSync.js';
 import { startCatalogRefresh } from './catalog/catalogSync.js';
 import { parseAllowedOrigins, warnOnPermissiveCors } from './config/origins.js';
 
@@ -126,6 +127,7 @@ async function main() {
   await startCatalogRefresh();
 
   await nativeScheduler.start();
+  autoSync.start();
 
   server.listen(PORT, () => {
     console.log(`Cronsole Backend running on http://localhost:${PORT}`);

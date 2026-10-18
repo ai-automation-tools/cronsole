@@ -134,7 +134,7 @@ const BAR_H = '34px';
  * writes `body.style.paddingTop` directly and would clobber it.
  *
  * ponytail: the viewport-height overrides below name the two Tailwind classes the
- * shell actually uses today (`h-screen` on the Dashboard, `h-[calc(100vh-3.5rem)]`
+ * shell actually uses today (`h-dvh` on the Dashboard, `h-[calc(100vh-3.5rem)]`
  * on its sidebar). Rename or restyle either and the demo build grows a 34px
  * overflow — the demo is the only build that reads this.
  */
@@ -143,7 +143,7 @@ function mountSourceBar(): void {
   style.textContent = [
     ':root{--demo-bar-h:' + BAR_H + '}',
     '#root{padding-top:var(--demo-bar-h)}',
-    '.h-screen{height:calc(100vh - var(--demo-bar-h))}',
+    '.h-dvh{height:calc(100dvh - var(--demo-bar-h))}',
     '.min-h-screen{min-height:calc(100vh - var(--demo-bar-h))}',
     // Attribute form, so the brackets and dots in the class name need no CSS escaping.
     '[class~="h-[calc(100vh-3.5rem)]"]{height:calc(100vh - 3.5rem - var(--demo-bar-h))}',

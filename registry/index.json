@@ -1,6 +1,6 @@
 {
   "registryVersion": "1.0",
-  "updatedAt": "2026-10-13T01:13:34.089Z",
+  "updatedAt": "2026-10-15T21:01:44.553Z",
   "templates": [
     {
       "id": "tpl_daily_database_backup",
@@ -1560,6 +1560,63 @@
       "sha256": "7f7e8ed652aa14b096b4e64be34400c32f25ec42e4302e0a87519dc14b172a10"
     },
     {
+      "id": "sys-dism-health-check",
+      "name": "Check Windows Component Store Health (DISM)",
+      "description": "Run DISM’s quick component store check on a schedule and append the result to a log file, so Windows corruption that would break updates or system repair leaves a record before you need it.",
+      "category": "system",
+      "tags": [
+        "system",
+        "windows",
+        "dism",
+        "health"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/sys-dism-health-check.json",
+      "sha256": "adfcbca6379e5a6e260575c8e0fe8b0181a90cf55a8e92574b47dfea512c0025"
+    },
+    {
+      "id": "mon-listening-ports-snapshot",
+      "name": "Log Listening TCP Ports (Windows)",
+      "description": "Append the machine’s listening TCP ports and the process IDs that own them to a log file on a schedule, so a service that starts listening unexpectedly shows up as a new line in the history instead of going unnoticed.",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "network",
+        "security"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/mon-listening-ports-snapshot.json",
+      "sha256": "29fa190620e8fc3fe8fe6c3381cae92ea883b22abfb4cc7b83a242e9a8543f3d"
+    },
+    {
+      "id": "cln-macos-trash-purge",
+      "name": "Purge Old Items from the Trash (macOS)",
+      "description": "Permanently delete items that have sat in the macOS Trash longer than a number of days, on a schedule, so deleted files stop holding disk space without wiping something you binned this morning.",
+      "category": "cleanup",
+      "tags": [
+        "cleanup",
+        "macos",
+        "disk",
+        "trash"
+      ],
+      "runtime": "bash",
+      "os": "macos",
+      "compatibleTargets": [
+        "macos"
+      ],
+      "path": "templates/cln-macos-trash-purge.json",
+      "sha256": "ad3f79a924914090b28c9f50779749c8317c8ba74c4414ec88b091637191e433"
+    },
+    {
       "id": "native-run-program",
       "name": "Run a Program (Cronsole)",
       "description": "Run any executable with arguments on the machine hosting Cronsole — no agent, no Task Scheduler entry. Cronsole schedules and runs it itself.",
@@ -2375,12 +2432,13 @@
         "bkp-system-restore-point",
         "cln-old-files",
         "cln-recycle-bin",
+        "cln-macos-trash-purge",
         "dev-docker-prune",
         "ai-claude-log-cleanup",
         "sys-postgres-vacuum"
       ],
       "path": "packs/backup-cleanup.json",
-      "sha256": "9eae461cc9c68921d8a94911ac66940f918b5b0cbd2639ae591a3a9ebe09cbfb"
+      "sha256": "b6b1971c44d60f377e2c2574dc6ed24821aa5b101b64c55816d69cee15daac90"
     },
     {
       "id": "monitoring",
@@ -2396,6 +2454,7 @@
         "mon-physical-disk-health",
         "mon-macos-time-machine-status",
         "mon-dns-resolution-check",
+        "mon-listening-ports-snapshot",
         "native-check-healthchecks-badge",
         "native-script-content-freshness",
         "native-script-domain-expiry",
@@ -2404,7 +2463,7 @@
         "tpl_starter_webhook_macos"
       ],
       "path": "packs/monitoring.json",
-      "sha256": "4a2a06fc3ceb9e8276a69905dbc7f4962cf8b2112d29886bd77c07230f146380"
+      "sha256": "a54ef99ec423a9cf0507cb0af946cacd33178e04c98cfc4f7adcd3108bba51c2"
     },
     {
       "id": "cronsole-native",
@@ -2496,10 +2555,11 @@
         "sys-macos-update-check",
         "data-rsync-folder-sync",
         "sys-installed-software-inventory",
-        "sys-windows-time-resync"
+        "sys-windows-time-resync",
+        "sys-dism-health-check"
       ],
       "path": "packs/system-utilities.json",
-      "sha256": "476e5807ea79d68c5e1443c8daacc397762ba7562177eddcacf40aaf7ea25fdb"
+      "sha256": "686af832b1f02013fe55f3367ba758ffd2440910400bb93c4fa84215769c80bb"
     }
   ]
 }

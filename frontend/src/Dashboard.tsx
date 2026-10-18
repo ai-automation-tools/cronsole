@@ -385,8 +385,12 @@ const Dashboard = () => {
       (see TopBar), which frees the left column on the dashboard for the source
       and folder tree — the thing that actually changes, and the thing you
       navigate 350 tasks by. Every other tab gets the full width.
+
+      `h-dvh`, not `h-screen`: on a phone `100vh` is the height with the URL
+      bar hidden, and since this shell never scrolls the bar never hides, so the
+      bottom of `main` sat under it. On desktop the two are the same value.
     */
-    <div className="ground flex flex-col h-screen text-foreground font-sans selection:bg-primary/30 overflow-hidden">
+    <div className="ground flex flex-col h-dvh text-foreground font-sans selection:bg-primary/30 overflow-hidden">
       <TopBar activeTab={activeTab} setActiveTab={setActiveTab} showQuickLinks={settings.showQuickLinksNav} />
       {/*
         No padding here — each screen owns its own.

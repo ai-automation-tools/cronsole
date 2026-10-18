@@ -603,6 +603,13 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
 
 ### Open — UI & product
 
+- [x] **Native script templates: timeout, optional secrets, apply reports `missingSecrets`**
+      *(shipped 2026-10-14, for the ai-automation-recipes catalog)*. `execution.timeoutSec` maps
+      onto a `script` template's job (`timeoutMs`, max 60 min) and exports back;
+      `${secret.NAME?}` is an optional reference (empty when unset, never `missing`); template
+      apply returns `taskId` + `missingSecrets`, and fills `nativeJob` placeholders from defaults
+      when `parameters` is omitted. **Still open:** `execution.timeoutSec` on an `exec` /
+      `commandTemplate` native template is not mapped — those store no `nativeJob` to carry it.
 - [x] **Quick Links is a top-bar item, and every source has one** *(shipped 2026-10-13)*. The
       bookmarks left the Sources tab for their own section at `/links`; **Settings › Behavior ›
       Quick Links in the top bar** switches it off and folds them back under Sources, and each

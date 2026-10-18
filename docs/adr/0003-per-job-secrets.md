@@ -211,6 +211,17 @@ set one instead of failing silently.
 | MCP writes secrets? | No — names only | A tool call is a transcript |
 | Bundle records `requiredSecrets`? | No — derived at import | A second derivation of what the file already states, and a field nothing reads |
 
+## Amendment 2026-10-14 — optional references
+
+`${secret.NAME?}` (trailing `?`) is an **optional** reference: unset, it resolves to an empty
+string and does not block the run. It exists for a credential that only *enables* something —
+an image key that adds a cover image to an agent's output — where refusing to start would make
+the whole job hostage to a nice-to-have. The run-time refusal above still holds for every plain
+`${secret.NAME}`: the blank-401 argument is unchanged, and the `?` is the author declaring that
+blank is acceptable *for this one*. Same name rules, same legal fields, same redaction when the
+value is stored. A name used both ways is required. `GET /tasks/:id/secrets` reports `optional`
+separately and never lists one as `missing`.
+
 ## Follow-ups
 
 1. **`NOTIFY` and `SQL` are now unblocked** and should be re-evaluated *together*, as ADR 0002 asked.

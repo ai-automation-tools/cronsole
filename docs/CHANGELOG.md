@@ -20,6 +20,38 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **Three more extended templates** (2026-10-15): `sys-dism-health-check` (Windows component store
+  health, logged weekly), `mon-listening-ports-snapshot` (daily log of listening TCP ports on
+  Windows) and `cln-macos-trash-purge` (delete macOS Trash items older than N days). Extended
+  tier, not core; the catalog is now 121 templates.
+
+- **README and UI guide link to the recipe catalog** (2026-10-14): [`ai-automation-recipes`](https://github.com/ai-automation-tools/ai-automation-recipes) ships scheduled Claude Code automations as Cronsole templates, and neither doc mentioned it.
+
+- **Templates can be deleted** (2026-10-14), so a template imported for testing no longer lingers
+  forever:
+  - **`DELETE /api/templates/:id`** deletes a template you imported or saved from a task
+    (`managed: false`) together with its favorites. Tasks created from it are untouched — no task
+    references its template. A **catalog-synced** (`managed`) template is refused with **409**
+    `{ error, code: "TEMPLATE_MANAGED" }`, because the next catalog sync would restore it. Unknown
+    id → 404. The id is the template's catalog id, the same one list / import / apply use.
+  - **UI:** a trash icon in the Apply Template modal, shown only for deletable templates, with a
+    confirm.
+  - **MCP:** **`delete_template`**, gated with `delete_task` behind
+    `CRONSOLE_MCP_ALLOW_DESTRUCTIVE` (nothing is archived). Connect Pack **v1.12** lists it.
+
+- **Native script templates can run long and use optional keys** (2026-10-14), for Registry v1
+  `script` templates that run an AI agent for minutes and need API keys:
+  - A template's **`execution.timeoutSec`** now becomes the applied native task's timeout (stored
+    as the job's `timeoutMs`, clamped to 60 minutes; absent keeps the 5-minute default), and
+    survives export as `execution.timeoutSec`.
+  - **`${secret.NAME?}`** marks an **optional** secret reference: unset, it is substituted as an
+    empty string and does not block the run; set, it is substituted and redacted like any other.
+    `GET /api/tasks/:id/secrets` gains an `optional` list, `missing` / `missingSecrets` never name
+    one, and the Secrets editor shows it as *Optional · not set*.
+  - **Template apply reports what the new task still needs**: `POST /api/templates/:id/apply` and
+    the MCP `create_task_from_template` return `taskId` and `missingSecrets` (required references
+    with nothing stored), the same contract as `POST /api/tasks/native`.
+
 - **Every source with a web console has a default quick link** (2026-10-13): Gemini API (AI
   Studio), GitHub and Vercel join Claude, ChatGPT and the Gemini app. The defaults live in
   `frontend/src/data/quickLinks/defaults.json`, kept current by the Cronsole Source Scout job; a
@@ -70,6 +102,12 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Changed
 
+- **New icon: a violet clock on a dark tile** (2026-10-14, violet to match the product site's accent). It replaces the "Command Grid"
+  mark in the browser tab, the top bar, the demo and the product site
+  (`registry-site/index.html`). It's part of one icon family shared by every mikesailab.com
+  and ai-automation-tools.dev site: each uses the same pictogram and colour as its tile on the
+  homepage.
+
 - **The top bar's theme control is a Light / Dark switch** (2026-10-05). Click the sun or the
   moon. System and the named palettes (Dracula, Nord, Solarized, Tokyo Night) are still in
   **Settings → Appearance**; while one is active neither half of the switch is pressed. A theme
@@ -77,6 +115,19 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Fixed
 
+- **Applying a native script/check template without `parameters` stored its `{{placeholders}}`
+  raw** (2026-10-14). The job spec is now always filled from the declared defaults; a required
+  parameter with no value (or an undeclared placeholder) is a `400` instead of a task that runs
+  `{{topic}}` literally.
+
+- **Phone fixes, desktop unchanged** (2026-10-13). The dashboard's **Filters** menu opened
+  invisibly on a phone: the toolbar there is a sideways-scrolling strip, which clipped the menu to
+  its own height. Below `sm` it now opens as a floating panel like the Sync and Export menus. Also:
+  the app shell uses `100dvh`, so the bottom of the page no longer sits under Android's URL bar;
+  the Templates header buttons wrap instead of making the page scroll sideways; the task modal's
+  **Disable** button no longer draws over the status word; text fields are 16px on phones, so iOS
+  stops zooming in on focus; and the `?` help buttons get a larger tap area on touch screens.
+  Desktop layout measured identical before and after at 1400px.
 - **Claude Code routines: session reminders are no longer imported as tasks** (2026-10-05). The
   endpoint Cronsole reads routines from also lists the one-off check-ins a Claude session
   schedules for itself ("re-check the deploy in 10 minutes", `created_kind: "reminder"`). Each

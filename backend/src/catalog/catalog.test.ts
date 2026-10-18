@@ -34,8 +34,8 @@ describe('bundled catalog snapshot', () => {
     }
   });
 
-  it('has the expected shape: 118 templates (4 patterns + 11 dev + 7 ai + 20 starters + 39 extended + 8 native + 15 native scripts&checks + 10 claude routines + 4 gemini triggers)', () => {
-    expect(bundledCatalog).toHaveLength(118);
+  it('has the expected shape: 121 templates (4 patterns + 11 dev + 7 ai + 20 starters + 42 extended + 8 native + 15 native scripts&checks + 10 claude routines + 4 gemini triggers)', () => {
+    expect(bundledCatalog).toHaveLength(121);
     expect(bundledCatalog.filter((t) => t.isStarter)).toHaveLength(24);
     expect(bundledCatalog.filter((t) => t.id.startsWith('dev-'))).toHaveLength(11);
     expect(bundledCatalog.filter((t) => t.id.startsWith('ai-'))).toHaveLength(7);
@@ -105,7 +105,7 @@ describe('bundled catalog snapshot', () => {
     // first template in the catalog that is guaranteed to work on a fresh
     // install rather than merely applicable to one.
     expect(core).toHaveLength(10);
-    expect(extended).toHaveLength(108);
+    expect(extended).toHaveLength(111);
     expect(core.length).toBeLessThan(bundledCatalog.length); // registry > default
     // Extended Pack templates use the ext-namespace prefixes and are never core.
     for (const t of bundledCatalog.filter((x) => /^(bkp|cln|sys|mon|data|ntf)-/.test(x.id))) {
@@ -270,10 +270,10 @@ describe('normalizeTemplate -> Prisma shape', () => {
 });
 
 describe('BundledCatalogSource', () => {
-  it('lists all 118 normalized templates', async () => {
+  it('lists all 121 normalized templates', async () => {
     const src = new BundledCatalogSource();
     const list = await src.list();
-    expect(list).toHaveLength(118);
+    expect(list).toHaveLength(121);
     expect(src.name).toBe('bundled');
   });
 });

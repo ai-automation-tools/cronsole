@@ -325,6 +325,7 @@ app.use ('/api/tools',     authenticateToken, toolsRoutes)   // cross-task: expo
 | `GET` | `/api/templates` · `/templates/discover` | Catalog |
 | `POST` | `/api/templates/:id/preview` · `/:id/apply` | See shapes below |
 | `POST`/`DELETE` | `/api/templates/:id/favorite` | Per-user |
+| `DELETE` | `/api/templates/:id` | Deletes a `managed: false` template (favorites cascade; tasks never reference a template). **409 `TEMPLATE_MANAGED`** for a synced row — catalogSync would restore it. Id = the registry id; there is no second key |
 | `GET`/`POST` | `/api/templates/export` · `/templates/import` | Grow the catalog without a reseed |
 
 ### Request shapes worth pinning down

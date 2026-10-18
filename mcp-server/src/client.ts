@@ -37,7 +37,7 @@ export interface CronsoleClientConfig {
  */
 export interface CronsoleServerConfig extends CronsoleClientConfig {
   /**
-   * Whether the irreversible tools (delete_task) are registered at all. Off by
+   * Whether the irreversible tools (delete_task, delete_template) are registered at all. Off by
    * default: an MCP host may call a tool with far less deliberation than a user
    * clicking through the UI's confirm dialog, and the agent that carries the
    * deletion out runs elevated.

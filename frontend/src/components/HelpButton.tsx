@@ -74,7 +74,7 @@ export const HelpButton = ({ topic, size = 'sm', label, className = '' }: HelpBu
         onClick={() => setOpen(true)}
         aria-label={`Help: ${found.title}`}
         title={`What is this? — ${found.title}`}
-        className={`inline-flex items-center justify-center shrink-0 rounded-full text-subtle-foreground hover:text-foreground hover:bg-muted transition-colors active:scale-90 ${
+        className={`touch-hit inline-flex items-center justify-center shrink-0 rounded-full text-subtle-foreground hover:text-foreground hover:bg-muted transition-colors active:scale-90 ${
           size === 'sm' ? 'p-0.5' : 'p-1.5'
         } ${className}`}
       >

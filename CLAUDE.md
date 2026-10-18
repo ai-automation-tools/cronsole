@@ -140,8 +140,8 @@ scope** (`~/.claude/agents/`) since 2026-08-23. `Explore` and `Plan` are built i
   [MCP Server Guide](docs/user-guides/guides/MCP_Server_Guide.md)).
 
 MCP rules that don't change: **it owns no logic** — new behavior belongs in a backend route.
-**Destructive-op gating is tiered** — only `delete_task` is gated (`CRONSOLE_MCP_ALLOW_DESTRUCTIVE`),
-and when off it is *absent* from `tools/list`. Bulk verbs are omitted deliberately: friction must
+**Destructive-op gating is tiered** — only `delete_task` and `delete_template` are gated (`CRONSOLE_MCP_ALLOW_DESTRUCTIVE`),
+and when off they are *absent* from `tools/list`. Bulk verbs are omitted deliberately: friction must
 scale with blast radius and MCP has no equivalent of the UI's typed confirmation. The tool suite
 stubs the HTTP client, so it **cannot** prove the wrapper and the API still agree — hand-drive a tool
 after changing a route it wraps.
@@ -375,7 +375,9 @@ Non-negotiable rules. **Every one has a reason recorded in
   the moment), and **cascade away with the task** — the opposite of `TaskExclusion`. A
   referenced-but-unset secret is a **run-time** refusal (`ran: false`), never a create-time one:
   import, restore and template-apply all legitimately produce one, so every write reports
-  `missingSecrets`. Save-as-template refuses a secret-bearing job outright.
+  `missingSecrets`. **`${secret.NAME?}` is the one declared exception**: optional, resolves to `''`
+  when unset and is never `missing` — for a key that only *enables* something. Save-as-template
+  refuses a secret-bearing job outright.
 - **A dispatch timeout is not a failed dispatch — answer it with evidence.** Gemini's
   `POST /executions` holds the connection while the agent works, past every sane client timeout, so
   a manual run of a healthy task was reported *"Run now failed"*, written to `ExecutionLog` as a

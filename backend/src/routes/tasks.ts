@@ -12,7 +12,7 @@ import { TaskService } from '../services/TaskService.js';
 import { preflightPrompt } from '../services/promptPreflight.js';
 import { validateJob, NativeJob } from '../services/NativeTaskExecutor.js';
 import { buildNativeJob } from '../services/nativeJob.js';
-import { missingSecretRefs, secretRefsIn } from '../services/jobSecrets.js';
+import { missingSecretRefs, optionalSecretRefsIn, secretRefsIn } from '../services/jobSecrets.js';
 import {
   deleteTaskSecret,
   listTaskSecretNames,
@@ -979,6 +979,9 @@ router.get('/:id/secrets', async (req: Request, res: Response) => {
   res.json({
     stored: stored.names,
     referenced: secretRefsIn(meta.job),
+    // Referenced only as `${secret.NAME?}`: unset is legal for these, so they
+    // are never in `missing` — a run substitutes an empty string instead.
+    optional: optionalSecretRefsIn(meta.job),
     missing: missingSecretRefs(meta.job, stored.names),
     unreadable: stored.unreadable,
     // One timestamp for the row, and named for the event that writes it. A

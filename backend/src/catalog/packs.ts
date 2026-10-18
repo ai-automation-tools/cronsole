@@ -128,6 +128,7 @@ export const bundledPacks: BundledPack[] = [
       'bkp-system-restore-point',
       'cln-old-files',
       'cln-recycle-bin',
+      'cln-macos-trash-purge',
       'dev-docker-prune',
       'ai-claude-log-cleanup',
       'sys-postgres-vacuum'
@@ -148,6 +149,7 @@ export const bundledPacks: BundledPack[] = [
       'mon-physical-disk-health',
       'mon-macos-time-machine-status',
       'mon-dns-resolution-check',
+      'mon-listening-ports-snapshot',
       'native-check-healthchecks-badge',
       'native-script-content-freshness',
       'native-script-domain-expiry',
@@ -276,7 +278,8 @@ export const bundledPacks: BundledPack[] = [
       'sys-macos-update-check',
       'data-rsync-folder-sync',
       'sys-installed-software-inventory',
-      'sys-windows-time-resync'
+      'sys-windows-time-resync',
+      'sys-dism-health-check'
     ]
   }
 ];

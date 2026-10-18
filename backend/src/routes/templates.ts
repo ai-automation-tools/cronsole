@@ -43,6 +43,7 @@ const router = Router();
 const platformSchema = z.enum(PlatformType, { message: 'Invalid platform' });
 
 import { isValidCron } from '../utils/cron.js';
+import { missingSecretRefs } from '../services/jobSecrets.js';
 
 /**
  * Resolve the platform-native trigger for a schedule. Only Windows needs a
@@ -117,6 +118,50 @@ router.post('/import', async (req: Request, res: Response) => {
   const result = await importTemplates(req.body);
   const importedCount = result.created.length + result.updated.length;
   res.status(importedCount === 0 ? 400 : 200).json(result);
+});
+
+// Delete a user-authored template (imported or saved-as-template) from the
+// shared catalog. The id is the template id — the same id GET / lists, import
+// upserts on and preview/apply look up (a registry id like `daily-app-card` IS
+// the DB id; there is no second key).
+//
+// - **Managed rows are refused with 409.** catalogSync owns them and re-upserts
+//   every core id on each sync, so a delete would "succeed" and the template
+//   would be back within the sync interval. There is no hide/suppress list; the
+//   honest answer is to say so. (A template leaves the managed set by leaving
+//   `core` in the catalog, and prune removes it.)
+// - **Favorites go with it** — TemplateFavorite cascades in the DB, so the one
+//   statement is atomic. **Tasks never do:** nothing on Task references a
+//   template (apply copies the command/schedule into the task), so every task
+//   created from it keeps running unchanged.
+// - Any signed-in user may delete, exactly as any user may import/overwrite:
+//   the catalog is shared, owned by the catalog placeholder user, not the viewer.
+router.delete('/:id', async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+
+  const template = await prisma.template.findUnique({
+    where: { id },
+    select: { id: true, name: true, managed: true }
+  });
+  if (!template) {
+    throw new HttpError(404, 'Template not found');
+  }
+  if (template.managed) {
+    throw new HttpError(
+      409,
+      `"${template.name}" is synced from the bundled catalog / template registry, so it would come back ` +
+        'on the next catalog sync. Only imported or saved-as-template templates can be deleted.',
+      { code: 'TEMPLATE_MANAGED' }
+    );
+  }
+
+  // Scoped to managed: false so a sync that claimed the row between the read
+  // and this write can't have its row deleted out from under it.
+  const { count } = await prisma.template.deleteMany({ where: { id, managed: false } });
+  if (count === 0) {
+    throw new HttpError(404, 'Template not found');
+  }
+  res.json({ id, name: template.name, deleted: true });
 });
 
 // Mark a template as a favorite for the current user (idempotent — favoriting an
@@ -314,9 +359,14 @@ router.post('/:id/apply', validateBody(applySchema), async (req: Request, res: R
    * Substitution walks the JSON's string values, which is the safest form there
    * is: each field is exactly one value with no tokenizer downstream, so a
    * parameter cannot split into extra arguments the way it can on a command line.
+   *
+   * Substituted **even when `parameters` is omitted**, from the declared
+   * defaults: a script body is stored with its `{{placeholders}}`, and skipping
+   * the walk stored them raw — a task that ran `{{topic}}` literally. A required
+   * parameter with no default, or an undeclared placeholder, is a 400 instead.
    */
   const finalNativeJob =
-    template.nativeJob && parameters !== undefined
+    template.nativeJob
       ? substituteNativeJob(
           template.nativeJob,
           resolveTemplateParams(template.parameters, parameters)
@@ -341,7 +391,7 @@ router.post('/:id/apply', validateBody(applySchema), async (req: Request, res: R
    * list rather than passing through a server the agent cannot authenticate to.
    */
   const finalAgentTools =
-    template.agentTools && parameters !== undefined
+    template.agentTools
       ? substituteNativeJob(
           template.agentTools,
           resolveTemplateParams(template.parameters, parameters)
@@ -442,6 +492,22 @@ router.post('/:id/apply', validateBody(applySchema), async (req: Request, res: R
       });
   }
 
+  let taskId: string | null = null;
+  let missingSecrets: string[] = [];
+  if (platform === PlatformType.TASKHUB_NATIVE && result.externalId) {
+    // The connector wrote the row; read it back for its id and for the secrets
+    // its job names — an applied template stores none, so every *required*
+    // reference is missing until the user sets it (ADR 0003: say so on the write).
+    const created = await prisma.task.findUnique({
+      where: { platform_externalId: { platform, externalId: result.externalId } }
+    });
+    if (created) {
+      taskId = created.id;
+      const meta = (created.metadata ?? {}) as Record<string, unknown>;
+      missingSecrets = missingSecretRefs(meta.job, []);
+    }
+  }
+
   // Track the created task right away (mirrors POST /tasks): the dashboard shows
   // it without waiting for a sync, and the duplicate-name guard above sees it
   // immediately — so a back-to-back re-apply with the same name 409s instead of
@@ -473,6 +539,7 @@ router.post('/:id/apply', validateBody(applySchema), async (req: Request, res: R
       metadata: { schedule: finalSchedule, command: finalCommand, state: 'Ready' }
     }]) : [];
     if (upserted.length > 0) {
+      taskId = upserted[0].id;
       await prisma.task.update({
         where: { id: upserted[0].id },
         data: { schedule: finalSchedule }
@@ -484,6 +551,12 @@ router.post('/:id/apply', validateBody(applySchema), async (req: Request, res: R
   res.json({
     message: 'Template applied successfully',
     externalId: result.externalId,
+    // Cronsole's own id for the new row, when one was written (null when the
+    // platform returned no id to track). Same id every task route takes.
+    taskId,
+    // Required `${secret.NAME}` references the new task cannot satisfy yet —
+    // always present, `[]` off native. Same contract as `POST /tasks/native`.
+    missingSecrets,
     conversion: { confidence: conversion.confidence, warnings: conversion.warnings, lossy: conversion.lossy },
     // Always present (empty when nothing was created), never conditional: a
     // caller must be able to read the answer rather than infer it from an

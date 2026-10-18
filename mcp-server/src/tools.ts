@@ -17,9 +17,10 @@ import { CronsoleClient, CronsoleApiError } from './client.js';
  *   modify    set_task_status · update_task_schedule · update_task_action ·
  *             update_native_job · rename_task · untrack_task · sync_tasks ·
  *             connect_claude_routine · edit_claude_routine · disconnect_claude_routine
- *   destroy   delete_task            (native-only, and only when allowDestructive)
+ *   destroy   delete_task · delete_template   (only when allowDestructive; delete_task
+ *             is native-only, delete_template refuses catalog-synced rows)
  *
- * That is 34 tools, and this list is a mirror surface like any other: it drifts
+ * That is 35 tools, and this list is a mirror surface like any other: it drifts
  * silently, because nothing imports it. It was last found describing 17 tools —
  * the set as of the first expansion — while the file registered 33. Regenerate it
  * from the file rather than appending to it by hand:
@@ -73,11 +74,14 @@ const SECRET_REF_NOTE =
   'name. Values are set in the app (open the task → Edit → Secrets) and by NO tool on this server, ' +
   'because a tool call is a chat transcript. Create the task with the reference: the result lists it ' +
   'under missingSecrets until the user stores it, list_task_secrets reports the state, and until then ' +
-  'the task refuses to START rather than running with a blank credential.';
+  'the task refuses to START rather than running with a blank credential. ' +
+  'Write `${secret.NAME?}` (trailing ?) for an OPTIONAL credential the job can do without (e.g. a key ' +
+  'that only adds a cover image): unset, it becomes an empty string, never blocks the run, and is not ' +
+  'listed under missingSecrets.';
 
 export interface ToolOptions {
   /**
-   * Register the irreversible tools (delete_task). Sourced from an env var, not
+   * Register the irreversible tools (delete_task, delete_template). Sourced from an env var, not
    * a tool parameter: a `confirm: true` argument is not a gate, because the model
    * fills it in itself. See CronsoleClientConfig.allowDestructive.
    */
@@ -940,7 +944,12 @@ export function registerTools(
         'refused with the list of saved servers rather than creating a trigger that cannot authenticate. ' +
         'Read the template\'s `agentTools` with list_templates and TELL THE USER what the trigger will be able to ' +
         'do before calling this. A Gemini trigger cannot be edited in place afterwards — changing its prompt or ' +
-        'schedule means "Recreate with changes" on the task in Cronsole.',
+        'schedule means "Recreate with changes" on the task in Cronsole. ' +
+        'The result carries `taskId` (Cronsole\'s id for the new task, for run_task / list_task_secrets) and ' +
+        '`missingSecrets`: a TASKHUB_NATIVE template whose job refers to `${secret.NAME}` creates a task with ' +
+        'nothing stored, which refuses to run until the user sets those values in Cronsole (open the task → ' +
+        'Edit → Secrets — no MCP tool can set one). `${secret.NAME?}` references are optional and never listed. ' +
+        'A native script template\'s `execution.timeoutSec` becomes the task\'s timeout (max 60 min; default 5).',
       inputSchema: {
         templateId: z.string().describe('The template id (from list_templates).'),
         platform: z
@@ -1032,7 +1041,14 @@ export function registerTools(
             'Removing these again needs administrator rights — Cronsole will not delete them.'
           : '';
         const msg = typeof result.message === 'string' ? result.message : 'Template applied';
-        return ok(`${msg}${warnings}${folders}`, { templateId, platform, result });
+        const created = typeof result.taskId === 'string' ? ` Task id: ${result.taskId}.` : '';
+        return ok(`${msg}${created}${warnings}${folders}${missingSecretsNote(result.missingSecrets)}`, {
+          templateId,
+          platform,
+          taskId: result.taskId ?? null,
+          missingSecrets: Array.isArray(result.missingSecrets) ? result.missingSecrets : [],
+          result
+        });
       } catch (err) {
         return toolError(err);
       }
@@ -2250,6 +2266,8 @@ Next run: ${task.nextRunTime}` : '')
         'makes the run fail to START (it is reported as ran=false, not as a failed check). ' +
         'The three lists mean different things and are kept apart on purpose: `referenced` is what the job ' +
         'asks for, `stored` is what the task has, and `missing` is the intersection that will break it. ' +
+        '`optional` names references written `${secret.NAME?}`: unset, those resolve to an empty string and ' +
+        'never block a run, so they are never in `missing`. ' +
         'A stored secret nothing references is harmless leftovers from an edit. ' +
         'To FIX a missing one, tell the user to open the task in Cronsole → Edit → Secrets and enter the ' +
         'value there; do not ask them to paste it into this conversation. ' +
@@ -2265,10 +2283,12 @@ Next run: ${task.nextRunTime}` : '')
         const result = await client.get<{
           stored: string[];
           referenced: string[];
+          optional?: string[];
           missing: string[];
           unreadable: boolean;
           secretsUpdatedAt: string | null;
         }>(`/tasks/${encodeURIComponent(taskId)}/secrets`);
+        const optionalUnset = (result.optional ?? []).filter(n => !result.stored.includes(n));
 
         const lines = [
           `Referenced by the job: ${result.referenced.length ? result.referenced.join(', ') : 'none'}`,
@@ -2285,6 +2305,12 @@ Next run: ${task.nextRunTime}` : '')
             `⚠ Missing: ${result.missing.join(', ')} — this task will refuse to run until ${
               result.missing.length === 1 ? 'it is' : 'they are'
             } set. Values are entered in Cronsole (open the task → Edit → Secrets); no MCP tool can set one.`
+          );
+        } else if (optionalUnset.length) {
+          lines.push(
+            `Optional and not set: ${optionalUnset.join(', ')} — the job runs without ${
+              optionalUnset.length === 1 ? 'it' : 'them'
+            } (an empty string is substituted). Every required secret is set.`
           );
         } else if (result.referenced.length) {
           lines.push('Every secret this job refers to is set.');
@@ -3331,6 +3357,37 @@ Next run: ${task.nextRunTime}` : '')
             archiveId: result.archiveId,
             executionsArchived: result.executionsArchived
           });
+        } catch (err) {
+          return toolError(err);
+        }
+      }
+    );
+
+    // Gated with delete_task because it is just as final: no archive is kept,
+    // so the template is gone unless the user still has the JSON to re-import.
+    server.registerTool(
+      'delete_template',
+      {
+        title: 'Delete a catalog template',
+        description:
+          'Delete a template the user imported or saved from a task (managed=false) from the Cronsole catalog. ' +
+          'Its favorites go with it. Tasks already created from it are NOT touched — a task never depends on its ' +
+          'template. No archive is kept: the only way back is re-importing the template file (or saving the task ' +
+          'as a template again), so suggest export first if the user may want it later. ' +
+          'REFUSES (409, code TEMPLATE_MANAGED) a template synced from the bundled catalog / template registry: ' +
+          'the next catalog sync would put it straight back, so this is a boundary, not something a retry gets ' +
+          'past. Confirm with the user before calling this.',
+        inputSchema: {
+          templateId: z.string().describe('The template id (from list_templates).')
+        }
+      },
+      async ({ templateId }) => {
+        try {
+          const result = await client.delete<{ name?: string }>(
+            `/templates/${encodeURIComponent(templateId)}`
+          );
+          const label = result.name ? `"${result.name}" ` : '';
+          return ok(`Template ${label}deleted (id: ${templateId}).`, { templateId, deleted: true });
         } catch (err) {
           return toolError(err);
         }

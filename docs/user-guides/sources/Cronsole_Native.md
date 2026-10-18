@@ -81,9 +81,17 @@ The value is AES-256-GCM encrypted in its own table. **No route returns it** —
 a read path rather than a filter someone could forget. It is not in the job spec (a job edit replaces
 that), not in the export, not in the archive, and it cascades away with the task.
 
+**Optional references — `${secret.NAME?}`.** A trailing `?` marks a credential the job can do
+without (an image key that only adds a cover image). Unset, it resolves to an **empty string** and
+the run goes ahead; set, it is substituted and redacted like any other. The Secrets section shows it
+as *Optional · not set* rather than as a problem, and it is never listed as missing. Use it only for
+a credential that *enables* something — a required one should fail loudly, because a blank
+`Authorization` header comes back as a 401 that reads like an expired token.
+
 **A reference with nothing behind it fails at run time, not create time** — `ran: false`, with the
 name in the message. Import, restore and template-apply all legitimately produce that state, so every
-write reports which secrets are missing rather than refusing the whole thing.
+write reports which secrets are missing rather than refusing the whole thing (template-apply returns
+`missingSecrets` and the new `taskId`).
 
 > [!NOTE]
 > **Save-as-template refuses a secret-bearing job outright.** A template is for sharing; a job that

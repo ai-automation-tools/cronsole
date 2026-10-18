@@ -29,6 +29,32 @@ describe('denormalizeTemplate', () => {
     }
   });
 
+  it('maps execution.timeoutSec onto a script job and back, clamped to 60 minutes', () => {
+    const script = {
+      schemaVersion: '1.0' as const,
+      id: 'agent-digest',
+      name: 'Agent digest',
+      trigger: { kind: 'schedule' as const, cron: '0 6 * * *' },
+      action: { kind: 'script' as const, interpreter: 'python' as const, body: 'print(1)' },
+      compatibleTargets: ['cronsole-native' as const]
+    };
+
+    const norm = normalizeTemplate({ ...script, execution: { timeoutSec: 2400 } });
+    expect(norm.nativeJob).toMatchObject({ jobType: 'SCRIPT', timeoutMs: 2_400_000 });
+    const back = denormalizeTemplate(norm);
+    expect(back.execution).toEqual({ timeoutSec: 2400 });
+    expect(normalizeTemplate(back)).toEqual(norm);
+
+    expect(normalizeTemplate({ ...script, execution: { timeoutSec: 99_999 } }).nativeJob)
+      .toMatchObject({ timeoutMs: 3_600_000 });
+    for (const timeoutSec of [null, undefined, 0]) {
+      const job = normalizeTemplate({ ...script, execution: { timeoutSec } }).nativeJob as Record<string, unknown>;
+      expect(job).not.toHaveProperty('timeoutMs');
+      expect(denormalizeTemplate(normalizeTemplate({ ...script, execution: { timeoutSec } })).execution)
+        .toBeUndefined();
+    }
+  });
+
   it('carries the core fields and cron across the round-trip', () => {
     const original = byId('tpl_starter_powershell_script');
     const back = denormalizeTemplate(normalizeTemplate(original));

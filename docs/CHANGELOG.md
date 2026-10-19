@@ -14,6 +14,10 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **The source data-flow diagram is on the homepage, not the README** (2026-10-19). The
+  [homepage](https://cronsole.ai-automation-tools.dev/#sec-flow) shows it under *How it works* and links to the interactive version.
+  `scripts/build-diagram.mjs` copies the HTML and PNG into `registry-site/` (the front door
+  publishes its flat files), and `--check` flags a copy that differs.
 - **Source data-flow diagram** (2026-10-19). [`docs/diagrams/`](diagrams/README.md) holds an
   Archify diagram of how tasks get from each platform through its connector and the sync into
   PostgreSQL and the dashboard, with the native scheduler alongside; the root README shows it.

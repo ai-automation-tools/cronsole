@@ -10,6 +10,7 @@ registry/** text eol=lf
 # makes the manual PowerShell publish copy different bytes than CI does. Pin LF
 # so the file on disk is the file that gets served.
 registry-site/** text eol=lf
+registry-site/*.png binary
 
 # The diagram check hashes source-data-flow.json against its build receipt, so a
 # CRLF checkout would read as "changed since the last build". Pin LF.

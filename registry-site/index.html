@@ -325,6 +325,10 @@
     .stat-strip .meta { margin-left: auto; font-family: var(--font-mono); font-size: 11px; color: var(--ink-4); padding-right: 4px; }
 
     section.band { padding: 52px 0; border-top: 1px solid var(--line); }
+    .diagram { margin: 0; border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; background: var(--panel); }
+    .diagram img { display: block; width: 100%; height: auto; }
+    .diagram figcaption { padding: 10px 16px; border-top: 1px solid var(--line); font-size: 13px; color: var(--ink-3); }
+    .diagram figcaption a { color: var(--brand-text); }
     .band-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
     .band-head h2 { font-size: 26px; letter-spacing: -.025em; margin: 0; font-weight: 650; line-height: 1.2; }
     .band-head p { margin: 8px 0 0; color: var(--ink-2); font-size: 15px; max-width: 60ch; }
@@ -1040,6 +1044,15 @@
             valueCard("Local-first &amp; safe", "The whole stack runs on your machine. Commands execute no-shell and signed — a template parameter can never inject a second command.") +
             valueCard("Grow from templates", "An open, versioned registry of ready-to-run automations. Filter the gallery, import what you want, fill in the blanks, and schedule it.") +
           '</div></section>' +
+
+        // Source data flow. The PNG and HTML are copies scripts/build-diagram.mjs writes from
+        // docs/diagrams/ (the source); never edit them here.
+        '<section class="band" id="sec-flow"><div class="band-head"><div><span class="kicker">How it works</span>' +
+          '<h2 style="margin-top:8px">Every platform, one task list</h2>' +
+          '<p>Each platform is read by its own connector and synced into PostgreSQL; the dashboard reads from there. Cronsole-native jobs skip the import and run on the backend&#39;s own scheduler.</p></div></div>' +
+          '<figure class="diagram"><a href="source-data-flow.html"><img src="source-data-flow.png" width="2048" height="1320" loading="lazy" alt="Cronsole source data flow: Windows Task Scheduler, Claude Code routines, Gemini Triggers, GitHub Actions and n8n are read by their connectors; scope and sync upserts tasks into PostgreSQL, which the dashboard reads over REST; Cronsole-native jobs are scheduled and executed by the backend itself"></a>' +
+          '<figcaption>Every node links to the code it describes. <a href="source-data-flow.html">Open the interactive diagram</a></figcaption></figure>' +
+        '</section>' +
 
         // Run it locally — the quick start the standalone landing page carried.
         '<section class="band" id="sec-start"><div class="band-head"><div><span class="kicker">Get started</span>' +

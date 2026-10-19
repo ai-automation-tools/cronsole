@@ -14,6 +14,12 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Changed
 
+- **Periodic sync is on by default** (2026-10-19): every connection now refreshes every 30
+  minutes unless turned off in **Sources › Show details › Sync automatically**. The
+  `20261019120000_default_periodic_sync_on` migration sets the column default and switches on
+  existing connections that had it off (off and never-chose were indistinguishable; the feature was
+  three days old). Still a refresh only: a new folder still needs a manual sync or Import.
+
 - **Docs: the roadmap is on the lab roadmap standard** (2026-10-19). `docs/ROADMAP.md` keeps every
   item and its anchors, but the *Part I — Open work* / *Part II — Completed* split is gone: the
   shipped tiers are now Phases 1 to 8 (Foundation, P0, P1, Sources, P2, P3, the August sprints,

@@ -14,6 +14,15 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Changed
 
+- **The front door is Cronsole's homepage, not the registry's** (2026-10-19). `registry-site/index.html`
+  no longer brands itself "Cronsole Registry": the top bar reads **Cronsole**, the hero's primary
+  button opens the [live demo](https://cronsole-demo.ai-automation-tools.dev/), the second jumps to
+  the **Template registry** section further down, and the third goes to GitHub. The registry
+  (collections, featured templates, Browse, import guide, all unchanged) now sits under that
+  labelled section after the quick start. Also: a Demo and an `ai-automation-tools.dev` link in the
+  nav (the nav collapses at 820px instead of 720px so the row still fits), a Resources section with
+  the demo, docs, changelog and roadmap, canonical and Open Graph tags, and "More tools" in the footer.
+
 - **Periodic sync is on by default** (2026-10-19): every connection now refreshes every 30
   minutes unless turned off in **Sources › Show details › Sync automatically**. The
   `20261019120000_default_periodic_sync_on` migration sets the column default and switches on

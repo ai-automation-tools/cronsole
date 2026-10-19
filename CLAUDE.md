@@ -73,7 +73,7 @@ cronsole/
 │                    #   user-guides/ · testing/ · adr/ · prompts/ · reports/
 │                    #   archive/ + local/ are LOCAL-ONLY (gitignored, NOT backed up)
 ├── registry/        # generated template registry artifact — never hand-edit
-├── registry-site/   # the one public gallery page (published to two hosts)
+├── registry-site/   # Cronsole's homepage + template gallery, one page (published to three hosts)
 ├── proxy/           # opt-in single-origin reverse proxy (Caddyfile); nothing runs by default
 ├── backend/src/     # catalog/ · connectors/ · routes/ · services/ · ws/ · auth/ · tools/
 ├── frontend/src/    # components/ (ui/ = Modal primitive) · screens/ · hooks/ · utils/ · data/

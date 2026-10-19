@@ -5,7 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#060606" />
   <title>Cronsole — local-first control plane for your scheduled tasks</title>
-  <meta name="description" content="Cronsole is a local-first dashboard for the scheduled work scattered across your machine — Windows Task Scheduler, Claude Code and Codex routines, AI-agent jobs. Browse and import ready-to-run automation templates from the open registry." />
+  <meta name="description" content="Cronsole is a local-first dashboard for the scheduled work scattered across your machine — Windows Task Scheduler, Claude Code and Codex routines, AI-agent jobs. Try the live demo, or browse ready-to-run automation templates in the open template registry." />
+  <link rel="canonical" href="https://cronsole.ai-automation-tools.dev/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="ai-automation-tools.dev" />
+  <meta property="og:title" content="Cronsole — local-first control plane for your scheduled tasks" />
+  <meta property="og:description" content="One local dashboard for Windows Task Scheduler, Claude Code routines and jobs Cronsole runs itself. Try the live demo or browse the template registry." />
+  <meta property="og:url" content="https://cronsole.ai-automation-tools.dev/" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Ctitle%3ECronsole%3C%2Ftitle%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20rx%3D%227%22%20fill%3D%22%230b0b0e%22%2F%3E%3Crect%20x%3D%221%22%20y%3D%221%22%20width%3D%2230%22%20height%3D%2230%22%20rx%3D%226%22%20fill%3D%22none%22%20stroke%3D%22%235c4c8a%22%20stroke-width%3D%222%22%2F%3E%3Cg%20transform%3D%22translate(6%206)%20scale(0.8333333333333334)%22%20fill%3D%22none%22%20stroke%3D%22%23a78bfa%22%20stroke-width%3D%222.6%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%228.5%22%2F%3E%3Cpath%20d%3D%22M12%207v5l3.5%202%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E" />
   <style>
     /* ============================================================
@@ -147,7 +153,6 @@
     .brand-mark { width: 26px; height: 26px; border-radius: 7px; flex-shrink: 0; display: grid; place-items: center; overflow: hidden; }
     .brand-mark svg { width: 100%; height: 100%; display: block; }
     .brand-name { font-weight: 600; font-size: 14px; letter-spacing: -.01em; }
-    .brand-name .reg { color: var(--ink-3); font-weight: 400; font-family: var(--font-mono); font-size: 12px; margin-left: 2px; }
     .nav-links { display: flex; align-items: center; gap: 2px; margin-left: 10px; }
     .nav-link {
       font-size: 13.5px; font-weight: 400; color: var(--ink-2); padding: 6px 11px; border-radius: var(--r-sm);
@@ -168,7 +173,9 @@
     .ibtn:hover { color: var(--ink); border-color: var(--ink-4); background: var(--panel-2); }
     .ibtn svg { width: 16px; height: 16px; }
     .nav-toggle { display: none; }
-    @media (max-width: 720px) {
+    /* 820, not 720: the nav carries Demo and the org back-link since 2026-10-19, and
+       between 721px and 800px the full link row no longer fits beside the search box. */
+    @media (max-width: 820px) {
       .nav-links { display: none; }
       .nav-links.open {
         display: flex; flex-direction: column; position: absolute; top: 56px; left: 0; right: 0;
@@ -283,6 +290,8 @@
     .hero { display: grid; grid-template-columns: 1fr; gap: 36px; padding: 56px 0 28px; position: relative; align-items: center; }
     @media (min-width: 900px) { .hero { grid-template-columns: 1.02fr .98fr; padding: 76px 0 36px; gap: 48px; } }
     .hero-copy { min-width: 0; }
+    /* In-page jumps land below the sticky source bar + nav, not under them. */
+    #sec-start, #sec-registry, #sec-resources { scroll-margin-top: 110px; }
     .hero-kicker { display: inline-flex; align-items: center; gap: 9px; margin-bottom: 18px; }
     .hero-kicker .pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--phosphor); box-shadow: 0 0 10px var(--phosphor); animation: blink 2.4s ease-in-out infinite; }
     @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
@@ -587,14 +596,16 @@
     <div class="nav-inner">
       <div class="brand" data-nav="#/">
         <div class="brand-mark"><svg viewBox="0 0 256 256" role="img" aria-label="Cronsole"><use href="#cronsole-mark"/></svg></div>
-        <div class="brand-name">Cronsole <span class="reg">Registry</span></div>
+        <div class="brand-name">Cronsole</div>
       </div>
       <div class="nav-links" id="navlinks">
         <span class="nav-link" data-nav="#/">Home</span>
-        <span class="nav-link" data-nav="#/browse">Browse</span>
+        <a class="nav-link" href="https://cronsole-demo.ai-automation-tools.dev/" target="_blank" rel="noopener">Demo</a>
+        <span class="nav-link" data-nav="#/browse">Templates</span>
         <span class="nav-link" data-nav="#/collections">Collections</span>
         <span class="nav-link" id="nav-import">Import guide</span>
-        <a class="nav-link" href="https://github.com/ai-automation-tools/cronsole" target="_blank" rel="noopener">Get Cronsole</a>
+        <a class="nav-link" href="https://github.com/ai-automation-tools/cronsole" target="_blank" rel="noopener">GitHub</a>
+        <a class="nav-link" href="https://ai-automation-tools.dev/">ai-automation-tools.dev</a>
       </div>
       <div class="nav-search">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
@@ -614,9 +625,10 @@
     <div class="wrap">
       <div class="fl">
         <div class="brand-mark" style="width:22px;height:22px;border-radius:6px"><svg viewBox="0 0 256 256" role="img" aria-label="Cronsole"><use href="#cronsole-mark"/></svg></div>
-        <span>cronsole.ai-automation-tools.dev · content-addressed registry · GitHub Pages</span>
+        <span>Cronsole · local-first control plane for your scheduled tasks · Apache-2.0</span>
       </div>
       <div class="fr">
+        <a href="https://cronsole-demo.ai-automation-tools.dev/" target="_blank" rel="noopener">Live demo</a>
         <a href="https://github.com/ai-automation-tools/cronsole" target="_blank" rel="noopener">GitHub</a>
         <!-- No raw-artifact link here. The registry JSON and its apex path are plumbing: this
              page is the only public face of the catalog, and the host it happens to be served
@@ -625,7 +637,7 @@
              "Request a template" points at the registry mirror only because the app repo is
              still private; move it to ai-automation-tools/cronsole/issues when that flips. -->
         <a href="https://github.com/michaelschecht/cronsole-registry/issues" target="_blank" rel="noopener">Request a template</a>
-        <a href="https://ai-automation-tools.dev">ai-automation-tools.dev</a>
+        <a href="https://ai-automation-tools.dev">More tools</a>
         <a href="https://ai-automation-tools.dev/cookies.html">Cookies</a>
         <a href="#" data-ail-consent="manage">Cookie settings</a>
       </div>
@@ -661,6 +673,11 @@
       appRepo: "https://github.com/ai-automation-tools/cronsole",
       demo: "https://cronsole-demo.ai-automation-tools.dev/",
       quickStart: "https://github.com/ai-automation-tools/cronsole#-quick-start",
+      docs: "https://github.com/ai-automation-tools/cronsole/blob/main/docs/README.md",
+      features: "https://github.com/ai-automation-tools/cronsole/blob/main/docs/FEATURES.md",
+      changelog: "https://github.com/ai-automation-tools/cronsole/blob/main/docs/CHANGELOG.md",
+      roadmap: "https://github.com/ai-automation-tools/cronsole/blob/main/docs/ROADMAP.md",
+      org: "https://ai-automation-tools.dev/",
       registryRepo: "https://github.com/michaelschecht/cronsole-registry",
       registryIssues: "https://github.com/michaelschecht/cronsole-registry/issues"
     };
@@ -995,15 +1012,16 @@
 
       return '<div class="wrap">' +
         '<section class="hero"><div class="hero-copy">' +
-          '<span class="hero-kicker kicker"><span class="pulse"></span><b>Open source</b> · local-first · ' + pluralize(PLATFORMS.length, "platform") + '</span>' +
+          // The eyebrow is also the way back to the org: this page is one tool of several.
+          '<span class="hero-kicker kicker"><span class="pulse"></span><span><a href="' + LINKS.org + '" style="color:inherit">ai-automation-tools.dev</a> · <b>Open source</b> · local-first · ' + pluralize(PLATFORMS.length, "platform") + '</span></span>' +
           '<h1>Your automations,<br><span class="gr">finally in one place.</span></h1>' +
           '<p class="lede">Cronsole is a <b>local-first control plane</b> for the scheduled work scattered across your machine — Windows Task Scheduler, Claude&nbsp;Code routines, and jobs Cronsole runs itself with no agent at all — in one dark, fast dashboard. View, run, pause and reschedule any of them without moving a single one off the platform it already runs on.</p>' +
-          '<div class="hero-cta"><button class="btn btn-primary" data-nav="#/browse">Browse ' + TEMPLATES.length + ' templates' + I.arrow + '</button>' +
-          // The demo is the only thing on this page a visitor can TRY rather than
-          // read about, so it sits beside the primary CTA rather than in a footer.
-          '<a class="btn btn-ghost" href="' + LINKS.demo + '" target="_blank" rel="noopener">' + I.play + ' Try the demo</a>' +
-          '<a class="btn btn-ghost" href="' + LINKS.appRepo + '" target="_blank" rel="noopener">' + I.code + ' Get Cronsole</a>' +
-          '<button class="btn btn-ghost" id="hero-import">' + I.info + ' How import works</button></div>' +
+          // This page is the PRODUCT's homepage (since 2026-10-19), not the registry's.
+          // The demo is the one thing a visitor can try rather than read about, so it
+          // is the primary action; the template registry is a section further down.
+          '<div class="hero-cta"><a class="btn btn-primary" href="' + LINKS.demo + '" target="_blank" rel="noopener">' + I.play + ' Try the live demo' + I.arrow + '</a>' +
+          '<button class="btn btn-ghost" data-scroll="sec-registry">' + I.tpl + ' Template registry</button>' +
+          '<a class="btn btn-ghost" href="' + LINKS.appRepo + '" target="_blank" rel="noopener">' + I.code + ' GitHub</a></div>' +
         '</div>' +
         // The platforms Cronsole connects to, drawn live around the mark. The list
         // is PLATFORMS below and mirrors the README's connectors table.
@@ -1011,10 +1029,6 @@
           '<canvas id="orbit"></canvas><div class="tip" id="otip"></div><span class="hint">hover a platform · click for the table</span>' +
         '</div>' +
         '</section>' +
-        '<div class="stat-strip" role="list" aria-label="At a glance"><span class="lbl-strip">At a glance</span>' +
-          stat(TEMPLATES.length, "templates", "#8b5cf6") + stat(coreCount, "built in", "#34d399") + stat(TEMPLATES.length - coreCount, "to import", "#38bdf8") + stat(cats, "categories", "#fbbf24") + stat(rts, "runtimes", "#a1a1aa") +
-          '<span class="meta">' + pluralize(oses, "platform target") + ' · content-addressed · Apache-2.0</span>' +
-        '</div>' +
 
         // Why Cronsole — ported from the retired standalone landing page, which
         // was a second front door saying things this one never did.
@@ -1026,6 +1040,33 @@
             valueCard("Local-first &amp; safe", "The whole stack runs on your machine. Commands execute no-shell and signed — a template parameter can never inject a second command.") +
             valueCard("Grow from templates", "An open, versioned registry of ready-to-run automations. Filter the gallery, import what you want, fill in the blanks, and schedule it.") +
           '</div></section>' +
+
+        // Run it locally — the quick start the standalone landing page carried.
+        '<section class="band" id="sec-start"><div class="band-head"><div><span class="kicker">Get started</span>' +
+          '<h2 style="margin-top:8px">Run Cronsole locally</h2>' +
+          '<p>Cronsole is local-first — the whole stack runs on your machine.</p></div></div>' +
+          '<div class="code" style="position:relative">' +
+            '<button class="btn btn-sm" data-copytext="' + esc(QUICKSTART) + '" style="position:absolute;top:10px;right:10px">' + I.copy + ' Copy</button>' +
+            esc(QUICKSTART) +
+          '</div>' +
+          '<p class="mono" style="color:var(--ink-3);font-size:12px;margin-top:12px">' +
+            'Then connect the Windows agent and open the dashboard. Full instructions in the ' +
+            '<a href="' + LINKS.quickStart + '" target="_blank" rel="noopener">repo quick start</a>.</p>' +
+        '</section>' +
+
+        // The template registry — the gallery this page used to BE. Everything it did
+        // (collections, featured, browse, import) is still here, one section down.
+        '<section class="band" id="sec-registry"><div class="band-head"><div><span class="kicker">Template registry</span>' +
+          '<h2 style="margin-top:8px">Start from a template</h2>' +
+          '<p>The open, versioned catalog of ready-to-run automations. Download or copy any template and import it into your Cronsole.</p></div>' +
+          '<span class="see-all" data-nav="#/browse">Browse all ' + TEMPLATES.length + ' templates' + I.arrow + '</span></div>' +
+          '<div class="stat-strip" role="list" aria-label="Template registry at a glance"><span class="lbl-strip">At a glance</span>' +
+            stat(TEMPLATES.length, "templates", "#8b5cf6") + stat(coreCount, "built in", "#34d399") + stat(TEMPLATES.length - coreCount, "to import", "#38bdf8") + stat(cats, "categories", "#fbbf24") + stat(rts, "runtimes", "#a1a1aa") +
+            '<span class="meta">' + pluralize(oses, "platform target") + ' · content-addressed · Apache-2.0</span>' +
+          '</div>' +
+          '<div class="hero-cta" style="margin-top:18px"><button class="btn btn-primary" data-nav="#/browse">Browse the registry' + I.arrow + '</button>' +
+          '<button class="btn btn-ghost" id="hero-import">' + I.info + ' How import works</button></div>' +
+        '</section>' +
 
         '<section class="band"><div class="band-head"><div><h2>Browse by collection</h2><p>Hand-picked bundles for the things people automate most.</p></div>' +
           '<span class="see-all" data-nav="#/collections">All collections' + I.arrow + '</span></div>' +
@@ -1043,30 +1084,24 @@
             howStep("Apply & schedule", "Fill in the parameters and pick a target — a Windows task, a job Cronsole runs itself, or a Claude Code routine.") +
           '</div></div></section>' +
 
-        // Run it locally — the quick start the standalone landing page carried.
-        '<section class="band" id="sec-start"><div class="band-head"><div><span class="kicker">Get started</span>' +
-          '<h2 style="margin-top:8px">Run Cronsole locally</h2>' +
-          '<p>Cronsole is local-first — the whole stack runs on your machine.</p></div></div>' +
-          '<div class="code" style="position:relative">' +
-            '<button class="btn btn-sm" data-copytext="' + esc(QUICKSTART) + '" style="position:absolute;top:10px;right:10px">' + I.copy + ' Copy</button>' +
-            esc(QUICKSTART) +
-          '</div>' +
-          '<p class="mono" style="color:var(--ink-3);font-size:12px;margin-top:12px">' +
-            'Then connect the Windows agent and open the dashboard. Full instructions in the ' +
-            '<a href="' + LINKS.quickStart + '" target="_blank" rel="noopener">repo quick start</a>.</p>' +
-        '</section>' +
-
-        // The project — where the code actually lives. Previously only reachable
-        // from the landing page, so retiring it without porting these would have
-        // orphaned every link to the source.
-        '<section class="band"><div class="band-head"><div><span class="kicker">The project</span>' +
+        // Resources — where the code, the demo and the docs actually live.
+        '<section class="band" id="sec-resources"><div class="band-head"><div><span class="kicker">Resources</span>' +
           '<h2 style="margin-top:8px">Built in the open</h2>' +
-          '<p>The app, the registry that feeds it, and this gallery.</p></div></div>' +
+          '<p>The app, the live demo, the registry that feeds it, and the docs.</p></div></div>' +
           '<div class="coll-grid">' +
+            repoCard("Try it", "Live demo", "The Cronsole dashboard in your browser — click around before you install anything.", LINKS.demo, "cronsole-demo.ai-automation-tools.dev") +
             repoCard("App · Source", "Cronsole app", "React dashboard, Node/Postgres backend, the .NET Windows agent, and the MCP server. Apache-2.0.", LINKS.appRepo, "github.com/ai-automation-tools/cronsole") +
             repoCard("Data · Registry", "Template registry", "The public, versioned catalog — index.json plus one file per template, content-addressed with sha256. Propose new templates here.", LINKS.registryRepo, "github.com/michaelschecht/cronsole-registry") +
             repoCard("Feedback", "Request a template", "Missing an automation you\'d use? Open an issue and describe it — the catalog grows from real requests.", LINKS.registryIssues, "Open an issue") +
-          '</div></section>' +
+          '</div>' +
+          '<p class="mono" style="color:var(--ink-3);font-size:12px;margin-top:16px;line-height:2">' +
+            '<a href="' + LINKS.docs + '" target="_blank" rel="noopener">Documentation</a> · ' +
+            '<a href="' + LINKS.features + '" target="_blank" rel="noopener">Features</a> · ' +
+            '<a href="' + LINKS.quickStart + '" target="_blank" rel="noopener">Quick start</a> · ' +
+            '<a href="' + LINKS.changelog + '" target="_blank" rel="noopener">Changelog</a> · ' +
+            '<a href="' + LINKS.roadmap + '" target="_blank" rel="noopener">Roadmap</a> · ' +
+            '<a href="' + LINKS.org + '">More tools at ai-automation-tools.dev</a></p>' +
+        '</section>' +
         '</div>';
     }
     function stat(n, l, c) { return '<span class="stat" role="listitem" style="--c:' + (c || 'var(--phosphor)') + '"><i class="sdot"></i><span class="num">' + n + '</span><span class="lbl">' + esc(l) + '</span></span>'; }
@@ -1559,6 +1594,14 @@
 
     // ---------- global event delegation ----------
     document.addEventListener("click", function (e) {
+      // In-page jumps on Home. A plain href="#sec-x" would not work here: the hash
+      // IS the router, and an unknown hash re-renders Home and scrolls to the top.
+      var jump = e.target.closest("[data-scroll]");
+      if (jump) {
+        var target = $(jump.getAttribute("data-scroll"));
+        if (target) target.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+        return;
+      }
       var nav = e.target.closest("[data-nav]");
       if (nav) { location.hash = nav.getAttribute("data-nav"); return; }
       var open = e.target.closest("[data-open]");

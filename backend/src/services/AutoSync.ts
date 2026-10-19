@@ -25,7 +25,7 @@ export function isAutoSyncDue(
 }
 
 /**
- * Opt-in refresh timer, per connection. **Refresh only**: it always syncs with
+ * Refresh timer, per connection (on by default at 30 min; NULL = off). **Refresh only**: it always syncs with
  * `scope: 'tracked'`, so it never clears an untrack exclusion and never adopts a
  * new folder (that would be 257 Microsoft tasks arriving unasked). A newly
  * appeared folder is still surfaced by the `untracked` count on the next manual

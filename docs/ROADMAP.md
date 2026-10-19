@@ -1752,6 +1752,8 @@ moved to [P2](#open--ui--product): `--border` needs a second token.
       `scope: 'tracked'` only. Control: Sources › Show details › *Sync automatically*. **Left:** an
       MCP verb (deliberately not added — the toggle is a UI preference), and surfacing a *new
       folder* as a prompt from the timer's `untracked` count (the manual sync still reports it).
+      **Default flipped to on (30 min) 2026-10-19:** opt-in protected nothing, since the timer is
+      refresh-only; off-by-default just meant tasks went missing until a manual Sync.
 
 - [x] **A Monthly trigger for the Windows agent** *(surfaced 2026-08-18 by the schedule picker;
       shipped 2026-09-08)*. `scheduler-conversion.ts` had no monthly pattern, so `0 9 1 * *` fell

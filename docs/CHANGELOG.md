@@ -12,6 +12,14 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
+### Added
+
+- **Source data-flow diagram** (2026-10-19). [`docs/diagrams/`](diagrams/README.md) holds an
+  Archify diagram of how tasks get from each platform through its connector and the sync into
+  PostgreSQL and the dashboard, with the native scheduler alongside; the root README shows it.
+  Every node cites its code at a pinned commit. `node scripts/build-diagram.mjs` builds it,
+  `--check` reports drift, and CI warns (never fails) when cited code changes.
+
 ### Changed
 
 - **The front door is Cronsole's homepage, not the registry's** (2026-10-19). `registry-site/index.html`

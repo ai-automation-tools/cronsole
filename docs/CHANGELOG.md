@@ -14,6 +14,18 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Changed
 
+- **Docs: the roadmap is on the lab roadmap standard** (2026-10-19). `docs/ROADMAP.md` keeps every
+  item and its anchors, but the *Part I — Open work* / *Part II — Completed* split is gone: the
+  shipped tiers are now Phases 1 to 8 (Foundation, P0, P1, Sources, P2, P3, the August sprints,
+  resolved decisions), the go-public checklist is the `## 🚦 Public release (done 2026-09-13)` phase,
+  and everything open sits under `## After public release` as `###` groups in the old priority
+  order (Next up, P0, P1, P2, Sources, P3, Post-launch, Open decisions), with the guardrails and the
+  template appendix after them. Non-standard markers went: `[~]` is `- [ ] Partly shipped:` and
+  `[>]` is `- [x] Moved:`. The 19 plain bullets of the MVP build-out became `- [x]` lines. In the
+  public-release phase the four partly-shipped gates are ticked, since the checklist closed at the
+  flip and their remainder (a GIF, generated release notes, structured logs, richer front-door copy)
+  is already open under Post-launch; the multi-user account line there was a duplicate of
+  Post-launch's and was removed. `check-doc-links.mjs` passes, so every old anchor still resolves.
 - Source scout 2026-10-13: queued OpenClaw cron; watching Hermes, Kimi, Perplexity, Manus, Cursor
   Automations, Codex scheduled tasks; quick links added Perplexity, Kimi, Manus, Cursor, Vercel URL
   updated (`/dashboard` now 404s).

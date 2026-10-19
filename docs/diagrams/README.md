@@ -24,7 +24,7 @@ they live in PostgreSQL and the backend's scheduler runs them itself. Below the 
 cover what feeds the task list, reading versus controlling, each platform's limits, and who owns
 execution.
 
-**Open the interactive version:** [`source-data-flow.html`](source-data-flow.html) in a browser
+**See it on the [homepage](https://cronsole.ai-automation-tools.dev/#sec-flow)**, or open the interactive version: [`source-data-flow.html`](source-data-flow.html) in a browser
 from a clone, or [render it from GitHub](https://raw.githack.com/ai-automation-tools/cronsole/main/docs/diagrams/source-data-flow.html).
 Each node links to the exact lines it describes at the pinned commit, and the viewer adds route
 tracing, search, light/dark, and SVG/PNG export.
@@ -34,7 +34,8 @@ tracing, search, light/dark, and SVG/PNG export.
 | File | What it is | Edit it? |
 |:---|:---|:---|
 | [`source-data-flow.json`](source-data-flow.json) | The source: stages, nodes, flows, cards, and the code each node cites | **Yes, this is the only file you edit** |
-| `source-data-flow.html` · `.png` | Generated: the interactive diagram, and the image the root README shows | Never; rebuild |
+| `source-data-flow.html` · `.png` | Generated: the interactive diagram, and the image the homepage shows | Never; rebuild |
+| `registry-site/source-data-flow.html` · `.png` | Copies the build writes for the homepage, which publishes the flat files in `registry-site/`. `--check` flags a copy that differs | Never; rebuild |
 | `source-data-flow.delivery.json` · `.sources.lock.json` | Build receipt, and the git blob of every cited file at the pinned commit | Never; rebuild |
 | [`../../scripts/build-diagram.mjs`](../../scripts/build-diagram.mjs) | Builds the diagram and checks it for drift | Only to change how it builds or checks |
 
@@ -67,7 +68,7 @@ To bring it up to date:
    node scripts/build-diagram.mjs --pin-head
    ```
 
-4. Commit the JSON and the generated files together, with a [CHANGELOG](../CHANGELOG.md) line.
+4. Commit the JSON, the generated files and the `registry-site/` copies together, with a [CHANGELOG](../CHANGELOG.md) line.
 
 Building needs Node 18+, Chrome, and the [Archify](https://github.com/tt-a1i/archify) skill
 (default path `~/.claude/skills/archify/bin/archify.mjs`; pass `--archify <path>` to point

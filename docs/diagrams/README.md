@@ -34,7 +34,7 @@ tracing, search, light/dark, and SVG/PNG export.
 | File | What it is | Edit it? |
 |:---|:---|:---|
 | [`source-data-flow.json`](source-data-flow.json) | The source: stages, nodes, flows, cards, and the code each node cites | **Yes, this is the only file you edit** |
-| `source-data-flow.html` · `.png` | Generated: the interactive diagram, and the image the homepage shows | Never; rebuild |
+| `source-data-flow.html` · `.png` | Generated: the interactive diagram, which the homepage embeds live, and a static PNG snapshot | Never; rebuild |
 | `registry-site/source-data-flow.html` · `.png` | Copies the build writes for the homepage, which publishes the flat files in `registry-site/`. `--check` flags a copy that differs | Never; rebuild |
 | `source-data-flow.delivery.json` · `.sources.lock.json` | Build receipt, and the git blob of every cited file at the pinned commit | Never; rebuild |
 | [`../../scripts/build-diagram.mjs`](../../scripts/build-diagram.mjs) | Builds the diagram and checks it for drift | Only to change how it builds or checks |

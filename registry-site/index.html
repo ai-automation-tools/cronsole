@@ -326,7 +326,7 @@
 
     section.band { padding: 52px 0; border-top: 1px solid var(--line); }
     .diagram { margin: 0; border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; background: var(--panel); }
-    .diagram img { display: block; width: 100%; height: auto; }
+    .diagram iframe { display: block; width: 100%; height: clamp(420px, 62vw, 860px); border: 0; background: var(--bg); }
     .diagram figcaption { padding: 10px 16px; border-top: 1px solid var(--line); font-size: 13px; color: var(--ink-3); }
     .diagram figcaption a { color: var(--brand-text); }
     .band-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
@@ -1050,8 +1050,8 @@
         '<section class="band" id="sec-flow"><div class="band-head"><div><span class="kicker">How it works</span>' +
           '<h2 style="margin-top:8px">Every platform, one task list</h2>' +
           '<p>Each platform is read by its own connector and synced into PostgreSQL; the dashboard reads from there. Cronsole-native jobs skip the import and run on the backend&#39;s own scheduler.</p></div></div>' +
-          '<figure class="diagram"><a href="source-data-flow.html"><img src="source-data-flow.png" width="2048" height="1320" loading="lazy" alt="Cronsole source data flow: Windows Task Scheduler, Claude Code routines, Gemini Triggers, GitHub Actions and n8n are read by their connectors; scope and sync upserts tasks into PostgreSQL, which the dashboard reads over REST; Cronsole-native jobs are scheduled and executed by the backend itself"></a>' +
-          '<figcaption>Every node links to the code it describes. <a href="source-data-flow.html">Open the interactive diagram</a></figcaption></figure>' +
+          '<figure class="diagram"><iframe id="diagram-frame" src="source-data-flow.html" loading="lazy" onload="syncDiagramTheme()" title="Cronsole source data flow, interactive: Windows Task Scheduler, Claude Code routines, Gemini Triggers, GitHub Actions and n8n are read by their connectors; scope and sync upserts tasks into PostgreSQL, which the dashboard reads over REST; Cronsole-native jobs are scheduled and executed by the backend itself"></iframe>' +
+          '<figcaption>Every node links to the code it describes; Route and Lens trace paths. <a href="source-data-flow.html">Open full screen ↗</a></figcaption></figure>' +
         '</section>' +
 
         // Run it locally — the quick start the standalone landing page carried.
@@ -1842,7 +1842,11 @@
     }
 
     // ---------- theme ----------
-    function applyTheme(t) { document.documentElement.setAttribute("data-theme", t); $("theme").innerHTML = t === "dark" ? I.sun : I.moon; try { localStorage.setItem("cronsole.gallery.theme", t); } catch (e) {} if ($("orbit") && matchMedia("(prefers-reduced-motion: reduce)").matches) initOrbit(); }
+    // The source data-flow diagram (same origin) starts Still unless localStorage says "live"; the
+    // homepage shows it Live (reduced-motion readers still get Still), in this page's theme.
+    try { localStorage.setItem("archify-motion", "live"); } catch (e) {}
+    window.syncDiagramTheme = function () { var f = $("diagram-frame"); try { if (f) f.contentDocument.documentElement.setAttribute("data-theme", document.documentElement.getAttribute("data-theme")); } catch (e) {} };
+    function applyTheme(t) { document.documentElement.setAttribute("data-theme", t); syncDiagramTheme(); $("theme").innerHTML = t === "dark" ? I.sun : I.moon; try { localStorage.setItem("cronsole.gallery.theme", t); } catch (e) {} if ($("orbit") && matchMedia("(prefers-reduced-motion: reduce)").matches) initOrbit(); }
     $("theme").addEventListener("click", function () { applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark"); });
     (function () { var s; try { s = localStorage.getItem("cronsole.gallery.theme"); } catch (e) {} applyTheme(s || "dark"); })();
 

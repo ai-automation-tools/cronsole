@@ -12,6 +12,12 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
+### Changed
+
+- Source scout 2026-10-13: queued OpenClaw cron; watching Hermes, Kimi, Perplexity, Manus, Cursor
+  Automations, Codex scheduled tasks; quick links added Perplexity, Kimi, Manus, Cursor, Vercel URL
+  updated (`/dashboard` now 404s).
+
 ### Added
 
 - **Periodic sync** (2026-10-16): opt-in and per connection — **Sources › Show details › Sync

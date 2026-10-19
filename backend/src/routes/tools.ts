@@ -143,6 +143,7 @@ import {
 } from '../services/bulkCategory.js';
 import { planBulkUntrack, summarizeBulkUntrack } from '../services/bulkUntrack.js';
 import { buildPlatformMatrix, recordCapability } from '../services/platformCapabilities.js';
+import { AUTO_SYNC_INTERVALS_MIN } from '../services/AutoSync.js';
 import { TaskService } from '../services/TaskService.js';
 import { expandOccurrences, DEFAULT_MAX_PER_TASK } from '../services/occurrences.js';
 import {
@@ -642,6 +643,35 @@ const taskHealthQuerySchema = z.object({
 router.get('/platforms', async (req: Request, res: Response) => {
   const userId = (req as AuthRequest).user!.id;
   res.json({ platforms: await buildPlatformMatrix(userId) });
+});
+
+/**
+ * Turn periodic sync on or off for one connection. Opt-in and per connection:
+ * `intervalMin: null` is off. Setting it resets the attempt clock, so the first
+ * run lands one interval from now rather than on the next tick.
+ */
+const autoSyncSchema = z.object({
+  intervalMin: z
+    .union([z.null(), z.number().refine(n => (AUTO_SYNC_INTERVALS_MIN as readonly number[]).includes(n), {
+      message: `intervalMin must be one of ${AUTO_SYNC_INTERVALS_MIN.join(', ')} (or null)`
+    })])
+});
+
+router.put('/platforms/:platform/auto-sync', validateBody(autoSyncSchema), async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+  const platform = z.nativeEnum(PlatformType).safeParse(req.params.platform);
+  if (!platform.success) throw new HttpError(400, `Unknown platform "${req.params.platform}".`);
+  if (platform.data === PlatformType.TASKHUB_NATIVE) {
+    throw new HttpError(400, 'Cronsole-native has nothing to sync: this database is its source of truth.');
+  }
+  const conn = await prisma.platformConnection.findFirst({ where: { userId, platform: platform.data } });
+  if (!conn) throw new HttpError(404, 'That source is not connected, so there is nothing to sync.');
+  const { intervalMin } = req.body as z.infer<typeof autoSyncSchema>;
+  await prisma.platformConnection.update({
+    where: { id: conn.id },
+    data: { syncIntervalMin: intervalMin, autoSyncAt: intervalMin ? new Date() : null, autoSyncError: null }
+  });
+  res.json({ platform: platform.data, intervalMin });
 });
 
 /* -------------------------------------------------------------------------- *

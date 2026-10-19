@@ -486,6 +486,11 @@ export interface PlatformMatrixRow {
    * observer generates can never be stale, which is why it can never be true.
    */
   lastSync: Date | null;
+  /**
+   * Periodic sync (opt-in). `null` interval = off. `lastAttemptAt` is the
+   * timer's last try, successful or not; `lastError` is why the last one failed.
+   */
+  autoSync: { intervalMin: number | null; lastAttemptAt: Date | null; lastError: string | null };
   /** Tracked tasks of this platform, so an empty row reads as empty, not broken. */
   taskCount: number;
   capabilities: CapabilityCell[];
@@ -630,6 +635,11 @@ export async function buildPlatformMatrix(userId: string): Promise<PlatformMatri
       healthState,
       healthReason,
       lastSync: conn?.lastSync ?? null,
+      autoSync: {
+        intervalMin: conn?.syncIntervalMin ?? null,
+        lastAttemptAt: conn?.autoSyncAt ?? null,
+        lastError: conn?.autoSyncError ?? null
+      },
       taskCount: countByPlatform.get(platform) ?? 0,
       capabilities,
       lastVerifiedAt,

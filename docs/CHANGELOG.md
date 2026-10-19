@@ -20,6 +20,13 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **Periodic sync** (2026-10-16): opt-in and per connection — **Sources › Show details › Sync
+  automatically** (5 min to daily; off by default). It is a *refresh* (`scope: 'tracked'`), so it
+  never adopts a new folder and never clears an untrack exclusion. The card shows the last automatic
+  run and the last error. `PUT /api/tools/platforms/:platform/auto-sync { intervalMin }`; the
+  platforms matrix gains `autoSync`. Needs the `20261016120000_add_periodic_sync` migration.
+  Internally `POST /tasks/sync` and the timer now share `syncConnection`.
+
 - **Three more extended templates** (2026-10-15): `sys-dism-health-check` (Windows component store
   health, logged weekly), `mon-listening-ports-snapshot` (daily log of listening TCP ports on
   Windows) and `cln-macos-trash-purge` (delete macOS Trash items older than N days). Extended

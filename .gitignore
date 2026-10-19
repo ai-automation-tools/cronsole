@@ -155,3 +155,6 @@ frontend/.playwright/
 # property of THAT MACHINE, not of the checkout - committing it would silently
 # opt every clone in, which is exactly the invariant the profile gate protects.
 /.cronsole-remote
+
+# Archify build receipts and screenshots (scripts/build-diagram.mjs)
+docs/diagrams/.build/

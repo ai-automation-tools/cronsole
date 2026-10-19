@@ -68,6 +68,12 @@ platform it already runs on.
 | **▲ Vercel Cron** | Cron jobs declared by the projects you watch. **Read-only by design**, and Vercel publishes no run history, so their health stays honestly unknown. | 👁️ Observer |
 | **💬 ChatGPT · Grok · Jules · Open Claw · Hermes** | Quick links straight to their native scheduling screens — none of them exposes a public scheduled-task API to build on. Add your own, too. | 🔗 Quick links |
 
+<p align="center">
+  <a href="docs/diagrams/README.md"><img src="docs/diagrams/source-data-flow.png" alt="Cronsole source data flow: Windows Task Scheduler, Claude Code routines, Gemini Triggers, GitHub Actions and n8n are read by their connectors; scope and sync upserts tasks into PostgreSQL, which the dashboard reads over REST; Cronsole-native jobs are scheduled and executed by the backend itself" width="880"></a>
+</p>
+
+<p align="center"><sub>Every node links to the code it describes. <a href="docs/diagrams/README.md">Open the interactive version and see how it stays current →</a></sub></p>
+
 ## 🎨 Screenshots
 
 <details open>
@@ -178,6 +184,7 @@ Full documentation lives in **[`docs/`](docs/README.md)**. The main sections:
 |:---|:---|
 | [**📚 Documentation home**](docs/README.md) | The map to every guide, reference, and design doc. |
 | [**📊 Features**](docs/FEATURES.md) | Everything Cronsole does today, and what each feature actually gives you. |
+| [**🧭 Diagrams**](docs/diagrams/README.md) | The source data flow above, interactive and linked to the code, plus how it stays in step with it. |
 | [**📍 Status**](docs/STATUS.md) | What's supported on which platform, what's pre-1.0, and what isn't built yet. |
 | [**🛡️ Trust**](docs/TRUST.md) | Cronsole runs an elevated process on your machine. The complete list of what it can do, what it cannot, and how to remove it. |
 | [**🔒 Privacy**](docs/PRIVACY.md) | Every outbound connection Cronsole can make — and how to verify that a default install makes none. |

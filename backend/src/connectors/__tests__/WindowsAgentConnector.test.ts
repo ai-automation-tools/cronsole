@@ -468,6 +468,30 @@ describe('WindowsAgentConnector', () => {
     expect(result.message).toBe('Task not found');
   });
 
+  it('removes a schedule with a signed null trigger, and names the republish for an old agent', async () => {
+    vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
+    let reply = { success: true, message: 'Schedule removed' };
+    mockSocket.on.mockImplementation((event: string, handler: any) => {
+      if (event === 'task:schedule_updated') {
+        setTimeout(() => handler({ taskExternalId: '\\Cronsole\\Task1', ...reply }), 10);
+      }
+    });
+
+    const result = await connector.updateSchedule('\\Cronsole\\Task1', '', { userId: 'test_user' }, { clear: true });
+    expectSignedCommand(mockSocket, 'task:update_schedule', {
+      event: 'task:update_schedule',
+      taskPath: '\\Cronsole\\Task1',
+      trigger: null
+    });
+    expect(result).toEqual({ success: true, message: 'Schedule removed' });
+
+    reply = { success: false, message: 'No trigger supplied' };
+    const old = await connector.updateSchedule('\\Cronsole\\Task1', '', { userId: 'test_user' }, { clear: true });
+    expect(old.success).toBe(false);
+    expect(old.clientError).toBe(true);
+    expect(old.message).toMatch(/Republish the Windows agent/);
+  });
+
   it('should fail to update a schedule if agent offline', async () => {
     vi.mocked(agentManager.getSocket).mockReturnValue(undefined);
     const trigger = { type: 'Daily' as const, startBoundary: '03:00', daysInterval: 1 };

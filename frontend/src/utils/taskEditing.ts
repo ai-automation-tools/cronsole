@@ -186,10 +186,11 @@ export function platformName(task: Task): string {
 // ---------------------------------------------------------------------------
 
 /**
- * Editable for Cronsole-native tasks (the backend owns the scheduler) and for
- * Windows tasks whose trigger is cron-expressible (`task.schedule` is set).
- * Boot / logon / event / on-demand Windows triggers read back as no schedule and
- * stay read-only until there is a safe editor for them.
+ * Editable for Cronsole-native and Windows tasks — including one with **no
+ * schedule**, which is a legitimate state there (on-demand: it runs only when
+ * started by hand). `initial` is `''` for that state, and saving `''` clears the
+ * schedule. On Windows a no-schedule task may still hold a boot / logon / event
+ * trigger Cronsole cannot read; adding a schedule keeps it, so the field says so.
  *
  * `initial` is the **stored UTC** cron. The field converts it into the user's
  * zone for display and back exactly once on submit — a zone must never reach
@@ -211,15 +212,7 @@ export function scheduleEdit(task: Task): Editable<string> {
         : 'Schedule editing is only available for Cronsole-native tasks and cron-expressible Windows tasks.'
     };
   }
-  if (!task.schedule) {
-    return {
-      editable: false,
-      reason: task.platform === 'WINDOWS_TASK_SCHEDULER'
-        ? "This task runs on a trigger Cronsole can't edit yet (boot, logon, event, or on-demand only)."
-        : 'This task has no cron schedule stored, so there is nothing to edit.'
-    };
-  }
-  return { editable: true, initial: task.schedule };
+  return { editable: true, initial: task.schedule ?? '' };
 }
 
 // ---------------------------------------------------------------------------

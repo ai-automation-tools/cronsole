@@ -1198,6 +1198,16 @@ describe('update_task_schedule', () => {
     expect(text(r)).toMatch(/not supported for CLAUDE_CODE/);
   });
 
+  it('passes null through to remove the schedule, and says the task is on-demand', async () => {
+    const { client, calls } = stubClient({
+      'PATCH /tasks/id1/schedule': task({ schedule: null, nextRunTime: null })
+    });
+    const mcp = await connect(client);
+    const out = text(await call(mcp, 'update_task_schedule', { taskId: 'id1', schedule: null }));
+    expect(calls[0]).toMatchObject({ method: 'patch', path: '/tasks/id1/schedule', body: { schedule: null } });
+    expect(out).toMatch(/Schedule removed.*on-demand/);
+  });
+
   it('requires a schedule', async () => {
     const { client, calls } = stubClient({ 'PATCH /tasks/id1/schedule': task() });
     const mcp = await connect(client);

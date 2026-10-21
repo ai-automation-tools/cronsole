@@ -163,8 +163,10 @@ export const EditTaskModal = ({ task, executionHost, onClose }: Props) => {
   const [labelBase, setLabelBase] = useState<LabelValues>(() => labelValues(task));
 
   // Held in the user's zone; converted to UTC exactly once, on save.
-  const [cron, setCron] = useState(() => (schedule.editable ? zone.toZone(schedule.initial).cron : ''));
+  const [cron, setCron] = useState(() => (schedule.editable && schedule.initial ? zone.toZone(schedule.initial).cron : ''));
   const [cronBase, setCronBase] = useState(() => (schedule.editable ? schedule.initial : ''));
+  // On demand = no schedule: saved as `null`, the task runs only when started by hand.
+  const [onDemand, setOnDemand] = useState(() => schedule.editable && !schedule.initial);
 
   const [winAction, setWinAction] = useState<WindowsActionValues>(() => (runs.kind === 'windows' ? runs.initial : EMPTY_WINDOWS));
   const [winBase, setWinBase] = useState<WindowsActionValues>(() => (runs.kind === 'windows' ? runs.initial : EMPTY_WINDOWS));
@@ -210,7 +212,7 @@ export const EditTaskModal = ({ task, executionHost, onClose }: Props) => {
   });
 
   if (schedule.editable) {
-    const storedCron = zone.toUtc(cron).cron.trim();
+    const storedCron = onDemand ? '' : zone.toUtc(cron).cron.trim();
     plans.push({
       key: 'schedule',
       title: 'Schedule',
@@ -219,8 +221,8 @@ export const EditTaskModal = ({ task, executionHost, onClose }: Props) => {
       // so comparing it against the stored UTC cron would report every schedule
       // as changed the moment the modal opened.
       dirty: storedCron !== cronBase.trim(),
-      problem: cron.trim() ? undefined : 'A schedule needs a cron expression.',
-      save: async () => { await api.patch(`/tasks/${task.id}/schedule`, { schedule: storedCron }); },
+      problem: onDemand || cron.trim() ? undefined : 'A schedule needs a cron expression.',
+      save: async () => { await api.patch(`/tasks/${task.id}/schedule`, { schedule: storedCron || null }); },
       settle: () => setCronBase(storedCron)
     });
   }
@@ -410,7 +412,39 @@ export const EditTaskModal = ({ task, executionHost, onClose }: Props) => {
         {/* ---------------------------------------------------------------- */}
         <Section title="Schedule" icon={CalendarClock} status={status.schedule}>
           {schedule.editable ? (
-            <ScheduleFields value={cron} onChange={setCron} platform={task.platform} disabled={saving} />
+            <div className="space-y-2">
+              <label className="flex items-start gap-2.5 bg-muted/40 border border-border rounded-xl px-3 py-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={onDemand}
+                  disabled={saving}
+                  onChange={e => {
+                    setOnDemand(e.target.checked);
+                    // Seed a starting point so unticking never lands on an empty, unsaveable field.
+                    if (!e.target.checked && !cron.trim()) setCron('0 9 * * *');
+                  }}
+                />
+                <span className="min-w-0">
+                  <span className="block text-xs font-bold">No schedule (run on demand)</span>
+                  <span className="block text-[10px] text-subtle-foreground">
+                    The task stays, but only runs when you start it — Run now, a phone shortcut or MCP.
+                    {task.platform === 'WINDOWS_TASK_SCHEDULER' &&
+                      ' Removes only the time-based trigger; any boot, logon or event trigger is kept.'}
+                  </span>
+                </span>
+              </label>
+              {!onDemand && (
+                <>
+                  <ScheduleFields value={cron} onChange={setCron} platform={task.platform} disabled={saving} />
+                  {task.platform === 'WINDOWS_TASK_SCHEDULER' && !cronBase && (
+                    <p className="text-[11px] text-subtle-foreground">
+                      This adds a trigger. Any trigger the task already has that Cronsole can't read (boot, logon, event) is kept and still fires.
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
           ) : (
             <Refusal reason={schedule.reason} />
           )}

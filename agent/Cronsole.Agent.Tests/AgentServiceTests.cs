@@ -586,6 +586,29 @@ namespace Cronsole.Agent.Tests
         }
 
         [Fact]
+        public void TaskUpdateSchedule_Event_SignedNullTrigger_RemovesSchedule()
+        {
+            // A null trigger is signed as `none` — a deliberate "make this
+            // on-demand", passed through to the scheduler as null.
+            var taskPath = "\\Cronsole\\Nightly";
+            var ts = Now();
+            var nonce = TestNonce();
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.UpdateScheduleMessage(taskPath, "none", nonce, ts));
+
+            var mockResponse = new Mock<ISocketResponse>();
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0))
+                .Returns(Payload(new { taskPath, trigger = (object?)null, nonce, ts, sig }));
+
+            _mockScheduler.Setup(s => s.UpdateTaskSchedule(taskPath, null)).Returns(true);
+
+            _socketHandlers["task:update_schedule"].Invoke(mockResponse.Object);
+
+            _mockScheduler.Verify(s => s.UpdateTaskSchedule(taskPath, null), Times.Once);
+            _mockSocket.Verify(s => s.EmitAsync("task:schedule_updated", It.Is<object>(o =>
+                JsonSerializer.Serialize(o, (JsonSerializerOptions?)null).Contains("Schedule removed"))), Times.Once);
+        }
+
+        [Fact]
         public void TaskUpdateSchedule_Event_NotFound_EmitsFailureAck()
         {
             // Arrange

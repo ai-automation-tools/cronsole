@@ -56,7 +56,7 @@ speaks MCP over **stdio** and authenticates as **one user** via a token you prov
 | **`restore_task_archive`** | "Bring back the nightly digest I deleted" — rebuilds it as a **new** task on its old schedule. The old run history does not come back | `POST /api/tools/task-archives/:id/restore` |
 | **`list_task_secrets`** | "Why won't that task run?" — which secrets a Cronsole-native job needs and which are actually set, **by name only**. No Cronsole API returns a secret's value, and no MCP tool can set one | `GET /api/tasks/:id/secrets` |
 | **`set_task_status`** | "Disable the nightly backup for now", "turn it back on" | `PATCH /api/tasks/:id/status` |
-| **`update_task_schedule`** | "Move the digest to 7am on weekdays" | `PATCH /api/tasks/:id/schedule` |
+| **`update_task_schedule`** | "Move the digest to 7am on weekdays" · "Make the backup on-demand only" (`schedule: null`, native/Windows) | `PATCH /api/tasks/:id/schedule` |
 | **`update_task_action`** | "Point that task at the new script path" | `PATCH /api/tasks/:id/actions` |
 | **`update_native_job`** | "Point that Cronsole-native task at the new URL", "make it run my script instead" — for native tasks; Windows uses `update_task_action` | `PATCH /api/tasks/:id/job` |
 | **`rename_task`** | "Call that one 'Nightly report' instead" — renames it **in Cronsole only**; Task Scheduler still shows the original name | `PATCH /api/tasks/:id` |

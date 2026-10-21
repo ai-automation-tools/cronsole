@@ -271,8 +271,12 @@ router.patch('/:id/status', validateBody(patchTaskStatusSchema), async (req: Req
   res.json(updatedTask);
 });
 
+// `null` clears the schedule — the task stays and runs only when started by
+// hand (Run now, a phone shortcut, MCP). Only the two platforms whose schedule
+// Cronsole owns end to end accept it; everywhere else a schedule is the
+// platform's definition of the task, not a removable part of it.
 const patchTaskScheduleSchema = z.object({
-  schedule: z.string().trim().min(1, 'schedule is required')
+  schedule: z.string().trim().min(1, 'schedule is required').nullable()
 });
 
 // Edit the schedule of an existing task. For Cronsole-native tasks, the backend
@@ -290,6 +294,10 @@ router.patch('/:id/schedule', validateBody(patchTaskScheduleSchema), async (req:
   const task = await prisma.task.findFirst({ where: { id, userId } });
   if (!task) {
     throw new HttpError(404, 'Task not found');
+  }
+
+  if (schedule === null) {
+    return clearTaskSchedule(task, userId, res);
   }
 
   if (!isValidCron(schedule)) {
@@ -389,6 +397,57 @@ router.patch('/:id/schedule', validateBody(patchTaskScheduleSchema), async (req:
   // the task fields are untouched.
   res.json(conversion.lossy ? { ...updatedTask, conversion } : updatedTask);
 });
+
+/**
+ * Make a task on-demand: no schedule, runs only when started by hand.
+ *
+ * Native: the row *is* the task, so clearing `schedule` + `nextRunTime` is the
+ * whole change — the scheduler skips a row with no `nextRunTime`. Windows: the
+ * agent removes only the cron-expressible trigger Cronsole surfaced as the
+ * schedule, keeping any boot / logon / event trigger, and the row is written
+ * only after the agent confirms (ack-before-write, as for a reschedule).
+ */
+async function clearTaskSchedule(
+  task: { id: string; platform: PlatformType; externalId: string; metadata: Prisma.JsonValue },
+  userId: string,
+  res: Response
+) {
+  if (task.platform !== PlatformType.TASKHUB_NATIVE && task.platform !== PlatformType.WINDOWS_TASK_SCHEDULER) {
+    throw new HttpError(400, 'Removing the schedule is only available for Cronsole-native and Windows tasks.');
+  }
+
+  if (task.platform === PlatformType.WINDOWS_TASK_SCHEDULER) {
+    const connector = connectorRegistry.getConnector(task.platform);
+    const connection = await prisma.platformConnection.findUnique({
+      where: { userId_platform: { userId, platform: task.platform } }
+    });
+    const result = await connector!.updateSchedule!(
+      task.externalId,
+      '',
+      { ...deserializeConfig(connection?.config), userId },
+      { clear: true }
+    );
+    await recordCapability(userId, task.platform, 'updateSchedule', result.success, result.message);
+    if (!result.success) {
+      throw new HttpError(result.clientError ? 400 : 502, result.message || 'The platform failed to remove the schedule');
+    }
+  }
+
+  const meta = task.metadata && typeof task.metadata === 'object' && !Array.isArray(task.metadata)
+    ? { ...(task.metadata as Record<string, unknown>) }
+    : {};
+  delete meta.schedule;
+  delete meta.trigger;
+  const updatedTask = await prisma.task.update({
+    where: { id: task.id },
+    data: { schedule: null, nextRunTime: null, metadata: meta as Prisma.InputJsonValue }
+  });
+  if (task.platform === PlatformType.TASKHUB_NATIVE) {
+    await recordCapability(userId, task.platform, 'updateSchedule', true);
+  }
+  notifyTasksChanged(userId);
+  return res.json(updatedTask);
+}
 
 const patchTaskActionsSchema = z.object({
   command: z.string().trim().min(1, 'command is required'),

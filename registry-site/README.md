@@ -1,14 +1,20 @@
-# registry-site/ — the public Template Gallery
+# registry-site/ — Cronsole's homepage and template gallery
 
-Source of truth for the **Cronsole Template Gallery**, the browse-and-import site served at
-**`https://mikesailab.com/cronsole-registry/`**.
+Source of truth for **Cronsole's public homepage**, served at
+**`https://cronsole.ai-automation-tools.dev/`** (and mirrored to `cronsole.mikesailab.com` and
+**`https://mikesailab.com/cronsole-registry/`**, beside the registry JSON). Since 2026-10-19 the page
+leads with the product, not the registry: the hero's primary button opens the live demo
+(`https://cronsole-demo.ai-automation-tools.dev/`), the second jumps to the **Template registry**
+section, the third goes to GitHub. The browse-and-import gallery below is unchanged. Every outbound
+URL the page builds lives in the `LINKS` object in its script.
 
 It's a single self-contained `index.html` (inline CSS + vanilla JS, no build step, no external
 CDN/fonts — offline-capable and CSP-safe) with a **hash-router** (works on GitHub Pages,
 deep-linkable). It fetches the registry's `index.json` from the **same origin** and drives four
 views:
 
-- **Home** (`#/`) — editorial hero, live stat strip, curated **collections** (Script Starters,
+- **Home** (`#/`) — product hero (demo, template registry, GitHub), why Cronsole, quick start, then the
+  **Template registry** section: live stat strip, curated **collections** (Script Starters,
   Developer Pack, AI & Agents, Backup & Cleanup, Monitoring), featured templates, and a "how
   importing works" band. Collection membership is read from `index.json`'s **`packs[]`** — it is
   *declared*, never inferred from tag predicates, because a collection is a downloadable file that

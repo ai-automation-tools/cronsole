@@ -47,6 +47,12 @@ jobs:
       - name: Check documentation links resolve
         run: node scripts/check-doc-links.mjs
 
+      # Warns, never fails: rebuilding needs Chrome + Archify, which CI doesn't have. A
+      # warning means code cited by docs/diagrams/source-data-flow.json changed since its
+      # pinned commit; docs/diagrams/README.md says how to update it.
+      - name: Diagram drift
+        run: node scripts/build-diagram.mjs --hook | sed 's/^ISSUE:/::warning title=Diagram drift::ISSUE:/'
+
       # `.gitignore` denies `.env*` and re-includes three examples plus
       # frontend/.env.remote, which is a real build input holding one public routing
       # value. Nothing stopped that file - or an example - from later gaining a live

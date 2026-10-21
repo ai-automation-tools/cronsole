@@ -2031,15 +2031,17 @@ Next run: ${task.nextRunTime}` : '')
         'IMPORTANT: check the new schedule with convert_schedule FIRST and read the returned trigger, not just ' +
         'the confidence score. A cron Windows cannot express natively is REPLACED with an hourly trigger rather ' +
         'than refused, and it only ever runs MORE often than you asked. ' +
-        'Only tasks whose trigger is expressible as cron can be re-scheduled: a Windows task that runs at boot, ' +
-        'logon, or on an event has no cron form and is refused honestly.',
+        'Pass schedule: null to make a Cronsole-native or Windows task on-demand — it keeps existing and runs ' +
+        'only when started (run_task); on Windows only the time-based trigger is removed, boot/logon/event ' +
+        'triggers stay. Other platforms refuse null. Giving an on-demand task a cron schedules it again.',
       inputSchema: {
         taskId: z.string().describe('The Cronsole task id (from list_tasks).'),
         schedule: z
           .string()
+          .nullable()
           .describe(
-            '5-field cron in UTC: "min hour dom month dow". Cronsole stores all schedules as UTC and displays ' +
-            'them in local time — do not pass local time.'
+            '5-field cron in UTC: "min hour dom month dow", or null to remove the schedule (on-demand). ' +
+            'Cronsole stores all schedules as UTC and displays them in local time — do not pass local time.'
           )
       }
     },
@@ -2073,6 +2075,12 @@ Next run: ${task.nextRunTime}` : '')
             `\nSchedule conversion warnings: ${task.conversion.warnings.join('; ')}` +
             '\nThe registered trigger may not match the cron you gave. Verify with convert_schedule.'
           : '';
+        if (schedule === null) {
+          return ok(
+            `Schedule removed: ${task.name} [${task.platform}] is now on-demand — it runs only when started with run_task.`,
+            { taskId, schedule: null, task: compactTask(task) }
+          );
+        }
         return ok(
           `Schedule updated: ${task.name} [${task.platform}] now runs on "${task.schedule ?? schedule}" (UTC cron).${next}${warnings}`,
           { taskId, schedule, task: compactTask(task), conversion: task.conversion }

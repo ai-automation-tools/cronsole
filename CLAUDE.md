@@ -73,7 +73,7 @@ cronsole/
 │                    #   user-guides/ · testing/ · adr/ · prompts/ · reports/
 │                    #   archive/ + local/ are LOCAL-ONLY (gitignored, NOT backed up)
 ├── registry/        # generated template registry artifact — never hand-edit
-├── registry-site/   # the one public gallery page (published to two hosts)
+├── registry-site/   # Cronsole's homepage + template gallery, one page (published to three hosts)
 ├── proxy/           # opt-in single-origin reverse proxy (Caddyfile); nothing runs by default
 ├── backend/src/     # catalog/ · connectors/ · routes/ · services/ · ws/ · auth/ · tools/
 ├── frontend/src/    # components/ (ui/ = Modal primitive) · screens/ · hooks/ · utils/ · data/
@@ -321,8 +321,8 @@ Non-negotiable rules. **Every one has a reason recorded in
   reason is that **"found nothing" and "looked at nothing" render identically**: a repository whose
   workflows are all push-triggered imports zero tasks and is working perfectly, which is the same
   empty screen as a broken sync — and that ambiguity hid a real defect until the DB was read by hand.
-- **Periodic sync is the refresh half on a timer, and only that.** Opt-in per connection
-  (`syncIntervalMin`, NULL = off), it calls `syncConnection` — the body shared with
+- **Periodic sync is the refresh half on a timer, and only that.** On by default per connection
+  (`syncIntervalMin`, default 30, NULL = off), it calls `syncConnection` — the body shared with
   `POST /tasks/sync` — with `scope: 'tracked'`, so it can neither adopt a folder nor clear an
   exclusion. `autoSyncAt` records the last *attempt* and `autoSyncError` its failure; a second copy
   of the sync body is how a timer would learn to import.

@@ -197,6 +197,11 @@ export interface UpdateScheduleOptions {
    * never uses.
    */
   trigger?: import('../utils/scheduler-conversion.js').WindowsTrigger | null;
+  /**
+   * Remove the schedule instead of replacing it (the task becomes on-demand);
+   * `cron` is ignored. Only Windows reads it — the route refuses it elsewhere.
+   */
+  clear?: boolean;
 }
 
 /**

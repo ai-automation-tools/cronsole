@@ -791,25 +791,17 @@ namespace Cronsole.Agent
                         return;
                     }
 
-                    // A signed command with no usable trigger is malformed — refuse
-                    // rather than clearing the task's triggers and leaving it unscheduled.
-                    if (trigger == null)
-                    {
-                        await _socket.EmitAsync("task:schedule_updated", new[] { new {
-                            taskExternalId = taskPath,
-                            success = false,
-                            message = "No trigger supplied"
-                        }});
-                        return;
-                    }
-
-                    Console.WriteLine($"Server command: task:update_schedule -> {taskPath} (trigger={trigger.Type})");
+                    // A null trigger is a deliberate clear, not a lost field: it is
+                    // signed as `none`, so a frame stripped of its trigger in transit
+                    // fails the signature above. Clearing removes only the
+                    // cron-expressible trigger; the task stays and runs on demand.
+                    Console.WriteLine($"Server command: task:update_schedule -> {taskPath} (trigger={trigger?.Type ?? "none"})");
 
                     bool success = _scheduler.UpdateTaskSchedule(taskPath, trigger);
                     await _socket.EmitAsync("task:schedule_updated", new[] { new {
                         taskExternalId = taskPath,
                         success,
-                        message = success ? "Schedule updated" : "Task not found"
+                        message = success ? (trigger == null ? "Schedule removed" : "Schedule updated") : "Task not found"
                     }});
                 }
                 catch (Exception ex)

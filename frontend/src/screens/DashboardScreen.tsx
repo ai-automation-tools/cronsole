@@ -12,7 +12,6 @@ import {
   CalendarDays,
   HelpCircle,
   Zap,
-  Search,
   X,
   Download,
   Trash2,
@@ -66,6 +65,7 @@ import { useTaskHealthTiers } from '../hooks/useTaskHealthTiers';
 import { useMinuteClock } from '../hooks/useMinuteClock';
 import { formatDateTime, formatTime } from '../utils/datetime';
 import { Link, useSearchParams } from 'react-router';
+import { TaskSearchBox } from '../components/TaskSearchBox';
 
 // Loose shape for the untyped platform-metadata JSON blob on tasks.
 type TaskMeta = { nextRunTime?: string; nextRun?: string; schedule?: string } | null | undefined;
@@ -378,7 +378,7 @@ export const DashboardScreen = ({
           .filter(Boolean)
           .join(' › ');
 
-  // "/" focuses search (unless already typing somewhere); Escape clears it.
+  // "/" focuses search (unless already typing somewhere). Escape is the box's own.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
@@ -387,15 +387,10 @@ export const DashboardScreen = ({
         e.preventDefault();
         searchInputRef.current?.focus();
       }
-      if (e.key === 'Escape' && target === searchInputRef.current) {
-        setFilter('search', '');
-        searchInputRef.current?.blur();
-      }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters]);
+  }, []);
 
   // The system/personal split is the OUTERMOST lens: every count, chip, facet and
   // view below works from `tasks`, so hiding OS-owned tasks here hides them
@@ -1045,25 +1040,11 @@ export const DashboardScreen = ({
           */}
           <div className="sticky sm:static top-0 z-20 -mx-4 sm:mx-0 px-4 sm:px-3 py-2.5 bg-raised/95 sm:bg-raised backdrop-blur sm:backdrop-blur-none border-b sm:border border-border sm:rounded-2xl flex items-center justify-between gap-3 sm:gap-4 overflow-x-auto sm:overflow-visible [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <div className="flex items-center gap-2 shrink-0 sm:flex-wrap">
-              <div className="relative">
-                <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-subtle-foreground pointer-events-none" />
-                <input
-                  ref={searchInputRef}
-                  value={filters.search}
-                  onChange={e => setFilter('search', e.target.value)}
-                  placeholder="Search tasks…  /"
-                  className="w-44 focus:w-60 bg-surface border border-border rounded-xl pl-8 pr-7 py-1.5 text-xs font-medium text-foreground placeholder:text-subtle-foreground outline-none focus:border-primary transition-all shadow-md"
-                />
-                {filters.search && (
-                  <button
-                    onClick={() => setFilter('search', '')}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-subtle-foreground hover:text-foreground transition-colors"
-                    title="Clear search (Esc)"
-                  >
-                    <X size={13} />
-                  </button>
-                )}
-              </div>
+              <TaskSearchBox
+                inputRef={searchInputRef}
+                value={filters.search}
+                onCommit={next => setFilter('search', next)}
+              />
               {filters.search.trim() && (
                 <span className="text-[10px] font-bold text-subtle-foreground px-1">
                   {filteredTasks.length} match{filteredTasks.length === 1 ? '' : 'es'}

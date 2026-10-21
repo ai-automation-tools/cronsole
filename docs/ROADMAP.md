@@ -1,33 +1,34 @@
-# Cronsole Roadmap
+<h1 align="center">🗺️ Roadmap</h1>
 
-> The living plan for Cronsole — **what is still open, then what is done**, in priority order.
+<p align="center">
+  <em>From a public, local-first scheduled-task control plane to one that sees every place a task can live, and tells the truth about each.</em>
+</p>
 
-**How to read this file.** It is a **checklist**, not a narrative, and it is in two parts:
-
-- **[Part I — Open work](#part-i--open-work)** is everything still to do. Nothing in it has shipped.
-- **[Part II — Completed](#part-ii--completed)** is everything that has. Every line is ticked, with its date.
-
-An item appears in exactly one part. **Reasoning does not live here** — a shipped item's design
-record, verification notes and post-mortem are in [`CHANGELOG.md`](CHANGELOG.md) under its date,
-the rationale behind an invariant is in [`DESIGN_NOTES.md`](DESIGN_NOTES.md), and a symptom→fix
-write-up is in [`troubleshooting/README.md`](troubleshooting/README.md).
-
-**Update rule.** When a task ships, **move its line from Part I to Part II** with a date, and write
-what changed in [`CHANGELOG.md`](CHANGELOG.md). When a material decision changes scope, edit the
-item here *first*, then implement. Keep the lines short — **if an item needs a paragraph, the
-paragraph belongs in the CHANGELOG.** (This file was reorganized twice, on 2026-08-04 and
-2026-08-18, because that rule stopped being followed. Both prior versions are preserved verbatim in
-the CHANGELOG's *Roadmap narrative archive* appendices.)
-
-**Legend:** `[ ]` open · `[~]` partially shipped, remainder named · `[x]` complete
-
-> **Note on names.** The product was called **TaskHub** until 2026-07-31. This file is
-> current-tense, so it says Cronsole throughout; historical CHANGELOG entries keep the old name on
-> purpose.
+<p align="center">
+  <img src="https://img.shields.io/badge/now-after_public_release-F59E0B?style=for-the-badge" alt="Now: after public release">
+  <img src="https://img.shields.io/badge/stage-public_since_2026--09--13-2ea44f?style=for-the-badge" alt="Stage: public since 2026-09-13">
+  <a href="README.md"><img src="https://img.shields.io/badge/↩-docs_home-6B7280?style=for-the-badge" alt="Back to docs"></a>
+</p>
 
 ---
 
-## Status at a glance
+The Cronsole roadmap routine (`Cronsole Weekly Roadmap`, Friday 23:00) works this file: it takes the first open item under `## After public release` that isn't `🔒 Needs Mike` and isn't under **Open decisions**, builds it, ticks it, and opens a PR. **Every item above `## After public release` is a go-live gate**, and all of them closed when the repo went public on 2026-09-13; the phases up there are the record of what shipped before and around the flip. Below the line the groups run in priority order: **Next up, P0, P1, P2, Sources, P3, Post-launch**, then Open decisions (questions, not work) and two reference groups.
+
+Ticking an item appends ` — done YYYY-MM-DD: <what landed>` (older items carry their date in italics instead) and, **in the same commit**, adds the matching line to [`CHANGELOG.md`](CHANGELOG.md) and updates any doc the change made stale (CLAUDE.md §11a lists them). Keep the lines short: a shipped item's design record, verification notes and post-mortem belong in the CHANGELOG under its date, the rationale behind an invariant in [`DESIGN_NOTES.md`](DESIGN_NOTES.md), and a symptom→fix write-up in [`troubleshooting/README.md`](troubleshooting/README.md). When a material decision changes scope, edit the item here *first*, then implement. Done items stay where they are, ticked; nothing moves between sections.
+
+Markers: `- [ ]` open, `- [-]` claimed by a run in progress, `- [x]` done, `- [!]` blocked (the reason follows on the line). An open item that begins *Partly shipped:* names its remainder in the text; one that begins *Moved:* points at where it lives now. `` `small` `` marks an item a check verifies; `🔒 Needs Mike` marks one only Mike can do.
+
+> **Note on names.** The product was called **TaskHub** until 2026-07-31. This file is
+> current-tense, so it says Cronsole throughout; historical CHANGELOG entries keep the old name on
+> purpose. Before 2026-10-19 this file was split into *Part I — Open work* and *Part II —
+> Completed*; both are still reachable at their old anchors, and the CHANGELOG's *Roadmap
+> narrative archive* appendices hold the two earlier layouts verbatim.
+
+---
+
+<a id="status-at-a-glance"></a>
+
+## 📊 Status at a glance
 
 | Area | State | What is left |
 |---|---|---|
@@ -86,1271 +87,372 @@ types — neither is scheduled.)*
 
 ---
 
-<a id="part-i--open-work"></a>
-
-# Part I — Open work
-
-## ▶ Next up
-
-The short list. Everything here is small, known, and was found by hand rather than reported —
-which is why it sits first, not because it outranks the larger work below.
-
-<a id="gemini-usability"></a>
-
-### 🔴🔴 Top priority — requested 2026-08-25: Gemini usability
-
-Reported after the first week of real use: *"you have to manually configure MCP servers for each new
-task."* True, and the cause was not the form. It was a **premise in the invariant that live use
-falsified.**
-
-> **A and B shipped 2026-08-25** — saved MCP servers with a one-gesture rotation, and Duplicate.
-> **C shipped 2026-08-31** — *Replace credentials* became *Recreate with changes*, so a prompt or a
-> schedule can be changed on the one platform where editing is impossible. **D shipped 2026-08-31**
-> too — a Gemini template family, and with it the finding that a hosted-agent template is a prompt
-> *plus a grant*. **E and the skill gap shipped 2026-08-31 too** — a server-side prompt preflight
-> on both surfaces, and §2a of `task-authoring.md`. **The block is closed.** The diagnosis that
-> follows is kept rather than trimmed: it is the reasoning that changed a §9 invariant, and the next
-> rule whose stated reason is a lifecycle claim should be re-read the same way.
-
-§9 says a credential Cronsole hands to a platform is *"used once and stored nowhere"*, and the
-recorded reason is **lifecycle rather than caution** — "the value is needed exactly once". That is
-true of one create and false of every workflow built on it. The value is needed once **per trigger**:
-
-| When | What has to be retyped |
-|---|---|
-| A second task using the same MCP server | name, URL, **token** |
-| **Any prompt edit** — which is the ordinary case, because a trigger is immutable | name, URL, **token** |
-| A token rotation | name, URL, token **× every trigger that used it**, from memory |
-
-The third is the one with no answer at all today. Rotate a Resend key and every Gemini task breaks
-**silently**; nothing on any screen says which tasks used that server, and the repair is one modal
-per task. The reporting session hit three prompt-shaped failures in a row, and each one cost a full
-re-entry of a credential Cronsole had deliberately forgotten.
-
-**The precedent that unblocks this already ships.** Cronsole *already* stores the **Gemini API key** —
-AES-256-GCM at the application layer, write-only, no reveal endpoint, last four characters only
-([`services/geminiTriggers.ts`](../backend/src/services/geminiTriggers.ts)). That key creates, runs,
-pauses and deletes **every trigger in the project**. It is strictly more dangerous than the MCP
-bearer token beside it. So the rule was never "Cronsole must not hold a credential for this
-platform" — it holds a bigger one. It was a lifecycle claim, and the lifecycle turned out to be
-wrong.
-
-> **The invariant changed rather than being deleted** *(done 2026-08-25)*. What survives is the part
-> that was always right: **no route returns a stored value**, and a task stores a **reference, never a
-> value** ([ADR 0003](adr/0003-per-job-secrets.md)'s rule one layer up). What went is "stored
-> nowhere" — and §9, the skill's invariants table, the Sources Guide, the UI guide, the help topic and
-> **the create form's own sentence** all moved in the same commit, because a form still promising the
-> token is kept nowhere must not survive one commit past the day it stopped being true. The form now
-> says both: typed inline it is kept nowhere, saved as a server it is stored here, and the second is
-> what it recommends for anything you will use twice.
-
-- [x] **A. Saved agent tools — presets on the connection** — **shipped 2026-08-25**. A named record
-      holding `{ name, url, headers }`, headers encrypted with the key already used for
-      `PlatformConnection.config`. The create form becomes a checkbox — `☑ resend` — instead of three
-      fields. **A task stores the preset's name, never its headers**, so every existing reader (task
-      metadata, export, archive, a log line, an MCP tool response) is unchanged and none of them can
-      leak a value that is not there. `toToolSummary` / `readAllowlist` keep refusing to parse
-      `headers` for exactly the reason they do now.
-
-      **The feature this is really for is rotation**, which today has no path at any price: edit the
-      preset once, and Cronsole lists every trigger that references it and recreates them — a
-      **fan-out that reports per task**, never one verdict over the batch (§9). A trigger whose
-      replacement was created while the original survives is a **failure**, as it already is in
-      `rotateCredentials`: the schedule now fires twice.
-
-      **Both open sub-questions settled by building it.** Storage is a field in the encrypted
-      `config` blob, not a row: it needs no migration, inherits the AES-256-GCM the API key already
-      has, and *"which triggers use this"* turned out not to need a query at all — it is a filter over
-      one user's Gemini tasks, which is a few dozen rows. A preset edit **does not** recreate eagerly;
-      *Push this credential* is a separate, confirmed gesture, because a save that silently rebuilt
-      every trigger would be the largest blast radius in the product hiding behind the smallest button.
-      One constraint the design added: **a preset's URL is unique**, because a synced trigger reports
-      `{type, name, url}` and nothing else — two presets on one URL would make the usage count
-      unanswerable and a rotation would rebuild the wrong triggers.
-
-- [x] **B. Duplicate a trigger** — **shipped 2026-08-25**. Cheap and immediate: reach is already read back into
-      `metadata.tools`, and `RotateCredentialsModal` already prefills a whole tool list from it. With
-      **A** in place, "another one like this" is two clicks and no credential at all — which is how
-      it shipped, on the same day. A *hand-typed* server is **dropped rather than copied hollow**:
-      Cronsole never read its token, and a server the new trigger cannot authenticate to fails later,
-      on a schedule, as somebody else's 401. The schedule is converted back to the user's zone on the
-      way in, or a duplicate of an 08:00 local trigger is created at 08:00 UTC.
-
-- [x] **C. Generalize *Replace credentials* into *Recreate with changes*** — **shipped 2026-08-31**.
-      The machinery existed and carried only a tool list; it now carries a **new prompt or schedule**
-      too (`RecreateChanges`), so Gemini's immutability stops being a wall for the case that actually
-      hurts — iterating on a prompt. **`updateAction` and `updateSchedule` stay honestly
-      `unsupported`**: they mean *change in place*, `PATCH` cannot do it, and a recreate is a
-      different act that the UI names as one — but both refusals now **name the recreate path**
-      instead of reading as a dead end, which was the discoverability half of the item.
-
-      **Two rules the build added.** An omitted field is read **off the platform** a moment before
-      the rebuild rather than resent from the Cronsole row, or rotating a token silently reverts a
-      prompt edited in Google's console; and the row is written afterwards from **what the platform
-      reports the replacement to be**, never from the request — [#82](troubleshooting/README.md#82-a-gemini-trigger-loses-its-prompt-on-the-first-sync-and-edit-schedule-fails-with-googles-word)'s
-      shape, where the write spelling and the read spelling of a prompt are not the same.
-
-      **And it surfaced a latent defect nothing would have reddened**: a rebuild sent the platform's
-      stored expression back verbatim while `createTrigger` writes `time_zone: UTC` unconditionally,
-      so a trigger made in Google's console at 09:00 New York was silently rebuilt at 09:00 UTC.
-      Inherited schedules now go through `shiftCronToUtc` like every read does. That is the third
-      time on this connector that the bug was **a field read in one vocabulary and written in
-      another** (#82 the prompt, #83 the executions array), and the first found by widening a verb
-      rather than by driving the API.
-
-- [x] **D. A Gemini template family** — **shipped 2026-08-31**. Three templates in a **Gemini
-      Triggers** pack: *Daily Digest by Email*, *Weekly Repo Report*, *Page Watch* — extended rather
-      than `core`, like the Claude routines, because the platform is a `v1beta` preview that needs an
-      API key on the connection.
-
-      **What the build found is that a hosted-agent template is not a prompt, it is a prompt plus a
-      grant.** Every other template in the catalog describes something to *run*; an agent has to be
-      *given* reach as well, and the two are not separable — a digest prompt with no mail server
-      finishes `completed` and mails nothing, which is the failure `list_platform_runs`' step list
-      exists to make visible. So `agentTools` is a field on the template (and its own Prisma column,
-      not a second meaning for `nativeJob` or a corner of `parameters`), and the Apply screen states
-      the grant **before** the button rather than confirming it after: §9 already says reach is the
-      consequential half of creating an autonomous task, and that argument does not start at the
-      connector.
-
-      **The credential rule needed nothing new, which is the point.** The registry schema reads
-      `type`, `name` and `preset` — there is no `url` and no `headers` for a token to sit in, at
-      either end, so a published template cannot carry one and no reader downstream is a forgotten
-      `delete` away from publishing it. `toToolSummary` / `readAllowlist`'s rule, one layer up.
-      `preset` may hold a `{{placeholder}}`, so the digest template makes *which saved server* a
-      parameter, and `resolveToolPresets` refuses an unsaved name with the list exactly as it already
-      did — the apply path needed no branch of its own for it.
-
-      **And driving the apply live found a defect no test could**: the
-      `refusedBeforeCalling` split shipped on `POST /api/tasks` and never reached
-      `POST /api/templates/:id/apply`, so *"No saved MCP server called X. Saved servers: resend."* —
-      a mistake carrying its own fix — arrived as a `500`, telling the caller to retry a request that
-      can never succeed. Both suites were green because both stub the connector. The route's own
-      comment already stated the rule while applying half of it, which is
-      [#77](troubleshooting/README.md#77-the-sources-tab-says-a-verb-failed-and-names-your-own-broken-file)'s
-      shape one more time; the reusable rule is that a connector gaining a new *kind of answer* is a
-      grep for every caller of `createTask`, not a fix to the route the report names
-      ([#87](troubleshooting/README.md#87-applying-a-template-answers-500-over-a-message-that-names-its-own-fix)).
-
-      One thing the gallery needed that the app did not: **a fourth target mode**. `direct`,
-      `session` and `manual` could not hold Gemini — a real controller, but only once an API key is
-      on the connection, which a static page can no more know than it can know about a Claude
-      session. Calling it `direct` promises a one-click apply that fails; calling it `manual` hides a
-      connector that works.
-
-- [x] **E. Prompt preflight at create** — **shipped 2026-08-31**. The three failures of 2026-08-25,
-      each caught before the trigger exists: a prompt that **asks the user a question** or hands back
-      a choice (an unattended agent stalls — nobody answers at 15:00 on the 1st), **pasted gutter
-      characters** (`▎`, box rules, zero-width spaces) that chop the instruction into fragments, and
-      an **email instruction with no recipient**. A **warning, never a refusal**, as specified —
-      nothing gates the submit button, and the panel says so out loud, because a reader who cannot
-      dismiss a note by ignoring it stops reading the panel.
-
-      **Two things the build settled.** It is the **server's** judgement
-      (`services/promptPreflight.ts`, `POST /api/tools/prompt-preflight`), not a browser lint: a
-      second copy would be free to disagree with the one an MCP-created trigger is judged by, and
-      the MCP surface has no typing moment at all — so the same warnings ride back on the create
-      response and `create_gemini_trigger` reports them. And the response carries **`checked`**
-      beside `warnings`, because an empty list otherwise cannot be told from a preflight that
-      silently did nothing — the schedule-conversion rule (*a refusal must state its reason*) applied
-      to a check that found none.
-
-      It renders in **two** places, and the second is the one that matters more: `RecreateTriggerModal`
-      is where a Gemini prompt is normally written, since the platform's definition is immutable and
-      every edit after the first arrives there.
-
-      One thing found while wiring it: the create toast still told people to add network-allowlist
-      domains **in Google AI Studio** — the last of the AI Studio references, in the one sentence a
-      user reads immediately after creating a trigger whose sandbox reaches nothing.
-
-**MCP server — one real gap, and one thing that must wait for A.**
-
-- [x] **`list_platform_runs` + `get_run_output`** — **shipped 2026-08-25.** The two
-      routes shipped 2026-08-25 with no wrapper. An agent asked *"why did my scheduled task fail?"*
-      can currently reach only `list_run_history` / `get_task_history`, which read `ExecutionLog` —
-      **runs Cronsole performed**, which on Gemini, GitHub Actions and Vercel is empty *by design*.
-      So the one question an assistant is most often asked about a scheduled task is the one it
-      cannot answer, on the sources where the runs actually happen. Read-only, no new logic, and it
-      is what the 2026-08-25 session had to drive by hand. Output stays **per opened run** — a
-      transcript is ~90KB — and the tool truncates at 4000 characters by default, announcing the cut
-      rather than returning a short answer that reads as a complete one.
-
-      **Driven live against a real Gemini trigger before shipping**, because the tool suite stubs the
-      HTTP client and so can only prove the wrapper agrees with itself (§8). Both response shapes
-      matched, and the run that came back is the argument for the step list: `completed`, 8 steps,
-      the last two `resend:send-email` and `model_output` — the same status a run that silently
-      skipped the mail would carry. The 400 path was driven too, on a Claude task: a platform that
-      publishes no run history is reported as a **fact rather than a tool error**, or an assistant
-      would call Vercel Cron broken for behaving exactly as designed.
-- [x] **Creating a Gemini trigger over MCP** — **shipped 2026-08-25 as `create_gemini_trigger`**, its own tool rather than a `platform` on `create_task`: the unit of work is a **prompt**, so none of that tool's command, tokenization or no-shell guidance applies, and the native creates already split on exactly that. It was held
-      back deliberately until presets existed, and now they do: an agent names a preset and the
-      credential never crosses the MCP boundary, which is `${secret.NAME}`'s shape one layer up.
-      Without them this would have meant an assistant handling a bearer token in a tool call, which
-      is worse than the friction that block was about. Note also that
-      `CREATABLE_PLATFORMS` (`mcp-server/src/tools.ts`) stays the pair it was — the separate tool made
-      widening it unnecessary — and `create_task` now names the tool that owns this platform instead.
-
-      **Driving it live found two defects in the path it wraps, both fixed here.** The connector's
-      `describeGrant` sentence — what a create actually granted, and where a supplied credential now
-      lives — was being built and then **overwritten** by the route with `'Task created successfully'`,
-      so it reached nobody: #65's shape, a thing produced with no reader. And every connector refusal
-      on a platform that declares `create` was a **500**, so *"no saved MCP server called X, saved
-      servers: resend"* — a mistake with the fix in the message — arrived in the same register as
-      "the platform is down". `refusedBeforeCalling` is now the create-path twin of `runTask`'s
-      `ran`: a refusal reached without contacting the platform is a **400**, because retrying an
-      identical bad request never helps.
-- [x] **Not `rotate_credentials` over MCP** — decided 2026-08-25. It takes credential *values*. It
-      stays UI-only, and this line exists so the absence reads as a boundary rather than an oversight.
-
-**The skill — one gap, and it is the one that caused the failures above.**
-
-- [x] **How to author a prompt for an unattended agent** — **shipped 2026-08-31** as **§2a** of
-      [`references/task-authoring.md`](../skills/cronsole/references/task-authoring.md), which was
-      entirely Windows-command-centric and said nothing about the unit of work on a hosted
-      source. Three rules, all paid for on 2026-08-25: **never let the prompt offer a choice**
-      (a question becomes a stall when nobody is there to answer it — give the parameter or tell it
-      to pick); **always instruct it to report failure explicitly** (an agent that cannot finish a
-      step narrates success instead); and **read the step list, not the status** — `completed` means
-      the agent finished its turn, so a run that researched, wrote and never mailed anything is
-      `completed` too, and only the steps say so.
-
-<a id="requested-2026-08-25"></a>
-
-### 🟢 Requested 2026-08-25 — all three closed the same day
-
-In-app failure logs, Gemini agent extensibility, and a Sync reported as missing a task. **Closed
-the day they were asked** — the first shipped, the second was researched by driving the API and
-then built out over the block above, and the third did not reproduce. The full record, including
-what was eliminated on the one that did not reproduce, is in
-[Part II](#shipped-2026-08-25--logs-extensibility-and-one-investigation).
-
-<a id="sources-onboarding"></a>
-
-### 🔴 Requested 2026-08-24 — source onboarding
-
-Five requests about **sources**: how a new user meets them, how the set is managed, and where the
-things that are *not* sources ended up. **Four shipped the same day** (see
-[Part II](#shipped-2026-08-24--source-onboarding)); what is left is the one half that needs a
-credential nobody has checked in.
-
-**The three decisions taken first, kept here because the items in Part II are the record of what
-was built and these are the record of why it took that shape:**
-
-1. **The Platforms tab becomes the Sources tab.** It already holds the capability matrix, the
-   Claude and GitHub panels and the quick links — it *was* the sources screen under a name that
-   described the code rather than the user's question. Rebuilt as **Your sources · Available ·
-   Quick links · Add a custom source**, rather than standing up a second screen about the same
-   four platforms, which is the §11a drift shape.
-2. **The rail gets two buttons, not three.** *Explore sources* and *Manage sources* deep-link into
-   that screen's two halves; **Add a custom source** lives on the screen, reached from Explore.
-   Three controls stacked in a 240px rail is furniture, and Explore/Manage are two views of one
-   list.
-3. **A fresh install shows Windows Task Scheduler and Cronsole-native.** Claude Code and GitHub
-   Actions are opt-in from Explore. Visibility is the **union** of the preference, the platforms
-   holding tasks, and the platforms with a connection — so opting in is additive and *no source
-   holding a task can be hidden*.
-
-- [~] **GitHub Actions — verified against a real repository** *(2026-08-24)*. Connected with a PAT,
-      watched two repositories, and synced: **3 tasks**, two with their crons read UTC-for-UTC
-      (`10 13 * * *`, `20 13 * * *`) and their real run outcomes, the third kept with
-      `schedule: null` **and a reason** because its workflow file is genuinely malformed YAML — the
-      *"could not read ≠ has no schedule"* rule doing exactly its job on a file nobody planted.
-      The pass found a real defect and it was not in the read path: a plain **Sync** could never
-      adopt a newly watched repository, and reported success on every press
-      ([#75](troubleshooting/README.md#75-a-github-repository-is-watched-sync-succeeds-and-no-workflows-ever-arrive)) —
-      fixed the same day.
-      **Left, and only reachable by waiting or by breaking something on purpose:** a revoked scope
-      mid-life must **throw** rather than retire every tracked workflow, and GitHub's silent 60-day
-      auto-disable must surface as health with GitHub's own reason. Both paths have unit coverage;
-      neither has been seen live.
-
-<a id="native-job-types"></a>
-
-### 🔴🔴 Top priority — requested 2026-08-15 — closed
-
-Four items requested after the dashboard IA redesign landed, plus two the theme work carved out.
-**All shipped**: collections, the native job types and the phone verification
-([Part II](#shipped-2026-08-15--2026-08-17)); per-job encrypted fields as
-[ADR 0003](adr/0003-per-job-secrets.md) on 2026-08-21; the `env` editor and the themes on
-2026-08-24. One thing measuring the themes turned up could not be closed by a palette value and
-moved to [P2](#open--ui--product): `--border` needs a second token.
-
-<a id="import-sync-split"></a>
-
-### 🔴 Requested 2026-08-18
-
-- [x] **Periodic sync — promoted from P2** *(shipped 2026-10-16)* *(asked 2026-08-18; the P2 line is now a pointer here)*.
-      Nothing in the stack schedules a sync today: `POST /tasks/sync` has three callers — the two
-      dashboard buttons, the Claude-routine create path, and the `sync_tasks` MCP tool. The only
-      timers are the 45s connection-**health** poll (health is evidence, never a sync), the catalog
-      refresh and `NativeScheduler`. The agent has no watcher either.
-      **Refresh-only, opt-in, per connection**, interval stated and last run shown — for the reason
-      above: an automated `categories` import would clear exclusions. A newly appeared *folder* is
-      surfaced from the `untracked` count as a prompt, **never auto-adopted**: on this machine that
-      would mean 257 of Microsoft's tasks arriving unasked. New tasks *inside* an already-tracked
-      folder need nothing new — `upsertTasks` creates them on any refresh.
-      **What people would otherwise do, and why it is worth building instead:** a native `HTTP` job
-      posting to `/tasks/sync` works today but stores its API token in `Task.metadata` as plaintext
-      — the same gap [per-job encrypted fields](#native-job-types) exists to close, and it would
-      travel in exports. A scheduled Claude routine calling `sync_tasks` avoids that (the token
-      lives in the host's environment) but needs Claude routines. Neither is a thing to document as
-      the answer.
-      **Shipped as designed:** `PlatformConnection.syncIntervalMin` (NULL = off) +
-      `autoSyncAt` / `autoSyncError` (last *attempt*, so a failing platform retries once per
-      interval); `services/AutoSync.ts` ticks every 60s and calls `syncConnection` — the body of
-      `POST /tasks/sync`, extracted so the route and the timer cannot diverge — with
-      `scope: 'tracked'` only. Control: Sources › Show details › *Sync automatically*. **Left:** an
-      MCP verb (deliberately not added — the toggle is a UI preference), and surfacing a *new
-      folder* as a prompt from the timer's `untracked` count (the manual sync still reports it).
-
-- [x] **A Monthly trigger for the Windows agent** *(surfaced 2026-08-18 by the schedule picker;
-      shipped 2026-09-08)*. `scheduler-conversion.ts` had no monthly pattern, so `0 9 1 * *` fell
-      to the replaced-with-hourly fallback: ~8,760 runs a year for a schedule that asked for 12.
-      The `Monthly` arm now runs end to end — `WindowsTrigger.daysOfMonth`, both converter
-      directions (a single day, a list and a range, all at confidence 1.0), `TriggerSpec`,
-      `TriggerBuilder`, `TriggerReader`, and `canonicalizeTrigger`/`CanonicalizeTrigger` on both
-      sides byte-for-byte.
-      **Three shapes stayed refusals rather than becoming approximations**, and the third is the
-      one worth remembering: a **specific month** (`0 4 1 1 *`) has no home in `WindowsTrigger` —
-      there is deliberately no `monthsOfYear`, so it keeps the honest hourly fallback and a
-      restricted-month trigger read off a machine reports *no schedule* rather than "every month";
-      **run-on-last-day** is cron's `L`, already refused at the other end; and a monthly time whose
-      UTC form lands on a **different local calendar date** is refused by the agent with that
-      reason. That last one is the finding: the weekly arm rolls a UTC day to the local day it
-      really lands on, and the obvious move was to copy it — but a week is always seven days and a
-      month is not, so the same roll means the 31st in January, the 28th in March and the 30th in
-      May. No single `DaysOfMonth` is right, and picking one would have run the task on the wrong
-      date for eleven months of the year while Cronsole displayed the cron it was given.
-      **One deployment detail is load-bearing**: `daysOfMonth` is appended to the signed canonical
-      trigger string **only** for a Monthly trigger. An unconditional eighth field would have
-      changed the canonical form of every Daily, Weekly and Time trigger, so a new schedule type
-      would have broken every create against an agent that had not been republished — conditional,
-      an old agent verifies the signature and then refuses the trigger by name, which is an error
-      the user can act on. `TriggerBuilder` also gained an optional `TimeZoneInfo` so the
-      offset-dependent arm can be tested at a pinned zone rather than at the runner's.
-
-<a id="follow-ups-2026-08-13"></a>
-
-### 🔴 2026-08-13 follow-ups — the unfixed remainder
-
-Left open at the end of the 2026-08-13 MCP/Claude test pass. Ordered worst-first; the three items
-of that list which have since shipped are in Part II.
-
-- [x] **A `MISSING` Claude row cannot be removed by anything** — **shipped 2026-09-25**. Delete a
-      routine at claude.ai and its Cronsole row is correctly detected as `MISSING`, but
-      `untrack_task` 400s for `CLAUDE_CODE` and `disconnect_claude_routine` only reaches *declared*
-      routines. OAuth mode now produces tracked Claude rows that nothing in
-      `PlatformConnection.config` declares, so the documented escape hatch does not cover them.
-      **Fix:** `POST /:id/untrack` now checks `readRoutines(config)` for the task's externalId and
-      only refuses the *declared* case (where the redirect to `disconnect_claude_routine` is real);
-      an undeclared row untracks like any other platform's. The two stranded dev-machine rows are
-      not touched by this change itself — they untrack normally once it ships. See
-      [#94](troubleshooting/README.md#94-a-missing-claude-row-survives-untrack-disconnect-and-delete).
-- [x] **Deleting *every* Claude routine left them all `ACTIVE`** — **shipped 2026-10-04**. The
-      sync route skipped missing-task reconciliation on any empty listing, so removing a source's
-      last task was never detected. **Fix:** `SyncOutcome.complete` lets a connector vouch for an
-      empty answer; Claude's OAuth read does, and the rows go `MISSING` (then untrack per the item
-      above). See
-      [#95](troubleshooting/README.md#95-every-claude-routine-was-deleted-and-cronsole-still-shows-them-active).
-- [x] **Two refusal messages point at each other** — **shipped 2026-09-25 alongside the item
-      above**. `delete_task` on a Claude task said *"untrack it instead"*; `untrack_task` 400s for
-      `CLAUDE_CODE`; neither named `disconnect_claude_routine`. Both the REST error and the
-      `untrack_task` / `disconnect_claude_routine` MCP tool descriptions now name it explicitly, and
-      state the declared/undeclared split above rather than treating every Claude row alike. The
-      "also forgets its API token" line was already only reachable for a declared routine (the one
-      case where a token exists to forget) and needed no change.
-- [>] **`list_platforms`' MCP tool description was stale** — fixed 2026-08-24 alongside the
-      `access` field, see [Part II](#shipped-2026-08-24--source-onboarding).
-- [x] **`update_task_schedule` echoes a next-run time it computed** — **shipped 2026-10-02**. The
-      MCP line now reads *"Next run (computed by Cronsole from the cron, not reported by
-      `<platform>` …)"* for every platform but Cronsole-native, whose scheduler Cronsole owns. The
-      REST response is unchanged. Original finding: the immediate response
-      carries `computeNextRun(cron)` while the platform's real value (Anthropic's jitter, Windows'
-      trigger) only lands on the next sync. Storage converges, so this is the response shape only —
-      but it is the [#42](troubleshooting/README.md#42-the-dashboard-says-synced-7m-ago-over-a-task-list-from-yesterday)
-      shape: a timestamp whose label does not name the event that produced it.
-- [x] **The sync response's `missing` is a delta, not a state** — **shipped 2026-10-09**. It counts
-      rows *newly* marked `MISSING` by that pass, so it read `0` beside `count: 5` while two rows sat
-      `MISSING`. `missing` is unchanged (a delta, kept for compatibility); each result row now also
-      carries `missingTotal` (a count of `MISSING` rows on the platform, read after reconciliation),
-      and `sync_tasks` prints the total, naming the delta only when it differs.
-- [x] **Convert a multi-value hour between zones** *(carved out 2026-08-15, shipped 2026-10-05)*.
-      Several hours at one minute are enumerated and shifted, in both `shiftCronToUtc` (backend)
-      and `shiftCron` (browser) via one mirrored `expandHours`: `0 */6 * * *` from New York is
-      `0 4,10,16,22 * * *`. Exact whenever every day fires, or no hour crosses midnight; hours that
-      split across midnight on a day-restricted schedule are still refused with the reason, as is a
-      multi-value hour with a multi-value minute. Three readers had to learn the list in the same
-      change or it would have regressed: `describeCron` (still "Every 6 hours"), the schedule
-      picker (`0,6,12,18` is `*/6`), and the Windows converter — an evenly spaced list is a
-      `PT{n}H` repetition from its first hour, where it previously fell to the **replace-with-hourly**
-      fallback; the reverse reader now honours a start hour off the step's grid instead of reading
-      05:00-every-6h as `*/6`. Unblocked n8n's *every N hours* (N dividing 24).
-
-**Chores, not roadmap items** *(dev machine)*: the MCP host needs a restart to load a rebuilt
-`mcp-server/dist/`; the Windows task `Cronsole conversion-response probe (safe to delete)` in
-`\Cronsole` is disabled and wants deleting.
-
----
-
-<a id="p0-security"></a>
-
-## 🟢 P0 — Security hardening
-
-<!--
-  Linked as `#p0-security`, not by heading slug. This heading has carried dates and been edited
-  twice; each edit silently broke every link to it (found 2026-08-17 by
-  scripts/check-doc-links.mjs). A heading whose text is expected to change wants a stable anchor.
--->
-
-*Closed 2026-07-09, reopened 2026-08-13 for one gap, substantially closed again 2026-08-15, and
-**fully closed 2026-08-28** when `req.user` stopped being read out of the token's claims. Every
-item is in [Part II](#completed--p0-security). **Nothing is open here.** New security work lands
-back in this section as it is found — a closed tier is a statement about the list, not a claim that
-the class is finished.*
-
----
-
-## 🟠 P1 — Correctness & honesty
-
-New correctness work lands here as it is found. Everything logged before 2026-08-16 is closed —
-see [Part II](#completed--p1-correctness--honesty).
-
-- [ ] **Move the Dockerfiles off Node 20, which reached end of life 2026-04-30** *(logged 2026-10-08
-      by the upstream check)*. `backend/Dockerfile` and `frontend/Dockerfile` both start
-      `FROM node:20-alpine`, so the shipped backend runs on a runtime that no longer gets security
-      fixes. Node 22 and 24 are both LTS (source: nodejs.org/en/about/previous-releases); CI already
-      runs 22. **What**: pin both images to the same major CI uses (22, or 24 if the suite passes
-      there), with a pinned alpine tag per §3 ("never `:latest`"), and add an `engines` field to the
-      three `package.json` files. **Where**: the two Dockerfiles, `backend/`, `frontend/` and
-      `mcp-server/` `package.json`, and the Node row in `docs/UPSTREAMS.md`. **Hold paths**: the
-      Dockerfiles need Mike's review. **Done when**: `docker compose build` succeeds, the backend and
-      frontend suites pass on the new major, and `/doctor` reports a healthy stack.
-
-<a id="connector-contract-test"></a>
-
-- [ ] **A connector contract test — diff a real API response against what the parser consumes**
-      *(logged 2026-08-25, after the fourth instance)*. Four defects in two days shared one shape: a
-      field that was **present on the wire and never read**. Gemini's prompt (written as a string,
-      returned as a structured array), its executions array (`trigger_executions`, not the documented
-      `executions`), a failed execution's `error`, and Windows' `ResultCode` (read out of a localized
-      English sentence instead of the named `EventData` field). **None is reachable from the suite**,
-      because every connector test stubs the HTTP client or the agent — so the fixtures are written
-      from the same belief as the code, and the two agree with each other while disagreeing with the
-      platform. A green suite is evidence about Cronsole's self-consistency and nothing else.
-      **The shape worth building**: capture one real response per connector (credentials stripped,
-      committed as a fixture), and assert that every key in it is either consumed by the parser or
-      **named in an explicit ignore list**. The ignore list is the point — it converts "we did not
-      notice this field" into a line someone had to write. Refreshing a fixture against the live API
-      then becomes a review of what changed rather than a silent no-op. Cheap; the expensive part is
-      capturing the first response, which for a preview API means driving it by hand anyway
-      ([the probe technique](../skills/cronsole/SKILL.md) is how each of these was found).
-
-- [ ] **The E2E suite writes real rows into live data** *(logged 2026-08-23)*. A run leaves
-      `\E2E\Mock Nightly Backup` tracked against the developer's own account, which then goes
-      MISSING when the mock agent disconnects and sits on the dashboard forever. Same family as
-      [#5a](troubleshooting/README.md#5a-and-the-transient-agent-is-the-e2e-suite) — the suite drives
-      the live stack and leaves something behind — and it lands in the same place as the fixtures
-      work in the CI item below: the mock agent needs its **own user**, not the developer's.
-
-- [ ] **Run the E2E suite in CI — it is the only thing that renders CSS, and nothing runs it**
-      *(logged 2026-08-16)*. `npm run test:e2e` sat **100% broken for a day** (18 of 18) after the
-      IA redesign moved a heading every test waited on, while backend 715, integration 223 and
-      frontend 541 stayed green. **jsdom does not evaluate media queries**, so the unit suite passes
-      whether `hidden md:flex` is right or wrong; Playwright is the only layer that can see a
-      responsive layout, a real stylesheet, or a drawer that does not open.
-      **The blocker is fixtures, not the runner.** Several assertions lean on this machine's live
-      data — native job-type rows, a connected agent's health dot, source counts — and the visual
-      baselines are Windows-rasterized while CI is Linux. It needs (a) a seeded deterministic
-      dataset the assertions can name, (b) the mock agent from `mock-agent.spec.ts` promoted to the
-      shared harness, and (c) a Linux baseline set, which the per-platform snapshot suffix already
-      supports. **Doing it hastily is worse than not doing it** — a flaky visual job gets disabled,
-      and a disabled suite is what produced this item. Until then, `workflows.md` states the
-      obligation to run it after any dashboard change.
-
-- [ ] **System-status honesty — the standing review** *(the mechanisms shipped 2026-07-08; this
-      item is deliberately never closed)*. Periodically check that no status surface has drifted
-      back to asserting something it cannot evidence. **The class has returned four times and each
-      return sharpened the tell**, so the item is the review, not a fix:
-      - a verdict derived from a **precondition** that cannot change when the subject fails
-        ([#40](troubleshooting/README.md#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out));
-      - a real timestamp of the **wrong event**
-        ([#42](troubleshooting/README.md#42-the-dashboard-says-synced-7m-ago-over-a-task-list-from-yesterday));
-      - an **expired** observation reported in the present tense
-        ([#48](troubleshooting/README.md#48-windows-sits-at-degraded-for-hours-while-the-agent-is-perfectly-healthy));
-      - a **cache whose only writer runs on another code path**
-        ([#66](troubleshooting/README.md#66-two-cronsole-surfaces-disagree-about-the-agent-in-the-same-second)).
-
-      The questions to ask of any status field: *what writes it, is that what the label names, and
-      is that path running in the session doing the reading?*
-
----
-
-## 🟡 P2 — Product value
-
-Shipped P2 work is in [Part II](#completed--p2-product-value).
-
-<a id="dashboard-ia-pass-2"></a>
-
-### Dashboard IA redesign — pass 2 *(requested 2026-08-15; pass 1 shipped)*
-
-- [x] **Sidebar decrowding — shipped 2026-09-09.** Four stacked bands, each with a rule, a heading
-      and a fold, over 44px rows carrying a 28px icon tile: six platforms cost 264px before a single
-      folder, and *Explore / Manage sources* sat below the tree, off screen on a 394-task machine.
-      Now: a **filter field** narrowing the whole rail by name (presentation state, never a
-      `TaskFilters` field); **Collections and Pinned as chips** (still two bands, two folds);
-      **every list capped** at four rows with the remainder stated; **identity colour on the source
-      glyph** now the tile is gone, with health in a gutter of its own; and a **utility bar pinned to
-      the bottom** holding collapse, both source routes and the help `?`. Health stays four-state —
-      exception-only was drawn and rejected, since an unconnected platform already draws no dot.
-      See CHANGELOG 2026-09-09 and §9.
-- [ ] **Scoping.** Views filtered to the source they make sense for (*System* is Windows-only and
-      reads `0` everywhere else); source-scoped header actions, so **Sync** and **Import** state
-      which platform they mean; per-source empty states, so a connected platform with nothing
-      imported says how to import from it.
-
-### Open — UI & product
-
-- [x] **Native script templates: timeout, optional secrets, apply reports `missingSecrets`**
-      *(shipped 2026-10-14, for the ai-automation-recipes catalog)*. `execution.timeoutSec` maps
-      onto a `script` template's job (`timeoutMs`, max 60 min) and exports back;
-      `${secret.NAME?}` is an optional reference (empty when unset, never `missing`); template
-      apply returns `taskId` + `missingSecrets`, and fills `nativeJob` placeholders from defaults
-      when `parameters` is omitted. **Still open:** `execution.timeoutSec` on an `exec` /
-      `commandTemplate` native template is not mapped — those store no `nativeJob` to carry it.
-- [x] **Quick Links is a top-bar item, and every source has one** *(shipped 2026-10-13)*. The
-      bookmarks left the Sources tab for their own section at `/links`; **Settings › Behavior ›
-      Quick Links in the top bar** switches it off and folds them back under Sources, and each
-      address forwards to whichever home is current. The defaults became data
-      (`frontend/src/data/quickLinks/defaults.json`) and gained the web console of every source
-      that has one (Gemini API, GitHub, Vercel beside Claude); `quickLinks.test.ts` fails if a
-      shipped source has neither a link nor a stated reason (Windows, Cronsole-native, and n8n,
-      whose address is per-instance). A default added later reaches an existing install **once**
-      (`quickLinkDefaultsSeen`) and a deleted one never returns. The biweekly **Cronsole Source
-      Scout** routine keeps the URLs current.
-- [~] **Thin the first viewport** *(desktop and mobile both shipped 2026-08-12; the 375px
-      verification is automated in `tests/e2e/layout.spec.ts`)*. **Left:** `--raised` exists and is
-      applied to exactly one panel, the filter zone. Spending it across the app to build real
-      hierarchy is the half of this item that has not been done.
-- [ ] **`--border` does not meet WCAG 1.4.11, and needs a second token** *(carved out of the theme
-      pass, 2026-08-24)*. It measures **1.61:1** in light and **1.69:1** dark against the page,
-      against a 3:1 bar for non-text UI. It was raised from 1.41/1.40 as far as one token can go,
-      and the test pins that floor so it cannot slip back — but the gap cannot be closed by a
-      value. `--border` does two jobs: separating cards (decorative, *exempt* from 1.4.11) and
-      drawing the boundary of a text input (in scope, not exempt). Reaching 3:1 needs `L=58%` in
-      light and `L=37%` in dark, which would turn every hairline into a heavy rule at all **313**
-      call sites, including the ~260 the rule does not apply to. The fix is `--border` plus
-      `--border-strong` and a sweep of the *controls* only — a component change, which is why it
-      is not in the palette pass. The test says so and will fail if someone closes it by value.
-
-- [ ] **One Settings toggle is still vestigial** *(logged 2026-08-12, halved 2026-08-26)*.
-      The dashboard used to open on **All**, which hard-set `status: any` **and** `system: include`
-      — exactly what *Show disabled tasks* and the persisted system lens control, so neither
-      affected the opening view. **The ownership half is fixed**: `openingFilters` now reads
-      `showSystemTasks`, the setting has its own switch on the Settings screen, and the dashboard
-      states the default above the list. *Show disabled tasks* is still overridden, deliberately
-      for now — the status lens already prints an `N inactive hidden` chip beside **Filters** the
-      moment it withholds anything, so a default there discloses itself where the ownership one did
-      not. Decide between making it apply too, repurposing it, or deleting it — but do not leave a
-      setting that looks like it does something and doesn't.
-- [ ] **Restore's plan doesn't check that a task's action points at anything that exists**
-      *(logged 2026-07-31)*: add an **advisory** column reporting, per file, whether the action's
-      executable and file-looking arguments resolve on this machine. Not a refusal — an executable
-      missing here may exist on the machine being restored to.
-- [ ] **Task-detail trust indicators — say how old the truth is, per task**: last
-      platform-confirmed sync, last agent result, and Windows' own `lastTaskResult` in the modal.
-      *(The 2026-08-12 review adds a fourth: whether the displayed action was reported by the
-      **current** agent version — an un-republished agent omits fields rather than erroring, so a
-      stale panel and a correct one look identical.)* The dashboard health strip answers this at the
-      *platform* level; the per-task half is open.
-- [>] **Optional periodic Windows sync** — moved to
-      [Next up](#import-sync-split) on 2026-08-18, alongside the Import/Sync split it belongs with.
-- [ ] **UI polish pass**: full-path tooltip/copy on truncated task paths · Apply-modal footer
-      crowding · Help Center reachability at ~720px · the two dev-mode Socket.IO console warnings
-      (worth clearing before any demo capture — they bury real console errors).
-- [ ] **Onboarding becomes contextual instead of global** *(sharpened 2026-08-12)*: the banner
-      lives in `Dashboard.tsx` **above the tab switch**, so it rides along on Templates, Tools and
-      Platforms too, and clears only on an explicit click. Auto-retire it once the user has
-      imported, created or starred; replace it with per-tab first-use cards, which is where the
-      advice is actually actionable.
-- [ ] **Console noise in user-facing flows**: the worst calls carry task names, native paths and
-      full command lines — `grep -rn "console\." backend/src frontend/src` for the current set,
-      because the count written here (37 + 3, on 2026-08-12) had drifted to 45 + 4 by 2026-08-25
-      with nobody noticing, which is the argument for not writing counts into prose at all. Mostly —
-      `routes/tasks.ts`, `WindowsAgentConnector.ts`, `NativeScheduler.ts`, `TaskService.ts`,
-      `AgentManager.ts`, `Dashboard.tsx`. Do it with the structured-logging work under *Production
-      operations*: levels + redaction, with full command lines behind an explicit diagnostics
-      export rather than on by default.
-- [ ] **Native task follow-ups**: a `CLAUDE_PROMPT` job type, and a Redis lock before
-      multi-instance.
-- [ ] **Template registry — optional follow-up**: index signing, beyond the per-file sha256.
-- [ ] **Cross-platform template targets — follow-up (b)**: real export artifacts (cron line,
-      launchd plist, Claude routine payload). Lands as connectors and the POSIX agent do.
-- [~] **Per-user monitoring/notification channels — webhook shipped 2026-09-04** *(requested
-      2026-09-04)*. A user's own opt-in run-outcome notifications, off by default, with a choice of
-      which outcomes to hear about — distinct from `CRONSOLE_FAILURE_WEBHOOK_URL`
-      (`services/FailureNotificationService.ts`), which is an operator-wide env var, configured
-      outside the app, that only ever spoke about failures. That one stays as the zero-config
-      fallback for a single-user install with nobody signed in to flip a toggle; a user's own
-      `NotificationChannel` takes over the moment it's enabled. See CHANGELOG 2026-09-04.
-      **Resend (email) shipped 2026-09-04** as a fourth payload shape, alongside generic/discord/
-      ntfy — the one shape with its own `to`/`from` fields rather than a bare URL, since sending
-      mail needs a recipient and sender a generic POST doesn't. The API key still rides in the
-      existing `headers` field; no new credential-storage shape was needed. A help topic on the
-      section covers setup recipes for all four (`docs/user-guides/guides/UI_User_Guide.md` §
-      *Setup recipes*).
-      **Per-task scope shipped 2026-09-05** — *Which tasks*: all tasks (default) or only specific
-      ones, an empty `taskIds` meaning "every task" rather than a second mode flag. The route
-      verifies task ownership before saving; no join table, since a dangling id from a deleted task
-      just matches nothing at read time.
-      **Left**: channels beyond a webhook (SMS, push via a vendor SDK); a delivery history/log
-      (today a failed send is only a `console.warn`); and a rate limit or digest mode for a
-      flapping task, which could otherwise fire a request per run.
-- [ ] **Settings agent-pairing panel** *(deferred)*: waits on the per-user pairing-code flow.
-      **Concrete gap found 2026-09-07**: this is also why the Sources tab has no disconnect/remove
-      control for `WINDOWS_TASK_SCHEDULER` (and will not for a future macOS/launchd agent either) —
-      unlike GitHub/Vercel/Gemini, an agent-paired platform has no `PlatformConnection` row to
-      delete. Today `AGENT_PAIRING_SECRET` is one shared env var (`ws/agentAuth.ts`) mapping every
-      authenticated agent to a hardcoded placeholder user, so there is no per-agent row to revoke —
-      only a global secret rotation, which evicts every paired agent at once. Real per-agent
-      "remove this source" needs the per-user pairing model this bullet already waits on: an
-      `AgentPairing`-shaped row keyed by agent identity, a route to disable one row, then the
-      Sources-tab control.
-- [ ] **Tools tab — further candidate tools** *(candidates only, none scheduled)*: scheduled
-      automatic backups (backend writes, not the elevated agent) · snapshot diff ("what changed
-      since your last backup"). Rule for the tab: everything on it must be genuinely cross-cutting,
-      or it is a junk drawer.
-
----
-
-<a id="-sources--where-a-task-comes-from"></a>
-
-## 🔷 Sources — where a task comes from
-
-> **The priority once *Next up* is clear** *(scoped 2026-08-12)*. The dashboard's first-level axis
-> is the **source** a task comes from. **Seven ship as of 2026-10-04** — Windows Task Scheduler,
-> Cronsole-native (split into HTTP · Programs · Scripts · Checks), Claude Code routines, GitHub
-> Actions, Vercel Cron, Gemini API Triggers and n8n. This section is the plan for the rest; the built
-> ones are marked `[x]` below or in [Part II](#completed--sources). *(This line said "ships with
-> three" until 2026-08-24, when it had been wrong for a day and a half — a count in prose goes
-> stale on every change, which is why `PLATFORM_DESCRIPTORS` is the thing to read.)*
->
-> **Read the [guardrail change](#strategy-guardrails) first**: the capability matrix makes a
-> **read-only observer** an honest, complete product state, so a source no longer has to be fully
-> controllable to be worth shipping. Controllers stay gated on reliability; observers do not.
->
-> **Ordering principle: prefer the build that unlocks several sources over the one that unlocks
-> one.** A POSIX agent covers launchd, cron *and* systemd timers with one protocol and no new auth
-> story. Each cloud scheduler costs its own OAuth surface, rate limit and mental model, for exactly
-> one source.
-
-> **Finding the next source is now scheduled** *(2026-10-13)*. The **Cronsole Source Scout**
-> routine runs every other week: it ranks the AI tools people use most *at the time* from public
-> signals, judges each against the source rules above, and adds buildable ones here as
-> `🔒 Needs Mike` items. Tools that schedule work but have no API go on a dated **👀 Watching**
-> list in this section, re-checked every run, so "it has no API" is a finding with a date rather
-> than a reason to stop looking. First finding while setting it up: **OpenClaw and Hermes both
-> ship a built-in `cron` command** (list, create, pause, run), so their jobs live inside the
-> harness where no current source can see them. Both are still quick-link only in `CLAUDE.md` §2,
-> and the Scout is told to judge them first. A harness whose jobs are Windows Task Scheduler tasks
-> (such as a DeepSeek harness) is already covered by the Windows source.
-
-- [ ] **POSIX agent — launchd · cron · systemd timers** *(the big one, and the one that actually
-      broadens the product)*: all three are **local OS schedulers**, structurally identical to
-      Windows Task Scheduler — read the machine, run a thing, enable/disable. One build reuses the
-      whole existing protocol: outbound WebSocket, HMAC-signed commands, the sync model, folder and
-      path handling, the capability matrix. **Three of the most universal developer schedulers, one
-      auth story, zero new server surface.** Absorbs the former standalone *macOS agent (launchd)*
-      P3 item and the 7 catalog templates waiting on it.
-      Open sub-questions: whether the agent is a .NET port (the `ITaskScheduler` abstraction ports
-      cleanly) or a separate binary; per-user vs system crontab; and how a systemd timer's
-      `OnCalendar` maps onto 5-field cron, which is lossy in both directions and needs the same
-      honest-warning treatment the Windows trigger conversion already has.
-
-- [x] **Verify GitHub Actions against a real repository** *(2026-08-24 — see
-      [Next up](#sources-onboarding))*. The observer shape is now proven end to end, and the two
-      below inherit both the pattern and its one live lesson: a connector whose tracked set is
-      **declared** must say so, or its first sync silently imports nothing.
-
-- [x] **Vercel Cron — read-only observer** *(2026-08-24)*. The second observer, and it inherited
-      the whole GitHub shape: a fixed `unsupportedVerbs`, a **declared** tracked set
-      (`trackedCategories` reads the watched projects out of the config — #75's lesson, applied
-      before it could bite), health from stored sync evidence with no probe, a hand-composed
-      connection with a write-only token, and the project as the category.
-      **Where it differs from GitHub it differs in both directions, and both are worth carrying
-      forward.** Cheaper: a Vercel project object carries `crons.definitions[]`, so one
-      `GET /v9/projects/:id` returns every cron already parsed, already 5-field, already UTC — no
-      second fetch, no YAML, no unreadable-file branch, and a cron count that is *exact* rather than
-      an upper bound. That is also what makes the connect flow a **picker** rather than a paste box:
-      the list is one request and already says which projects have crons.
-      Poorer: **Vercel publishes no run history for a cron**, so `reportsRunResult: false` and every
-      task sits at `unknown` health permanently. Scoring `enabledAt` instead would have called every
-      configured cron healthy — *configured* and *working* are different claims, and only the first
-      is knowable. Said in the connector, the summary, the panel, the help topic and the guide,
-      because a permanent `unknown` discovered from a grey pill reads as a broken integration.
-      One defect found on the way and fixed at the root: `scoreTask` dispatched on platform with the
-      **Windows arm as the `else`**, so every source without its own scoring — Claude too, not just
-      the new one — was told to *"republish the agent"*.
-
-- [x] **Gemini API Triggers — the first hosted controller** *(jumped the queue and shipped 2026-08-24)*. Google
-      announced scheduled **triggers** for Managed Agents on 2026-07-28, after the line below had
-      already written Gemini off as quick-links-only. It is not an observer: a trigger is a
-      persistent resource with full CRUD, a manual-run endpoint **and** an execution history, so
-      every verb Cronsole would offer maps 1:1 onto a documented endpoint rather than onto something
-      that merely resembles one.
-
-      | Verb | Endpoint |
-      |---|---|
-      | `sync` | `GET /v1beta/triggers` |
-      | `run` | `POST /v1beta/triggers/{id}/executions` |
-      | `setStatus` | `PATCH /v1beta/triggers/{id}` `{"status":"paused"｜"active"}` |
-      | `updateSchedule` | `PATCH /v1beta/triggers/{id}` `{"schedule","time_zone"}` |
-      | `create` | `POST /v1beta/triggers` |
-      | `delete` | `DELETE /v1beta/triggers/{id}` |
-      | run evidence | `GET /v1beta/triggers/{id}/executions` |
-
-      **Why it outranks the ordering principle above rather than breaking it.** That principle
-      compares an agent unlocking three OS schedulers against *one more cloud scheduler with its own
-      OAuth surface* — and it is still right about that. This is a different axis: two hosted sources
-      ship today and **both are read-only**, so the matrix's whole controller half has exactly two
-      inhabitants, both local. A third read-only row says less each time; the first hosted row that
-      can *act* is what proves the controller shape works over an API rather than over an agent, and
-      it is what the two-of-three umbrella item below is actually waiting to be interesting.
-      Its auth surface is also the cheapest of any candidate — a Gemini API key in one header, no
-      OAuth dance, no team scoping, free tier included.
-
-      **Three things it does that no shipped source does.** `run` is the real scheduled invocation
-      rather than a lookalike (Vercel's and GitHub's are both refused for being lookalikes) — same
-      agent, same prompt, same sandbox, and Google's own docs note that pausing stops scheduled
-      executions *without* affecting manual ones, so the two are the same machinery. `setStatus` is a
-      genuine per-resource pause, where Vercel has only a project-wide switch. And it reports run
-      outcomes, so it gets a real `scoreTask` arm instead of a permanent `unknown` — plus a signal
-      neither observer can produce: a trigger **auto-pauses after `max_consecutive_failures`**
-      (default 5), which is GitHub's silent 60-day auto-disable in a more honest form, with the count
-      published on the resource.
-
-      **The schedule is cron + IANA zone, which is the one place it does not fit the storage
-      contract.** Cronsole stores 5-field UTC; a trigger carries `{"schedule","time_zone"}` and the
-      zone is Google's, not the browser's. Cronsole writes `time_zone: "UTC"` on everything it
-      creates or reschedules so the round trip is exact — and a trigger created *elsewhere* in a real
-      zone is read back with its cron shifted to UTC and **the original pair kept in metadata**,
-      because a shifted field that does not print what it was shifted from is the #60 shape.
-      `America/Sao_Paulo` and friends have no fixed offset, so the shift is refused with its reason
-      rather than approximated.
-
-      **What it is not.** `updateAction` (editing a trigger's prompt) and `export` / `restore` are
-      out of the first pass — a trigger's payload is an agent, a prompt, an environment and a network
-      allowlist, and rendering that as an editable action needs a form Cronsole does not have yet.
-      Absent, so the matrix reports them `unsupported` by absence, which is the honest reading:
-      *not yet*, and the cell is free to change when the form exists.
-
-      **Shipped the same day.** `GeminiTriggersConnector` + `services/geminiApi.ts` +
-      `services/geminiTriggers.ts`, the `GEMINI_TRIGGERS` enum value and migration, the `access:
-      controller` descriptor, a real `scoreTask` arm (including the auto-pause signal), the
-      hand-composed connection panel on both source cards, a fourth arm in the create modal whose
-      target field is a **prompt** rather than a command, the `--gemini` identity pair measured
-      against every surface, a `HelpTopic`, a Sources Guide section, and `GEMINI_TRIGGERS` on the MCP
-      filter enum. 69 new tests; backend 1040, frontend 887, MCP 193 all green.
-
-      **Run history and run output shipped 2026-08-25.** `listPlatformRuns` / `getRunOutput` on the
-      connector interface, two routes, and a second group in the Run History tab — because
-      `ExecutionLog` holds only what Cronsole did, which on this source is almost nothing. It is
-      also the answer to "where do I read the output": there is **no Google web UI for triggers at
-      all** (their docs are entirely programmatic), so Cronsole is the only place this is visible.
-      Gemini is the first implementer; GitHub Actions is the obvious second.
-
-      **A gap this exposed, closed 2026-08-25:** the UI's Delete button was gated to a hardcoded
-      `{native, Windows}` pair, so a Gemini trigger had **no delete control at all** — the connector
-      implements it, `DELETE /api/tasks/:id` calls it, and the Sources tab reported the verb working,
-      so the only actual path was `curl`. It now reads the server's capability matrix
-      (`usePlatformDeletability`), which means the next deletable source gets the button without
-      anyone widening a list. MCP's `delete_task` stays native-only by design.
-
-      **Windows became the second implementer of run history the same day**, over a new `task:history`
-      agent verb — and pointing it at a real machine an hour later found two defects a fixture cannot
-      hold: a ring-buffer log makes the oldest run in view a fragment (one bucket, not one per stray
-      event), and the exit code was being read out of a **localized English sentence** rather than
-      the event's named `ResultCode` field
-      ([#85](troubleshooting/README.md#85-one-windows-task-shows-three-runs-that-never-happened-all-of-them-undated)).
-      The named-fields half needs an agent republish to take effect.
-
-      **A boundary found afterwards, 2026-08-25**: `updateSchedule` is *cannot*, not *not yet*.
-      `PATCH /v1beta/triggers/{id}` takes `status` and `display_name` and answers `400 Unknown
-      parameter 'schedule'` — no `PUT`, no field mask — so a trigger's *when* is fixed at create
-      time. The method is removed and the boundary is stated by absence, like every other optional
-      verb. Worth carrying into the next connector: **an endpoint existing is not the endpoint doing
-      what the verb says**, and only driving it says which.
-
-      **Of the two follow-ups it deliberately left, one shipped the next day:**
-      - **`updateAction`** — still open, and still *not yet* rather than *cannot*: an editable prompt
-        needs a `PATCH` that takes one, and `v1beta` does not have it. The cell is `unsupported` by
-        absence; the help topic says to delete and recreate.
-      - **The network allowlist and tools — shipped 2026-08-25.** It got the design pass rather than
-        a text field: *Tools and network access* on the create form (built-ins, MCP servers, domains),
-        starting empty so a trigger made without opening it is byte-identical to one made before the
-        section existed. A grant is **refused with the list, never narrowed** — an unknown tool type
-        errors rather than being dropped, since a create that quietly produces less reach than the
-        form showed is worse than a failure.
-
-        The credential question it was waiting on has an answer that is about **lifecycle, not
-        caution**: an MCP server's `headers` reach `createTrigger` and stop there, because the value
-        is needed exactly once and the trigger lives on *Google's* side — Cronsole can avoid holding
-        the token but cannot avoid handing it over, and the form says so where it is typed.
-        `toToolSummary` / `readAllowlist` never *parse* those fields, so no stored object has ever
-        held one. **Which forced a rotation path**, since Gemini's definition is immutable: *Replace
-        credentials* builds the replacement first, inherits a paused status, and rekeys the existing
-        row so favourites, collections and run history survive — a replacement that exists while the
-        original does is reported as a **failure**, because the schedule now fires twice.
-
-        **And a boundary the API does not publish:** a tool type its own supported list contains can
-        still be refused by the specific agent (`filesystem` is the known case), which surfaces as a
-        five-second run failure — a rejected configuration, not a failed attempt
-        ([#84](troubleshooting/README.md#84-a-gemini-run-fails-in-five-seconds-and-cronsole-says-there-is-nothing-to-read)).
-        **A capability list is not a permission list.**
-
-- [x] **n8n — observer that reports outcomes** *(scoped and shipped 2026-10-04)*. Self-hosted or
-      cloud, one `X-N8N-API-KEY` against `{base}/api/v1`, one instance per connection — so the
-      tracked set is declared and constant (`['n8n']`), Gemini's reason. Scoped against a real
-      instance (90 workflows, ~20 with a Schedule Trigger), not the docs, and four facts from that
-      read decide the design:
-
-      - **A task is a workflow with an enabled `scheduleTrigger` (or legacy `cron`) node.** Manual,
-        form and webhook workflows are not scheduled work and are counted out loud in the sync's
-        `notes`, not silently dropped — "found nothing" and "looked at nothing" again.
-      - **The schedule is not cron, and the API omits defaults.** A weekly trigger is stored as
-        `{ field: "weeks", triggerAtHour: 6 }` — the Sunday is the node's *default* and appears
-        nowhere in the body. The parser therefore carries n8n's per-field defaults
-        (`services/n8nSchedule.ts`), and every interval with no exact 5-field equivalent is `null`
-        **with its reason**: seconds, a 6-field cron with a stepped seconds field, and any
-        `daysInterval`/`weeksInterval`/`monthsInterval > 1` (n8n filters a more frequent cron by
-        elapsed time since the last run, which cron cannot say). `hoursInterval` is exact only when
-        it divides 24. A workflow with several rules is `null` with each rule kept in metadata.
-      - **The schedule is in a zone the API does not publish.** `settings.timezone` is per workflow
-        and usually absent; the instance default (`GENERIC_TIMEZONE`) is not exposed by the public
-        API — the live "6am" weekly fires at 10:00Z. So the connection **declares** the instance
-        zone, every conversion goes through `shiftCronToUtc`, the original pair is kept in metadata,
-        and with neither zone known the schedule is `null` with that reason rather than read as UTC.
-      - **n8n has a draft/publish model.** The workflow body is the latest draft; what runs is
-        `activeVersion` (`versionId` ≠ `activeVersionId` when they differ). The connector reads the
-        published graph, or it reports a schedule that is not live.
-
-      **Verbs.** `sync` · `listPlatformRuns` / `getRunOutput` (`/executions`, `mode: trigger` vs
-      `manual` tells a scheduled fire from a click; n8n has a real page per run, so `url` is set) ·
-      a real `scoreTask` arm (`reportsRunResult: true`). `run` was **refused** on day one: the public API has no
-      execute endpoint, and calling a webhook is a lookalike, not the scheduled run — Vercel's
-      reasoning *(overturned 2026-10-05 by the MCP door below; the REST half is still true)*. `create` / `updateSchedule` / `delete` are out: `PUT /workflows/{id}` replaces the
-      whole body and collides with draft/publish. **`setStatus` is the open question** —
-      `activate`/`deactivate` is real, but it switches the *whole workflow*, webhooks included, so a
-      per-schedule toggle would be a control the platform does not have. First pass ships without it.
-
-      **Shipped the same day:** `services/n8nApi.ts` + `n8nSchedule.ts` + `n8nConnection.ts` (fixtures
-      copied from the live instance), the `N8N` enum value and migration, `N8nConnector` (sync, run
-      history, run output, evidence-only health), an `observer` descriptor, a `scoreTask` arm, the
-      connection routes (`/api/tools/platforms/n8n/{connection,timezone}`), the `--n8n` identity pair
-      measured against every surface, `N8nPanel` on both source cards, a `HelpTopic`, a source guide
-      and Sources Guide section, and `N8N` on the MCP filter enum.
-
-      **Driven live the same evening** (2.91 instance, 89 workflows → 24 scheduled). The workflow
-      *list* does carry `activeVersion`, so a sync costs one listing plus one execution read per
-      scheduled workflow and no second workflow read. Two warnings, both true: a workflow with no
-      Timezone setting of its own needs the declared instance zone (the live instance turned out to
-      be `America/Chicago`, read off a run's UTC start — [#97](troubleshooting/README.md#97-one-n8n-workflow-shows-no-schedule-while-the-others-convert-fine)),
-      and an every-6-hours rule is refused by `shiftCronToUtc`'s multi-hour rule.
-
-      - [x] **Run now over n8n's MCP server** *(shipped 2026-10-05)* — n8n 1.121+ serves an
-        instance-level MCP server (`{base}/mcp-server/http`, bearer token from *Settings › MCP
-        access*) whose `execute_workflow` runs the **published** version through its **Schedule
-        Trigger** in `production` mode — the scheduled invocation, so `run` passes the test Gemini's
-        passes and the webhook objection does not apply. `services/n8nMcp.ts` speaks the three
-        requests (initialize → initialized → tools/call, JSON or SSE, session closed after) with no
-        SDK; `PUT /api/tools/platforms/n8n/mcp` verifies the token by handshake **and** by the tool
-        being listed before storing it write-only as `mcpToken`; the n8n card gains a *Run now
-        (optional)* field. `run` left `unsupportedVerbs` and stays **declared** — that list has no
-        config, and this is a fact about the connection — while `runTask` names the two n8n switches
-        without a token. The trigger node is named only when n8n could not pick it alone (a webhook
-        beside the schedule, two schedules), so pre-2.36 instances still run the common case; a
-        transport timeout re-reads the execution list (Gemini's rule). n8n is now `access:
-        controller`, by Claude's declared-mode argument. `setStatus` and `create` stay refused.
-        A **manual-only** workflow (the agent-runner launchers) runs in `manual` mode — its current
-        version, the editor's button — because a manual trigger cannot be published and that is the
-        one run it has; the mode is chosen from the graph (`planRun`), never from the row. Driven
-        live both ways. Open: n8n's `execute_workflow` reports `status` and `error` only — a run that
-        n8n *accepts* and then fails inside the trigger is read back off the execution list like any
-        other.
-      - [x] **Folders** *(decided and shipped 2026-10-05)* — the public API does not publish
-        membership (`parentFolderId` is `writeOnly` in the instance's own OpenAPI; package export is
-        licensed and ships whole bodies; `/rest/` refuses API keys — [#96](troubleshooting/README.md#96-your-n8n-folders-do-not-appear-in-cronsole)).
-        **Chose a read-only Postgres role** over an n8n login (owner password, 2FA, undocumented API)
-        and tags (hand-maintained duplicate of the folders): five granted columns, less reach than
-        the API key, verified on a live n8n DB that `SELECT nodes` is denied under them. Optional
-        `folderDbUrl` on the connection (encrypted, write-only, `PUT …/n8n/folder-db` verifies by
-        running the real query); `services/n8nFolders.ts` reads paths via a second `PrismaClient`
-        (no new dependency). **The folder is `metadata.folderPath`, not identity** — a category is
-        derived from `externalId` and a moved workflow keeps its id, so folders nest *beneath* `n8n`
-        through the rail's one `subfolderPath` helper, and a failed read is a warning, never
-        `partial`. Open: `DB_TABLE_PREFIX`.
-      - [x] **On-demand workflows** *(shipped 2026-10-05)* — the user's instance had 65 of 89 live
-        workflows with no schedule (48 manual-only agent-runner launchers, 12 forms, webhooks, an
-        error handler), so "a task is a scheduled workflow" hid most of the instance. Now any enabled
-        trigger makes a task (`readOnDemandTriggers`), `schedule: null` with `scheduleReason` (the
-        calendar's key), `never-run` downgraded to `info`, manual-only stays `ACTIVE`. Setting
-        `includeOnDemand` (absent = on); turning it off deletes the rows in `PUT …/n8n/options` so the
-        next complete sync cannot call them MISSING. Execution reads batched 6 at a time.
-      - [x] **Default sidebar grouping** *(shipped 2026-10-05)* — no tags on any of the user's 89
-        workflows and name suffixes are a personal convention, so the default groups by trigger
-        (`triggerGroup`: Scheduled / Forms / Webhooks / Manual / …, most specific trigger wins, manual
-        only when alone) through the same `metadata.folderPath` real folders use. Setting `groupBy`
-        (`trigger` | `none`, absent = `trigger`); real folders always win when readable.
-      - [x] **Sources page** *(2026-10-05)* — the *Read: using X* link sits in each card's header,
-        not behind *Show details*; an `unsupported` capability cell drops stale run evidence, and a
-        create refused before calling the platform (`refusedBeforeCalling`) is no longer recorded as
-        a platform failure (both put false "failed" verbs on the Gemini card).
-      - [x] **Rail caps** *(2026-10-05)* — the source list is never capped (visibility is already
-        the user's `shownSources` choice; the cap of 4 hid the two alphabetically-last sources);
-        `RAIL_ROW_CAP` raised 4 → 10 for folder lists and bands.
-
-      **Still open:**
-      - **Every-N-hours in a whole-hour zone** has an exact UTC answer (`0 */6` in UTC−4 is
-        `0 4,10,16,22`); teach `n8nSchedule.ts` to enumerate it rather than inherit the refusal.
-      - The legacy `Cron` node; `setStatus` if n8n ever gets a per-trigger switch.
-
-- [ ] **Supabase `pg_cron` — read-only observer** *(next after Gemini in this section)*: the other half of the
-      2026-08-12 pair. Same observer shape again, and the piece it needs that neither GitHub nor
-      Vercel had is a **different kind of read**: `cron.job` is a table in the user's own Postgres,
-      not a REST resource, so it is either a `pg` connection string (a much heavier credential than
-      an API token, and one Cronsole would then hold) or a user-created SQL function exposed through
-      PostgREST (no new credential, but a setup step). **That choice is the open question**, and it
-      is why this is now its own item rather than half of a pair — it is not the same build twice.
-
-- [ ] **Deferred — Kubernetes CronJobs · AWS EventBridge Scheduler · Azure Functions · Google Cloud
-      Scheduler**: common in *teams*, rare for a solo developer, and each is its own auth surface,
-      rate limit and mental model for exactly one source. The gate was "revisit once the observer
-      pattern has proven itself", and GitHub Actions did that on 2026-08-23 — but the gate's
-      *second* half stands: these are common in teams and rare for a solo developer, so they wait
-      on the two cheap ones above rather than on the pattern. Kept here rather than dropped so the
-      omission stays a decision rather than an oversight.
-
-- [ ] **Staying quick-links-only — ChatGPT · Grok · Jules** *(re-checked live 2026-08-24)*: no public
-      scheduled-task API exists for any of them. A connector would render a row of `unsupported` that
-      says strictly less than the link already does. **Gemini left this line** — see the controller
-      above — which is the argument for re-checking rather than for assuming:
-
-      - **ChatGPT Tasks** — the *product* grew (a Scheduled page with edit / pause / resume landed
-        June 2026), the API did not. OpenAI's own guidance is still to run your own cron, and Agent
-        Builder is being wound down (gone 2026-11-30), so no path arrives from that direction either.
-      - **Grok Automations** — shipped as a feature in 2026 with schedules and email triggers, and
-        xAI publishes no automation API.
-      - **Jules** — the closest to flipping, and the reason this line names a date. It has a public
-        API (`jules.googleapis.com/v1alpha`, alpha) *and* Scheduled Tasks in the product, but the API
-        exposes only sources / sessions / activities / plan-approval. **There is no schedules
-        resource**, so the two halves exist and have not been joined. Worth a re-check, not a build.
-
-      The habit this establishes: **re-check before each Sources pass, not once.** Gemini sat on
-      this line for the whole of 2026 and shipped a full CRUD scheduler four weeks before anybody
-      looked again.
-
-- [ ] **Umbrella grouping for the hosted observers** *(reading (c) of the 2026-08-12 source
-      decision, left open when (b) was chosen)*: group GitHub Actions / Vercel / Supabase under one
-      two-level source node. A presentation question about the rail, not a data-model one — worth
-      doing once three hosted observers exist, and it blocks nothing until then. **Two of the three
-      exist as of 2026-08-24**, so this is one source away from being worth doing. **Gemini API
-      Triggers does not move that count** even though it is hosted: it is a controller, and the
-      grouping's whole appeal is that a stack of read-only rows reads better collapsed. A row you can
-      act on wants its own place in the rail, not a shared drawer.
-
-- [ ] **The last unedited attribute — a question, not a task** *(reported 2026-08-12)*. Category,
-      schedule, action/command, job spec and name are all editable now. A task's **`externalId`**
-      is not, and probably should not be: it is the identity the row is keyed on and the address
-      every signed agent command uses. For Windows it is the Task Scheduler path, so "editing" it
-      means moving the task on the machine; for Claude it is the routine id, which
-      `edit_claude_routine` already re-points properly. **Is there a case for it that is not one of
-      those two?**
-
-- [ ] 🔒 Needs Mike — **OpenClaw cron — controller over a local CLI** *(found by the Source Scout
-      2026-10-13)*. **What:** OpenClaw's built-in scheduler (`openclaw automations`, alias
-      `openclaw cron`) keeps jobs inside the harness, where no current source can see them.
-      **Why it is an honest door:** the docs list a real management surface — `list [--all]`,
-      `get <id>` (stored job as JSON), `show`, `enable` / `disable`, `run <id>` (a manual queue of
-      the real job), `runs <id>` (history with `status` `ok`/`error`/`skipped` and `completionStatus`
-      `succeeded`/`failed`/`unknown`), `remove`, plus `create` with `--cron`, `--every`, `--at` and
-      `--tz <iana>` — and a Gateway RPC (`cron.list`, `cron.add`, `cron.update`, `cron.run`,
-      `cron.history`). It **reports outcomes**, so it can get a real `scoreTask` arm. The CLI page
-      says `--json` always requests JSON; the managing-jobs page says only `get` is described as JSON.
-      **Rank:** the harness is outside any traffic ranking (a local tool, not a website), so it
-      is queued for being the clearest local-scheduler door found, not for popularity.
-      **Size:** about n8n-sized or smaller — a machine-local reader, the Windows-agent pattern, so
-      it likely rides the POSIX-agent protocol (outbound WebSocket, signed commands) rather than a
-      hosted connector. **Open questions:** (1) Gateway RPC auth is not documented on the pages
-      read, so the CLI is the only door confirmed; (2) the stored job's timezone field is not
-      documented, so a cron with `--tz` must be `null` with a reason unless it is UTC (#60);
-      (3) event schedules (`--on-exit`, `--stream-command`) have no cron form — refuse with a
-      reason; (4) is it worth a bespoke reader, or should it wait for the POSIX agent to carry it?
-      **Done when:** a job created in OpenClaw appears in Cronsole with its schedule, status and last
-      run, `run` / `enable` / `disable` round-trip, and the observer/controller `access` is declared.
-      Sources: <https://docs.openclaw.ai/cli/cron>, <https://docs.openclaw.ai/automation/cron-jobs>,
-      <https://docs.openclaw.ai/automation/cron-jobs/managing-jobs>.
-
-### 👀 Watching — AI tools that schedule work but have no door yet
-
-- **Hermes** (local harness, no ranking; official docs) — schedules: `every 2h`, `weekdays at 9am`,
-  5-field cron, ISO one-shots, run by the gateway daemon from `~/.hermes/cron/jobs.json`. Missing: a
-  documented machine-readable output (`--json`) on `hermes cron list` / `runs` / `status` — the
-  CLI reference documents none, and the docs advise against reading the jobs file directly; no
-  timezone setting is documented either. Has `list`, `pause`, `resume`, `run`, `runs`, `status`.
-  Checked 2026-10-13, <https://hermes-agent.nousresearch.com/docs/user-guide/features/cron>.
-- **Kimi** (rank not in the top four of Business Today's June 2026 visit ranking; no global figure
-  found) — schedules: daily, weekly, monthly or one-time prompts, cloud or in the Kimi Work desktop
-  app. Missing: any API or CLI; the help page mentions neither. Checked 2026-10-13,
-  <https://www.kimi.com/en/help/features/scheduled-tasks>.
-- **Perplexity** (no global rank found this run) — schedules: recurring background Scheduled Tasks on
-  the Automations dashboard (replaced Perplexity Tasks). Missing: any API. Checked 2026-10-13,
-  <https://www.perplexity.ai/help-center/en/articles/11521526-perplexity-tasks>.
-- **Manus** (no rank found this run) — schedules: recurring or one-off tasks in natural language,
-  plus event triggers, under Automations. Missing: any API or CLI. Checked 2026-10-13,
-  <https://manus.im/docs/automations>.
-- **Cursor Automations** (no rank found this run) — schedules: preset or cron-expression triggers,
-  plus Slack / PR / webhook triggers. Missing: a documented list API (the docs page read names
-  none). Checked 2026-10-13, <https://cursor.com/docs/cloud-agent/automations>.
-- **Codex scheduled tasks** (inside ChatGPT, rank 1 by traffic) — schedules: UI controls or an RFC
-  5545 `RRULE`; event triggers from Gmail, Slack and GitHub. Missing: any list API or CLI — the docs
-  say the CLI and IDE extension have no management interface. Checked 2026-10-13,
-  <https://learn.chatgpt.com/docs/automations?surface=app>.
-- **DeepSeek** — no first-party scheduled-task feature found for its chat app (only third-party
-  extensions). Not watched as a source; a DeepSeek harness whose jobs are Task Scheduler tasks is
-  already covered by Windows. Checked 2026-10-13.
-- **Muse** (<https://muse.ai/>) — not assessed: the site redirected to a sign-in/redirect chain
-  that could not be read. Re-check next run.
-
----
-
-## 🟢 P3 — Expansion
-
-> **Launch posture (decided 2026-07-13): Cronsole ships and stays local-first.** Cloud/SaaS hosting
-> is not a launch requirement. Remote access to your own instance is the final, optional
-> enhancement; go-live does not depend on it.
-
-Shipped P3 work is in [Part II](#completed--p3-expansion).
-
-- [ ] **Guided repair verbs, on top of System diagnostics** *(logged 2026-08-17; deliberately
-      sequenced after the read-only panel, which shipped)*. The diagnostics panel answers *what is
-      wrong*; this is the *fix it* half. It stayed out of that change on purpose — three of the four
-      agent-health entries in the troubleshooting log were the readout lying, so a repair button
-      would have acted on a diagnosis nothing could yet check. Constraints, all established by the
-      panel:
-      - **A repair reports what it *observed afterwards*, never what it *did*.** "Spawned a
-        process → Fixed!" is `success` without `ran`
-        ([#59](troubleshooting/README.md#59-a-check-that-correctly-finds-a-problem-is-reported-as-could-not-run-the-check))
-        in the one place a false green is most expensive. Every verb re-runs the check that prompted
-        it and reports the **new** state.
-      - **A fixed, named list — never a parameterized one.** The moment a repair takes a command,
-        Cronsole has an elevated arbitrary-action primitive reachable from a browser, which is what
-        "the agent gets no file-write verb" refuses. Candidates: republish the agent, restart the
-        agent, re-register the `\Cronsole-Stack\` tasks.
-      - **Not in the template registry.** Repairs are about Cronsole itself and must be
-        version-locked to it; a managed template row can be pruned by `catalogSync` — the catalog
-        could delete the thing that fixes the catalog.
-      - **The genuinely useful half is outside the stack and already exists**: `\Cronsole-Stack\`
-        survives the backend, Postgres and Docker all being down, because Windows Task Scheduler
-        runs it. Productising *that* belongs with **Installer packages** below. Note the standing
-        decision that those tasks are **not tracked** in the dashboard — disabling `CronsoleAgent`
-        from the dashboard is also what breaks the dashboard's ability to re-enable it.
-
-- [x] ~~**Installer packages (agent only)**~~ — **cancelled 2026-09-11.** The PowerShell setup
-      script is not a placeholder for an MSI; it **is** the install. `setup-agent-startup.ps1` runs
-      from a clone the user already has, builds on the machine that will run it, and registers the
-      task — which is what the MSI was going to do, minus a certificate.
-
-- [x] ~~**Ship the whole application as a Windows installer (`.exe`)**~~ — **cancelled 2026-09-11.**
-      Three of its four jobs existed only to reproduce what Docker Compose already does: bundling
-      Postgres, dropping Redis, and shipping the Node runtime. The fourth — `vite build` served
-      same-origin by Express — is worth doing on its own merits and is **not** cancelled; it lives
-      with the [proxy work](#-p3--expansion), where single-origin is already the rule.
-
-      The strongest argument for it was that a stranger should not need Docker. That is real, and it
-      is the cost being accepted: see *Distribution* under [Open decisions](#open-decisions).
-
-- [ ] **Split the files that have become fault lines** *(re-counted 2026-08-12; every one grew, and
-      one was missing from the list)*: `DashboardScreen.tsx` (1,251), `routes/tasks.ts` (1,182),
-      `mcp-server/src/tools.ts` (1,140), **`routes/tools.ts` (1,130 — newly listed)**,
-      `TemplatesScreen.tsx` (794), `AgentService.cs` (782), `TaskModal.tsx` (757).
-      **Still not a refactor sprint** — split along the named seams only when next touching that
-      area. Seams: dashboard filters/saved views · dashboard bulk actions · dashboard view
-      renderers · task mutation vs. sync/discovery routes · tools backup/restore routes · MCP task
-      vs. template vs. diagnostic tools.
-
-- [ ] **Route-level code-splitting** *(optional follow-up to the frontend refactor)*: the single
-      bundle trips Vite's 500 kB hint; cheap now that the router and screen modules exist.
-
-- [~] **Template gallery site** — parts 1, 2, 4 and 5 shipped *(2026-07-14 → 2026-07-28)*.
-      **Left: part 3**, the one-click "Add to my Cronsole" deep-link / protocol handoff. Download
-      and Copy JSON use the shipped Import path today.
-
-- [~] **Remote access (self-hosted) — the final, optional enhancement.** Reach your **own** local
-      instance from other devices (the code-server model) via Tailscale or Cloudflare Tunnel +
-      Access. **The tooling shipped 2026-08-15 → 2026-08-17**; what remains is polish, not plumbing.
-  - [ ] **PWA manifest + icons** so the dashboard installs to a phone home screen — the last piece
-        of the "trigger from your phone in under 30 seconds" goal.
-  - [x] **Phone shortcuts — run-only tokens for one task** *(2026-10-05)*. A home-screen icon
-        (iOS Shortcuts, Android HTTP Shortcuts) that runs one task. The shortcut holds a credential
-        on a device that can be lost, so it is an `ApiToken` **scoped to `POST /api/tasks/:id/run`
-        and nothing else** (`ApiToken.runTaskId`), refused by `checkToken` everywhere else —
-        including the live-update socket and the token routes, so it cannot mint a broader one.
-        Issued from the task's **Phone shortcut** button (password required, revocable in Settings).
-        Rejected alternatives: a full API token in the shortcut (whole-account blast radius); a GET
-        capability URL (link previews and prefetchers would run it); the PWA manifest's `shortcuts`
-        (static, Android-only); a native widget app (a second codebase for what Shortcuts does).
-        Guide: [Phone Shortcuts](user-guides/guides/Phone_Shortcuts_Guide.md).
-  - [ ] **Auth hardening for an internet-facing gate** *(deliberately deferred 2026-08-15 — the
-        network gate does this job today)*: there is no password reset, so forgetting the one
-        password while travelling is only fixable at the keyboard; and the 24h JWT lives in
-        `localStorage` on a phone that can be lost, with no refresh flow. Both are acceptable behind
-        Tailscale or Access, and are the first things to revisit if the gate is ever relaxed.
-
-- [ ] **ChatGPT** — stays quick-links-only unless a public automations API appears.
-
-- [ ] **Product bets — from "a better Task Scheduler UI" to "a local automation control plane"**
-      *(directions, not scheduled work — each needs its own design pass first)*. ★ = recommended
-      first. The shared constraint: this project's guardrail is reliability first, and every bet
-      below is a feature that can be confidently wrong.
-  - ★ Runbooks attached to tasks
-  - ★ Task collections / playlists *(the first slice shipped 2026-08-16 as Collections)*
-  - Task dependency graph *(manual edges only for v1; inference is a suggestion, never a fact)*
-  - Watchdog tasks
-  - Task definition versioning
-  - Schedule conflict & load map
-  - Intent labels & purpose-driven views
-  - Failure triage assistant *(explain/assist only — autonomous repair is out)*
-  - Approval gates *(the gate must be out-of-band, or an agent approves itself)*
-  - Environment profile manager *(reports present/missing, never stores values)*
-  - Calendar & quiet hours *(not cheap — deferral means rewriting triggers on the machine)*
-  - Restore & migrate wizard
-  - Automation inventory report
-
----
-
-<a id="post-launch"></a>
-
-## 🛠️ Post-launch
-
-The go-public checklist is **done** — [the repo went public on 2026-09-13](#completed--go-public),
-and the whole of it, item by item, is preserved in Part II. What follows is what outlived it: real
-work, none of it a gate on anybody using Cronsole.
-
-- [x] **A click-through demo** *(2026-09-13)* —
-      [`cronsole-demo.ai-automation-tools.dev`](https://cronsole-demo.ai-automation-tools.dev).
-      This replaced the GIF item rather than deferring it: a visitor can open the real dashboard and
-      **use** it — filter, switch views, open the calendar, read the rail — which no recording does.
-
-      It is the real bundle, not a mock-up. `vite build --mode demo` swaps the axios adapter for one
-      answering from fixtures compiled in (`frontend/src/demo/`), so there is no backend, no database,
-      no agent and no credential anywhere on that page. **Writes refuse with `409`, deliberately not
-      `403`** — the response interceptor treats 401/403 on a non-auth route as a dead session and
-      would have logged the visitor out of a demo that has no login.
-
-      **The fixtures are in the demo bundle and must stay out of every other one.** That is a fold on
-      `import.meta.env.MODE`, verified both ways before shipping and asserted in `publish-demo.yml`,
-      because a fold that silently stops folding is this repo's most frequent bug shape. Task content
-      is invented; **platform descriptors are the real ones**, since they are product metadata
-      identical on every install and a demo that misrepresented capability support would be worse than
-      no demo.
-
-- [ ] **Richer copy for the front door.** What is left of the old GIF item.
-- [ ] **Structured logs**, narrowed to their real audience: the user debugging their own install
-      and pasting the result into an issue. *(The rest of the old "production operations" item was
-      cancelled or dissolved — see [Operations](#completed--go-public) in Part II for why an
-      error-tracking service is the one thing this product must not ship.)*
-- [ ] **Release notes generated from real commits** rather than written by hand. Low value until
-      releases are frequent; the [versioning scheme](contributing/Versioning.md) and the first three
-      tags are already in place.
-- [x] **Move the front door to `ai-automation-tools.dev`** — the org's own domain, and D4 of the org
-      migration. **Live 2026-09-13**: [`cronsole.ai-automation-tools.dev`](https://cronsole.ai-automation-tools.dev)
-      and [`cronsole-demo.ai-automation-tools.dev`](https://cronsole-demo.ai-automation-tools.dev),
-      both HTTPS-enforced, both publishing from the app repo on merge.
-
-      **The front door's custom domain silently did not stick the first time.** A toggle of the Pages
-      `cname` reported success and left it `null`, so the site served without its domain while
-      holding the *apex* certificate — visible only in the API, since the demo beside it was already
-      answering `200`. Re-applied and verified rather than assumed. The same class of thing as every
-      other published-surface bug here: the success report was not the success.
-
-      **The registry path does not move and never will** — `mikesailab.com/cronsole-registry/` is
-      read at runtime by installed copies, GitHub does not redirect renamed Pages paths, and moving
-      it is a silent outage on somebody else's machine. That the *human* host can move while the
-      *machine* path is frozen is exactly what the two-link rule was built for, and this is the first
-      time it has paid out.
-
-      **The old host stays live.** GitHub Pages cannot issue a 308, so the `edge-spectrum` precedent
-      (a path-preserving redirect on Vercel) does not transfer — `cronsole.mikesailab.com` keeps
-      serving the same page rather than redirecting to the new one.
-
-      **Left:** the DNS records, then repointing the 13 published references in one sweep. They are
-      deliberately *not* repointed yet: the new host does not resolve until DNS lands, and a link to
-      an NXDOMAIN is worse than a stale link to a host that still works.
-
-      **Deploy keys were disabled org-wide**, which blocked both publish jobs; the policy was turned
-      on and both now authenticate. They still **skip with a notice** when their secret is absent
-      rather than failing, unlike the two established jobs — a job that reddens every unrelated merge
-      teaches people to ignore a red X.
-
-      **`check-frontdoor-published.mjs` checks three hosts now.** The old `cronsole.mikesailab.com`
-      stays in the list on purpose: it keeps *serving* rather than redirecting, because GitHub Pages
-      cannot issue a 308, so it can go stale exactly like the others and nobody would notice.
-
-- [ ] **Multi-user / hosted account system** *(deferred — explicitly not a local-first launch
-      requirement)*: password reset (needs email infra), open registration as a *designed*
-      invite/approval flow, JWT refresh tokens, per-user agent pairing, account management and
-      roles.
-
----
-
-## Open decisions
-
-- [x] **Installed-app database: bundled Postgres vs. SQLite** *(opened 2026-07-28, **dissolved
-      2026-09-11**)* — it "blocked the whole-stack installer and only that", and there is no
-      whole-stack installer. Docker Compose already brings Postgres, and a clone install points at
-      one the user runs. Nothing chose SQLite; **the question stopped being asked**, which is a
-      different and better outcome than answering it. `Template.tags String[]` stays Postgres-only
-      and the integration suite stays unforked.
-
-- [ ] **Distribution: source-only, and what it costs** *(decided 2026-09-11 — recorded here because
-      the cost is real and someone will reopen it)*. Cronsole ships as a **clone or a Docker stack**.
-      No signed installer, no certificate, no prebuilt binary.
-
-      **What it buys:** the certificate disappears (weeks of identity verification and a renewal
-      treadmill), SmartScreen never appears because locally-built binaries carry no
-      Mark-of-the-Web, the update channel becomes `git pull`, and there is no signed artifact whose
-      provenance has to be defended. For a **local-first, single-user** tool whose whole claim is
-      that it runs on your machine and reports the truth, *"read the source you are running"* is a
-      stronger answer than a signature — and it is the answer this project can actually keep.
-
-      **What it costs, stated plainly:** the audience is now people who have git, Docker (or Node +
-      Postgres + the .NET SDK), and will run PowerShell as Administrator. That is a developer
-      audience. A non-technical user cannot install Cronsole, and **that is a choice, not a gap** —
-      [`STATUS.md`](STATUS.md) must say so in those words, because "no installer yet" reads as
-      unfinished and invites someone to finish it.
-
-      **Reopen it if** a real non-developer asks for it, or the project grows a second maintainer
-      who wants to distribute binaries. Reopening means the certificate comes back — there is no
-      half-measure, because the MOTW rule above has no exceptions.
-- [ ] **Agent transport** — WebSocket only, or hybrid with long-polling for restricted networks?
-- [ ] **Template registry — static vs. dynamic at launch** — a static JSON registry is leading;
-      earn a DB-backed API + admin/submission UI later. *(Format is already decided: target-agnostic
-      JSON, compiled per target.)*
-
-Resolved decisions are in [Part II](#completed--resolved-decisions).
-
----
-
 <a id="part-ii--completed"></a>
 
-# Part II — Completed
+The phases from here down to **🚦 Public release** are what has shipped: one line per item with
+its date, and the write-up for anything from 2026-08 onward is in [`CHANGELOG.md`](CHANGELOG.md)
+under that date.
 
-Everything below has shipped. One line per item with its date; the write-up for anything from
-2026-08 onward is in [`CHANGELOG.md`](CHANGELOG.md) under that date, and the full narrative these
-lines replaced is in that file's *Roadmap narrative archive* appendices.
+---
+
+<a id="foundation--completed-before-the-july-2026-sprints"></a>
+
+## 🧱 Phase 1: Foundation, the MVP build-out (done 2026-07-31)
+
+<details>
+<summary>MVP build-out (Phases 0–3, Jan–Jun 2026, archived)</summary>
+
+- [x] Discovery, requirements, architecture, competitive research *(archived locally under `docs/archive/`)*
+- [x] **Windows Task Scheduler end-to-end**: .NET agent ↔ Socket.io backend ↔ Prisma/Postgres ↔ React dashboard
+- [x] **Dashboard UX**: dark theme, 4 view modes, category chips with counts, selective import, task cloning, Help Center
+- [x] **Template library**: two-tier catalog, Apply modal with `{{placeholder}}` parameters
+- [x] Auth scaffold (JWT), Docker Compose dev stack, GitHub Actions CI, unit suites across backend / frontend / agent
+- [x] Settings page, non-blocking toasts, live connection health *(2026-07-08)*
+- [x] Toast migration, honest Sync/Import split, last-synced chip *(2026-07-08)*
+- [x] Synced Windows schedules normalized to cron *(2026-07-08)*
+- [x] Template library filters, search & grouping *(2026-07-08)*
+- [x] Task search on the dashboard *(2026-07-07)*
+- [x] Standard dark/light/system theme system *(2026-07-07)*
+- [x] Real cron→Windows-trigger conversion wired end-to-end *(2026-07-07)*
+- [x] Cronsole-native tasks — backend scheduler, HTTP job executor, connector *(2026-07-07)*
+- [x] Run history & failure surfacing *(2026-07-07)*
+- [x] Stale-task pruning on sync *(2026-07-07)*
+- [x] Agent reconnect resilience *(2026-07-07)*
+- [x] Platform selector in the New Task modal *(2026-07-07)*
+- [x] Docs restructure + README visual overhaul *(2026-07-08)*
+- [x] Post-rename full test sweep — every automated suite green *(2026-07-31)*
+
+</details>
+
+---
+
+<a id="completed--p0-security"></a>
+
+## 🔐 Phase 2: P0, security hardening (done 2026-08-28)
+
+- [x] **`req.user` is resolved from the database, not from the token's claims** — `checkToken` ends
+      with a primary-key read of `User` and returns that row's id and email, so a correctly-signed
+      token for a **deleted account** no longer stays valid for its whole life (up to `never`, for
+      the API token the MCP server holds) and the `email` claim can no longer be stale. The missing
+      row is its own `403` — *"This account no longer exists"*, not *"invalid or expired"* — a DB
+      that cannot answer is a `503` on the revocation lookup's fail-closed rule, and a revoked API
+      token is still refused **before** the read. Costs one indexed read per authenticated request,
+      which is the property the `jti`-free browser session was designed to avoid: traded on purpose
+      and stated in §9 rather than buried. `verifyToken` — a payload-trusting sibling with no caller
+      left — was deleted with it, so `checkToken` is the one door *(2026-08-28)*.
+- [x] **API tokens (a) `JWT_EXPIRES_IN`** — defaults to `24h`, validated by probe-signing at boot
+      rather than by pattern-matching; login and setup return `expiresIn`; the guide's hand-minting
+      instructions are gone *(2026-08-15)*.
+- [x] **API tokens (b) a real token surface** — `ApiToken` + `POST`/`GET`/`DELETE
+      /api/auth/tokens`, a manager in Settings → Account, 30/60/90 days or never, individually
+      revocable. The DB stores the `jti` and nothing else; `checkToken` is one definition shared by
+      REST and the Socket.IO handshake and fails closed *(2026-08-15)*.
+- [x] Agent WebSocket authentication — pairing-secret HMAC handshake, per-session command signing
+      *(2026-07-09)*
+- [x] Encrypt `PlatformConnection.config` at rest — AES-256-GCM, migration-free legacy read
+      *(2026-07-09)*
+- [x] Multi-tenancy route scoping + JWT fail-fast + dev-JWT rotation (IDOR closed) *(2026-07-09)*
+- [x] Structured command handling — no `cmd.exe /c` shell wrap *(2026-07-09)*
+- [x] Agent config file/env for server URL + WSS support *(2026-07-09)*
+
+---
+
+<a id="completed--p1-correctness--honesty"></a>
+
+## 🎯 Phase 3: P1, correctness and honesty
+
+- [x] **The agent reports its own elevation, and MISSING is bounded by what it can see**
+      *(2026-09-11, logged 2026-08-23)*. An unelevated agent enumerates a strictly smaller machine
+      with no signal that it is doing so — 86 of 371 tasks on a real one — and reconciliation
+      faithfully retired the difference as MISSING. The agent now reports `elevated` on
+      `agent:hello`; it lands as a **sibling fact** on connector health (health strip, Sources tab,
+      `get_diagnostics`), never folded into the health state; and `WindowsAgentConnector.syncTasks`
+      sets `SyncOutcome.partial: true` only on a *positive* `elevated: false` report, reusing the
+      `partial`-gates-`reconcileMissingTasks` wiring GitHub's truncated-listing case (#75) already
+      had — so a narrowed sync still adds and refreshes rows and retires none. An agent that
+      predates the field reports nothing, which reads as unknown rather than a guessed `false`.
+      See [troubleshooting #74](troubleshooting/README.md#74-dozens-of-windows-tasks-go-missing-in-one-sync-and-the-agent-is-healthy).
+- [x] **A MISSING set concentrated in whole subtrees vs. scattered attrition** *(2026-09-18, carved
+      out 2026-09-11 from the elevation item above)*. `reconcileMissingTasks` now groups its own
+      newly-MISSING batch by category and, when most of it sits in one subtree while other tracked
+      subtrees came through untouched, adds a warning naming the folder and count to that platform's
+      sync result — the same by-hand grouping troubleshooting #74 recommends, run on every sync. A
+      **corroborating signal, not a gate**: it was never required to fix #74 (that gate is
+      `outcome.partial`, off the agent's own `elevated` report) and it changes nothing about when a
+      row flips — it only adds a sentence next to an already-honest flip, on any platform.
+- [x] **`Clear N missing` states its scope in words, and its friction scales** *(2026-09-04,
+      logged 2026-08-23)*. New `GET /api/tasks/missing/summary` groups the MISSING rows by category
+      and counts favorites, collection memberships and secrets across them — everything a re-import
+      does **not** restore, since it creates a new row rather than reattaching history. The dashboard
+      reads it before the confirm dialog opens: the scope now reads *"Across "Backups" (45), "TPM"
+      (32), …"* instead of a bare count, and the count of what's non-recoverable is stated in the
+      same message. Past `TYPE_TO_CONFIRM_THRESHOLD` (25) the dialog requires the count to be typed,
+      via a new generic `requireTypedConfirmation` option on `useConfirm`/`ConfirmProvider` rather
+      than a second bespoke modal — it reuses the Mass Actions console's existing threshold and
+      `needsTypedConfirmation` rather than re-deriving one. The route's own comment, previously
+      stating the "no confirmation to obtain" premise the roadmap item names as false, now says what
+      obtains it and where.
+- [x] **`get_task_health` summarized a different population than it listed** — `tier`,
+      `includeSystem` and `limit` moved into the route, `counts` taken after the system lens but
+      before the tier filter, and the response carries its `scope` *(2026-08-13,
+      [#49](troubleshooting/README.md#49-get_task_healths-counts-describe-a-different-population-than-its-list))*.
+- [x] **`missed-runs` was charged against disabled tasks** — suppressed, not forgotten; a health
+      model that penalizes the safe fix pushes people toward the unsafe ones *(2026-08-13)*.
+- [x] **The filter chips counted every task while the list showed the filtered ones** — both counts
+      now come from `applyTaskFiltersExcept` *(2026-08-12)*.
+- [x] **The dashboard reported a folder listing as a sync** — `ConnectorHealth.lastSync` deleted,
+      connectors report `lastContactAt`, and `lastSync` has exactly one writer *(2026-08-12,
+      [#42](troubleshooting/README.md#42-the-dashboard-says-synced-7m-ago-over-a-task-list-from-yesterday))*.
+- [x] **The health strip changed its own height and shoved the page down** — now one scrolling line
+      *(2026-08-12)*.
+- [x] **`getHealth` asserted HEALTHY from a socket object existing** *(2026-08-11,
+      [#40](troubleshooting/README.md#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out))*.
+
+<details>
+<summary>Earlier completed P1 items</summary>
+
+- [x] Multi-day weekly schedules no longer collapse to one day (`0 9 * * 1-5`) *(2026-07-14)*
+- [x] Live-agent smoke test for schedule normalization + midnight-cross day-of-week fix *(2026-07-09)*
+- [x] Browser live updates — receive-only `/ui` Socket.IO namespace, push instead of polling *(2026-07-09)*
+- [x] Local-time schedule display in the task detail view *(2026-07-09)*
+- [x] Filter chips reflect the active view (faceted category + platform) *(2026-07-08)*
+- [x] Agent-auth hardening follow-ups — signed trigger, replay guard, session-key overlap *(2026-07-10)*
+- [x] Command-handling follow-up — server-side per-token template substitution *(2026-07-10)*
+- [x] Backend hygiene — Zod at boundaries, one error middleware, Prisma singleton, batched upserts *(2026-07-10)*
+- [x] Remaining QA — integration suite vs real Postgres, Playwright E2E + mock agent, resilience/soak, security audit, dependency remediation, performance baseline *(2026-07-10)*
+- [x] `cronsole.ps1 status` probes services instead of ports, and can report `WARN` *(2026-07-28)*
+- [x] Dark is actually the default theme, not just documented as one *(2026-07-28)*
+- [x] The closed mobile sidebar is out of the tab order and a11y tree below `md` *(2026-07-28)*
+
+</details>
+
+---
+
+<a id="completed--sources"></a>
+
+<a id="completed--sources--connectors"></a>
+
+## 🔌 Phase 4: Sources and connectors
+
+- [x] **GitHub Actions — the first read-only observer** *(2026-08-23)*. Connect a PAT on the
+      Platforms tab, watch repositories by URL or `owner/name`, and sync brings in every workflow
+      with an `on: schedule` trigger. **Every mutating verb is `unsupported`**, and two of them
+      (`run`, `setStatus`) have real APIs behind them and are refused anyway: a `workflow_dispatch`
+      run is not the scheduled run, and enabling a workflow is a repository-state change. `create`
+      would mean committing to the user's default branch.
+      Three things it settled for every observer that follows. **`unsupportedVerbs` is a fixed
+      array here, not a getter** — Claude's answer changes with the install, this one is a property
+      of the connector's design, and a constant is the honest shape when the boundary really is
+      fixed. **Health reads back stored `PlatformCapability` evidence and never probes**, the same
+      conclusion Windows and Claude reached by three different routes: `getHealth` polls every 45s
+      per open tab, against a 5,000/hour rate limit. And **the repository is the category**, derived
+      from the `externalId` (`owner/repo#<workflow id>`, keyed on the numeric id so a renamed file
+      or a changed `name:` does not strand the row).
+      Two honesty details worth carrying forward: an unreadable workflow file yields
+      `schedule: null` **with a reason**, never an assumed cron (troubleshooting #60's shape); and
+      a sync where *every* repository failed **throws** rather than returning `[]`, or
+      `reconcileMissingTasks` would read one revoked scope as "every workflow was deleted".
+      What it is unusually good at: GitHub reports a run's real `conclusion`, so
+      `services/taskHealth.ts` scores it on the outcome of the work rather than on "the agent
+      accepted a start" — better-founded health than the platform Cronsole controls most. It also
+      surfaces GitHub's **silent 60-day inactivity disable** as its own signal.
+- [x] **Native job types — scripts (`EXEC`)** *(2026-08-12)*: `StructuredAction {executable,
+      args[]}` reused, containerization detected at boot so a task states where it executes, and
+      real `ExecutionLog` rows.
+- [x] **API / Web Services — resolved as a subtype split** *(2026-08-12)*: a source key is
+      `PLATFORM` or `PLATFORM:SUBTYPE`, derived server-side in `services/taskSource.ts`. Platform
+      and source are deliberately different things, so the Platforms tab does not split.
+- [x] **Claude Code routines — full read/write connector** *(2026-08-13,
+      [#50](troubleshooting/README.md#50-two-claude-routines-apis-and-the-documented-one-is-the-smaller-one))*:
+      list, create, reschedule, pause and token-free run over the OAuth `/v1/code/triggers` API,
+      with the documented per-routine fire token kept as a load-bearing fallback.
+      `unsupportedVerbs` became a getter; the credential is read at call time, never stored, never
+      refreshed; delete is impossible on both doors, verified by enumeration.
+- [x] **Claude Code routines — promoted as far as the documented API allows** *(2026-08-12)*.
+      Superseded 2026-08-13 by the above; kept as the record of a documentation search mistaken for
+      an API audit.
+- [x] **Claude connection config — the Routines panel that makes the connector reachable**
+      *(2026-08-12)*: write-only token, re-adding an id rotates rather than 409s, a pasted fire URL
+      normalizes to its `trig_` id, removing the last routine removes the connection.
+- [x] **A Claude task is its declaration** *(2026-08-12,
+      [#47](troubleshooting/README.md#47-a-claude-task-keeps-coming-back-after-remove-from-cronsole))*:
+      untrack 400s for `CLAUDE_CODE`, disconnecting the routine removes its tasks and history and
+      writes no exclusion.
+- [x] **Cron→trigger conversion: multi-value hour and minute fields** *(2026-08-13,
+      [#51](troubleshooting/README.md#51-a-schedule-edit-returns-502-for-a-cron-that-is-simply-not-expressible)
+      / [#51a](troubleshooting/README.md#51a-the-same-bug-in-the-step-branch--and-this-one-never-errors-at-all))*:
+      lists, ranges, step-with-list and the reverse direction all hardened; a lossy conversion now
+      rides the **success** of a schedule edit, not only the refusal.
+- [x] **The gallery's `describeCron` drops day-of-month values** — returns no reading rather than a
+      confident wrong date *(2026-08-13)*.
+- [x] **`HealthState` gained `UNKNOWN`** *(2026-08-13,
+      [#48](troubleshooting/README.md#48-windows-sits-at-degraded-for-hours-while-the-agent-is-perfectly-healthy))*:
+      "no current evidence" covers both never-checked and expired. Failure evidence ages out at 15
+      minutes; connection evidence renews itself; `UNKNOWN` ranks above healthy in any summary.
+      Closed all four instances of the shape, including the schema's `@default(HEALTHY)`.
+- [x] **Renaming a task** *(2026-08-12)*: DB-only, every platform, `rename_task` over MCP. The
+      three-way design fork turned out not to be one — a line of code is evidence that something was
+      intended, not that it is reachable.
+- [x] **Editing a Cronsole-native job spec** *(2026-08-12)*: `PATCH /api/tasks/:id/job`, an
+      `update_native_job` MCP tool, sharing the create route's `buildNativeJob` + `validateJob`.
+
+---
+
+<a id="completed--p2-product-value"></a>
+
+## 🧩 Phase 5: P2, product value
+
+- [x] **Status colour is themeable** — 263 hard-coded Tailwind utilities replaced by `--x` /
+      `--x-text` role pairs in `index.css`; light-theme status roles went from 1.67–2.77 to
+      5.05–8.65 against a 4.5 AA bar *(2026-08-12)*.
+- [x] **Thin the first viewport (desktop + mobile)** — one Filters popover with an active count,
+      withheld constraints printed outside it, a scrolling sticky mobile toolbar, a FAB
+      *(2026-08-12)*. See Part I for the `--raised` remainder.
+- [x] **The Platforms tab grew into a capability matrix** — per-verb Verified / Declared /
+      Unsupported over an evidence table, with reachability a property of the **route**
+      (`services/platformCapabilities.ts`) rather than of the connector object *(2026-08-12)*.
+- [x] **Dashboard health strip** — connection state, last real sync, newest recorded command
+      outcome including failures *(2026-08-12)*.
+- [x] **Icon-only controls have accessible names** — and the task card stopped being a clickable
+      `<div>` *(2026-08-12)*.
+- [x] **Screenshot regression coverage** (`tests/e2e/layout.spec.ts`) — split by what each surface
+      can honestly assert; Platforms and the Import modal deliberately get no pixel baseline
+      *(2026-08-12,
+      [#43](troubleshooting/README.md#43-a-visual-regression-baseline-fails-on-one-pixel-or-on-a-layout-that-moved-by-itself))*.
+- [x] **In-app help, per control** — a `?` beside fourteen controls, one modal shared with the Help
+      Center, `HelpTopic.doc` required, links pinned by `docsLinks.test.ts`, and the new
+      [`Sources_Guide.md`](user-guides/guides/Sources_Guide.md) *(2026-08-12)*.
+- [x] **Source-first dashboard** — the source bar as the first-level axis, an outer lens that
+      survives clicking a view and scopes every view count *(2026-08-12)*.
+- [x] **Mass Actions console on the Tools tab — now the only bulk surface** — action-first, plan
+      before ask, typed confirmation at ≥25 tasks, chunked at 100 with halt propagation, per-task
+      five-outcome report. Dashboard row selection removed entirely *(2026-08-12)*.
+- [x] **One Edit button per task, instead of four** — `EditTaskModal`, fields extracted to
+      `components/edit/`, prefill and gating in `utils/taskEditing.ts`; one gesture, still three
+      routes, reporting per route *(2026-08-13,
+      [#52](troubleshooting/README.md#52-an-open-edit-modal-closes-by-itself-discarding-what-you-typed))*.
+- [x] **Cronsole Native pack (6) + Claude Routines pack (5)** — 55 → 66 templates, 7 core, 8 packs,
+      shipped with the connector fix that makes them applicable *(2026-08-13)*.
+- [x] **The Templates tab reads creatability from the capability matrix** — `CREATABLE_PLATFORMS` is
+      gone; `unknown` asserts nothing while it loads *(2026-08-13)*.
+
+<details>
+<summary>Windows task management</summary>
+
+- [x] Windows task enable/disable from Cronsole *(2026-07-10)*
+- [x] Edit Windows task schedules — signed `task:update_schedule` *(2026-07-10)*
+- [x] Edit Windows task actions/settings — signed `task:update` *(2026-07-11)*
+- [x] Agent `task:delete` — deletes the real Task Scheduler entry *(2026-07-10)*
+- [x] Windows folder selector on apply (`\Microsoft\` refused in agent **and** backend) *(2026-07-14)*
+- [x] Full task detail view — parsed Schedule / Action / Settings panels *(2026-07-08)*
+- [x] Apply-modal upgrades — editable name, duplicate guard (409), preset chips, schedule preview *(2026-07-10)*
+- [x] Untrack — remove from Cronsole without deleting from Windows (+ `TaskExclusion`) *(2026-07-28)*
+- [x] System/personal split — server-owned `isSystem` + persisted Personal toggle *(2026-07-28)*
+- [x] Import defaults — None/Non-system/All presets, remembered selection, count before the click *(2026-07-31)*
+- [x] Saved views — five built-ins + user-named views, URL-backed *(2026-07-31)*
+- [x] Task schedule on every card — "Daily at 8:00 AM PDT", raw cron for shapes it won't guess at *(2026-08-11)*
+- [x] Favorites — star any task (`TaskFavorite`, per-user, cascades with the row) + a sixth built-in view *(2026-08-11)*
+- [x] Bulk enable/disable across all four views *(2026-07-31)*
+- [x] Bulk task actions complete — recategorize, untrack, export-selected; the five-outcome convention extracted to one definition *(2026-08-04)*
+- [x] Schedule timezone — author and display in your own zone, storage stays UTC *(2026-07-31)*
+- [x] `createFolder` on `POST /api/tasks` + MCP `create_task` — opt-in, signed, reports what it created *(2026-08-04)*
+
+</details>
+
+<details>
+<summary>Templates & catalog</summary>
+
+- [x] Template library UI — search, faceted OS + category chips, type toggle, grouping *(2026-07-10)*
+- [x] Templates honesty pass — fake `upvotes` removed, "Compatible with" framing, Tier-B parameterized *(2026-07-10)*
+- [x] Template view selector (Grid / List / Kanban) *(2026-07-10)*
+- [x] Template Resources menu *(2026-07-10)*
+- [x] Favorite templates — per-user `TemplateFavorite` + Favorites filter *(2026-07-11)*
+- [x] Tags model — free-form `tags String[]`, carried registry → DB → export *(2026-07-13)*
+- [x] Template import/export + agent authoring *(2026-07-13)*
+- [x] Save task as template *(2026-07-13)*
+- [x] Developer Pack — 9 templates *(2026-07-13)*
+- [x] AI Pack — Claude Code (4) + Codex (3) *(2026-07-13)*
+- [x] Export existing tasks — Windows → XML (UTF-16 LE + BOM), native → JSON *(2026-07-13)*
+- [x] One unreadable template no longer empties the whole hosted catalog *(2026-08-15, [#58](troubleshooting/README.md#58-one-unreadable-template-silently-empties-the-whole-hosted-catalog))*
+- [x] Template registry — schema + ADR, catalog behind an interface, static registry + remote source, hosted, runtime refresh, prune-on-sync *(2026-07-13 → 2026-07-14)*. The optional **index signing** follow-up is its own open item in Part I.
+- [x] Registry publishing is automatic and checked *(2026-08-19)* — merging to `main` mirrors the artifact (`publish-registry.yml`); a daily **Registry drift** workflow compares the live host to the committed artifact by id and sha256; `publish-registry.ps1` refuses to publish from a branch that is not up-to-date `main` *([#68](troubleshooting/README.md#68-the-hosted-registry-goes-backwards-after-a-successful-publish))*.
+- [x] The front door is automatic and checked too *(2026-08-19)* — `publish-frontdoor.yml` mirrors the gallery page to `cronsole-site` on merge (refusing when the target has lost its `CNAME`), and **Front door drift** compares served sha256 at *both* hosts daily. Same branch guard on `publish-frontdoor.ps1`. Its first real run found the page was CRLF on Windows and LF everywhere it is served *([#69](troubleshooting/README.md#69-a-published-page-check-reports-both-hosts-stale-and-they-are-not))*. **Both published surfaces are now covered; nothing in this area is left manual.**
+
+</details>
+
+<details>
+<summary>Tools tab, backup & restore</summary>
+
+- [x] Tools tab — bulk export/backup + Connect Pack downloads *(2026-07-28)*
+- [x] Restore tasks from an export — signed `task:import`, plan-before-write, four outcomes *(2026-07-28)*
+- [x] Run history export (CSV) + automation health score *(2026-07-28)*
+- [x] Schedule tester — shows what you asked for **and** what will actually run *(2026-07-31)*
+- [x] Richer execution analytics — failure trend, duration trend, idle-task list *(2026-07-31)*
+- [x] Live browser click-through of Execution analytics + the Import-defaults modal — four defects found and fixed *(2026-08-11)*
+
+</details>
+
+<details>
+<summary>Other P2</summary>
+
+- [x] Failure notifications — generic / Discord / ntfy webhooks *(2026-07-10)*
+- [x] User resources & onboarding — Help Center walkthrough + first-run banner *(2026-07-13)*
+- [x] Cronsole-native schedule editing *(2026-07-13)*
+- [x] Settings runtime backend-URL override *(2026-07-13)*
+- [x] Self-heal tasks no longer flash a PowerShell window + self-heal dedup *(2026-07-13)*
+- [x] Empty `\Cronsole\` scheduler folder auto-pruned on last-task delete *(2026-07-13)*
+- [x] On-demand elevated agent republish task *(2026-07-14)*
+
+</details>
+
+---
+
+<a id="completed--p3-expansion"></a>
+
+## 🌱 Phase 6: P3, expansion
+
+- [x] **MCP delete is native-only, and archives before it destroys** *(2026-08-13)*: `delete_task`
+      wraps `DELETE /api/tasks/:id/native`, which 400s every other platform — so **no MCP verb can
+      destroy an artifact on the machine**. The archive is written first and the delete refuses if
+      it fails; it lands in `DeletedTaskArchive` with the last 20 `ExecutionLog` rows and no cascade
+      from `Task`. The env gate stays shut by default.
+- [x] **Claude Code connector** — no longer an experimental scaffold *(2026-08-12, completed
+      2026-08-13)*. See Sources above.
+- [x] **Remote access tooling** *(2026-08-15 → 2026-08-17)*: `proxy/Caddyfile` + the `proxy` and
+      `remote` Compose profiles bound to `127.0.0.1:8080`; same-origin frontend builds; a Cloudflare
+      Tunnel profile plus Access instructions and `TRUST_PROXY`; and the `VITE_DEV_TOKEN` leak found
+      while verifying it, gated on `import.meta.env.DEV` and guarded by `check-bundle-secrets.mjs`
+      *([#55](troubleshooting/README.md#55-the-dashboard-is-already-signed-in-on-a-browser-that-never-logged-in))*.
+- [x] **Automation health score** *(2026-07-28)* and **the Schedule tester**, the cheapest slice of
+      the dry-run lab *(2026-07-31)* — two of the ★ product bets.
+
+<details>
+<summary>Earlier completed P3 items</summary>
+
+- [x] MCP server — thin stdio wrapper over the REST API, 5 tools at first ship *(2026-07-13)*
+- [x] MCP surface expansion — `create_task`, `list_folders`, 7 management verbs, tiered destructive gating *(2026-07-15)*
+- [x] `untrack_task` on MCP, ungated *(2026-07-28)*
+- [x] MCP test suite + CI enforcement *(2026-07-15)*
+- [x] Frontend refactor — five slices, `Dashboard.tsx` 1,830 → 248 lines *(2026-07-13)*
+- [x] Template gallery site — gallery frontend, core/extended split, whole-pack download, search + filters *(2026-07-14 → 2026-07-28)*
+- [x] `convert_schedule` fallback warning names the resulting frequency *(2026-07-15)*
+- [x] Split the `0.7` confidence score — `lossy: 'approximated' | 'replaced'` *(2026-07-16)*
+- [x] Reconcile vanished tasks to `MISSING` instead of hard-deleting *(2026-07-16)*
+- [x] Per-command nonce on signed agent commands *(2026-07-15)*
+- [x] `run_task` on a disabled task reports the reason instead of a 15s timeout *(2026-07-15)*
+- [x] Sweep for literal control bytes in source + CI `repo-hygiene` guard *(2026-07-16)*
+- [x] Bulk-clear MISSING tasks *(2026-07-25)*
+- [x] Surface that un-imported tasks exist *(2026-07-27)*
+
+</details>
+
+---
 
 <a id="shipped-2026-08-15--2026-08-17"></a>
 
-## Shipped 2026-08-15 → 2026-08-18 — the current sprint
+<a id="shipped-2026-08-15--2026-08-18--the-current-sprint"></a>
+
+## 🏃 Phase 7: The August sprints, 2026-08-15 → 2026-08-26 (done 2026-08-26)
 
 ### Shipped 2026-08-26 — the ownership default, and a calendar
 
@@ -1987,317 +1089,35 @@ verification pass — is still open above, narrowed to the half that needs a tok
       to a two-level source rail, category out of the Filters popover, per-platform health as a dot
       on the rail row *(2026-08-15)*. Pass 2 is open.
 
-<a id="completed--p0-security"></a>
+---
 
-## Completed — P0 Security
+<a id="completed--resolved-decisions"></a>
 
-- [x] **`req.user` is resolved from the database, not from the token's claims** — `checkToken` ends
-      with a primary-key read of `User` and returns that row's id and email, so a correctly-signed
-      token for a **deleted account** no longer stays valid for its whole life (up to `never`, for
-      the API token the MCP server holds) and the `email` claim can no longer be stale. The missing
-      row is its own `403` — *"This account no longer exists"*, not *"invalid or expired"* — a DB
-      that cannot answer is a `503` on the revocation lookup's fail-closed rule, and a revoked API
-      token is still refused **before** the read. Costs one indexed read per authenticated request,
-      which is the property the `jti`-free browser session was designed to avoid: traded on purpose
-      and stated in §9 rather than buried. `verifyToken` — a payload-trusting sibling with no caller
-      left — was deleted with it, so `checkToken` is the one door *(2026-08-28)*.
-- [x] **API tokens (a) `JWT_EXPIRES_IN`** — defaults to `24h`, validated by probe-signing at boot
-      rather than by pattern-matching; login and setup return `expiresIn`; the guide's hand-minting
-      instructions are gone *(2026-08-15)*.
-- [x] **API tokens (b) a real token surface** — `ApiToken` + `POST`/`GET`/`DELETE
-      /api/auth/tokens`, a manager in Settings → Account, 30/60/90 days or never, individually
-      revocable. The DB stores the `jti` and nothing else; `checkToken` is one definition shared by
-      REST and the Socket.IO handshake and fails closed *(2026-08-15)*.
-- [x] Agent WebSocket authentication — pairing-secret HMAC handshake, per-session command signing
-      *(2026-07-09)*
-- [x] Encrypt `PlatformConnection.config` at rest — AES-256-GCM, migration-free legacy read
-      *(2026-07-09)*
-- [x] Multi-tenancy route scoping + JWT fail-fast + dev-JWT rotation (IDOR closed) *(2026-07-09)*
-- [x] Structured command handling — no `cmd.exe /c` shell wrap *(2026-07-09)*
-- [x] Agent config file/env for server URL + WSS support *(2026-07-09)*
+## ⚖️ Phase 8: Resolved decisions
 
-<a id="completed--p1-correctness--honesty"></a>
+- [x] **What shape is the "API / Web Services" source?** — **(b) a subtype split inside
+      Cronsole-native** *(opened and resolved 2026-08-12)*. (a) a new `PlatformType` was rejected as
+      indistinguishable from native at the point of creation; (c) the umbrella grouping stays open
+      as a presentation question (Part I).
+- [x] Cloud hosting choice — **moot; Cronsole launches local-first** *(2026-07-13)*
+- [x] License model — **Apache-2.0** *(2026-07-13)*
+- [x] Template distribution — **curated core locally + gallery with selective import** *(2026-07-13)*
+- [x] Default theme — **dark** *(2026-07-28)*
+- [x] Does untrack need an exclusion memory — **yes, subtractive-only `TaskExclusion`** *(2026-07-28)*
+- [x] Keep the "TaskHub" name or rebrand — **rebrand to `Cronsole`** *(2026-07-31)*
+- [x] Rename the Platforms tab, or grow it — **grow it** into a per-platform capability/status
+      matrix *(opened 2026-07-28, decided 2026-08-12)*
 
-## Completed — P1 Correctness & honesty
+---
 
-- [x] **The agent reports its own elevation, and MISSING is bounded by what it can see**
-      *(2026-09-11, logged 2026-08-23)*. An unelevated agent enumerates a strictly smaller machine
-      with no signal that it is doing so — 86 of 371 tasks on a real one — and reconciliation
-      faithfully retired the difference as MISSING. The agent now reports `elevated` on
-      `agent:hello`; it lands as a **sibling fact** on connector health (health strip, Sources tab,
-      `get_diagnostics`), never folded into the health state; and `WindowsAgentConnector.syncTasks`
-      sets `SyncOutcome.partial: true` only on a *positive* `elevated: false` report, reusing the
-      `partial`-gates-`reconcileMissingTasks` wiring GitHub's truncated-listing case (#75) already
-      had — so a narrowed sync still adds and refreshes rows and retires none. An agent that
-      predates the field reports nothing, which reads as unknown rather than a guessed `false`.
-      See [troubleshooting #74](troubleshooting/README.md#74-dozens-of-windows-tasks-go-missing-in-one-sync-and-the-agent-is-healthy).
-- [x] **A MISSING set concentrated in whole subtrees vs. scattered attrition** *(2026-09-18, carved
-      out 2026-09-11 from the elevation item above)*. `reconcileMissingTasks` now groups its own
-      newly-MISSING batch by category and, when most of it sits in one subtree while other tracked
-      subtrees came through untouched, adds a warning naming the folder and count to that platform's
-      sync result — the same by-hand grouping troubleshooting #74 recommends, run on every sync. A
-      **corroborating signal, not a gate**: it was never required to fix #74 (that gate is
-      `outcome.partial`, off the agent's own `elevated` report) and it changes nothing about when a
-      row flips — it only adds a sentence next to an already-honest flip, on any platform.
-- [x] **`Clear N missing` states its scope in words, and its friction scales** *(2026-09-04,
-      logged 2026-08-23)*. New `GET /api/tasks/missing/summary` groups the MISSING rows by category
-      and counts favorites, collection memberships and secrets across them — everything a re-import
-      does **not** restore, since it creates a new row rather than reattaching history. The dashboard
-      reads it before the confirm dialog opens: the scope now reads *"Across "Backups" (45), "TPM"
-      (32), …"* instead of a bare count, and the count of what's non-recoverable is stated in the
-      same message. Past `TYPE_TO_CONFIRM_THRESHOLD` (25) the dialog requires the count to be typed,
-      via a new generic `requireTypedConfirmation` option on `useConfirm`/`ConfirmProvider` rather
-      than a second bespoke modal — it reuses the Mass Actions console's existing threshold and
-      `needsTypedConfirmation` rather than re-deriving one. The route's own comment, previously
-      stating the "no confirmation to obtain" premise the roadmap item names as false, now says what
-      obtains it and where.
-- [x] **`get_task_health` summarized a different population than it listed** — `tier`,
-      `includeSystem` and `limit` moved into the route, `counts` taken after the system lens but
-      before the tier filter, and the response carries its `scope` *(2026-08-13,
-      [#49](troubleshooting/README.md#49-get_task_healths-counts-describe-a-different-population-than-its-list))*.
-- [x] **`missed-runs` was charged against disabled tasks** — suppressed, not forgotten; a health
-      model that penalizes the safe fix pushes people toward the unsafe ones *(2026-08-13)*.
-- [x] **The filter chips counted every task while the list showed the filtered ones** — both counts
-      now come from `applyTaskFiltersExcept` *(2026-08-12)*.
-- [x] **The dashboard reported a folder listing as a sync** — `ConnectorHealth.lastSync` deleted,
-      connectors report `lastContactAt`, and `lastSync` has exactly one writer *(2026-08-12,
-      [#42](troubleshooting/README.md#42-the-dashboard-says-synced-7m-ago-over-a-task-list-from-yesterday))*.
-- [x] **The health strip changed its own height and shoved the page down** — now one scrolling line
-      *(2026-08-12)*.
-- [x] **`getHealth` asserted HEALTHY from a socket object existing** *(2026-08-11,
-      [#40](troubleshooting/README.md#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out))*.
+<a id="completed--go-public"></a>
 
-<details>
-<summary>Earlier completed P1 items</summary>
+## 🚦 Public release (done 2026-09-13)
 
-- [x] Multi-day weekly schedules no longer collapse to one day (`0 9 * * 1-5`) *(2026-07-14)*
-- [x] Live-agent smoke test for schedule normalization + midnight-cross day-of-week fix *(2026-07-09)*
-- [x] Browser live updates — receive-only `/ui` Socket.IO namespace, push instead of polling *(2026-07-09)*
-- [x] Local-time schedule display in the task detail view *(2026-07-09)*
-- [x] Filter chips reflect the active view (faceted category + platform) *(2026-07-08)*
-- [x] Agent-auth hardening follow-ups — signed trigger, replay guard, session-key overlap *(2026-07-10)*
-- [x] Command-handling follow-up — server-side per-token template substitution *(2026-07-10)*
-- [x] Backend hygiene — Zod at boundaries, one error middleware, Prisma singleton, batched upserts *(2026-07-10)*
-- [x] Remaining QA — integration suite vs real Postgres, Playwright E2E + mock agent, resilience/soak, security audit, dependency remediation, performance baseline *(2026-07-10)*
-- [x] `cronsole.ps1 status` probes services instead of ports, and can report `WARN` *(2026-07-28)*
-- [x] Dark is actually the default theme, not just documented as one *(2026-07-28)*
-- [x] The closed mobile sidebar is out of the tab order and a11y tree below `md` *(2026-07-28)*
-
-</details>
-
-<a id="completed--sources"></a>
-
-## Completed — Sources & connectors
-
-- [x] **GitHub Actions — the first read-only observer** *(2026-08-23)*. Connect a PAT on the
-      Platforms tab, watch repositories by URL or `owner/name`, and sync brings in every workflow
-      with an `on: schedule` trigger. **Every mutating verb is `unsupported`**, and two of them
-      (`run`, `setStatus`) have real APIs behind them and are refused anyway: a `workflow_dispatch`
-      run is not the scheduled run, and enabling a workflow is a repository-state change. `create`
-      would mean committing to the user's default branch.
-      Three things it settled for every observer that follows. **`unsupportedVerbs` is a fixed
-      array here, not a getter** — Claude's answer changes with the install, this one is a property
-      of the connector's design, and a constant is the honest shape when the boundary really is
-      fixed. **Health reads back stored `PlatformCapability` evidence and never probes**, the same
-      conclusion Windows and Claude reached by three different routes: `getHealth` polls every 45s
-      per open tab, against a 5,000/hour rate limit. And **the repository is the category**, derived
-      from the `externalId` (`owner/repo#<workflow id>`, keyed on the numeric id so a renamed file
-      or a changed `name:` does not strand the row).
-      Two honesty details worth carrying forward: an unreadable workflow file yields
-      `schedule: null` **with a reason**, never an assumed cron (troubleshooting #60's shape); and
-      a sync where *every* repository failed **throws** rather than returning `[]`, or
-      `reconcileMissingTasks` would read one revoked scope as "every workflow was deleted".
-      What it is unusually good at: GitHub reports a run's real `conclusion`, so
-      `services/taskHealth.ts` scores it on the outcome of the work rather than on "the agent
-      accepted a start" — better-founded health than the platform Cronsole controls most. It also
-      surfaces GitHub's **silent 60-day inactivity disable** as its own signal.
-- [x] **Native job types — scripts (`EXEC`)** *(2026-08-12)*: `StructuredAction {executable,
-      args[]}` reused, containerization detected at boot so a task states where it executes, and
-      real `ExecutionLog` rows.
-- [x] **API / Web Services — resolved as a subtype split** *(2026-08-12)*: a source key is
-      `PLATFORM` or `PLATFORM:SUBTYPE`, derived server-side in `services/taskSource.ts`. Platform
-      and source are deliberately different things, so the Platforms tab does not split.
-- [x] **Claude Code routines — full read/write connector** *(2026-08-13,
-      [#50](troubleshooting/README.md#50-two-claude-routines-apis-and-the-documented-one-is-the-smaller-one))*:
-      list, create, reschedule, pause and token-free run over the OAuth `/v1/code/triggers` API,
-      with the documented per-routine fire token kept as a load-bearing fallback.
-      `unsupportedVerbs` became a getter; the credential is read at call time, never stored, never
-      refreshed; delete is impossible on both doors, verified by enumeration.
-- [x] **Claude Code routines — promoted as far as the documented API allows** *(2026-08-12)*.
-      Superseded 2026-08-13 by the above; kept as the record of a documentation search mistaken for
-      an API audit.
-- [x] **Claude connection config — the Routines panel that makes the connector reachable**
-      *(2026-08-12)*: write-only token, re-adding an id rotates rather than 409s, a pasted fire URL
-      normalizes to its `trig_` id, removing the last routine removes the connection.
-- [x] **A Claude task is its declaration** *(2026-08-12,
-      [#47](troubleshooting/README.md#47-a-claude-task-keeps-coming-back-after-remove-from-cronsole))*:
-      untrack 400s for `CLAUDE_CODE`, disconnecting the routine removes its tasks and history and
-      writes no exclusion.
-- [x] **Cron→trigger conversion: multi-value hour and minute fields** *(2026-08-13,
-      [#51](troubleshooting/README.md#51-a-schedule-edit-returns-502-for-a-cron-that-is-simply-not-expressible)
-      / [#51a](troubleshooting/README.md#51a-the-same-bug-in-the-step-branch--and-this-one-never-errors-at-all))*:
-      lists, ranges, step-with-list and the reverse direction all hardened; a lossy conversion now
-      rides the **success** of a schedule edit, not only the refusal.
-- [x] **The gallery's `describeCron` drops day-of-month values** — returns no reading rather than a
-      confident wrong date *(2026-08-13)*.
-- [x] **`HealthState` gained `UNKNOWN`** *(2026-08-13,
-      [#48](troubleshooting/README.md#48-windows-sits-at-degraded-for-hours-while-the-agent-is-perfectly-healthy))*:
-      "no current evidence" covers both never-checked and expired. Failure evidence ages out at 15
-      minutes; connection evidence renews itself; `UNKNOWN` ranks above healthy in any summary.
-      Closed all four instances of the shape, including the schema's `@default(HEALTHY)`.
-- [x] **Renaming a task** *(2026-08-12)*: DB-only, every platform, `rename_task` over MCP. The
-      three-way design fork turned out not to be one — a line of code is evidence that something was
-      intended, not that it is reachable.
-- [x] **Editing a Cronsole-native job spec** *(2026-08-12)*: `PATCH /api/tasks/:id/job`, an
-      `update_native_job` MCP tool, sharing the create route's `buildNativeJob` + `validateJob`.
-
-<a id="completed--p2-product-value"></a>
-
-## Completed — P2 Product value
-
-- [x] **Status colour is themeable** — 263 hard-coded Tailwind utilities replaced by `--x` /
-      `--x-text` role pairs in `index.css`; light-theme status roles went from 1.67–2.77 to
-      5.05–8.65 against a 4.5 AA bar *(2026-08-12)*.
-- [x] **Thin the first viewport (desktop + mobile)** — one Filters popover with an active count,
-      withheld constraints printed outside it, a scrolling sticky mobile toolbar, a FAB
-      *(2026-08-12)*. See Part I for the `--raised` remainder.
-- [x] **The Platforms tab grew into a capability matrix** — per-verb Verified / Declared /
-      Unsupported over an evidence table, with reachability a property of the **route**
-      (`services/platformCapabilities.ts`) rather than of the connector object *(2026-08-12)*.
-- [x] **Dashboard health strip** — connection state, last real sync, newest recorded command
-      outcome including failures *(2026-08-12)*.
-- [x] **Icon-only controls have accessible names** — and the task card stopped being a clickable
-      `<div>` *(2026-08-12)*.
-- [x] **Screenshot regression coverage** (`tests/e2e/layout.spec.ts`) — split by what each surface
-      can honestly assert; Platforms and the Import modal deliberately get no pixel baseline
-      *(2026-08-12,
-      [#43](troubleshooting/README.md#43-a-visual-regression-baseline-fails-on-one-pixel-or-on-a-layout-that-moved-by-itself))*.
-- [x] **In-app help, per control** — a `?` beside fourteen controls, one modal shared with the Help
-      Center, `HelpTopic.doc` required, links pinned by `docsLinks.test.ts`, and the new
-      [`Sources_Guide.md`](user-guides/guides/Sources_Guide.md) *(2026-08-12)*.
-- [x] **Source-first dashboard** — the source bar as the first-level axis, an outer lens that
-      survives clicking a view and scopes every view count *(2026-08-12)*.
-- [x] **Mass Actions console on the Tools tab — now the only bulk surface** — action-first, plan
-      before ask, typed confirmation at ≥25 tasks, chunked at 100 with halt propagation, per-task
-      five-outcome report. Dashboard row selection removed entirely *(2026-08-12)*.
-- [x] **One Edit button per task, instead of four** — `EditTaskModal`, fields extracted to
-      `components/edit/`, prefill and gating in `utils/taskEditing.ts`; one gesture, still three
-      routes, reporting per route *(2026-08-13,
-      [#52](troubleshooting/README.md#52-an-open-edit-modal-closes-by-itself-discarding-what-you-typed))*.
-- [x] **Cronsole Native pack (6) + Claude Routines pack (5)** — 55 → 66 templates, 7 core, 8 packs,
-      shipped with the connector fix that makes them applicable *(2026-08-13)*.
-- [x] **The Templates tab reads creatability from the capability matrix** — `CREATABLE_PLATFORMS` is
-      gone; `unknown` asserts nothing while it loads *(2026-08-13)*.
-
-<details>
-<summary>Windows task management</summary>
-
-- [x] Windows task enable/disable from Cronsole *(2026-07-10)*
-- [x] Edit Windows task schedules — signed `task:update_schedule` *(2026-07-10)*
-- [x] Edit Windows task actions/settings — signed `task:update` *(2026-07-11)*
-- [x] Agent `task:delete` — deletes the real Task Scheduler entry *(2026-07-10)*
-- [x] Windows folder selector on apply (`\Microsoft\` refused in agent **and** backend) *(2026-07-14)*
-- [x] Full task detail view — parsed Schedule / Action / Settings panels *(2026-07-08)*
-- [x] Apply-modal upgrades — editable name, duplicate guard (409), preset chips, schedule preview *(2026-07-10)*
-- [x] Untrack — remove from Cronsole without deleting from Windows (+ `TaskExclusion`) *(2026-07-28)*
-- [x] System/personal split — server-owned `isSystem` + persisted Personal toggle *(2026-07-28)*
-- [x] Import defaults — None/Non-system/All presets, remembered selection, count before the click *(2026-07-31)*
-- [x] Saved views — five built-ins + user-named views, URL-backed *(2026-07-31)*
-- [x] Task schedule on every card — "Daily at 8:00 AM PDT", raw cron for shapes it won't guess at *(2026-08-11)*
-- [x] Favorites — star any task (`TaskFavorite`, per-user, cascades with the row) + a sixth built-in view *(2026-08-11)*
-- [x] Bulk enable/disable across all four views *(2026-07-31)*
-- [x] Bulk task actions complete — recategorize, untrack, export-selected; the five-outcome convention extracted to one definition *(2026-08-04)*
-- [x] Schedule timezone — author and display in your own zone, storage stays UTC *(2026-07-31)*
-- [x] `createFolder` on `POST /api/tasks` + MCP `create_task` — opt-in, signed, reports what it created *(2026-08-04)*
-
-</details>
-
-<details>
-<summary>Templates & catalog</summary>
-
-- [x] Template library UI — search, faceted OS + category chips, type toggle, grouping *(2026-07-10)*
-- [x] Templates honesty pass — fake `upvotes` removed, "Compatible with" framing, Tier-B parameterized *(2026-07-10)*
-- [x] Template view selector (Grid / List / Kanban) *(2026-07-10)*
-- [x] Template Resources menu *(2026-07-10)*
-- [x] Favorite templates — per-user `TemplateFavorite` + Favorites filter *(2026-07-11)*
-- [x] Tags model — free-form `tags String[]`, carried registry → DB → export *(2026-07-13)*
-- [x] Template import/export + agent authoring *(2026-07-13)*
-- [x] Save task as template *(2026-07-13)*
-- [x] Developer Pack — 9 templates *(2026-07-13)*
-- [x] AI Pack — Claude Code (4) + Codex (3) *(2026-07-13)*
-- [x] Export existing tasks — Windows → XML (UTF-16 LE + BOM), native → JSON *(2026-07-13)*
-- [x] One unreadable template no longer empties the whole hosted catalog *(2026-08-15, [#58](troubleshooting/README.md#58-one-unreadable-template-silently-empties-the-whole-hosted-catalog))*
-- [x] Template registry — schema + ADR, catalog behind an interface, static registry + remote source, hosted, runtime refresh, prune-on-sync *(2026-07-13 → 2026-07-14)*. The optional **index signing** follow-up is its own open item in Part I.
-- [x] Registry publishing is automatic and checked *(2026-08-19)* — merging to `main` mirrors the artifact (`publish-registry.yml`); a daily **Registry drift** workflow compares the live host to the committed artifact by id and sha256; `publish-registry.ps1` refuses to publish from a branch that is not up-to-date `main` *([#68](troubleshooting/README.md#68-the-hosted-registry-goes-backwards-after-a-successful-publish))*.
-- [x] The front door is automatic and checked too *(2026-08-19)* — `publish-frontdoor.yml` mirrors the gallery page to `cronsole-site` on merge (refusing when the target has lost its `CNAME`), and **Front door drift** compares served sha256 at *both* hosts daily. Same branch guard on `publish-frontdoor.ps1`. Its first real run found the page was CRLF on Windows and LF everywhere it is served *([#69](troubleshooting/README.md#69-a-published-page-check-reports-both-hosts-stale-and-they-are-not))*. **Both published surfaces are now covered; nothing in this area is left manual.**
-
-</details>
-
-<details>
-<summary>Tools tab, backup & restore</summary>
-
-- [x] Tools tab — bulk export/backup + Connect Pack downloads *(2026-07-28)*
-- [x] Restore tasks from an export — signed `task:import`, plan-before-write, four outcomes *(2026-07-28)*
-- [x] Run history export (CSV) + automation health score *(2026-07-28)*
-- [x] Schedule tester — shows what you asked for **and** what will actually run *(2026-07-31)*
-- [x] Richer execution analytics — failure trend, duration trend, idle-task list *(2026-07-31)*
-- [x] Live browser click-through of Execution analytics + the Import-defaults modal — four defects found and fixed *(2026-08-11)*
-
-</details>
-
-<details>
-<summary>Other P2</summary>
-
-- [x] Failure notifications — generic / Discord / ntfy webhooks *(2026-07-10)*
-- [x] User resources & onboarding — Help Center walkthrough + first-run banner *(2026-07-13)*
-- [x] Cronsole-native schedule editing *(2026-07-13)*
-- [x] Settings runtime backend-URL override *(2026-07-13)*
-- [x] Self-heal tasks no longer flash a PowerShell window + self-heal dedup *(2026-07-13)*
-- [x] Empty `\Cronsole\` scheduler folder auto-pruned on last-task delete *(2026-07-13)*
-- [x] On-demand elevated agent republish task *(2026-07-14)*
-
-</details>
-
-<a id="completed--p3-expansion"></a>
-
-## Completed — P3 Expansion
-
-- [x] **MCP delete is native-only, and archives before it destroys** *(2026-08-13)*: `delete_task`
-      wraps `DELETE /api/tasks/:id/native`, which 400s every other platform — so **no MCP verb can
-      destroy an artifact on the machine**. The archive is written first and the delete refuses if
-      it fails; it lands in `DeletedTaskArchive` with the last 20 `ExecutionLog` rows and no cascade
-      from `Task`. The env gate stays shut by default.
-- [x] **Claude Code connector** — no longer an experimental scaffold *(2026-08-12, completed
-      2026-08-13)*. See Sources above.
-- [x] **Remote access tooling** *(2026-08-15 → 2026-08-17)*: `proxy/Caddyfile` + the `proxy` and
-      `remote` Compose profiles bound to `127.0.0.1:8080`; same-origin frontend builds; a Cloudflare
-      Tunnel profile plus Access instructions and `TRUST_PROXY`; and the `VITE_DEV_TOKEN` leak found
-      while verifying it, gated on `import.meta.env.DEV` and guarded by `check-bundle-secrets.mjs`
-      *([#55](troubleshooting/README.md#55-the-dashboard-is-already-signed-in-on-a-browser-that-never-logged-in))*.
-- [x] **Automation health score** *(2026-07-28)* and **the Schedule tester**, the cheapest slice of
-      the dry-run lab *(2026-07-31)* — two of the ★ product bets.
-
-<details>
-<summary>Earlier completed P3 items</summary>
-
-- [x] MCP server — thin stdio wrapper over the REST API, 5 tools at first ship *(2026-07-13)*
-- [x] MCP surface expansion — `create_task`, `list_folders`, 7 management verbs, tiered destructive gating *(2026-07-15)*
-- [x] `untrack_task` on MCP, ungated *(2026-07-28)*
-- [x] MCP test suite + CI enforcement *(2026-07-15)*
-- [x] Frontend refactor — five slices, `Dashboard.tsx` 1,830 → 248 lines *(2026-07-13)*
-- [x] Template gallery site — gallery frontend, core/extended split, whole-pack download, search + filters *(2026-07-14 → 2026-07-28)*
-- [x] `convert_schedule` fallback warning names the resulting frequency *(2026-07-15)*
-- [x] Split the `0.7` confidence score — `lossy: 'approximated' | 'replaced'` *(2026-07-16)*
-- [x] Reconcile vanished tasks to `MISSING` instead of hard-deleting *(2026-07-16)*
-- [x] Per-command nonce on signed agent commands *(2026-07-15)*
-- [x] `run_task` on a disabled task reports the reason instead of a 15s timeout *(2026-07-15)*
-- [x] Sweep for literal control bytes in source + CI `repo-hygiene` guard *(2026-07-16)*
-- [x] Bulk-clear MISSING tasks *(2026-07-25)*
-- [x] Surface that un-imported tasks exist *(2026-07-27)*
-
-</details>
-
-## Completed — Go-public
+> **Gate closed 2026-09-13**, when the repo went public. Four gates here shipped in part and
+> name what was left (a GIF, generated release notes, structured logs, richer front-door copy);
+> that remainder is open under [Post-launch](#post-launch), which is where to tick it. The
+> multi-user account item that also sat here was the same line as Post-launch's and lives there.
 
 - [x] License decision — **Apache-2.0** *(2026-07-13)*
 - [x] Package manifests say Apache-2.0, not the `npm init` ISC default *(2026-07-31)*
@@ -2374,7 +1194,7 @@ cover the repo and product going public, not standing up a multi-tenant cloud se
       trade a dev-only advisory for real CLI and schema risk. `prisma` is a **devDependency**; the
       runtime `@prisma/client` is not in the chain, so nothing here ships in the running backend.
       Revisit when `@prisma/config` picks up `deepmerge-ts 8`.
-- [~] **Final README/docs pass for a stranger audience** — the CLAUDE.md cloud-hosting row is fixed
+- [x] **Final README/docs pass for a stranger audience** — the CLAUDE.md cloud-hosting row is fixed
       *(2026-07-31)*, four false README claims were corrected *(2026-08-17)*, and the **quick start
       now actually starts the stack** *(2026-09-09)*: it said `docker compose up --build` brought up
       backend and frontend, which sit behind `profiles: ["docker"]`, so a plain `up` started db and
@@ -2435,7 +1255,7 @@ cover the repo and product going public, not standing up a multi-tenant cloud se
 
 ### Application goes public
 
-- [~] **Versioning & releases** — **the scheme landed 2026-09-11**
+- [x] **Versioning & releases** — **the scheme landed 2026-09-11**
       ([`docs/contributing/Versioning.md`](contributing/Versioning.md)). Four components, three
       release trains, prefixed tags (`app/v…`, `agent/v…`, `mcp/v…`); the registry is **not** on a
       release train, which is the whole point of decoupling it. Everything is `0.9.0` — pre-1.0, and
@@ -2467,7 +1287,7 @@ cover the repo and product going public, not standing up a multi-tenant cloud se
 
       **Left:** release notes generated from real commits rather than written by hand. That is the
       whole of this item now.
-- [~] **Operations — for the machine the user runs it on** *(narrowed 2026-09-11)*. The original item
+- [x] **Operations — for the machine the user runs it on** *(narrowed 2026-09-11)*. The original item
       named error tracking, uptime monitoring, a status page, staging and a deploy pipeline. Those
       describe a **hosted service**, and Cronsole does not have one: there is nothing to monitor,
       nothing to deploy, and no incident anybody but the user can see. Rewritten against the product
@@ -2597,10 +1417,7 @@ cover the repo and product going public, not standing up a multi-tenant cloud se
       rather than believe it.
 
       This item is now **closed**.
-- [ ] **Multi-user / hosted account system** *(deferred — not a local-first launch requirement)*:
-      password reset (needs email infra), open registration as a *designed* invite/approval flow,
-      JWT refresh tokens, per-user agent pairing, account management and roles.
-- [~] **Launch surface** — one public page shipped *(2026-07-28, consolidated from two)*.
+- [x] **Launch surface** — one public page shipped *(2026-07-28, consolidated from two)*.
 
       **Install links are live and correct as of 2026-09-11.** The repo is public, so the page's
       *Get Cronsole* panel links it directly and the copy-paste quick start is a real `git clone`.
@@ -2614,53 +1431,1282 @@ cover the repo and product going public, not standing up a multi-tenant cloud se
 
       **Left:** richer marketing content, and a GIF.
 
-<a id="completed--resolved-decisions"></a>
+---
 
-## Completed — Resolved decisions
+## After public release
 
-- [x] **What shape is the "API / Web Services" source?** — **(b) a subtype split inside
-      Cronsole-native** *(opened and resolved 2026-08-12)*. (a) a new `PlatformType` was rejected as
-      indistinguishable from native at the point of creation; (c) the umbrella grouping stays open
-      as a presentation question (Part I).
-- [x] Cloud hosting choice — **moot; Cronsole launches local-first** *(2026-07-13)*
-- [x] License model — **Apache-2.0** *(2026-07-13)*
-- [x] Template distribution — **curated core locally + gallery with selective import** *(2026-07-13)*
-- [x] Default theme — **dark** *(2026-07-28)*
-- [x] Does untrack need an exclusion memory — **yes, subtractive-only `TaskExclusion`** *(2026-07-28)*
-- [x] Keep the "TaskHub" name or rebrand — **rebrand to `Cronsole`** *(2026-07-31)*
-- [x] Rename the Platforms tab, or grow it — **grow it** into a per-platform capability/status
-      matrix *(opened 2026-07-28, decided 2026-08-12)*
+Nothing below blocks go-live.
 
-## Foundation — completed before the July 2026 sprints
+<a id="part-i--open-work"></a>
 
-<details>
-<summary>MVP build-out (Phases 0–3, Jan–Jun 2026, archived)</summary>
 
-- Discovery, requirements, architecture, competitive research *(archived locally under `docs/archive/`)*
-- **Windows Task Scheduler end-to-end**: .NET agent ↔ Socket.io backend ↔ Prisma/Postgres ↔ React dashboard
-- **Dashboard UX**: dark theme, 4 view modes, category chips with counts, selective import, task cloning, Help Center
-- **Template library**: two-tier catalog, Apply modal with `{{placeholder}}` parameters
-- Auth scaffold (JWT), Docker Compose dev stack, GitHub Actions CI, unit suites across backend / frontend / agent
-- Settings page, non-blocking toasts, live connection health *(2026-07-08)*
-- Toast migration, honest Sync/Import split, last-synced chip *(2026-07-08)*
-- Synced Windows schedules normalized to cron *(2026-07-08)*
-- Template library filters, search & grouping *(2026-07-08)*
-- Task search on the dashboard *(2026-07-07)*
-- Standard dark/light/system theme system *(2026-07-07)*
-- Real cron→Windows-trigger conversion wired end-to-end *(2026-07-07)*
-- Cronsole-native tasks — backend scheduler, HTTP job executor, connector *(2026-07-07)*
-- Run history & failure surfacing *(2026-07-07)*
-- Stale-task pruning on sync *(2026-07-07)*
-- Agent reconnect resilience *(2026-07-07)*
-- Platform selector in the New Task modal *(2026-07-07)*
-- Docs restructure + README visual overhaul *(2026-07-08)*
-- Post-rename full test sweep — every automated suite green *(2026-07-31)*
+### ▶ Next up
 
-</details>
+The short list. Everything here is small, known, and was found by hand rather than reported —
+which is why it sits first, not because it outranks the larger work below.
+
+<a id="gemini-usability"></a>
+
+#### 🔴🔴 Top priority — requested 2026-08-25: Gemini usability
+
+Reported after the first week of real use: *"you have to manually configure MCP servers for each new
+task."* True, and the cause was not the form. It was a **premise in the invariant that live use
+falsified.**
+
+> **A and B shipped 2026-08-25** — saved MCP servers with a one-gesture rotation, and Duplicate.
+> **C shipped 2026-08-31** — *Replace credentials* became *Recreate with changes*, so a prompt or a
+> schedule can be changed on the one platform where editing is impossible. **D shipped 2026-08-31**
+> too — a Gemini template family, and with it the finding that a hosted-agent template is a prompt
+> *plus a grant*. **E and the skill gap shipped 2026-08-31 too** — a server-side prompt preflight
+> on both surfaces, and §2a of `task-authoring.md`. **The block is closed.** The diagnosis that
+> follows is kept rather than trimmed: it is the reasoning that changed a §9 invariant, and the next
+> rule whose stated reason is a lifecycle claim should be re-read the same way.
+
+§9 says a credential Cronsole hands to a platform is *"used once and stored nowhere"*, and the
+recorded reason is **lifecycle rather than caution** — "the value is needed exactly once". That is
+true of one create and false of every workflow built on it. The value is needed once **per trigger**:
+
+| When | What has to be retyped |
+|---|---|
+| A second task using the same MCP server | name, URL, **token** |
+| **Any prompt edit** — which is the ordinary case, because a trigger is immutable | name, URL, **token** |
+| A token rotation | name, URL, token **× every trigger that used it**, from memory |
+
+The third is the one with no answer at all today. Rotate a Resend key and every Gemini task breaks
+**silently**; nothing on any screen says which tasks used that server, and the repair is one modal
+per task. The reporting session hit three prompt-shaped failures in a row, and each one cost a full
+re-entry of a credential Cronsole had deliberately forgotten.
+
+**The precedent that unblocks this already ships.** Cronsole *already* stores the **Gemini API key** —
+AES-256-GCM at the application layer, write-only, no reveal endpoint, last four characters only
+([`services/geminiTriggers.ts`](../backend/src/services/geminiTriggers.ts)). That key creates, runs,
+pauses and deletes **every trigger in the project**. It is strictly more dangerous than the MCP
+bearer token beside it. So the rule was never "Cronsole must not hold a credential for this
+platform" — it holds a bigger one. It was a lifecycle claim, and the lifecycle turned out to be
+wrong.
+
+> **The invariant changed rather than being deleted** *(done 2026-08-25)*. What survives is the part
+> that was always right: **no route returns a stored value**, and a task stores a **reference, never a
+> value** ([ADR 0003](adr/0003-per-job-secrets.md)'s rule one layer up). What went is "stored
+> nowhere" — and §9, the skill's invariants table, the Sources Guide, the UI guide, the help topic and
+> **the create form's own sentence** all moved in the same commit, because a form still promising the
+> token is kept nowhere must not survive one commit past the day it stopped being true. The form now
+> says both: typed inline it is kept nowhere, saved as a server it is stored here, and the second is
+> what it recommends for anything you will use twice.
+
+- [x] **A. Saved agent tools — presets on the connection** — **shipped 2026-08-25**. A named record
+      holding `{ name, url, headers }`, headers encrypted with the key already used for
+      `PlatformConnection.config`. The create form becomes a checkbox — `☑ resend` — instead of three
+      fields. **A task stores the preset's name, never its headers**, so every existing reader (task
+      metadata, export, archive, a log line, an MCP tool response) is unchanged and none of them can
+      leak a value that is not there. `toToolSummary` / `readAllowlist` keep refusing to parse
+      `headers` for exactly the reason they do now.
+
+      **The feature this is really for is rotation**, which today has no path at any price: edit the
+      preset once, and Cronsole lists every trigger that references it and recreates them — a
+      **fan-out that reports per task**, never one verdict over the batch (§9). A trigger whose
+      replacement was created while the original survives is a **failure**, as it already is in
+      `rotateCredentials`: the schedule now fires twice.
+
+      **Both open sub-questions settled by building it.** Storage is a field in the encrypted
+      `config` blob, not a row: it needs no migration, inherits the AES-256-GCM the API key already
+      has, and *"which triggers use this"* turned out not to need a query at all — it is a filter over
+      one user's Gemini tasks, which is a few dozen rows. A preset edit **does not** recreate eagerly;
+      *Push this credential* is a separate, confirmed gesture, because a save that silently rebuilt
+      every trigger would be the largest blast radius in the product hiding behind the smallest button.
+      One constraint the design added: **a preset's URL is unique**, because a synced trigger reports
+      `{type, name, url}` and nothing else — two presets on one URL would make the usage count
+      unanswerable and a rotation would rebuild the wrong triggers.
+
+- [x] **B. Duplicate a trigger** — **shipped 2026-08-25**. Cheap and immediate: reach is already read back into
+      `metadata.tools`, and `RotateCredentialsModal` already prefills a whole tool list from it. With
+      **A** in place, "another one like this" is two clicks and no credential at all — which is how
+      it shipped, on the same day. A *hand-typed* server is **dropped rather than copied hollow**:
+      Cronsole never read its token, and a server the new trigger cannot authenticate to fails later,
+      on a schedule, as somebody else's 401. The schedule is converted back to the user's zone on the
+      way in, or a duplicate of an 08:00 local trigger is created at 08:00 UTC.
+
+- [x] **C. Generalize *Replace credentials* into *Recreate with changes*** — **shipped 2026-08-31**.
+      The machinery existed and carried only a tool list; it now carries a **new prompt or schedule**
+      too (`RecreateChanges`), so Gemini's immutability stops being a wall for the case that actually
+      hurts — iterating on a prompt. **`updateAction` and `updateSchedule` stay honestly
+      `unsupported`**: they mean *change in place*, `PATCH` cannot do it, and a recreate is a
+      different act that the UI names as one — but both refusals now **name the recreate path**
+      instead of reading as a dead end, which was the discoverability half of the item.
+
+      **Two rules the build added.** An omitted field is read **off the platform** a moment before
+      the rebuild rather than resent from the Cronsole row, or rotating a token silently reverts a
+      prompt edited in Google's console; and the row is written afterwards from **what the platform
+      reports the replacement to be**, never from the request — [#82](troubleshooting/README.md#82-a-gemini-trigger-loses-its-prompt-on-the-first-sync-and-edit-schedule-fails-with-googles-word)'s
+      shape, where the write spelling and the read spelling of a prompt are not the same.
+
+      **And it surfaced a latent defect nothing would have reddened**: a rebuild sent the platform's
+      stored expression back verbatim while `createTrigger` writes `time_zone: UTC` unconditionally,
+      so a trigger made in Google's console at 09:00 New York was silently rebuilt at 09:00 UTC.
+      Inherited schedules now go through `shiftCronToUtc` like every read does. That is the third
+      time on this connector that the bug was **a field read in one vocabulary and written in
+      another** (#82 the prompt, #83 the executions array), and the first found by widening a verb
+      rather than by driving the API.
+
+- [x] **D. A Gemini template family** — **shipped 2026-08-31**. Three templates in a **Gemini
+      Triggers** pack: *Daily Digest by Email*, *Weekly Repo Report*, *Page Watch* — extended rather
+      than `core`, like the Claude routines, because the platform is a `v1beta` preview that needs an
+      API key on the connection.
+
+      **What the build found is that a hosted-agent template is not a prompt, it is a prompt plus a
+      grant.** Every other template in the catalog describes something to *run*; an agent has to be
+      *given* reach as well, and the two are not separable — a digest prompt with no mail server
+      finishes `completed` and mails nothing, which is the failure `list_platform_runs`' step list
+      exists to make visible. So `agentTools` is a field on the template (and its own Prisma column,
+      not a second meaning for `nativeJob` or a corner of `parameters`), and the Apply screen states
+      the grant **before** the button rather than confirming it after: §9 already says reach is the
+      consequential half of creating an autonomous task, and that argument does not start at the
+      connector.
+
+      **The credential rule needed nothing new, which is the point.** The registry schema reads
+      `type`, `name` and `preset` — there is no `url` and no `headers` for a token to sit in, at
+      either end, so a published template cannot carry one and no reader downstream is a forgotten
+      `delete` away from publishing it. `toToolSummary` / `readAllowlist`'s rule, one layer up.
+      `preset` may hold a `{{placeholder}}`, so the digest template makes *which saved server* a
+      parameter, and `resolveToolPresets` refuses an unsaved name with the list exactly as it already
+      did — the apply path needed no branch of its own for it.
+
+      **And driving the apply live found a defect no test could**: the
+      `refusedBeforeCalling` split shipped on `POST /api/tasks` and never reached
+      `POST /api/templates/:id/apply`, so *"No saved MCP server called X. Saved servers: resend."* —
+      a mistake carrying its own fix — arrived as a `500`, telling the caller to retry a request that
+      can never succeed. Both suites were green because both stub the connector. The route's own
+      comment already stated the rule while applying half of it, which is
+      [#77](troubleshooting/README.md#77-the-sources-tab-says-a-verb-failed-and-names-your-own-broken-file)'s
+      shape one more time; the reusable rule is that a connector gaining a new *kind of answer* is a
+      grep for every caller of `createTask`, not a fix to the route the report names
+      ([#87](troubleshooting/README.md#87-applying-a-template-answers-500-over-a-message-that-names-its-own-fix)).
+
+      One thing the gallery needed that the app did not: **a fourth target mode**. `direct`,
+      `session` and `manual` could not hold Gemini — a real controller, but only once an API key is
+      on the connection, which a static page can no more know than it can know about a Claude
+      session. Calling it `direct` promises a one-click apply that fails; calling it `manual` hides a
+      connector that works.
+
+- [x] **E. Prompt preflight at create** — **shipped 2026-08-31**. The three failures of 2026-08-25,
+      each caught before the trigger exists: a prompt that **asks the user a question** or hands back
+      a choice (an unattended agent stalls — nobody answers at 15:00 on the 1st), **pasted gutter
+      characters** (`▎`, box rules, zero-width spaces) that chop the instruction into fragments, and
+      an **email instruction with no recipient**. A **warning, never a refusal**, as specified —
+      nothing gates the submit button, and the panel says so out loud, because a reader who cannot
+      dismiss a note by ignoring it stops reading the panel.
+
+      **Two things the build settled.** It is the **server's** judgement
+      (`services/promptPreflight.ts`, `POST /api/tools/prompt-preflight`), not a browser lint: a
+      second copy would be free to disagree with the one an MCP-created trigger is judged by, and
+      the MCP surface has no typing moment at all — so the same warnings ride back on the create
+      response and `create_gemini_trigger` reports them. And the response carries **`checked`**
+      beside `warnings`, because an empty list otherwise cannot be told from a preflight that
+      silently did nothing — the schedule-conversion rule (*a refusal must state its reason*) applied
+      to a check that found none.
+
+      It renders in **two** places, and the second is the one that matters more: `RecreateTriggerModal`
+      is where a Gemini prompt is normally written, since the platform's definition is immutable and
+      every edit after the first arrives there.
+
+      One thing found while wiring it: the create toast still told people to add network-allowlist
+      domains **in Google AI Studio** — the last of the AI Studio references, in the one sentence a
+      user reads immediately after creating a trigger whose sandbox reaches nothing.
+
+**MCP server — one real gap, and one thing that must wait for A.**
+
+- [x] **`list_platform_runs` + `get_run_output`** — **shipped 2026-08-25.** The two
+      routes shipped 2026-08-25 with no wrapper. An agent asked *"why did my scheduled task fail?"*
+      can currently reach only `list_run_history` / `get_task_history`, which read `ExecutionLog` —
+      **runs Cronsole performed**, which on Gemini, GitHub Actions and Vercel is empty *by design*.
+      So the one question an assistant is most often asked about a scheduled task is the one it
+      cannot answer, on the sources where the runs actually happen. Read-only, no new logic, and it
+      is what the 2026-08-25 session had to drive by hand. Output stays **per opened run** — a
+      transcript is ~90KB — and the tool truncates at 4000 characters by default, announcing the cut
+      rather than returning a short answer that reads as a complete one.
+
+      **Driven live against a real Gemini trigger before shipping**, because the tool suite stubs the
+      HTTP client and so can only prove the wrapper agrees with itself (§8). Both response shapes
+      matched, and the run that came back is the argument for the step list: `completed`, 8 steps,
+      the last two `resend:send-email` and `model_output` — the same status a run that silently
+      skipped the mail would carry. The 400 path was driven too, on a Claude task: a platform that
+      publishes no run history is reported as a **fact rather than a tool error**, or an assistant
+      would call Vercel Cron broken for behaving exactly as designed.
+- [x] **Creating a Gemini trigger over MCP** — **shipped 2026-08-25 as `create_gemini_trigger`**, its own tool rather than a `platform` on `create_task`: the unit of work is a **prompt**, so none of that tool's command, tokenization or no-shell guidance applies, and the native creates already split on exactly that. It was held
+      back deliberately until presets existed, and now they do: an agent names a preset and the
+      credential never crosses the MCP boundary, which is `${secret.NAME}`'s shape one layer up.
+      Without them this would have meant an assistant handling a bearer token in a tool call, which
+      is worse than the friction that block was about. Note also that
+      `CREATABLE_PLATFORMS` (`mcp-server/src/tools.ts`) stays the pair it was — the separate tool made
+      widening it unnecessary — and `create_task` now names the tool that owns this platform instead.
+
+      **Driving it live found two defects in the path it wraps, both fixed here.** The connector's
+      `describeGrant` sentence — what a create actually granted, and where a supplied credential now
+      lives — was being built and then **overwritten** by the route with `'Task created successfully'`,
+      so it reached nobody: #65's shape, a thing produced with no reader. And every connector refusal
+      on a platform that declares `create` was a **500**, so *"no saved MCP server called X, saved
+      servers: resend"* — a mistake with the fix in the message — arrived in the same register as
+      "the platform is down". `refusedBeforeCalling` is now the create-path twin of `runTask`'s
+      `ran`: a refusal reached without contacting the platform is a **400**, because retrying an
+      identical bad request never helps.
+- [x] **Not `rotate_credentials` over MCP** — decided 2026-08-25. It takes credential *values*. It
+      stays UI-only, and this line exists so the absence reads as a boundary rather than an oversight.
+
+**The skill — one gap, and it is the one that caused the failures above.**
+
+- [x] **How to author a prompt for an unattended agent** — **shipped 2026-08-31** as **§2a** of
+      [`references/task-authoring.md`](../skills/cronsole/references/task-authoring.md), which was
+      entirely Windows-command-centric and said nothing about the unit of work on a hosted
+      source. Three rules, all paid for on 2026-08-25: **never let the prompt offer a choice**
+      (a question becomes a stall when nobody is there to answer it — give the parameter or tell it
+      to pick); **always instruct it to report failure explicitly** (an agent that cannot finish a
+      step narrates success instead); and **read the step list, not the status** — `completed` means
+      the agent finished its turn, so a run that researched, wrote and never mailed anything is
+      `completed` too, and only the steps say so.
+
+<a id="requested-2026-08-25"></a>
+
+#### 🟢 Requested 2026-08-25 — all three closed the same day
+
+In-app failure logs, Gemini agent extensibility, and a Sync reported as missing a task. **Closed
+the day they were asked** — the first shipped, the second was researched by driving the API and
+then built out over the block above, and the third did not reproduce. The full record, including
+what was eliminated on the one that did not reproduce, is in
+[Part II](#shipped-2026-08-25--logs-extensibility-and-one-investigation).
+
+<a id="sources-onboarding"></a>
+
+#### 🔴 Requested 2026-08-24 — source onboarding
+
+Five requests about **sources**: how a new user meets them, how the set is managed, and where the
+things that are *not* sources ended up. **Four shipped the same day** (see
+[Part II](#shipped-2026-08-24--source-onboarding)); what is left is the one half that needs a
+credential nobody has checked in.
+
+**The three decisions taken first, kept here because the items in Part II are the record of what
+was built and these are the record of why it took that shape:**
+
+1. **The Platforms tab becomes the Sources tab.** It already holds the capability matrix, the
+   Claude and GitHub panels and the quick links — it *was* the sources screen under a name that
+   described the code rather than the user's question. Rebuilt as **Your sources · Available ·
+   Quick links · Add a custom source**, rather than standing up a second screen about the same
+   four platforms, which is the §11a drift shape.
+2. **The rail gets two buttons, not three.** *Explore sources* and *Manage sources* deep-link into
+   that screen's two halves; **Add a custom source** lives on the screen, reached from Explore.
+   Three controls stacked in a 240px rail is furniture, and Explore/Manage are two views of one
+   list.
+3. **A fresh install shows Windows Task Scheduler and Cronsole-native.** Claude Code and GitHub
+   Actions are opt-in from Explore. Visibility is the **union** of the preference, the platforms
+   holding tasks, and the platforms with a connection — so opting in is additive and *no source
+   holding a task can be hidden*.
+
+- [ ] Partly shipped: **GitHub Actions — verified against a real repository** *(2026-08-24)*. Connected with a PAT,
+      watched two repositories, and synced: **3 tasks**, two with their crons read UTC-for-UTC
+      (`10 13 * * *`, `20 13 * * *`) and their real run outcomes, the third kept with
+      `schedule: null` **and a reason** because its workflow file is genuinely malformed YAML — the
+      *"could not read ≠ has no schedule"* rule doing exactly its job on a file nobody planted.
+      The pass found a real defect and it was not in the read path: a plain **Sync** could never
+      adopt a newly watched repository, and reported success on every press
+      ([#75](troubleshooting/README.md#75-a-github-repository-is-watched-sync-succeeds-and-no-workflows-ever-arrive)) —
+      fixed the same day.
+      **Left, and only reachable by waiting or by breaking something on purpose:** a revoked scope
+      mid-life must **throw** rather than retire every tracked workflow, and GitHub's silent 60-day
+      auto-disable must surface as health with GitHub's own reason. Both paths have unit coverage;
+      neither has been seen live.
+
+<a id="native-job-types"></a>
+
+#### 🔴🔴 Top priority — requested 2026-08-15 — closed
+
+Four items requested after the dashboard IA redesign landed, plus two the theme work carved out.
+**All shipped**: collections, the native job types and the phone verification
+([Part II](#shipped-2026-08-15--2026-08-17)); per-job encrypted fields as
+[ADR 0003](adr/0003-per-job-secrets.md) on 2026-08-21; the `env` editor and the themes on
+2026-08-24. One thing measuring the themes turned up could not be closed by a palette value and
+moved to [P2](#open--ui--product): `--border` needs a second token.
+
+<a id="import-sync-split"></a>
+
+#### 🔴 Requested 2026-08-18
+
+- [x] **Periodic sync — promoted from P2** *(shipped 2026-10-16)* *(asked 2026-08-18; the P2 line is now a pointer here)*.
+      Nothing in the stack schedules a sync today: `POST /tasks/sync` has three callers — the two
+      dashboard buttons, the Claude-routine create path, and the `sync_tasks` MCP tool. The only
+      timers are the 45s connection-**health** poll (health is evidence, never a sync), the catalog
+      refresh and `NativeScheduler`. The agent has no watcher either.
+      **Refresh-only, opt-in, per connection**, interval stated and last run shown — for the reason
+      above: an automated `categories` import would clear exclusions. A newly appeared *folder* is
+      surfaced from the `untracked` count as a prompt, **never auto-adopted**: on this machine that
+      would mean 257 of Microsoft's tasks arriving unasked. New tasks *inside* an already-tracked
+      folder need nothing new — `upsertTasks` creates them on any refresh.
+      **What people would otherwise do, and why it is worth building instead:** a native `HTTP` job
+      posting to `/tasks/sync` works today but stores its API token in `Task.metadata` as plaintext
+      — the same gap [per-job encrypted fields](#native-job-types) exists to close, and it would
+      travel in exports. A scheduled Claude routine calling `sync_tasks` avoids that (the token
+      lives in the host's environment) but needs Claude routines. Neither is a thing to document as
+      the answer.
+      **Shipped as designed:** `PlatformConnection.syncIntervalMin` (NULL = off) +
+      `autoSyncAt` / `autoSyncError` (last *attempt*, so a failing platform retries once per
+      interval); `services/AutoSync.ts` ticks every 60s and calls `syncConnection` — the body of
+      `POST /tasks/sync`, extracted so the route and the timer cannot diverge — with
+      `scope: 'tracked'` only. Control: Sources › Show details › *Sync automatically*. **Left:** an
+      MCP verb (deliberately not added — the toggle is a UI preference), and surfacing a *new
+      folder* as a prompt from the timer's `untracked` count (the manual sync still reports it).
+      **Default flipped to on (30 min) 2026-10-19:** opt-in protected nothing, since the timer is
+      refresh-only; off-by-default just meant tasks went missing until a manual Sync.
+
+- [x] **A Monthly trigger for the Windows agent** *(surfaced 2026-08-18 by the schedule picker;
+      shipped 2026-09-08)*. `scheduler-conversion.ts` had no monthly pattern, so `0 9 1 * *` fell
+      to the replaced-with-hourly fallback: ~8,760 runs a year for a schedule that asked for 12.
+      The `Monthly` arm now runs end to end — `WindowsTrigger.daysOfMonth`, both converter
+      directions (a single day, a list and a range, all at confidence 1.0), `TriggerSpec`,
+      `TriggerBuilder`, `TriggerReader`, and `canonicalizeTrigger`/`CanonicalizeTrigger` on both
+      sides byte-for-byte.
+      **Three shapes stayed refusals rather than becoming approximations**, and the third is the
+      one worth remembering: a **specific month** (`0 4 1 1 *`) has no home in `WindowsTrigger` —
+      there is deliberately no `monthsOfYear`, so it keeps the honest hourly fallback and a
+      restricted-month trigger read off a machine reports *no schedule* rather than "every month";
+      **run-on-last-day** is cron's `L`, already refused at the other end; and a monthly time whose
+      UTC form lands on a **different local calendar date** is refused by the agent with that
+      reason. That last one is the finding: the weekly arm rolls a UTC day to the local day it
+      really lands on, and the obvious move was to copy it — but a week is always seven days and a
+      month is not, so the same roll means the 31st in January, the 28th in March and the 30th in
+      May. No single `DaysOfMonth` is right, and picking one would have run the task on the wrong
+      date for eleven months of the year while Cronsole displayed the cron it was given.
+      **One deployment detail is load-bearing**: `daysOfMonth` is appended to the signed canonical
+      trigger string **only** for a Monthly trigger. An unconditional eighth field would have
+      changed the canonical form of every Daily, Weekly and Time trigger, so a new schedule type
+      would have broken every create against an agent that had not been republished — conditional,
+      an old agent verifies the signature and then refuses the trigger by name, which is an error
+      the user can act on. `TriggerBuilder` also gained an optional `TimeZoneInfo` so the
+      offset-dependent arm can be tested at a pinned zone rather than at the runner's.
+
+<a id="follow-ups-2026-08-13"></a>
+
+#### 🔴 2026-08-13 follow-ups — the unfixed remainder
+
+Left open at the end of the 2026-08-13 MCP/Claude test pass. Ordered worst-first; the three items
+of that list which have since shipped are in Part II.
+
+- [x] **A `MISSING` Claude row cannot be removed by anything** — **shipped 2026-09-25**. Delete a
+      routine at claude.ai and its Cronsole row is correctly detected as `MISSING`, but
+      `untrack_task` 400s for `CLAUDE_CODE` and `disconnect_claude_routine` only reaches *declared*
+      routines. OAuth mode now produces tracked Claude rows that nothing in
+      `PlatformConnection.config` declares, so the documented escape hatch does not cover them.
+      **Fix:** `POST /:id/untrack` now checks `readRoutines(config)` for the task's externalId and
+      only refuses the *declared* case (where the redirect to `disconnect_claude_routine` is real);
+      an undeclared row untracks like any other platform's. The two stranded dev-machine rows are
+      not touched by this change itself — they untrack normally once it ships. See
+      [#94](troubleshooting/README.md#94-a-missing-claude-row-survives-untrack-disconnect-and-delete).
+- [x] **Deleting *every* Claude routine left them all `ACTIVE`** — **shipped 2026-10-04**. The
+      sync route skipped missing-task reconciliation on any empty listing, so removing a source's
+      last task was never detected. **Fix:** `SyncOutcome.complete` lets a connector vouch for an
+      empty answer; Claude's OAuth read does, and the rows go `MISSING` (then untrack per the item
+      above). See
+      [#95](troubleshooting/README.md#95-every-claude-routine-was-deleted-and-cronsole-still-shows-them-active).
+- [x] **Two refusal messages point at each other** — **shipped 2026-09-25 alongside the item
+      above**. `delete_task` on a Claude task said *"untrack it instead"*; `untrack_task` 400s for
+      `CLAUDE_CODE`; neither named `disconnect_claude_routine`. Both the REST error and the
+      `untrack_task` / `disconnect_claude_routine` MCP tool descriptions now name it explicitly, and
+      state the declared/undeclared split above rather than treating every Claude row alike. The
+      "also forgets its API token" line was already only reachable for a declared routine (the one
+      case where a token exists to forget) and needed no change.
+- [x] Moved: **`list_platforms`' MCP tool description was stale** — fixed 2026-08-24 alongside the
+      `access` field, see [Part II](#shipped-2026-08-24--source-onboarding).
+- [x] **`update_task_schedule` echoes a next-run time it computed** — **shipped 2026-10-02**. The
+      MCP line now reads *"Next run (computed by Cronsole from the cron, not reported by
+      `<platform>` …)"* for every platform but Cronsole-native, whose scheduler Cronsole owns. The
+      REST response is unchanged. Original finding: the immediate response
+      carries `computeNextRun(cron)` while the platform's real value (Anthropic's jitter, Windows'
+      trigger) only lands on the next sync. Storage converges, so this is the response shape only —
+      but it is the [#42](troubleshooting/README.md#42-the-dashboard-says-synced-7m-ago-over-a-task-list-from-yesterday)
+      shape: a timestamp whose label does not name the event that produced it.
+- [x] **The sync response's `missing` is a delta, not a state** — **shipped 2026-10-09**. It counts
+      rows *newly* marked `MISSING` by that pass, so it read `0` beside `count: 5` while two rows sat
+      `MISSING`. `missing` is unchanged (a delta, kept for compatibility); each result row now also
+      carries `missingTotal` (a count of `MISSING` rows on the platform, read after reconciliation),
+      and `sync_tasks` prints the total, naming the delta only when it differs.
+- [x] **Convert a multi-value hour between zones** *(carved out 2026-08-15, shipped 2026-10-05)*.
+      Several hours at one minute are enumerated and shifted, in both `shiftCronToUtc` (backend)
+      and `shiftCron` (browser) via one mirrored `expandHours`: `0 */6 * * *` from New York is
+      `0 4,10,16,22 * * *`. Exact whenever every day fires, or no hour crosses midnight; hours that
+      split across midnight on a day-restricted schedule are still refused with the reason, as is a
+      multi-value hour with a multi-value minute. Three readers had to learn the list in the same
+      change or it would have regressed: `describeCron` (still "Every 6 hours"), the schedule
+      picker (`0,6,12,18` is `*/6`), and the Windows converter — an evenly spaced list is a
+      `PT{n}H` repetition from its first hour, where it previously fell to the **replace-with-hourly**
+      fallback; the reverse reader now honours a start hour off the step's grid instead of reading
+      05:00-every-6h as `*/6`. Unblocked n8n's *every N hours* (N dividing 24).
+
+**Chores, not roadmap items** *(dev machine)*: the MCP host needs a restart to load a rebuilt
+`mcp-server/dist/`; the Windows task `Cronsole conversion-response probe (safe to delete)` in
+`\Cronsole` is disabled and wants deleting.
 
 ---
 
-## Strategy guardrails
+<a id="p0-security"></a>
+
+### 🟢 P0 — Security hardening
+
+<!--
+  Linked as `#p0-security`, not by heading slug. This heading has carried dates and been edited
+  twice; each edit silently broke every link to it (found 2026-08-17 by
+  scripts/check-doc-links.mjs). A heading whose text is expected to change wants a stable anchor.
+-->
+
+*Closed 2026-07-09, reopened 2026-08-13 for one gap, substantially closed again 2026-08-15, and
+**fully closed 2026-08-28** when `req.user` stopped being read out of the token's claims. Every
+item is in [Part II](#completed--p0-security). **Nothing is open here.** New security work lands
+back in this section as it is found — a closed tier is a statement about the list, not a claim that
+the class is finished.*
+
+---
+
+<a id="-p1--correctness--honesty"></a>
+
+### 🟠 P1 — Correctness & honesty
+
+New correctness work lands here as it is found. Everything logged before 2026-08-16 is closed —
+see [Part II](#completed--p1-correctness--honesty).
+
+- [ ] **Move the Dockerfiles off Node 20, which reached end of life 2026-04-30** *(logged 2026-10-08
+      by the upstream check)*. `backend/Dockerfile` and `frontend/Dockerfile` both start
+      `FROM node:20-alpine`, so the shipped backend runs on a runtime that no longer gets security
+      fixes. Node 22 and 24 are both LTS (source: nodejs.org/en/about/previous-releases); CI already
+      runs 22. **What**: pin both images to the same major CI uses (22, or 24 if the suite passes
+      there), with a pinned alpine tag per §3 ("never `:latest`"), and add an `engines` field to the
+      three `package.json` files. **Where**: the two Dockerfiles, `backend/`, `frontend/` and
+      `mcp-server/` `package.json`, and the Node row in `docs/UPSTREAMS.md`. **Hold paths**: the
+      Dockerfiles need Mike's review. **Done when**: `docker compose build` succeeds, the backend and
+      frontend suites pass on the new major, and `/doctor` reports a healthy stack.
+
+<a id="connector-contract-test"></a>
+
+- [ ] **A connector contract test — diff a real API response against what the parser consumes**
+      *(logged 2026-08-25, after the fourth instance)*. Four defects in two days shared one shape: a
+      field that was **present on the wire and never read**. Gemini's prompt (written as a string,
+      returned as a structured array), its executions array (`trigger_executions`, not the documented
+      `executions`), a failed execution's `error`, and Windows' `ResultCode` (read out of a localized
+      English sentence instead of the named `EventData` field). **None is reachable from the suite**,
+      because every connector test stubs the HTTP client or the agent — so the fixtures are written
+      from the same belief as the code, and the two agree with each other while disagreeing with the
+      platform. A green suite is evidence about Cronsole's self-consistency and nothing else.
+      **The shape worth building**: capture one real response per connector (credentials stripped,
+      committed as a fixture), and assert that every key in it is either consumed by the parser or
+      **named in an explicit ignore list**. The ignore list is the point — it converts "we did not
+      notice this field" into a line someone had to write. Refreshing a fixture against the live API
+      then becomes a review of what changed rather than a silent no-op. Cheap; the expensive part is
+      capturing the first response, which for a preview API means driving it by hand anyway
+      ([the probe technique](../skills/cronsole/SKILL.md) is how each of these was found).
+
+- [ ] **The E2E suite writes real rows into live data** *(logged 2026-08-23)*. A run leaves
+      `\E2E\Mock Nightly Backup` tracked against the developer's own account, which then goes
+      MISSING when the mock agent disconnects and sits on the dashboard forever. Same family as
+      [#5a](troubleshooting/README.md#5a-and-the-transient-agent-is-the-e2e-suite) — the suite drives
+      the live stack and leaves something behind — and it lands in the same place as the fixtures
+      work in the CI item below: the mock agent needs its **own user**, not the developer's.
+
+- [ ] **Run the E2E suite in CI — it is the only thing that renders CSS, and nothing runs it**
+      *(logged 2026-08-16)*. `npm run test:e2e` sat **100% broken for a day** (18 of 18) after the
+      IA redesign moved a heading every test waited on, while backend 715, integration 223 and
+      frontend 541 stayed green. **jsdom does not evaluate media queries**, so the unit suite passes
+      whether `hidden md:flex` is right or wrong; Playwright is the only layer that can see a
+      responsive layout, a real stylesheet, or a drawer that does not open.
+      **The blocker is fixtures, not the runner.** Several assertions lean on this machine's live
+      data — native job-type rows, a connected agent's health dot, source counts — and the visual
+      baselines are Windows-rasterized while CI is Linux. It needs (a) a seeded deterministic
+      dataset the assertions can name, (b) the mock agent from `mock-agent.spec.ts` promoted to the
+      shared harness, and (c) a Linux baseline set, which the per-platform snapshot suffix already
+      supports. **Doing it hastily is worse than not doing it** — a flaky visual job gets disabled,
+      and a disabled suite is what produced this item. Until then, `workflows.md` states the
+      obligation to run it after any dashboard change.
+
+- [ ] **System-status honesty — the standing review** *(the mechanisms shipped 2026-07-08; this
+      item is deliberately never closed)*. Periodically check that no status surface has drifted
+      back to asserting something it cannot evidence. **The class has returned four times and each
+      return sharpened the tell**, so the item is the review, not a fix:
+      - a verdict derived from a **precondition** that cannot change when the subject fails
+        ([#40](troubleshooting/README.md#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out));
+      - a real timestamp of the **wrong event**
+        ([#42](troubleshooting/README.md#42-the-dashboard-says-synced-7m-ago-over-a-task-list-from-yesterday));
+      - an **expired** observation reported in the present tense
+        ([#48](troubleshooting/README.md#48-windows-sits-at-degraded-for-hours-while-the-agent-is-perfectly-healthy));
+      - a **cache whose only writer runs on another code path**
+        ([#66](troubleshooting/README.md#66-two-cronsole-surfaces-disagree-about-the-agent-in-the-same-second)).
+
+      The questions to ask of any status field: *what writes it, is that what the label names, and
+      is that path running in the session doing the reading?*
+
+---
+
+<a id="-p2--product-value"></a>
+
+### 🟡 P2 — Product value
+
+Shipped P2 work is in [Part II](#completed--p2-product-value).
+
+<a id="dashboard-ia-pass-2"></a>
+
+#### Dashboard IA redesign — pass 2 *(requested 2026-08-15; pass 1 shipped)*
+
+- [x] **Sidebar decrowding — shipped 2026-09-09.** Four stacked bands, each with a rule, a heading
+      and a fold, over 44px rows carrying a 28px icon tile: six platforms cost 264px before a single
+      folder, and *Explore / Manage sources* sat below the tree, off screen on a 394-task machine.
+      Now: a **filter field** narrowing the whole rail by name (presentation state, never a
+      `TaskFilters` field); **Collections and Pinned as chips** (still two bands, two folds);
+      **every list capped** at four rows with the remainder stated; **identity colour on the source
+      glyph** now the tile is gone, with health in a gutter of its own; and a **utility bar pinned to
+      the bottom** holding collapse, both source routes and the help `?`. Health stays four-state —
+      exception-only was drawn and rejected, since an unconnected platform already draws no dot.
+      See CHANGELOG 2026-09-09 and §9.
+- [ ] **Scoping.** Views filtered to the source they make sense for (*System* is Windows-only and
+      reads `0` everywhere else); source-scoped header actions, so **Sync** and **Import** state
+      which platform they mean; per-source empty states, so a connected platform with nothing
+      imported says how to import from it.
+
+<a id="open--ui--product"></a>
+
+#### Open — UI & product
+
+- [x] **Native script templates: timeout, optional secrets, apply reports `missingSecrets`**
+      *(shipped 2026-10-14, for the ai-automation-recipes catalog)*. `execution.timeoutSec` maps
+      onto a `script` template's job (`timeoutMs`, max 60 min) and exports back;
+      `${secret.NAME?}` is an optional reference (empty when unset, never `missing`); template
+      apply returns `taskId` + `missingSecrets`, and fills `nativeJob` placeholders from defaults
+      when `parameters` is omitted. **Still open:** `execution.timeoutSec` on an `exec` /
+      `commandTemplate` native template is not mapped — those store no `nativeJob` to carry it.
+- [x] **Quick Links is a top-bar item, and every source has one** *(shipped 2026-10-13)*. The
+      bookmarks left the Sources tab for their own section at `/links`; **Settings › Behavior ›
+      Quick Links in the top bar** switches it off and folds them back under Sources, and each
+      address forwards to whichever home is current. The defaults became data
+      (`frontend/src/data/quickLinks/defaults.json`) and gained the web console of every source
+      that has one (Gemini API, GitHub, Vercel beside Claude); `quickLinks.test.ts` fails if a
+      shipped source has neither a link nor a stated reason (Windows, Cronsole-native, and n8n,
+      whose address is per-instance). A default added later reaches an existing install **once**
+      (`quickLinkDefaultsSeen`) and a deleted one never returns. The biweekly **Cronsole Source
+      Scout** routine keeps the URLs current.
+- [ ] Partly shipped: **Thin the first viewport** *(desktop and mobile both shipped 2026-08-12; the 375px
+      verification is automated in `tests/e2e/layout.spec.ts`)*. **Left:** `--raised` exists and is
+      applied to exactly one panel, the filter zone. Spending it across the app to build real
+      hierarchy is the half of this item that has not been done.
+- [ ] **`--border` does not meet WCAG 1.4.11, and needs a second token** *(carved out of the theme
+      pass, 2026-08-24)*. It measures **1.61:1** in light and **1.69:1** dark against the page,
+      against a 3:1 bar for non-text UI. It was raised from 1.41/1.40 as far as one token can go,
+      and the test pins that floor so it cannot slip back — but the gap cannot be closed by a
+      value. `--border` does two jobs: separating cards (decorative, *exempt* from 1.4.11) and
+      drawing the boundary of a text input (in scope, not exempt). Reaching 3:1 needs `L=58%` in
+      light and `L=37%` in dark, which would turn every hairline into a heavy rule at all **313**
+      call sites, including the ~260 the rule does not apply to. The fix is `--border` plus
+      `--border-strong` and a sweep of the *controls* only — a component change, which is why it
+      is not in the palette pass. The test says so and will fail if someone closes it by value.
+
+- [ ] **One Settings toggle is still vestigial** *(logged 2026-08-12, halved 2026-08-26)*.
+      The dashboard used to open on **All**, which hard-set `status: any` **and** `system: include`
+      — exactly what *Show disabled tasks* and the persisted system lens control, so neither
+      affected the opening view. **The ownership half is fixed**: `openingFilters` now reads
+      `showSystemTasks`, the setting has its own switch on the Settings screen, and the dashboard
+      states the default above the list. *Show disabled tasks* is still overridden, deliberately
+      for now — the status lens already prints an `N inactive hidden` chip beside **Filters** the
+      moment it withholds anything, so a default there discloses itself where the ownership one did
+      not. Decide between making it apply too, repurposing it, or deleting it — but do not leave a
+      setting that looks like it does something and doesn't.
+- [ ] **Restore's plan doesn't check that a task's action points at anything that exists**
+      *(logged 2026-07-31)*: add an **advisory** column reporting, per file, whether the action's
+      executable and file-looking arguments resolve on this machine. Not a refusal — an executable
+      missing here may exist on the machine being restored to.
+- [ ] **Task-detail trust indicators — say how old the truth is, per task**: last
+      platform-confirmed sync, last agent result, and Windows' own `lastTaskResult` in the modal.
+      *(The 2026-08-12 review adds a fourth: whether the displayed action was reported by the
+      **current** agent version — an un-republished agent omits fields rather than erroring, so a
+      stale panel and a correct one look identical.)* The dashboard health strip answers this at the
+      *platform* level; the per-task half is open.
+- [x] Moved: **Optional periodic Windows sync** — moved to
+      [Next up](#import-sync-split) on 2026-08-18, alongside the Import/Sync split it belongs with.
+- [ ] **UI polish pass**: full-path tooltip/copy on truncated task paths · Apply-modal footer
+      crowding · Help Center reachability at ~720px · the two dev-mode Socket.IO console warnings
+      (worth clearing before any demo capture — they bury real console errors).
+- [ ] **Onboarding becomes contextual instead of global** *(sharpened 2026-08-12)*: the banner
+      lives in `Dashboard.tsx` **above the tab switch**, so it rides along on Templates, Tools and
+      Platforms too, and clears only on an explicit click. Auto-retire it once the user has
+      imported, created or starred; replace it with per-tab first-use cards, which is where the
+      advice is actually actionable.
+- [ ] **Console noise in user-facing flows**: the worst calls carry task names, native paths and
+      full command lines — `grep -rn "console\." backend/src frontend/src` for the current set,
+      because the count written here (37 + 3, on 2026-08-12) had drifted to 45 + 4 by 2026-08-25
+      with nobody noticing, which is the argument for not writing counts into prose at all. Mostly —
+      `routes/tasks.ts`, `WindowsAgentConnector.ts`, `NativeScheduler.ts`, `TaskService.ts`,
+      `AgentManager.ts`, `Dashboard.tsx`. Do it with the structured-logging work under *Production
+      operations*: levels + redaction, with full command lines behind an explicit diagnostics
+      export rather than on by default.
+- [ ] **Native task follow-ups**: a `CLAUDE_PROMPT` job type, and a Redis lock before
+      multi-instance.
+- [ ] **Template registry — optional follow-up**: index signing, beyond the per-file sha256.
+- [ ] **Cross-platform template targets — follow-up (b)**: real export artifacts (cron line,
+      launchd plist, Claude routine payload). Lands as connectors and the POSIX agent do.
+- [ ] Partly shipped: **Per-user monitoring/notification channels — webhook shipped 2026-09-04** *(requested
+      2026-09-04)*. A user's own opt-in run-outcome notifications, off by default, with a choice of
+      which outcomes to hear about — distinct from `CRONSOLE_FAILURE_WEBHOOK_URL`
+      (`services/FailureNotificationService.ts`), which is an operator-wide env var, configured
+      outside the app, that only ever spoke about failures. That one stays as the zero-config
+      fallback for a single-user install with nobody signed in to flip a toggle; a user's own
+      `NotificationChannel` takes over the moment it's enabled. See CHANGELOG 2026-09-04.
+      **Resend (email) shipped 2026-09-04** as a fourth payload shape, alongside generic/discord/
+      ntfy — the one shape with its own `to`/`from` fields rather than a bare URL, since sending
+      mail needs a recipient and sender a generic POST doesn't. The API key still rides in the
+      existing `headers` field; no new credential-storage shape was needed. A help topic on the
+      section covers setup recipes for all four (`docs/user-guides/guides/UI_User_Guide.md` §
+      *Setup recipes*).
+      **Per-task scope shipped 2026-09-05** — *Which tasks*: all tasks (default) or only specific
+      ones, an empty `taskIds` meaning "every task" rather than a second mode flag. The route
+      verifies task ownership before saving; no join table, since a dangling id from a deleted task
+      just matches nothing at read time.
+      **Left**: channels beyond a webhook (SMS, push via a vendor SDK); a delivery history/log
+      (today a failed send is only a `console.warn`); and a rate limit or digest mode for a
+      flapping task, which could otherwise fire a request per run.
+- [ ] **Settings agent-pairing panel** *(deferred)*: waits on the per-user pairing-code flow.
+      **Concrete gap found 2026-09-07**: this is also why the Sources tab has no disconnect/remove
+      control for `WINDOWS_TASK_SCHEDULER` (and will not for a future macOS/launchd agent either) —
+      unlike GitHub/Vercel/Gemini, an agent-paired platform has no `PlatformConnection` row to
+      delete. Today `AGENT_PAIRING_SECRET` is one shared env var (`ws/agentAuth.ts`) mapping every
+      authenticated agent to a hardcoded placeholder user, so there is no per-agent row to revoke —
+      only a global secret rotation, which evicts every paired agent at once. Real per-agent
+      "remove this source" needs the per-user pairing model this bullet already waits on: an
+      `AgentPairing`-shaped row keyed by agent identity, a route to disable one row, then the
+      Sources-tab control.
+- [ ] **Tools tab — further candidate tools** *(candidates only, none scheduled)*: scheduled
+      automatic backups (backend writes, not the elevated agent) · snapshot diff ("what changed
+      since your last backup"). Rule for the tab: everything on it must be genuinely cross-cutting,
+      or it is a junk drawer.
+
+---
+
+<a id="-sources--where-a-task-comes-from"></a>
+
+### 🔷 Sources — where a task comes from
+
+> **The priority once *Next up* is clear** *(scoped 2026-08-12)*. The dashboard's first-level axis
+> is the **source** a task comes from. **Seven ship as of 2026-10-04** — Windows Task Scheduler,
+> Cronsole-native (split into HTTP · Programs · Scripts · Checks), Claude Code routines, GitHub
+> Actions, Vercel Cron, Gemini API Triggers and n8n. This section is the plan for the rest; the built
+> ones are marked `[x]` below or in [Part II](#completed--sources). *(This line said "ships with
+> three" until 2026-08-24, when it had been wrong for a day and a half — a count in prose goes
+> stale on every change, which is why `PLATFORM_DESCRIPTORS` is the thing to read.)*
+>
+> **Read the [guardrail change](#strategy-guardrails) first**: the capability matrix makes a
+> **read-only observer** an honest, complete product state, so a source no longer has to be fully
+> controllable to be worth shipping. Controllers stay gated on reliability; observers do not.
+>
+> **Ordering principle: prefer the build that unlocks several sources over the one that unlocks
+> one.** A POSIX agent covers launchd, cron *and* systemd timers with one protocol and no new auth
+> story. Each cloud scheduler costs its own OAuth surface, rate limit and mental model, for exactly
+> one source.
+
+> **Finding the next source is now scheduled** *(2026-10-13)*. The **Cronsole Source Scout**
+> routine runs every other week: it ranks the AI tools people use most *at the time* from public
+> signals, judges each against the source rules above, and adds buildable ones here as
+> `🔒 Needs Mike` items. Tools that schedule work but have no API go on a dated **👀 Watching**
+> list in this section, re-checked every run, so "it has no API" is a finding with a date rather
+> than a reason to stop looking. First finding while setting it up: **OpenClaw and Hermes both
+> ship a built-in `cron` command** (list, create, pause, run), so their jobs live inside the
+> harness where no current source can see them. Both are still quick-link only in `CLAUDE.md` §2,
+> and the Scout is told to judge them first. A harness whose jobs are Windows Task Scheduler tasks
+> (such as a DeepSeek harness) is already covered by the Windows source.
+
+- [ ] **POSIX agent — launchd · cron · systemd timers** *(the big one, and the one that actually
+      broadens the product)*: all three are **local OS schedulers**, structurally identical to
+      Windows Task Scheduler — read the machine, run a thing, enable/disable. One build reuses the
+      whole existing protocol: outbound WebSocket, HMAC-signed commands, the sync model, folder and
+      path handling, the capability matrix. **Three of the most universal developer schedulers, one
+      auth story, zero new server surface.** Absorbs the former standalone *macOS agent (launchd)*
+      P3 item and the 7 catalog templates waiting on it.
+      Open sub-questions: whether the agent is a .NET port (the `ITaskScheduler` abstraction ports
+      cleanly) or a separate binary; per-user vs system crontab; and how a systemd timer's
+      `OnCalendar` maps onto 5-field cron, which is lossy in both directions and needs the same
+      honest-warning treatment the Windows trigger conversion already has.
+
+- [x] **Verify GitHub Actions against a real repository** *(2026-08-24 — see
+      [Next up](#sources-onboarding))*. The observer shape is now proven end to end, and the two
+      below inherit both the pattern and its one live lesson: a connector whose tracked set is
+      **declared** must say so, or its first sync silently imports nothing.
+
+- [x] **Vercel Cron — read-only observer** *(2026-08-24)*. The second observer, and it inherited
+      the whole GitHub shape: a fixed `unsupportedVerbs`, a **declared** tracked set
+      (`trackedCategories` reads the watched projects out of the config — #75's lesson, applied
+      before it could bite), health from stored sync evidence with no probe, a hand-composed
+      connection with a write-only token, and the project as the category.
+      **Where it differs from GitHub it differs in both directions, and both are worth carrying
+      forward.** Cheaper: a Vercel project object carries `crons.definitions[]`, so one
+      `GET /v9/projects/:id` returns every cron already parsed, already 5-field, already UTC — no
+      second fetch, no YAML, no unreadable-file branch, and a cron count that is *exact* rather than
+      an upper bound. That is also what makes the connect flow a **picker** rather than a paste box:
+      the list is one request and already says which projects have crons.
+      Poorer: **Vercel publishes no run history for a cron**, so `reportsRunResult: false` and every
+      task sits at `unknown` health permanently. Scoring `enabledAt` instead would have called every
+      configured cron healthy — *configured* and *working* are different claims, and only the first
+      is knowable. Said in the connector, the summary, the panel, the help topic and the guide,
+      because a permanent `unknown` discovered from a grey pill reads as a broken integration.
+      One defect found on the way and fixed at the root: `scoreTask` dispatched on platform with the
+      **Windows arm as the `else`**, so every source without its own scoring — Claude too, not just
+      the new one — was told to *"republish the agent"*.
+
+- [x] **Gemini API Triggers — the first hosted controller** *(jumped the queue and shipped 2026-08-24)*. Google
+      announced scheduled **triggers** for Managed Agents on 2026-07-28, after the line below had
+      already written Gemini off as quick-links-only. It is not an observer: a trigger is a
+      persistent resource with full CRUD, a manual-run endpoint **and** an execution history, so
+      every verb Cronsole would offer maps 1:1 onto a documented endpoint rather than onto something
+      that merely resembles one.
+
+      | Verb | Endpoint |
+      |---|---|
+      | `sync` | `GET /v1beta/triggers` |
+      | `run` | `POST /v1beta/triggers/{id}/executions` |
+      | `setStatus` | `PATCH /v1beta/triggers/{id}` `{"status":"paused"｜"active"}` |
+      | `updateSchedule` | `PATCH /v1beta/triggers/{id}` `{"schedule","time_zone"}` |
+      | `create` | `POST /v1beta/triggers` |
+      | `delete` | `DELETE /v1beta/triggers/{id}` |
+      | run evidence | `GET /v1beta/triggers/{id}/executions` |
+
+      **Why it outranks the ordering principle above rather than breaking it.** That principle
+      compares an agent unlocking three OS schedulers against *one more cloud scheduler with its own
+      OAuth surface* — and it is still right about that. This is a different axis: two hosted sources
+      ship today and **both are read-only**, so the matrix's whole controller half has exactly two
+      inhabitants, both local. A third read-only row says less each time; the first hosted row that
+      can *act* is what proves the controller shape works over an API rather than over an agent, and
+      it is what the two-of-three umbrella item below is actually waiting to be interesting.
+      Its auth surface is also the cheapest of any candidate — a Gemini API key in one header, no
+      OAuth dance, no team scoping, free tier included.
+
+      **Three things it does that no shipped source does.** `run` is the real scheduled invocation
+      rather than a lookalike (Vercel's and GitHub's are both refused for being lookalikes) — same
+      agent, same prompt, same sandbox, and Google's own docs note that pausing stops scheduled
+      executions *without* affecting manual ones, so the two are the same machinery. `setStatus` is a
+      genuine per-resource pause, where Vercel has only a project-wide switch. And it reports run
+      outcomes, so it gets a real `scoreTask` arm instead of a permanent `unknown` — plus a signal
+      neither observer can produce: a trigger **auto-pauses after `max_consecutive_failures`**
+      (default 5), which is GitHub's silent 60-day auto-disable in a more honest form, with the count
+      published on the resource.
+
+      **The schedule is cron + IANA zone, which is the one place it does not fit the storage
+      contract.** Cronsole stores 5-field UTC; a trigger carries `{"schedule","time_zone"}` and the
+      zone is Google's, not the browser's. Cronsole writes `time_zone: "UTC"` on everything it
+      creates or reschedules so the round trip is exact — and a trigger created *elsewhere* in a real
+      zone is read back with its cron shifted to UTC and **the original pair kept in metadata**,
+      because a shifted field that does not print what it was shifted from is the #60 shape.
+      `America/Sao_Paulo` and friends have no fixed offset, so the shift is refused with its reason
+      rather than approximated.
+
+      **What it is not.** `updateAction` (editing a trigger's prompt) and `export` / `restore` are
+      out of the first pass — a trigger's payload is an agent, a prompt, an environment and a network
+      allowlist, and rendering that as an editable action needs a form Cronsole does not have yet.
+      Absent, so the matrix reports them `unsupported` by absence, which is the honest reading:
+      *not yet*, and the cell is free to change when the form exists.
+
+      **Shipped the same day.** `GeminiTriggersConnector` + `services/geminiApi.ts` +
+      `services/geminiTriggers.ts`, the `GEMINI_TRIGGERS` enum value and migration, the `access:
+      controller` descriptor, a real `scoreTask` arm (including the auto-pause signal), the
+      hand-composed connection panel on both source cards, a fourth arm in the create modal whose
+      target field is a **prompt** rather than a command, the `--gemini` identity pair measured
+      against every surface, a `HelpTopic`, a Sources Guide section, and `GEMINI_TRIGGERS` on the MCP
+      filter enum. 69 new tests; backend 1040, frontend 887, MCP 193 all green.
+
+      **Run history and run output shipped 2026-08-25.** `listPlatformRuns` / `getRunOutput` on the
+      connector interface, two routes, and a second group in the Run History tab — because
+      `ExecutionLog` holds only what Cronsole did, which on this source is almost nothing. It is
+      also the answer to "where do I read the output": there is **no Google web UI for triggers at
+      all** (their docs are entirely programmatic), so Cronsole is the only place this is visible.
+      Gemini is the first implementer; GitHub Actions is the obvious second.
+
+      **A gap this exposed, closed 2026-08-25:** the UI's Delete button was gated to a hardcoded
+      `{native, Windows}` pair, so a Gemini trigger had **no delete control at all** — the connector
+      implements it, `DELETE /api/tasks/:id` calls it, and the Sources tab reported the verb working,
+      so the only actual path was `curl`. It now reads the server's capability matrix
+      (`usePlatformDeletability`), which means the next deletable source gets the button without
+      anyone widening a list. MCP's `delete_task` stays native-only by design.
+
+      **Windows became the second implementer of run history the same day**, over a new `task:history`
+      agent verb — and pointing it at a real machine an hour later found two defects a fixture cannot
+      hold: a ring-buffer log makes the oldest run in view a fragment (one bucket, not one per stray
+      event), and the exit code was being read out of a **localized English sentence** rather than
+      the event's named `ResultCode` field
+      ([#85](troubleshooting/README.md#85-one-windows-task-shows-three-runs-that-never-happened-all-of-them-undated)).
+      The named-fields half needs an agent republish to take effect.
+
+      **A boundary found afterwards, 2026-08-25**: `updateSchedule` is *cannot*, not *not yet*.
+      `PATCH /v1beta/triggers/{id}` takes `status` and `display_name` and answers `400 Unknown
+      parameter 'schedule'` — no `PUT`, no field mask — so a trigger's *when* is fixed at create
+      time. The method is removed and the boundary is stated by absence, like every other optional
+      verb. Worth carrying into the next connector: **an endpoint existing is not the endpoint doing
+      what the verb says**, and only driving it says which.
+
+      **Of the two follow-ups it deliberately left, one shipped the next day:**
+      - **`updateAction`** — still open, and still *not yet* rather than *cannot*: an editable prompt
+        needs a `PATCH` that takes one, and `v1beta` does not have it. The cell is `unsupported` by
+        absence; the help topic says to delete and recreate.
+      - **The network allowlist and tools — shipped 2026-08-25.** It got the design pass rather than
+        a text field: *Tools and network access* on the create form (built-ins, MCP servers, domains),
+        starting empty so a trigger made without opening it is byte-identical to one made before the
+        section existed. A grant is **refused with the list, never narrowed** — an unknown tool type
+        errors rather than being dropped, since a create that quietly produces less reach than the
+        form showed is worse than a failure.
+
+        The credential question it was waiting on has an answer that is about **lifecycle, not
+        caution**: an MCP server's `headers` reach `createTrigger` and stop there, because the value
+        is needed exactly once and the trigger lives on *Google's* side — Cronsole can avoid holding
+        the token but cannot avoid handing it over, and the form says so where it is typed.
+        `toToolSummary` / `readAllowlist` never *parse* those fields, so no stored object has ever
+        held one. **Which forced a rotation path**, since Gemini's definition is immutable: *Replace
+        credentials* builds the replacement first, inherits a paused status, and rekeys the existing
+        row so favourites, collections and run history survive — a replacement that exists while the
+        original does is reported as a **failure**, because the schedule now fires twice.
+
+        **And a boundary the API does not publish:** a tool type its own supported list contains can
+        still be refused by the specific agent (`filesystem` is the known case), which surfaces as a
+        five-second run failure — a rejected configuration, not a failed attempt
+        ([#84](troubleshooting/README.md#84-a-gemini-run-fails-in-five-seconds-and-cronsole-says-there-is-nothing-to-read)).
+        **A capability list is not a permission list.**
+
+- [x] **n8n — observer that reports outcomes** *(scoped and shipped 2026-10-04)*. Self-hosted or
+      cloud, one `X-N8N-API-KEY` against `{base}/api/v1`, one instance per connection — so the
+      tracked set is declared and constant (`['n8n']`), Gemini's reason. Scoped against a real
+      instance (90 workflows, ~20 with a Schedule Trigger), not the docs, and four facts from that
+      read decide the design:
+
+      - **A task is a workflow with an enabled `scheduleTrigger` (or legacy `cron`) node.** Manual,
+        form and webhook workflows are not scheduled work and are counted out loud in the sync's
+        `notes`, not silently dropped — "found nothing" and "looked at nothing" again.
+      - **The schedule is not cron, and the API omits defaults.** A weekly trigger is stored as
+        `{ field: "weeks", triggerAtHour: 6 }` — the Sunday is the node's *default* and appears
+        nowhere in the body. The parser therefore carries n8n's per-field defaults
+        (`services/n8nSchedule.ts`), and every interval with no exact 5-field equivalent is `null`
+        **with its reason**: seconds, a 6-field cron with a stepped seconds field, and any
+        `daysInterval`/`weeksInterval`/`monthsInterval > 1` (n8n filters a more frequent cron by
+        elapsed time since the last run, which cron cannot say). `hoursInterval` is exact only when
+        it divides 24. A workflow with several rules is `null` with each rule kept in metadata.
+      - **The schedule is in a zone the API does not publish.** `settings.timezone` is per workflow
+        and usually absent; the instance default (`GENERIC_TIMEZONE`) is not exposed by the public
+        API — the live "6am" weekly fires at 10:00Z. So the connection **declares** the instance
+        zone, every conversion goes through `shiftCronToUtc`, the original pair is kept in metadata,
+        and with neither zone known the schedule is `null` with that reason rather than read as UTC.
+      - **n8n has a draft/publish model.** The workflow body is the latest draft; what runs is
+        `activeVersion` (`versionId` ≠ `activeVersionId` when they differ). The connector reads the
+        published graph, or it reports a schedule that is not live.
+
+      **Verbs.** `sync` · `listPlatformRuns` / `getRunOutput` (`/executions`, `mode: trigger` vs
+      `manual` tells a scheduled fire from a click; n8n has a real page per run, so `url` is set) ·
+      a real `scoreTask` arm (`reportsRunResult: true`). `run` was **refused** on day one: the public API has no
+      execute endpoint, and calling a webhook is a lookalike, not the scheduled run — Vercel's
+      reasoning *(overturned 2026-10-05 by the MCP door below; the REST half is still true)*. `create` / `updateSchedule` / `delete` are out: `PUT /workflows/{id}` replaces the
+      whole body and collides with draft/publish. **`setStatus` is the open question** —
+      `activate`/`deactivate` is real, but it switches the *whole workflow*, webhooks included, so a
+      per-schedule toggle would be a control the platform does not have. First pass ships without it.
+
+      **Shipped the same day:** `services/n8nApi.ts` + `n8nSchedule.ts` + `n8nConnection.ts` (fixtures
+      copied from the live instance), the `N8N` enum value and migration, `N8nConnector` (sync, run
+      history, run output, evidence-only health), an `observer` descriptor, a `scoreTask` arm, the
+      connection routes (`/api/tools/platforms/n8n/{connection,timezone}`), the `--n8n` identity pair
+      measured against every surface, `N8nPanel` on both source cards, a `HelpTopic`, a source guide
+      and Sources Guide section, and `N8N` on the MCP filter enum.
+
+      **Driven live the same evening** (2.91 instance, 89 workflows → 24 scheduled). The workflow
+      *list* does carry `activeVersion`, so a sync costs one listing plus one execution read per
+      scheduled workflow and no second workflow read. Two warnings, both true: a workflow with no
+      Timezone setting of its own needs the declared instance zone (the live instance turned out to
+      be `America/Chicago`, read off a run's UTC start — [#97](troubleshooting/README.md#97-one-n8n-workflow-shows-no-schedule-while-the-others-convert-fine)),
+      and an every-6-hours rule is refused by `shiftCronToUtc`'s multi-hour rule.
+
+      - [x] **Run now over n8n's MCP server** *(shipped 2026-10-05)* — n8n 1.121+ serves an
+        instance-level MCP server (`{base}/mcp-server/http`, bearer token from *Settings › MCP
+        access*) whose `execute_workflow` runs the **published** version through its **Schedule
+        Trigger** in `production` mode — the scheduled invocation, so `run` passes the test Gemini's
+        passes and the webhook objection does not apply. `services/n8nMcp.ts` speaks the three
+        requests (initialize → initialized → tools/call, JSON or SSE, session closed after) with no
+        SDK; `PUT /api/tools/platforms/n8n/mcp` verifies the token by handshake **and** by the tool
+        being listed before storing it write-only as `mcpToken`; the n8n card gains a *Run now
+        (optional)* field. `run` left `unsupportedVerbs` and stays **declared** — that list has no
+        config, and this is a fact about the connection — while `runTask` names the two n8n switches
+        without a token. The trigger node is named only when n8n could not pick it alone (a webhook
+        beside the schedule, two schedules), so pre-2.36 instances still run the common case; a
+        transport timeout re-reads the execution list (Gemini's rule). n8n is now `access:
+        controller`, by Claude's declared-mode argument. `setStatus` and `create` stay refused.
+        A **manual-only** workflow (the agent-runner launchers) runs in `manual` mode — its current
+        version, the editor's button — because a manual trigger cannot be published and that is the
+        one run it has; the mode is chosen from the graph (`planRun`), never from the row. Driven
+        live both ways. Open: n8n's `execute_workflow` reports `status` and `error` only — a run that
+        n8n *accepts* and then fails inside the trigger is read back off the execution list like any
+        other.
+      - [x] **Folders** *(decided and shipped 2026-10-05)* — the public API does not publish
+        membership (`parentFolderId` is `writeOnly` in the instance's own OpenAPI; package export is
+        licensed and ships whole bodies; `/rest/` refuses API keys — [#96](troubleshooting/README.md#96-your-n8n-folders-do-not-appear-in-cronsole)).
+        **Chose a read-only Postgres role** over an n8n login (owner password, 2FA, undocumented API)
+        and tags (hand-maintained duplicate of the folders): five granted columns, less reach than
+        the API key, verified on a live n8n DB that `SELECT nodes` is denied under them. Optional
+        `folderDbUrl` on the connection (encrypted, write-only, `PUT …/n8n/folder-db` verifies by
+        running the real query); `services/n8nFolders.ts` reads paths via a second `PrismaClient`
+        (no new dependency). **The folder is `metadata.folderPath`, not identity** — a category is
+        derived from `externalId` and a moved workflow keeps its id, so folders nest *beneath* `n8n`
+        through the rail's one `subfolderPath` helper, and a failed read is a warning, never
+        `partial`. Open: `DB_TABLE_PREFIX`.
+      - [x] **On-demand workflows** *(shipped 2026-10-05)* — the user's instance had 65 of 89 live
+        workflows with no schedule (48 manual-only agent-runner launchers, 12 forms, webhooks, an
+        error handler), so "a task is a scheduled workflow" hid most of the instance. Now any enabled
+        trigger makes a task (`readOnDemandTriggers`), `schedule: null` with `scheduleReason` (the
+        calendar's key), `never-run` downgraded to `info`, manual-only stays `ACTIVE`. Setting
+        `includeOnDemand` (absent = on); turning it off deletes the rows in `PUT …/n8n/options` so the
+        next complete sync cannot call them MISSING. Execution reads batched 6 at a time.
+      - [x] **Default sidebar grouping** *(shipped 2026-10-05)* — no tags on any of the user's 89
+        workflows and name suffixes are a personal convention, so the default groups by trigger
+        (`triggerGroup`: Scheduled / Forms / Webhooks / Manual / …, most specific trigger wins, manual
+        only when alone) through the same `metadata.folderPath` real folders use. Setting `groupBy`
+        (`trigger` | `none`, absent = `trigger`); real folders always win when readable.
+      - [x] **Sources page** *(2026-10-05)* — the *Read: using X* link sits in each card's header,
+        not behind *Show details*; an `unsupported` capability cell drops stale run evidence, and a
+        create refused before calling the platform (`refusedBeforeCalling`) is no longer recorded as
+        a platform failure (both put false "failed" verbs on the Gemini card).
+      - [x] **Rail caps** *(2026-10-05)* — the source list is never capped (visibility is already
+        the user's `shownSources` choice; the cap of 4 hid the two alphabetically-last sources);
+        `RAIL_ROW_CAP` raised 4 → 10 for folder lists and bands.
+
+      **Still open:**
+      - **Every-N-hours in a whole-hour zone** has an exact UTC answer (`0 */6` in UTC−4 is
+        `0 4,10,16,22`); teach `n8nSchedule.ts` to enumerate it rather than inherit the refusal.
+      - The legacy `Cron` node; `setStatus` if n8n ever gets a per-trigger switch.
+
+- [ ] **Supabase `pg_cron` — read-only observer** *(next after Gemini in this section)*: the other half of the
+      2026-08-12 pair. Same observer shape again, and the piece it needs that neither GitHub nor
+      Vercel had is a **different kind of read**: `cron.job` is a table in the user's own Postgres,
+      not a REST resource, so it is either a `pg` connection string (a much heavier credential than
+      an API token, and one Cronsole would then hold) or a user-created SQL function exposed through
+      PostgREST (no new credential, but a setup step). **That choice is the open question**, and it
+      is why this is now its own item rather than half of a pair — it is not the same build twice.
+
+- [ ] **Deferred — Kubernetes CronJobs · AWS EventBridge Scheduler · Azure Functions · Google Cloud
+      Scheduler**: common in *teams*, rare for a solo developer, and each is its own auth surface,
+      rate limit and mental model for exactly one source. The gate was "revisit once the observer
+      pattern has proven itself", and GitHub Actions did that on 2026-08-23 — but the gate's
+      *second* half stands: these are common in teams and rare for a solo developer, so they wait
+      on the two cheap ones above rather than on the pattern. Kept here rather than dropped so the
+      omission stays a decision rather than an oversight.
+
+- [ ] **Staying quick-links-only — ChatGPT · Grok · Jules** *(re-checked live 2026-08-24)*: no public
+      scheduled-task API exists for any of them. A connector would render a row of `unsupported` that
+      says strictly less than the link already does. **Gemini left this line** — see the controller
+      above — which is the argument for re-checking rather than for assuming:
+
+      - **ChatGPT Tasks** — the *product* grew (a Scheduled page with edit / pause / resume landed
+        June 2026), the API did not. OpenAI's own guidance is still to run your own cron, and Agent
+        Builder is being wound down (gone 2026-11-30), so no path arrives from that direction either.
+      - **Grok Automations** — shipped as a feature in 2026 with schedules and email triggers, and
+        xAI publishes no automation API.
+      - **Jules** — the closest to flipping, and the reason this line names a date. It has a public
+        API (`jules.googleapis.com/v1alpha`, alpha) *and* Scheduled Tasks in the product, but the API
+        exposes only sources / sessions / activities / plan-approval. **There is no schedules
+        resource**, so the two halves exist and have not been joined. Worth a re-check, not a build.
+
+      The habit this establishes: **re-check before each Sources pass, not once.** Gemini sat on
+      this line for the whole of 2026 and shipped a full CRUD scheduler four weeks before anybody
+      looked again.
+
+- [ ] **Umbrella grouping for the hosted observers** *(reading (c) of the 2026-08-12 source
+      decision, left open when (b) was chosen)*: group GitHub Actions / Vercel / Supabase under one
+      two-level source node. A presentation question about the rail, not a data-model one — worth
+      doing once three hosted observers exist, and it blocks nothing until then. **Two of the three
+      exist as of 2026-08-24**, so this is one source away from being worth doing. **Gemini API
+      Triggers does not move that count** even though it is hosted: it is a controller, and the
+      grouping's whole appeal is that a stack of read-only rows reads better collapsed. A row you can
+      act on wants its own place in the rail, not a shared drawer.
+
+- [ ] **The last unedited attribute — a question, not a task** *(reported 2026-08-12)*. Category,
+      schedule, action/command, job spec and name are all editable now. A task's **`externalId`**
+      is not, and probably should not be: it is the identity the row is keyed on and the address
+      every signed agent command uses. For Windows it is the Task Scheduler path, so "editing" it
+      means moving the task on the machine; for Claude it is the routine id, which
+      `edit_claude_routine` already re-points properly. **Is there a case for it that is not one of
+      those two?**
+
+- [ ] 🔒 Needs Mike — **OpenClaw cron — controller over a local CLI** *(found by the Source Scout
+      2026-10-13)*. **What:** OpenClaw's built-in scheduler (`openclaw automations`, alias
+      `openclaw cron`) keeps jobs inside the harness, where no current source can see them.
+      **Why it is an honest door:** the docs list a real management surface — `list [--all]`,
+      `get <id>` (stored job as JSON), `show`, `enable` / `disable`, `run <id>` (a manual queue of
+      the real job), `runs <id>` (history with `status` `ok`/`error`/`skipped` and `completionStatus`
+      `succeeded`/`failed`/`unknown`), `remove`, plus `create` with `--cron`, `--every`, `--at` and
+      `--tz <iana>` — and a Gateway RPC (`cron.list`, `cron.add`, `cron.update`, `cron.run`,
+      `cron.history`). It **reports outcomes**, so it can get a real `scoreTask` arm. The CLI page
+      says `--json` always requests JSON; the managing-jobs page says only `get` is described as JSON.
+      **Rank:** the harness is outside any traffic ranking (a local tool, not a website), so it
+      is queued for being the clearest local-scheduler door found, not for popularity.
+      **Size:** about n8n-sized or smaller — a machine-local reader, the Windows-agent pattern, so
+      it likely rides the POSIX-agent protocol (outbound WebSocket, signed commands) rather than a
+      hosted connector. **Open questions:** (1) Gateway RPC auth is not documented on the pages
+      read, so the CLI is the only door confirmed; (2) the stored job's timezone field is not
+      documented, so a cron with `--tz` must be `null` with a reason unless it is UTC (#60);
+      (3) event schedules (`--on-exit`, `--stream-command`) have no cron form — refuse with a
+      reason; (4) is it worth a bespoke reader, or should it wait for the POSIX agent to carry it?
+      **Done when:** a job created in OpenClaw appears in Cronsole with its schedule, status and last
+      run, `run` / `enable` / `disable` round-trip, and the observer/controller `access` is declared.
+      Sources: <https://docs.openclaw.ai/cli/cron>, <https://docs.openclaw.ai/automation/cron-jobs>,
+      <https://docs.openclaw.ai/automation/cron-jobs/managing-jobs>.
+
+<a id="-watching--ai-tools-that-schedule-work-but-have-no-door-yet"></a>
+
+#### 👀 Watching — AI tools that schedule work but have no door yet
+
+- **Hermes** (local harness, no ranking; official docs) — schedules: `every 2h`, `weekdays at 9am`,
+  5-field cron, ISO one-shots, run by the gateway daemon from `~/.hermes/cron/jobs.json`. Missing: a
+  documented machine-readable output (`--json`) on `hermes cron list` / `runs` / `status` — the
+  CLI reference documents none, and the docs advise against reading the jobs file directly; no
+  timezone setting is documented either. Has `list`, `pause`, `resume`, `run`, `runs`, `status`.
+  Checked 2026-10-13, <https://hermes-agent.nousresearch.com/docs/user-guide/features/cron>.
+- **Kimi** (rank not in the top four of Business Today's June 2026 visit ranking; no global figure
+  found) — schedules: daily, weekly, monthly or one-time prompts, cloud or in the Kimi Work desktop
+  app. Missing: any API or CLI; the help page mentions neither. Checked 2026-10-13,
+  <https://www.kimi.com/en/help/features/scheduled-tasks>.
+- **Perplexity** (no global rank found this run) — schedules: recurring background Scheduled Tasks on
+  the Automations dashboard (replaced Perplexity Tasks). Missing: any API. Checked 2026-10-13,
+  <https://www.perplexity.ai/help-center/en/articles/11521526-perplexity-tasks>.
+- **Manus** (no rank found this run) — schedules: recurring or one-off tasks in natural language,
+  plus event triggers, under Automations. Missing: any API or CLI. Checked 2026-10-13,
+  <https://manus.im/docs/automations>.
+- **Cursor Automations** (no rank found this run) — schedules: preset or cron-expression triggers,
+  plus Slack / PR / webhook triggers. Missing: a documented list API (the docs page read names
+  none). Checked 2026-10-13, <https://cursor.com/docs/cloud-agent/automations>.
+- **Codex scheduled tasks** (inside ChatGPT, rank 1 by traffic) — schedules: UI controls or an RFC
+  5545 `RRULE`; event triggers from Gmail, Slack and GitHub. Missing: any list API or CLI — the docs
+  say the CLI and IDE extension have no management interface. Checked 2026-10-13,
+  <https://learn.chatgpt.com/docs/automations?surface=app>.
+- **DeepSeek** — no first-party scheduled-task feature found for its chat app (only third-party
+  extensions). Not watched as a source; a DeepSeek harness whose jobs are Task Scheduler tasks is
+  already covered by Windows. Checked 2026-10-13.
+- **Muse** (<https://muse.ai/>) — not assessed: the site redirected to a sign-in/redirect chain
+  that could not be read. Re-check next run.
+
+---
+
+<a id="-p3--expansion"></a>
+
+### 🟢 P3 — Expansion
+
+> **Launch posture (decided 2026-07-13): Cronsole ships and stays local-first.** Cloud/SaaS hosting
+> is not a launch requirement. Remote access to your own instance is the final, optional
+> enhancement; go-live does not depend on it.
+
+Shipped P3 work is in [Part II](#completed--p3-expansion).
+
+- [ ] **Guided repair verbs, on top of System diagnostics** *(logged 2026-08-17; deliberately
+      sequenced after the read-only panel, which shipped)*. The diagnostics panel answers *what is
+      wrong*; this is the *fix it* half. It stayed out of that change on purpose — three of the four
+      agent-health entries in the troubleshooting log were the readout lying, so a repair button
+      would have acted on a diagnosis nothing could yet check. Constraints, all established by the
+      panel:
+      - **A repair reports what it *observed afterwards*, never what it *did*.** "Spawned a
+        process → Fixed!" is `success` without `ran`
+        ([#59](troubleshooting/README.md#59-a-check-that-correctly-finds-a-problem-is-reported-as-could-not-run-the-check))
+        in the one place a false green is most expensive. Every verb re-runs the check that prompted
+        it and reports the **new** state.
+      - **A fixed, named list — never a parameterized one.** The moment a repair takes a command,
+        Cronsole has an elevated arbitrary-action primitive reachable from a browser, which is what
+        "the agent gets no file-write verb" refuses. Candidates: republish the agent, restart the
+        agent, re-register the `\Cronsole-Stack\` tasks.
+      - **Not in the template registry.** Repairs are about Cronsole itself and must be
+        version-locked to it; a managed template row can be pruned by `catalogSync` — the catalog
+        could delete the thing that fixes the catalog.
+      - **The genuinely useful half is outside the stack and already exists**: `\Cronsole-Stack\`
+        survives the backend, Postgres and Docker all being down, because Windows Task Scheduler
+        runs it. Productising *that* belongs with **Installer packages** below. Note the standing
+        decision that those tasks are **not tracked** in the dashboard — disabling `CronsoleAgent`
+        from the dashboard is also what breaks the dashboard's ability to re-enable it.
+
+- [x] ~~**Installer packages (agent only)**~~ — **cancelled 2026-09-11.** The PowerShell setup
+      script is not a placeholder for an MSI; it **is** the install. `setup-agent-startup.ps1` runs
+      from a clone the user already has, builds on the machine that will run it, and registers the
+      task — which is what the MSI was going to do, minus a certificate.
+
+- [x] ~~**Ship the whole application as a Windows installer (`.exe`)**~~ — **cancelled 2026-09-11.**
+      Three of its four jobs existed only to reproduce what Docker Compose already does: bundling
+      Postgres, dropping Redis, and shipping the Node runtime. The fourth — `vite build` served
+      same-origin by Express — is worth doing on its own merits and is **not** cancelled; it lives
+      with the [proxy work](#-p3--expansion), where single-origin is already the rule.
+
+      The strongest argument for it was that a stranger should not need Docker. That is real, and it
+      is the cost being accepted: see *Distribution* under [Open decisions](#open-decisions).
+
+- [ ] **Split the files that have become fault lines** *(re-counted 2026-08-12; every one grew, and
+      one was missing from the list)*: `DashboardScreen.tsx` (1,251), `routes/tasks.ts` (1,182),
+      `mcp-server/src/tools.ts` (1,140), **`routes/tools.ts` (1,130 — newly listed)**,
+      `TemplatesScreen.tsx` (794), `AgentService.cs` (782), `TaskModal.tsx` (757).
+      **Still not a refactor sprint** — split along the named seams only when next touching that
+      area. Seams: dashboard filters/saved views · dashboard bulk actions · dashboard view
+      renderers · task mutation vs. sync/discovery routes · tools backup/restore routes · MCP task
+      vs. template vs. diagnostic tools.
+
+- [ ] **Route-level code-splitting** *(optional follow-up to the frontend refactor)*: the single
+      bundle trips Vite's 500 kB hint; cheap now that the router and screen modules exist.
+
+- [ ] Partly shipped: **Template gallery site** — parts 1, 2, 4 and 5 shipped *(2026-07-14 → 2026-07-28)*.
+      **Left: part 3**, the one-click "Add to my Cronsole" deep-link / protocol handoff. Download
+      and Copy JSON use the shipped Import path today.
+
+- [ ] Partly shipped: **Remote access (self-hosted) — the final, optional enhancement.** Reach your **own** local
+      instance from other devices (the code-server model) via Tailscale or Cloudflare Tunnel +
+      Access. **The tooling shipped 2026-08-15 → 2026-08-17**; what remains is polish, not plumbing.
+  - [ ] **PWA manifest + icons** so the dashboard installs to a phone home screen — the last piece
+        of the "trigger from your phone in under 30 seconds" goal.
+  - [x] **Phone shortcuts — run-only tokens for one task** *(2026-10-05)*. A home-screen icon
+        (iOS Shortcuts, Android HTTP Shortcuts) that runs one task. The shortcut holds a credential
+        on a device that can be lost, so it is an `ApiToken` **scoped to `POST /api/tasks/:id/run`
+        and nothing else** (`ApiToken.runTaskId`), refused by `checkToken` everywhere else —
+        including the live-update socket and the token routes, so it cannot mint a broader one.
+        Issued from the task's **Phone shortcut** button (password required, revocable in Settings).
+        Rejected alternatives: a full API token in the shortcut (whole-account blast radius); a GET
+        capability URL (link previews and prefetchers would run it); the PWA manifest's `shortcuts`
+        (static, Android-only); a native widget app (a second codebase for what Shortcuts does).
+        Guide: [Phone Shortcuts](user-guides/guides/Phone_Shortcuts_Guide.md).
+  - [ ] **Auth hardening for an internet-facing gate** *(deliberately deferred 2026-08-15 — the
+        network gate does this job today)*: there is no password reset, so forgetting the one
+        password while travelling is only fixable at the keyboard; and the 24h JWT lives in
+        `localStorage` on a phone that can be lost, with no refresh flow. Both are acceptable behind
+        Tailscale or Access, and are the first things to revisit if the gate is ever relaxed.
+
+- [ ] **ChatGPT** — stays quick-links-only unless a public automations API appears.
+
+- [ ] **Product bets — from "a better Task Scheduler UI" to "a local automation control plane"**
+      *(directions, not scheduled work — each needs its own design pass first)*. ★ = recommended
+      first. The shared constraint: this project's guardrail is reliability first, and every bet
+      below is a feature that can be confidently wrong.
+  - ★ Runbooks attached to tasks
+  - ★ Task collections / playlists *(the first slice shipped 2026-08-16 as Collections)*
+  - Task dependency graph *(manual edges only for v1; inference is a suggestion, never a fact)*
+  - Watchdog tasks
+  - Task definition versioning
+  - Schedule conflict & load map
+  - Intent labels & purpose-driven views
+  - Failure triage assistant *(explain/assist only — autonomous repair is out)*
+  - Approval gates *(the gate must be out-of-band, or an agent approves itself)*
+  - Environment profile manager *(reports present/missing, never stores values)*
+  - Calendar & quiet hours *(not cheap — deferral means rewriting triggers on the machine)*
+  - Restore & migrate wizard
+  - Automation inventory report
+
+---
+
+<a id="post-launch"></a>
+
+### 🛠️ Post-launch
+
+The go-public checklist is **done** — [the repo went public on 2026-09-13](#completed--go-public),
+and the whole of it, item by item, is preserved in Part II. What follows is what outlived it: real
+work, none of it a gate on anybody using Cronsole.
+
+- [x] **A click-through demo** *(2026-09-13)* —
+      [`cronsole-demo.ai-automation-tools.dev`](https://cronsole-demo.ai-automation-tools.dev).
+      This replaced the GIF item rather than deferring it: a visitor can open the real dashboard and
+      **use** it — filter, switch views, open the calendar, read the rail — which no recording does.
+
+      It is the real bundle, not a mock-up. `vite build --mode demo` swaps the axios adapter for one
+      answering from fixtures compiled in (`frontend/src/demo/`), so there is no backend, no database,
+      no agent and no credential anywhere on that page. **Writes refuse with `409`, deliberately not
+      `403`** — the response interceptor treats 401/403 on a non-auth route as a dead session and
+      would have logged the visitor out of a demo that has no login.
+
+      **The fixtures are in the demo bundle and must stay out of every other one.** That is a fold on
+      `import.meta.env.MODE`, verified both ways before shipping and asserted in `publish-demo.yml`,
+      because a fold that silently stops folding is this repo's most frequent bug shape. Task content
+      is invented; **platform descriptors are the real ones**, since they are product metadata
+      identical on every install and a demo that misrepresented capability support would be worse than
+      no demo.
+
+- [ ] **Richer copy for the front door.** What is left of the old GIF item.
+- [ ] **Structured logs**, narrowed to their real audience: the user debugging their own install
+      and pasting the result into an issue. *(The rest of the old "production operations" item was
+      cancelled or dissolved — see [Operations](#completed--go-public) in Part II for why an
+      error-tracking service is the one thing this product must not ship.)*
+- [ ] **Release notes generated from real commits** rather than written by hand. Low value until
+      releases are frequent; the [versioning scheme](contributing/Versioning.md) and the first three
+      tags are already in place.
+- [x] **Move the front door to `ai-automation-tools.dev`** — the org's own domain, and D4 of the org
+      migration. **Live 2026-09-13**: [`cronsole.ai-automation-tools.dev`](https://cronsole.ai-automation-tools.dev)
+      and [`cronsole-demo.ai-automation-tools.dev`](https://cronsole-demo.ai-automation-tools.dev),
+      both HTTPS-enforced, both publishing from the app repo on merge.
+
+      **The front door's custom domain silently did not stick the first time.** A toggle of the Pages
+      `cname` reported success and left it `null`, so the site served without its domain while
+      holding the *apex* certificate — visible only in the API, since the demo beside it was already
+      answering `200`. Re-applied and verified rather than assumed. The same class of thing as every
+      other published-surface bug here: the success report was not the success.
+
+      **The registry path does not move and never will** — `mikesailab.com/cronsole-registry/` is
+      read at runtime by installed copies, GitHub does not redirect renamed Pages paths, and moving
+      it is a silent outage on somebody else's machine. That the *human* host can move while the
+      *machine* path is frozen is exactly what the two-link rule was built for, and this is the first
+      time it has paid out.
+
+      **The old host stays live.** GitHub Pages cannot issue a 308, so the `edge-spectrum` precedent
+      (a path-preserving redirect on Vercel) does not transfer — `cronsole.mikesailab.com` keeps
+      serving the same page rather than redirecting to the new one.
+
+      **Left:** the DNS records, then repointing the 13 published references in one sweep. They are
+      deliberately *not* repointed yet: the new host does not resolve until DNS lands, and a link to
+      an NXDOMAIN is worse than a stale link to a host that still works.
+
+      **Deploy keys were disabled org-wide**, which blocked both publish jobs; the policy was turned
+      on and both now authenticate. They still **skip with a notice** when their secret is absent
+      rather than failing, unlike the two established jobs — a job that reddens every unrelated merge
+      teaches people to ignore a red X.
+
+      **`check-frontdoor-published.mjs` checks three hosts now.** The old `cronsole.mikesailab.com`
+      stays in the list on purpose: it keeps *serving* rather than redirecting, because GitHub Pages
+      cannot issue a 308, so it can go stale exactly like the others and nobody would notice.
+
+- [ ] **Multi-user / hosted account system** *(deferred — explicitly not a local-first launch
+      requirement)*: password reset (needs email infra), open registration as a *designed*
+      invite/approval flow, JWT refresh tokens, per-user agent pairing, account management and
+      roles.
+
+---
+
+<a id="open-decisions"></a>
+
+### Open decisions
+
+- [x] **Installed-app database: bundled Postgres vs. SQLite** *(opened 2026-07-28, **dissolved
+      2026-09-11**)* — it "blocked the whole-stack installer and only that", and there is no
+      whole-stack installer. Docker Compose already brings Postgres, and a clone install points at
+      one the user runs. Nothing chose SQLite; **the question stopped being asked**, which is a
+      different and better outcome than answering it. `Template.tags String[]` stays Postgres-only
+      and the integration suite stays unforked.
+
+- [ ] **Distribution: source-only, and what it costs** *(decided 2026-09-11 — recorded here because
+      the cost is real and someone will reopen it)*. Cronsole ships as a **clone or a Docker stack**.
+      No signed installer, no certificate, no prebuilt binary.
+
+      **What it buys:** the certificate disappears (weeks of identity verification and a renewal
+      treadmill), SmartScreen never appears because locally-built binaries carry no
+      Mark-of-the-Web, the update channel becomes `git pull`, and there is no signed artifact whose
+      provenance has to be defended. For a **local-first, single-user** tool whose whole claim is
+      that it runs on your machine and reports the truth, *"read the source you are running"* is a
+      stronger answer than a signature — and it is the answer this project can actually keep.
+
+      **What it costs, stated plainly:** the audience is now people who have git, Docker (or Node +
+      Postgres + the .NET SDK), and will run PowerShell as Administrator. That is a developer
+      audience. A non-technical user cannot install Cronsole, and **that is a choice, not a gap** —
+      [`STATUS.md`](STATUS.md) must say so in those words, because "no installer yet" reads as
+      unfinished and invites someone to finish it.
+
+      **Reopen it if** a real non-developer asks for it, or the project grows a second maintainer
+      who wants to distribute binaries. Reopening means the certificate comes back — there is no
+      half-measure, because the MOTW rule above has no exceptions.
+- [ ] **Agent transport** — WebSocket only, or hybrid with long-polling for restricted networks?
+- [ ] **Template registry — static vs. dynamic at launch** — a static JSON registry is leading;
+      earn a DB-backed API + admin/submission UI later. *(Format is already decided: target-agnostic
+      JSON, compiled per target.)*
+
+Resolved decisions are in [Part II](#completed--resolved-decisions).
+
+---
+
+<a id="strategy-guardrails"></a>
+
+### Strategy guardrails
 
 - **Reliability control plane, not universal scheduler** — two excellent connectors beat six half
   connectors. **Sharpened 2026-08-12, because the capability matrix changed what "half" means.**
@@ -2682,34 +2728,44 @@ cover the repo and product going public, not standing up a multi-tenant cloud se
 
 ---
 
-## Appendix — Template & scheduler catalog (backlog reference)
+<a id="appendix--template--scheduler-catalog-backlog-reference"></a>
+
+### Appendix — Template & scheduler catalog (backlog reference)
 
 > The **content backlog** the template registry will hold. The abstract catalog can grow freely via
 > the registry, but **execution targets unlock only when reliable** (the guardrail above). The
 > concrete near-term commitment is the MVP starter set + the Windows compiler; everything below that
 > is a prioritized reference, not committed scope.
 
-### Core model
+<a id="core-model"></a>
+
+#### Core model
 
 Every automation is three interchangeable parts — **Trigger → Action → Execution Target** (e.g.
 *every weekday 07:00 → run PowerShell script → Windows Task Scheduler*). Cronsole exposes one
 consistent UI and compiles the abstract template to the chosen target's native config. Per-task
 **execution settings**: identity, timeout, retries, concurrency, notifications, logging, governance.
 
-### MVP starter set (first registry templates)
+<a id="mvp-starter-set-first-registry-templates"></a>
+
+#### MVP starter set (first registry templates)
 
 PowerShell Script · Bash Script · Python Script · Executable · Docker Container · REST API ·
 Webhook · Folder Watch · File Archive · Database Backup · HTTP Health Check · Windows Service
 Monitor · Linux Service Monitor · Certificate Check · Report Generator · GitHub Repo Health Check ·
 Scheduled AI Prompt · AI Research Digest · AI Code Review · AI Multi-Agent Workflow.
 
-### MVP execution targets (compile priority order)
+<a id="mvp-execution-targets-compile-priority-order"></a>
+
+#### MVP execution targets (compile priority order)
 
 Windows Task Scheduler *(real today)* → Cron → systemd Timers → GitHub Actions → Kubernetes
 CronJobs → AWS EventBridge Scheduler → Azure Functions → Google Cloud Scheduler → ChatGPT Tasks →
 Claude Code Routines.
 
-### Full template taxonomy (categories → templates)
+<a id="full-template-taxonomy-categories--templates"></a>
+
+#### Full template taxonomy (categories → templates)
 
 - **Script & command**: Run Program / PowerShell / CMD / Bash / Python / Node.js / Java / .NET / Docker Container / Remote SSH·WinRM.
 - **Schedule shapes**: One-Time · Every-N-Min · Hourly · Daily · Weekdays · Weekly · Monthly · First/Last Weekday · Quarterly · Annual · Business Day · Random Window · Delayed · Maintenance Window · Sunrise/Sunset.
@@ -2722,7 +2778,9 @@ Claude Code Routines.
 - **Reporting & notifications**: Generate/Email Report · Daily Digest · Weekly Summary · Slack · Teams · SMS · PagerDuty · ServiceNow · Jira · Approval Request · Escalation Workflow.
 - **AI / LLM**: Scheduled Prompt · Research Briefing · News Digest · Document Summarizer · Email Triage · Meeting Prep/Follow-up · Repo/PR/Security Review · Log Analyzer · Report Generator · Data Classifier · Change Detector · Agent Watchdog · Remediation Agent · Multi-Agent Workflow · Human-Approval Workflow.
 
-### Universal trigger types
+<a id="universal-trigger-types"></a>
+
+#### Universal trigger types
 
 - **Time**: One-Time · Interval · Cron · Calendar · Maintenance Window.
 - **System**: Startup · Login · Logout · Shutdown · Idle · Resume · Windows Event · Process Start/Stop · Service Change.
@@ -2731,7 +2789,9 @@ Claude Code Routines.
 - **External**: Webhook · Email · Calendar Event · Monitoring Alert · IoT Event.
 - **Conditional**: Price Threshold · Website Changed · Certificate Expiring · Missing File · Previous-Task Success/Failure · Human Approval.
 
-### Scheduler adapter backlog (execution targets)
+<a id="scheduler-adapter-backlog-execution-targets"></a>
+
+#### Scheduler adapter backlog (execution targets)
 
 - **Operating systems**: Windows Task Scheduler · PowerShell Scheduled Jobs · Windows Services · SQL Server Agent · Cron · Anacron · systemd Timers · launchd · BSD periodic · at.
 - **CI/CD**: GitHub Actions · GitLab CI · Jenkins · Azure DevOps · CircleCI · TeamCity · Buildkite · Tekton · Argo Workflows.
@@ -2741,3 +2801,10 @@ Claude Code Routines.
 - **Business automation**: Zapier · Make · Workato · Tray.io · IFTTT · MuleSoft · Boomi · ServiceNow Flow.
 - **Database**: SQL Server Agent · pg_cron · pgAgent · Oracle DBMS Scheduler · MySQL Event Scheduler · Snowflake Tasks · MongoDB Atlas Triggers.
 - **AI platforms**: ChatGPT Tasks · Claude Code Routines · Claude Scheduled Tasks · Claude Hooks · LangGraph · CrewAI · AutoGen · Semantic Kernel · GitHub Copilot Agents · Azure AI Foundry · Vertex AI Agents · Amazon Bedrock Agents · Custom MCP Agents.
+
+---
+
+<p align="center">
+  <a href="README.md">← Docs home</a> ·
+  <a href="CHANGELOG.md">Changelog →</a>
+</p>

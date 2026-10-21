@@ -1,0 +1,521 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "Cronsole — Source Data Flow",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "output": "source-data-flow.html",
+    "repository": {
+      "url": "https://github.com/ai-automation-tools/cronsole.git",
+      "revision": "41ab7837b56198a541c3d237d8d07eb09e6027f8"
+    }
+  },
+  "stages": [
+    {
+      "label": "Source systems"
+    },
+    {
+      "label": "Connection adapters"
+    },
+    {
+      "label": "Import and refresh"
+    },
+    {
+      "label": "Store and execute"
+    },
+    {
+      "label": "Display and targets"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "windows",
+      "type": "external",
+      "label": "Windows tasks",
+      "sublabel": "Task Scheduler",
+      "stage": 0,
+      "row": 0,
+      "sources": [
+        {
+          "path": "agent/Cronsole.Agent/AgentService.cs",
+          "line": 252,
+          "end_line": 288
+        },
+        {
+          "path": "agent/Cronsole.Agent/AgentService.cs",
+          "line": 556,
+          "end_line": 580
+        }
+      ]
+    },
+    {
+      "id": "windows_bridge",
+      "type": "backend",
+      "label": "Agent + connector",
+      "sublabel": ".NET / Socket.IO",
+      "stage": 1,
+      "row": 0,
+      "sources": [
+        {
+          "path": "backend/src/connectors/WindowsAgentConnector.ts",
+          "line": 158,
+          "end_line": 205
+        },
+        {
+          "path": "backend/src/connectors/WindowsAgentConnector.ts",
+          "line": 208,
+          "end_line": 225
+        }
+      ]
+    },
+    {
+      "id": "claude",
+      "type": "cloud",
+      "label": "Claude Code",
+      "sublabel": "Hosted routines",
+      "stage": 0,
+      "row": 1,
+      "sources": [
+        {
+          "path": "backend/src/connectors/ClaudeConnector.ts",
+          "line": 142,
+          "end_line": 167
+        },
+        {
+          "path": "backend/src/connectors/ClaudeConnector.ts",
+          "line": 185,
+          "end_line": 208
+        }
+      ]
+    },
+    {
+      "id": "claude_bridge",
+      "type": "backend",
+      "label": "Claude connector",
+      "sublabel": "Session OAuth",
+      "stage": 1,
+      "row": 1,
+      "sources": [
+        {
+          "path": "backend/src/connectors/ClaudeConnector.ts",
+          "line": 142,
+          "end_line": 167
+        },
+        {
+          "path": "backend/src/connectors/ClaudeConnector.ts",
+          "line": 185,
+          "end_line": 208
+        }
+      ]
+    },
+    {
+      "id": "gemini",
+      "type": "cloud",
+      "label": "Gemini Triggers",
+      "sublabel": "Google managed agents",
+      "stage": 0,
+      "row": 2,
+      "sources": [
+        {
+          "path": "backend/src/connectors/GeminiTriggersConnector.ts",
+          "line": 160,
+          "end_line": 190
+        },
+        {
+          "path": "backend/src/connectors/GeminiTriggersConnector.ts",
+          "line": 341,
+          "end_line": 355
+        }
+      ]
+    },
+    {
+      "id": "gemini_bridge",
+      "type": "backend",
+      "label": "Gemini connector",
+      "sublabel": "API key / HTTPS",
+      "stage": 1,
+      "row": 2,
+      "sources": [
+        {
+          "path": "backend/src/connectors/GeminiTriggersConnector.ts",
+          "line": 160,
+          "end_line": 190
+        },
+        {
+          "path": "backend/src/connectors/GeminiTriggersConnector.ts",
+          "line": 341,
+          "end_line": 355
+        }
+      ]
+    },
+    {
+      "id": "github",
+      "type": "cloud",
+      "label": "GitHub Actions",
+      "sublabel": "Watched repositories",
+      "stage": 0,
+      "row": 3,
+      "sources": [
+        {
+          "path": "backend/src/connectors/GitHubActionsConnector.ts",
+          "line": 156,
+          "end_line": 205
+        },
+        {
+          "path": "backend/src/connectors/GitHubActionsConnector.ts",
+          "line": 239,
+          "end_line": 263
+        }
+      ]
+    },
+    {
+      "id": "github_bridge",
+      "type": "backend",
+      "label": "GitHub connector",
+      "sublabel": "PAT / read-only",
+      "stage": 1,
+      "row": 3,
+      "sources": [
+        {
+          "path": "backend/src/connectors/GitHubActionsConnector.ts",
+          "line": 156,
+          "end_line": 205
+        },
+        {
+          "path": "backend/src/connectors/GitHubActionsConnector.ts",
+          "line": 239,
+          "end_line": 263
+        }
+      ]
+    },
+    {
+      "id": "n8n",
+      "type": "cloud",
+      "label": "n8n",
+      "sublabel": "Workflows + executions",
+      "stage": 0,
+      "row": 4,
+      "sources": [
+        {
+          "path": "backend/src/connectors/N8nConnector.ts",
+          "line": 96,
+          "end_line": 104
+        },
+        {
+          "path": "backend/src/connectors/N8nConnector.ts",
+          "line": 158,
+          "end_line": 168
+        },
+        {
+          "path": "backend/src/connectors/N8nConnector.ts",
+          "line": 252,
+          "end_line": 267
+        }
+      ]
+    },
+    {
+      "id": "n8n_bridge",
+      "type": "backend",
+      "label": "n8n connector",
+      "sublabel": "REST read / MCP run",
+      "stage": 1,
+      "row": 4,
+      "sources": [
+        {
+          "path": "backend/src/connectors/N8nConnector.ts",
+          "line": 96,
+          "end_line": 104
+        },
+        {
+          "path": "backend/src/connectors/N8nConnector.ts",
+          "line": 158,
+          "end_line": 168
+        },
+        {
+          "path": "backend/src/connectors/N8nConnector.ts",
+          "line": 252,
+          "end_line": 267
+        }
+      ]
+    },
+    {
+      "id": "sync",
+      "type": "backend",
+      "label": "Scope + sync",
+      "sublabel": "Import / refresh / timer",
+      "stage": 2,
+      "row": 2,
+      "sources": [
+        {
+          "path": "backend/src/services/syncConnection.ts",
+          "line": 26,
+          "end_line": 39
+        },
+        {
+          "path": "backend/src/services/syncConnection.ts",
+          "line": 58,
+          "end_line": 96
+        },
+        {
+          "path": "backend/src/services/AutoSync.ts",
+          "line": 27,
+          "end_line": 79
+        }
+      ]
+    },
+    {
+      "id": "db",
+      "type": "database",
+      "label": "PostgreSQL",
+      "sublabel": "Tasks + execution logs",
+      "stage": 3,
+      "row": 2,
+      "sources": [
+        {
+          "path": "backend/prisma/schema.prisma",
+          "line": 8,
+          "end_line": 11
+        },
+        {
+          "path": "backend/src/services/TaskService.ts",
+          "line": 54,
+          "end_line": 106
+        },
+        {
+          "path": "backend/src/services/NativeScheduler.ts",
+          "line": 103,
+          "end_line": 144
+        }
+      ]
+    },
+    {
+      "id": "dashboard",
+      "type": "frontend",
+      "label": "Cronsole dashboard",
+      "sublabel": "REST + live refresh",
+      "stage": 4,
+      "row": 2,
+      "sources": [
+        {
+          "path": "backend/src/routes/tasks.ts",
+          "line": 62,
+          "end_line": 75
+        },
+        {
+          "path": "backend/src/routes/tasks.ts",
+          "line": 1222,
+          "end_line": 1240
+        },
+        {
+          "path": "frontend/src/hooks/useLiveTaskUpdates.ts",
+          "line": 28,
+          "end_line": 42
+        }
+      ]
+    },
+    {
+      "id": "native",
+      "type": "backend",
+      "label": "Cronsole-native",
+      "sublabel": "Scheduler + executor",
+      "stage": 3,
+      "row": 4,
+      "sources": [
+        {
+          "path": "backend/src/services/NativeScheduler.ts",
+          "line": 103,
+          "end_line": 158
+        },
+        {
+          "path": "backend/src/services/NativeScheduler.ts",
+          "line": 41,
+          "end_line": 65
+        },
+        {
+          "path": "backend/src/services/NativeTaskExecutor.ts",
+          "line": 470,
+          "end_line": 528
+        }
+      ],
+      "tag": "Backend host"
+    },
+    {
+      "id": "targets",
+      "type": "external",
+      "label": "Native job targets",
+      "sublabel": "HTTP / program / script / check",
+      "stage": 4,
+      "row": 4,
+      "sources": [
+        {
+          "path": "backend/src/services/NativeTaskExecutor.ts",
+          "line": 522,
+          "end_line": 528
+        }
+      ]
+    }
+  ],
+  "flows": [
+    {
+      "id": "windows_read",
+      "from": "windows",
+      "to": "windows_bridge",
+      "label": "Task snapshot",
+      "variant": "emphasis"
+    },
+    {
+      "id": "windows_sync",
+      "from": "windows_bridge",
+      "to": "sync",
+      "label": "TaskInfo"
+    },
+    {
+      "id": "windows_control",
+      "from": "windows_bridge",
+      "to": "windows",
+      "label": "Signed run"
+    },
+    {
+      "id": "claude_read",
+      "from": "claude",
+      "to": "claude_bridge",
+      "label": "Routine metadata",
+      "variant": "emphasis"
+    },
+    {
+      "id": "claude_sync",
+      "from": "claude_bridge",
+      "to": "sync",
+      "label": "TaskInfo"
+    },
+    {
+      "id": "claude_control",
+      "from": "claude_bridge",
+      "to": "claude",
+      "label": "Run via OAuth"
+    },
+    {
+      "id": "gemini_read",
+      "from": "gemini",
+      "to": "gemini_bridge",
+      "label": "Jobs + results",
+      "variant": "emphasis"
+    },
+    {
+      "id": "gemini_sync",
+      "from": "gemini_bridge",
+      "to": "sync",
+      "label": "TaskInfo"
+    },
+    {
+      "id": "gemini_control",
+      "from": "gemini_bridge",
+      "to": "gemini",
+      "label": "Run via API"
+    },
+    {
+      "id": "github_read",
+      "from": "github",
+      "to": "github_bridge",
+      "label": "Jobs + results",
+      "variant": "emphasis"
+    },
+    {
+      "id": "github_sync",
+      "from": "github_bridge",
+      "to": "sync",
+      "label": "TaskInfo"
+    },
+    {
+      "id": "n8n_read",
+      "from": "n8n",
+      "to": "n8n_bridge",
+      "label": "Jobs + results",
+      "variant": "emphasis"
+    },
+    {
+      "id": "n8n_sync",
+      "from": "n8n_bridge",
+      "to": "sync",
+      "label": "TaskInfo"
+    },
+    {
+      "id": "n8n_control",
+      "from": "n8n_bridge",
+      "to": "n8n",
+      "label": "Run: MCP token"
+    },
+    {
+      "from": "sync",
+      "to": "db",
+      "label": "Upsert tasks",
+      "variant": "emphasis"
+    },
+    {
+      "from": "db",
+      "to": "dashboard",
+      "label": "REST task data",
+      "variant": "emphasis"
+    },
+    {
+      "from": "db",
+      "to": "native",
+      "label": "Due job specs"
+    },
+    {
+      "from": "native",
+      "to": "db",
+      "label": "Run logs + next"
+    },
+    {
+      "from": "native",
+      "to": "targets",
+      "label": "Execute job"
+    },
+    {
+      "from": "targets",
+      "to": "native",
+      "label": "Result / output"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "What feeds the task list",
+      "items": [
+        "Five platforms are read through connectors: Windows Task Scheduler (through the local agent), Claude Code routines, Gemini Triggers, GitHub Actions and n8n. Vercel Cron, also read-only, follows the same connector-to-sync path and is left off the map to keep it readable. Quick links are navigation only and feed nothing.",
+        "Periodic sync is on by default: each connection refreshes its tracked tasks every 30 minutes (5 minutes to a day, or off). It is refresh-only, so it never adopts a new folder or clears an exclusion; Import and Refresh run the same sync on demand.",
+        "The native scheduler checks due jobs every 30 seconds."
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Reading and controlling are different paths",
+      "items": [
+        "Primary arrows show data returned by source reads. Reverse arrows show representative Run commands dispatched by Cronsole.",
+        "Windows: the agent reads Task Scheduler, sends snapshots over Socket.IO, and verifies signed commands before starting a task.",
+        "Claude: session OAuth reads and controls hosted routines. Without it, declared entries and per-routine fire tokens are the fallback; a declared entry is not a live platform read. A start acknowledgement does not prove completion."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Platform boundaries",
+      "items": [
+        "GitHub Actions is an observer: reads scheduled workflows, YAML schedules and run outcomes; changes and runs stay on GitHub.",
+        "n8n reads workflows and execution results through REST. Run requires an MCP token; publishing and editing stay in n8n.",
+        "Gemini supports run, create, pause and delete. In-place schedule/prompt changes are unavailable; recreation is a separate operation. Claude deletion stays in claude.ai."
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "One app view; different execution owners",
+      "items": [
+        "Scope + sync filters tracked folders or configured scope and exclusions, then upserts platform tasks without overwriting user labels. Partial listings must not retire missing tasks.",
+        "Native job definitions already live in PostgreSQL: no external import or Windows agent. The backend executes HTTP, program, script and check jobs and stores their outcomes. Due runs more than five minutes late are skipped.",
+        "The dashboard reads stored task data through REST. Socket.IO task:updated invalidates queries and prompts a refetch; PostgreSQL does not push directly to the browser.",
+        "Platform run history/output is read separately on demand where supported; it is not all copied into ExecutionLog."
+      ]
+    }
+  ]
+}

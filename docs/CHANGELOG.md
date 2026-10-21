@@ -12,8 +12,54 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
+### Added
+
+- **A Cronsole-native or Windows task can be set to run on demand** (2026-10-21). Edit task ›
+  Schedule has a **No schedule (run on demand)** box: the task stays and runs only when started
+  by hand (Run now, a phone shortcut, MCP). Unticking it gives an on-demand task a schedule again.
+  `PATCH /api/tasks/:id/schedule` takes `schedule: null` for those two platforms (400 elsewhere).
+  On Windows the agent removes only the time-based trigger and keeps any boot / logon / event
+  trigger; the null trigger is signed like any other. **Needs a republished agent** — an older
+  one refuses, and the error says to republish. MCP: `update_task_schedule` takes `schedule: null`.
+- **The source data-flow diagram is on the homepage, not the README** (2026-10-19). The
+  [homepage](https://cronsole.ai-automation-tools.dev/#sec-flow) shows it under *How it works* and links to the interactive version.
+  `scripts/build-diagram.mjs` copies the HTML and PNG into `registry-site/` (the front door
+  publishes its flat files), and `--check` flags a copy that differs.
+- **Source data-flow diagram** (2026-10-19). [`docs/diagrams/`](diagrams/README.md) holds an
+  Archify diagram of how tasks get from each platform through its connector and the sync into
+  PostgreSQL and the dashboard, with the native scheduler alongside; the root README shows it.
+  Every node cites its code at a pinned commit. `node scripts/build-diagram.mjs` builds it,
+  `--check` reports drift, and CI warns (never fails) when cited code changes.
+
 ### Changed
 
+- **The front door is Cronsole's homepage, not the registry's** (2026-10-19). `registry-site/index.html`
+  no longer brands itself "Cronsole Registry": the top bar reads **Cronsole**, the hero's primary
+  button opens the [live demo](https://cronsole-demo.ai-automation-tools.dev/), the second jumps to
+  the **Template registry** section further down, and the third goes to GitHub. The registry
+  (collections, featured templates, Browse, import guide, all unchanged) now sits under that
+  labelled section after the quick start. Also: a Demo and an `ai-automation-tools.dev` link in the
+  nav (the nav collapses at 820px instead of 720px so the row still fits), a Resources section with
+  the demo, docs, changelog and roadmap, canonical and Open Graph tags, and "More tools" in the footer.
+
+- **Periodic sync is on by default** (2026-10-19): every connection now refreshes every 30
+  minutes unless turned off in **Sources › Show details › Sync automatically**. The
+  `20261019120000_default_periodic_sync_on` migration sets the column default and switches on
+  existing connections that had it off (off and never-chose were indistinguishable; the feature was
+  three days old). Still a refresh only: a new folder still needs a manual sync or Import.
+
+- **Docs: the roadmap is on the lab roadmap standard** (2026-10-19). `docs/ROADMAP.md` keeps every
+  item and its anchors, but the *Part I — Open work* / *Part II — Completed* split is gone: the
+  shipped tiers are now Phases 1 to 8 (Foundation, P0, P1, Sources, P2, P3, the August sprints,
+  resolved decisions), the go-public checklist is the `## 🚦 Public release (done 2026-09-13)` phase,
+  and everything open sits under `## After public release` as `###` groups in the old priority
+  order (Next up, P0, P1, P2, Sources, P3, Post-launch, Open decisions), with the guardrails and the
+  template appendix after them. Non-standard markers went: `[~]` is `- [ ] Partly shipped:` and
+  `[>]` is `- [x] Moved:`. The 19 plain bullets of the MVP build-out became `- [x]` lines. In the
+  public-release phase the four partly-shipped gates are ticked, since the checklist closed at the
+  flip and their remainder (a GIF, generated release notes, structured logs, richer front-door copy)
+  is already open under Post-launch; the multi-user account line there was a duplicate of
+  Post-launch's and was removed. `check-doc-links.mjs` passes, so every old anchor still resolves.
 - Source scout 2026-10-13: queued OpenClaw cron; watching Hermes, Kimi, Perplexity, Manus, Cursor
   Automations, Codex scheduled tasks; quick links added Perplexity, Kimi, Manus, Cursor, Vercel URL
   updated (`/dashboard` now 404s).
@@ -122,6 +168,10 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Fixed
 
+- **The dashboard search box dropped keys and sometimes wiped itself** (2026-10-21). Fast typing
+  lost characters ("backup" became "b") because the field was bound to the URL, which React Router
+  updates in a transition. The box now keeps its own text, updates the URL once you pause, and a
+  keystroke no longer re-renders the whole dashboard.
 - **Applying a native script/check template without `parameters` stored its `{{placeholders}}`
   raw** (2026-10-14). The job spec is now always filled from the declared defaults; a required
   parameter with no value (or an undeclared placeholder) is a `400` instead of a task that runs

@@ -347,9 +347,8 @@ namespace Cronsole.Agent
             return current;
         }
 
-        public bool UpdateTaskSchedule(string path, TriggerSpec trigger)
+        public bool UpdateTaskSchedule(string path, TriggerSpec? trigger)
         {
-            if (trigger == null) throw new ArgumentNullException(nameof(trigger));
             using (TaskService ts = new TaskService())
             {
                 var task = ts.GetTask(path);
@@ -371,7 +370,9 @@ namespace Cronsole.Agent
                     if (TriggerReader.Read(def.Triggers[i]) != null) { cronIndex = i; break; }
                 }
                 if (cronIndex >= 0) def.Triggers.RemoveAt(cronIndex);
-                def.Triggers.Add(TriggerBuilder.Build(trigger));
+                // A null trigger removes the schedule and adds nothing: the task
+                // keeps its other triggers (if any) and otherwise runs on demand.
+                if (trigger != null) def.Triggers.Add(TriggerBuilder.Build(trigger));
                 task.Folder.RegisterTaskDefinition(task.Name, def);
                 return true;
             }

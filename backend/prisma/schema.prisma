@@ -92,12 +92,12 @@ model PlatformConnection {
   isActive  Boolean      @default(true)
   lastSync  DateTime?
 
-  // Periodic sync (opt-in, per connection). NULL = off, which is every existing
-  // row. A refresh only — `scope: 'tracked'` — never an import, so it cannot
+  // Periodic sync (per connection, on by default at 30 min; NULL = turned off).
+  // A refresh only — `scope: 'tracked'` — never an import, so it cannot
   // clear an exclusion or adopt a folder. `autoSyncAt` is the last ATTEMPT, so a
   // failing platform is retried once per interval rather than every tick;
   // `lastSync` stays the one writer-of-record for "a sync happened".
-  syncIntervalMin Int?
+  syncIntervalMin Int?      @default(30)
   autoSyncAt      DateTime?
   autoSyncError   String?
 

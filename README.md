@@ -178,6 +178,7 @@ Full documentation lives in **[`docs/`](docs/README.md)**. The main sections:
 |:---|:---|
 | [**📚 Documentation home**](docs/README.md) | The map to every guide, reference, and design doc. |
 | [**📊 Features**](docs/FEATURES.md) | Everything Cronsole does today, and what each feature actually gives you. |
+| [**🧭 Diagrams**](docs/diagrams/README.md) | The source data flow shown on the [homepage](https://cronsole.ai-automation-tools.dev/#sec-flow), interactive and linked to the code, plus how it stays in step with it. |
 | [**📍 Status**](docs/STATUS.md) | What's supported on which platform, what's pre-1.0, and what isn't built yet. |
 | [**🛡️ Trust**](docs/TRUST.md) | Cronsole runs an elevated process on your machine. The complete list of what it can do, what it cannot, and how to remove it. |
 | [**🔒 Privacy**](docs/PRIVACY.md) | Every outbound connection Cronsole can make — and how to verify that a default install makes none. |

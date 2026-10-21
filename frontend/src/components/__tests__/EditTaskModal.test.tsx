@@ -257,9 +257,25 @@ describe('a part this platform cannot change', () => {
     );
   });
 
-  it('explains an uneditable Windows trigger instead of hiding the section', () => {
+  it('clears a schedule with null when "No schedule" is ticked', async () => {
+    renderModal(windowsTask);
+    fireEvent.click(screen.getByLabelText(/No schedule/i));
+    fireEvent.click(saveButton());
+    await waitFor(() =>
+      expect(api.patch).toHaveBeenCalledWith('/tasks/task-1/schedule', { schedule: null })
+    );
+  });
+
+  it('opens a no-schedule task on demand, and can give it a schedule', async () => {
     renderModal({ ...windowsTask, schedule: undefined });
-    expect(screen.getByText(/boot, logon, event, or on-demand only/i)).toBeInTheDocument();
+    const box = screen.getByLabelText(/No schedule/i) as HTMLInputElement;
+    expect(box.checked).toBe(true);
+    fireEvent.click(box);
+    expect(screen.getByText(/This adds a trigger/i)).toBeInTheDocument();
+    fireEvent.click(saveButton());
+    await waitFor(() =>
+      expect(api.patch).toHaveBeenCalledWith('/tasks/task-1/schedule', { schedule: '0 9 * * *' })
+    );
   });
 
   it('refuses a multi-action Windows task with the reason', () => {

@@ -14,6 +14,17 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **A Cronsole-native or Windows task can be set to run on demand** (2026-10-21). Edit task ›
+  Schedule has a **No schedule (run on demand)** box: the task stays and runs only when started
+  by hand (Run now, a phone shortcut, MCP). Unticking it gives an on-demand task a schedule again.
+  `PATCH /api/tasks/:id/schedule` takes `schedule: null` for those two platforms (400 elsewhere).
+  On Windows the agent removes only the time-based trigger and keeps any boot / logon / event
+  trigger; the null trigger is signed like any other. **Needs a republished agent** — an older
+  one refuses, and the error says to republish. MCP: `update_task_schedule` takes `schedule: null`.
+- **The source data-flow diagram is on the homepage, not the README** (2026-10-19). The
+  [homepage](https://cronsole.ai-automation-tools.dev/#sec-flow) shows it under *How it works* and links to the interactive version.
+  `scripts/build-diagram.mjs` copies the HTML and PNG into `registry-site/` (the front door
+  publishes its flat files), and `--check` flags a copy that differs.
 - **Source data-flow diagram** (2026-10-19). [`docs/diagrams/`](diagrams/README.md) holds an
   Archify diagram of how tasks get from each platform through its connector and the sync into
   PostgreSQL and the dashboard, with the native scheduler alongside; the root README shows it.

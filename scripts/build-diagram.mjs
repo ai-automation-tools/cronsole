@@ -7,7 +7,8 @@
  * `meta.repository.revision`. A build renders it with Archify
  * (https://github.com/tt-a1i/archify) into source-data-flow.html (interactive;
  * source links go to GitHub at that commit) and source-data-flow.png (the
- * README image), and records the git blob of every cited file at the pinned
+ * homepage image; both are copied into registry-site/, whose flat files are what
+ * the homepage publishes), and records the git blob of every cited file at the pinned
  * commit in source-data-flow.sources.lock.json.
  *
  * The check compares those blobs with the staged copies. A cited file that
@@ -29,7 +30,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { copyFileSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, join, relative, resolve } from 'node:path';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -43,6 +44,7 @@ const PNG = join(DIAGRAMS, `${STEM}.png`);
 const RECEIPT = join(DIAGRAMS, `${STEM}.delivery.json`);
 const LOCK = join(DIAGRAMS, `${STEM}.sources.lock.json`);
 const BUILD_DIR = join(DIAGRAMS, '.build');
+const HOMEPAGE = join(ROOT, 'registry-site');
 const SCREENSHOT = `${STEM}.visual-check.2048x1320.dark.png`;
 
 const git = (...args) =>
@@ -75,6 +77,12 @@ function findIssues() {
   const lock = readJson(LOCK);
   if (lock.revision !== spec.meta.repository.revision) {
     issues.push('the pinned revision changed since the last build; rebuild it');
+  }
+  for (const built of [HTML, PNG]) {
+    const copy = join(HOMEPAGE, basename(built));
+    if (!existsSync(copy) || !readFileSync(copy).equals(readFileSync(built))) {
+      issues.push(`registry-site/${basename(built)} differs from the build; rebuild it`);
+    }
   }
   const changed = [];
   for (const path of citedPaths(spec)) {
@@ -123,6 +131,7 @@ function build(pinHead, script) {
   const shot = join(BUILD_DIR, 'visual', SCREENSHOT);
   if (visual.status !== 0 || !existsSync(shot)) fail(`Archify visual-check failed:\n${(visual.stdout ?? '').slice(-2000)}`);
   copyFileSync(shot, PNG);
+  for (const built of [HTML, PNG]) copyFileSync(built, join(HOMEPAGE, basename(built)));
 
   // Archify records absolute paths; a public repo must not carry the builder's disk layout.
   const receipt = readJson(RECEIPT);

@@ -6449,6 +6449,24 @@ In Docker mode, `docker restart taskhub-backend-1` is still right. For a republi
 `$env:TEMP\cronsole-republish.log` and act only after it says `DONE`. `/doctor` checks 1–3, the
 skill's traps table and its references now give both modes, default first.
 
+## 101. Typing in the dashboard search drops keys and sometimes wipes the box
+
+**Symptom.** The task search box is sluggish, misses keys, and can snap back to an older value
+mid-word. Typing "backup" quickly left **"b"** in the box. Other fields worked, only slowly.
+
+**Cause.** The input's `value` was the URL (`filters.search` from `useSearchParams`), and
+React Router 8's `BrowserRouter` applies every location change inside `startTransition`
+(`useTransitions` defaults on). After a keystroke the urgent render still read the **old** URL,
+so React put the old value back into the field. The new one landed only when the transition
+(a full re-filter of every task) committed, and the next keystroke interrupted it. Keeping the
+text in `DashboardScreen` state stopped the lost keys, but each key then cost 80–130 ms because
+it re-rendered the whole dashboard.
+
+**Fix.** `components/TaskSearchBox.tsx` holds the text in its own state, writes the URL 150 ms
+after typing pauses, and ignores the URL's late echo of its own write. Only a change made
+elsewhere (a clear button, a saved view, Back) flows into the box. A keystroke now re-renders
+only the box. **Never bind a text input's `value` to the URL** — keep it local and commit it.
+
 ---
 
 <p align="center">

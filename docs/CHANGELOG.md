@@ -168,6 +168,10 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Fixed
 
+- **The dashboard search box dropped keys and sometimes wiped itself** (2026-10-21). Fast typing
+  lost characters ("backup" became "b") because the field was bound to the URL, which React Router
+  updates in a transition. The box now keeps its own text, updates the URL once you pause, and a
+  keystroke no longer re-renders the whole dashboard.
 - **Applying a native script/check template without `parameters` stored its `{{placeholders}}`
   raw** (2026-10-14). The job spec is now always filled from the declared defaults; a required
   parameter with no value (or an undeclared placeholder) is a `400` instead of a task that runs

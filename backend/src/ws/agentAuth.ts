@@ -184,7 +184,7 @@ export type SignableCommand =
   | { event: 'task:run'; taskPath: string }
   | { event: 'task:delete'; taskPath: string }
   | { event: 'task:set_status'; taskPath: string; enabled: boolean }
-  | { event: 'task:update_schedule'; taskPath: string; trigger: WindowsTrigger }
+  | { event: 'task:update_schedule'; taskPath: string; trigger: WindowsTrigger | null }
   | {
       event: 'task:import';
       taskPath: string;

@@ -500,8 +500,10 @@ export class WindowsAgentConnector implements PlatformConnector {
     config: any,
     options?: UpdateScheduleOptions
   ): Promise<{ success: boolean; message?: string; clientError?: boolean }> {
-    const trigger = options?.trigger;
-    if (!trigger) {
+    // A null trigger is signed like any other (canonical `none`), so the agent
+    // can tell a deliberate clear from a frame that lost its trigger in transit.
+    const trigger = options?.clear ? null : options?.trigger ?? null;
+    if (!trigger && !options?.clear) {
       return {
         success: false,
         clientError: true,
@@ -521,7 +523,11 @@ export class WindowsAgentConnector implements PlatformConnector {
       () => emitSignedCommand(socket, { event: 'task:update_schedule', taskPath: externalId, trigger }),
       (payload, settle) => {
         if (payload.taskExternalId === externalId) {
-          settle.resolve({ success: payload.success, message: payload.message });
+          // An agent older than the clear verb refuses a null trigger with this
+          // sentence; name the fix rather than echoing it.
+          settle.resolve(payload.message === 'No trigger supplied'
+            ? { success: false, clientError: true, message: 'This agent build cannot remove a schedule. Republish the Windows agent (agent/publish) and try again.' }
+            : { success: payload.success, message: payload.message });
         }
       },
       settle => settle.resolve({ success: false, message: 'Agent schedule update timeout' })

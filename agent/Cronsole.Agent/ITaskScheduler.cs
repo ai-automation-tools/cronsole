@@ -30,7 +30,7 @@ namespace Cronsole.Agent
         bool DeleteTask(string path);
         // Replace an existing task's trigger with the given spec, preserving its
         // actions/principal/settings. Returns false when no task exists at the path.
-        bool UpdateTaskSchedule(string path, TriggerSpec trigger);
+        bool UpdateTaskSchedule(string path, TriggerSpec? trigger); // null = remove the schedule, keep the task
         // Replace an existing task's exec action and set its description + run
         // level, preserving its triggers, principal identity, and other settings.
         // runLevel is "least" or "highest". Returns false when no task exists.

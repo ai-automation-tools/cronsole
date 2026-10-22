@@ -1,8 +1,10 @@
 # Cronsole
 
-> Project instructions for **Cronsole** — a single pane of glass for scheduled tasks across Windows
-> Task Scheduler, Cronsole-native jobs, and Claude Code routines. Overrides any parent-workspace
-> or user-scope `CLAUDE.md` where they conflict.
+> Agent instructions for **Cronsole** — a single pane of glass for scheduled tasks across Windows
+> Task Scheduler, Cronsole-native jobs, and Claude Code routines. This file is canonical for every
+> coding agent (Codex, Gemini CLI, opencode, Claude Code); [`CLAUDE.md`](CLAUDE.md) imports it and
+> adds only what is specific to Claude Code (slash commands, the project-local `.claude/`).
+> Overrides any parent-workspace or user-scope `AGENTS.md` / `CLAUDE.md` where they conflict.
 
 **Repo:** [`github.com/ai-automation-tools/cronsole`](https://github.com/ai-automation-tools/cronsole) ·
 **Working branch:** `mike_desktop` · **Deploy branch:** `main`
@@ -28,7 +30,8 @@ optional P3 item ([Remote Access Guide](docs/user-guides/guides/Remote_Access_Gu
 
 > **The section numbers below are deliberately non-contiguous.** Docs, the skill, the troubleshooting
 > log and `/sync-surfaces` cite **§8a**, **§9**, **§10** and **§11a** by number, so those numbers were
-> kept when this file was condensed. Gaps are the removed sections, not a mistake.
+> kept when this file was condensed. Gaps are the removed sections, not a mistake. **§8a** (the
+> project-local `.claude/`) is Claude-only and lives in [`CLAUDE.md`](CLAUDE.md).
 
 ---
 
@@ -70,12 +73,14 @@ ChatGPT / Grok / Jules / Open Claw / Hermes = quick links only.
 ```
 cronsole/
 ├── docs/            # ROADMAP · CHANGELOG · DESIGN_NOTES · troubleshooting · install/setup/
-│                    #   user-guides/ · testing/ · adr/ · prompts/ · reports/
+│                    #   user-guides/ · testing/ · adr/ · reports/
 │                    #   archive/ + local/ are LOCAL-ONLY (gitignored, NOT backed up)
 ├── registry/        # generated template registry artifact — never hand-edit
 ├── registry-site/   # Cronsole's homepage + template gallery, one page (published to three hosts)
 ├── proxy/           # opt-in single-origin reverse proxy (Caddyfile); nothing runs by default
+├── prompts/         # copy-paste prompts for driving Cronsole: mcp-server/ · skills/ · rest-api/
 ├── backend/src/     # catalog/ · connectors/ · routes/ · services/ · ws/ · auth/ · tools/
+├── backend/tests/   # integration/ (real Postgres); unit tests sit beside the code in __tests__/
 ├── frontend/src/    # components/ (ui/ = Modal primitive) · screens/ · hooks/ · utils/ · data/
 ├── agent/           # Cronsole.Agent/ (flat) · Cronsole.Agent.Tests/ · test-server/ · publish/
 ├── mcp-server/src/  # index.ts · client.ts · tools.ts · __tests__/  (thin wrapper, owns no logic)
@@ -120,8 +125,8 @@ Two more are an **overlay installed from outside** and may or may not be present
 They cover **designing the jobs Cronsole schedules** — which is not what the `cronsole` skill covers,
 and not a place to move any of its content to. Don't vendor copies into `skills/`; that repo is
 canonical and a second copy would drift silently.
-**Commands:** **`/doctor`** (stale processes, agent connectivity, `CRONSOLE_TOKEN`) ·
-**`/sync-surfaces`** (the §11a drift check, mechanized — run before committing anything non-trivial).
+**Commands** (Claude Code): `/doctor` and `/sync-surfaces` — see [`CLAUDE.md`](CLAUDE.md). Without
+Claude Code, their steps are plain markdown in `.claude/commands/`.
 
 **Subagents:** `native-agent-engineer` (anything under `agent/`, incl. the coming launchd agent) ·
 `template-curator` (catalog/registry) · `test-engineer` — these three are in this repo. The
@@ -145,17 +150,6 @@ and when off they are *absent* from `tools/list`. Bulk verbs are omitted deliber
 scale with blast radius and MCP has no equivalent of the UI's typed confirmation. The tool suite
 stubs the HTTP client, so it **cannot** prove the wrapper and the API still agree — hand-drive a tool
 after changing a route it wraps.
-
-### 8a. Project-local `.claude/`
-
-Only `agents/`, `commands/`, and `skills/` are tracked — `.gitignore` denies `/.claude/*` and
-re-includes those three, so per-machine noise (`settings.local.json`, `temp/`, IDE state) can never be
-committed by accident. `.claude/skills/cronsole` is a per-machine **junction** to the tracked
-[`skills/cronsole/`](skills/README.md), created by `scripts/setup-skill-links.ps1` (run once per fresh
-clone). **Always edit `skills/cronsole/`, never through the link**, and give each linked skill a
-`/.claude/skills/<name>/` line in `.gitignore` or git follows the junction and commits the content
-twice. **A dangling junction is not an error, it is an absence** — Claude Code loads no skill and says
-nothing.
 
 ---
 
@@ -883,7 +877,7 @@ Non-negotiable rules. **Every one has a reason recorded in
 
 ## 11. Workflow
 
-1. **Session start:** this file + [`docs/ROADMAP.md`](docs/ROADMAP.md).
+1. **Session start:** this file (`AGENTS.md`) + [`docs/ROADMAP.md`](docs/ROADMAP.md).
 2. **Non-trivial change:** keep a task list; mark items in-progress/completed as you go.
 3. **Material design decision:** update `ROADMAP.md` (and the relevant doc) *first*, then implement.
 4. **External library question:** `context7` before writing.
@@ -903,8 +897,8 @@ three weeks — confidently doing the wrong thing.
 | You changed… | Also update, same change |
 |---|---|
 | A backend route an MCP tool maps to | `mcp-server/src/tools.ts` + `client.ts`; the tool tables in [`mcp-server/README.md`](mcp-server/README.md) **and** [`MCP_Server_Guide.md`](docs/user-guides/guides/MCP_Server_Guide.md) |
-| Added / removed / renamed an MCP tool, or its params | Both tool tables above + [`skills/cronsole/SKILL.md`](skills/cronsole/SKILL.md) › "The two AI surfaces" + the tiers and prompt sets in [`docs/prompts/mcp-server/`](docs/prompts/mcp-server/README.md) |
-| An MCP env var, or how it's read | [`mcp-server/.env.example`](mcp-server/.env.example) + the config table in **both** READMEs |
+| Added / removed / renamed an MCP tool, or its params | Both tool tables above + the tool list in [`docs/mcp-server.md`](docs/mcp-server.md) + [`skills/cronsole/SKILL.md`](skills/cronsole/SKILL.md) › "The two AI surfaces" + the tiers and prompt sets in [`prompts/mcp-server/`](prompts/mcp-server/README.md) |
+| An MCP env var, or how it's read | [`mcp-server/.env.example`](mcp-server/.env.example) + the config table in **both** READMEs + [`docs/mcp-server.md`](docs/mcp-server.md) |
 | A new invariant or architectural rule | §9 here + the invariants table in `SKILL.md` (rationale → [`DESIGN_NOTES.md`](docs/DESIGN_NOTES.md)) |
 | **Anything that took real digging** | [`troubleshooting/README.md`](docs/troubleshooting/README.md) **and** the traps table in `SKILL.md` |
 | The catalog (`bundled.ts`, `packs.ts`) | `npm run registry:build` and **commit `registry/`** — merging to `main` publishes it (`publish-registry.yml`), and the daily **Registry drift** check reddens if that ever stops working |

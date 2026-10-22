@@ -11,7 +11,7 @@ import { CronExpressionParser } from 'cron-parser';
  * Three rules shape this file, and each one is the difference between a calendar
  * and a calendar-shaped lie.
  *
- * **The expansion is in UTC, because storage is** (CLAUDE.md §9). A 5-field cron
+ * **The expansion is in UTC, because storage is** (AGENTS.md §9). A 5-field cron
  * in UTC is a fixed sequence of instants; which calendar *day* one of those
  * instants lands on is a question about the reader's zone, and that conversion
  * stays at the browser's edge with every other one. So nothing here takes a

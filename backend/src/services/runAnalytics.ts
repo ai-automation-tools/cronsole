@@ -60,7 +60,7 @@ export interface TrendInput {
  *
  * Bucketing in UTC while the reader thinks in local days is a quiet lie: a run
  * at 6pm Pacific lands on tomorrow's bar. Cronsole already stores every schedule
- * in UTC and displays local (CLAUDE.md §9), so the trend follows the same rule
+ * in UTC and displays local (AGENTS.md §9), so the trend follows the same rule
  * — and the response states which zone was used, because a chart whose buckets
  * are unlabelled is not reproducible.
  */

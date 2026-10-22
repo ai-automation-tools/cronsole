@@ -32,7 +32,7 @@ cd ../mcp-server && npm test
 > it compiles an empty program. Only `tsc -b` (what `npm run build` runs, and what CI runs)
 > actually checks the app. [#25](../../../docs/troubleshooting/README.md#25-npx-tsc---noemit-in-frontend-passes-while-cis-build-fails-on-a-type-error)
 
-Integration setup: `test/integration/globalSetup.ts` creates + migrates `taskhub_test` on the
+Integration setup: `tests/integration/globalSetup.ts` creates + migrates `taskhub_test` on the
 server named by `TEST_DATABASE_URL`; `setupEach.ts` gives each test a clean slate.
 
 ## The four layers
@@ -139,7 +139,7 @@ accidentally. **Know these before changing the catalog.**
 | **Prune safety** (`catalogSync.test.ts`) | `managed: false` gets pruned, or an empty core wipes the catalog |
 | **No field leakage** (`catalogSync.test.ts`) | `core` reaches the DB |
 | **IDOR sweep** (`idor.integration.test.ts`) | A route leaks across tenants — **add every new route here** |
-| **MCP tool surface** (`mcp-server/.../tools.test.ts`) | A tool is added, removed, or renamed. Deliberate: that change obligates both README tool tables + the skill (CLAUDE.md §11a), and those surfaces never break loudly on their own. **Update the expected list *and* the docs in the same change** — don't just make it pass. |
+| **MCP tool surface** (`mcp-server/.../tools.test.ts`) | A tool is added, removed, or renamed. Deliberate: that change obligates both README tool tables + the skill (AGENTS.md §11a), and those surfaces never break loudly on their own. **Update the expected list *and* the docs in the same change** — don't just make it pass. |
 | **Unexpanded `${CRONSOLE_TOKEN}`** (`mcp-server/.../client.test.ts`) | The literal-passthrough guard stops refusing to start — the bug that made every MCP tool 403 like an expired JWT ([#8](../../../docs/troubleshooting/README.md#8-every-mcp-tool-returns-403-invalid-or-expired-token)) |
 
 ## Where tests live
@@ -147,7 +147,7 @@ accidentally. **Know these before changing the catalog.**
 ```
 backend/src/**/__tests__/       unit (vitest)
 backend/src/catalog/*.test.ts   catalog unit
-backend/test/integration/       integration (real Postgres)
+backend/tests/integration/      integration (real Postgres)
 frontend/src/**/__tests__/      unit (vitest + RTL + jsdom)
 frontend/tests/e2e/             Playwright (+ helpers/mockAgent.ts)
   smoke / mock-agent            full-stack flows

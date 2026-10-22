@@ -106,11 +106,11 @@ These keep the skill useful instead of becoming stale weight:
 
 | Location | What's inside |
 |:---|:---|
-| [**🤖 CLAUDE.md**](../CLAUDE.md) | Project conventions — loaded automatically, always in context |
+| [**🤖 AGENTS.md**](../AGENTS.md) | Project conventions — loaded automatically (Claude Code via `CLAUDE.md`), always in context |
 | [**📚 docs/**](../docs/README.md) | The canonical documentation the skill routes to |
 | `.claude/skills/` | Where Claude Code actually loads project skills from |
 | [**🧩 mcp-server/**](../mcp-server) | The *other* AI surface — drives Cronsole at runtime, rather than teaching an agent about the codebase |
-| [**💬 Prompt library**](../docs/prompts/README.md) | Ready-to-use prompts for both surfaces — [skill prompts](../docs/prompts/skills/README.md) for codebase work, [MCP prompts](../docs/prompts/mcp-server/README.md) for running tasks |
+| [**💬 Prompt library**](../prompts/README.md) | Ready-to-use prompts for both surfaces — [skill prompts](../prompts/skills/README.md) for codebase work, [MCP prompts](../prompts/mcp-server/README.md) for running tasks |
 
 > [!NOTE]
 > **Skill vs. MCP server** — easy to conflate. The **skill** teaches an agent how to *work on*

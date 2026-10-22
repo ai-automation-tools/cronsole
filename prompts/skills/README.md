@@ -21,7 +21,7 @@ the system *before* it edits it.
 > [!NOTE]
 > The skill usually **surfaces itself** when you work in the repo. You can also invoke it
 > explicitly with `/cronsole`. It lives canonically at
-> [`skills/cronsole/`](../../../skills/README.md) and is teaching material, **not** a way to
+> [`skills/cronsole/`](../../skills/README.md) and is teaching material, **not** a way to
 > operate a running instance — for that, use [**mcp-server/**](../mcp-server/README.md).
 
 Unlike the MCP prompts, these don't call tools — they ask the assistant to **read, reason
@@ -152,10 +152,10 @@ hour. Where should it be documented, and in what form?
 
 | Resource | Why |
 |:---|:---|
-| [**🧠 The `cronsole` skill**](../../../skills/README.md) | What the skill knows, how it's installed (the per-machine junction). |
-| [**🧯 Troubleshooting**](../../troubleshooting/README.md) | The canonical symptom → cause → fix log the skill routes to. |
-| [**🗺️ Roadmap**](../../ROADMAP.md) | The plan of record — a material change updates it first. |
-| [**🤖 CLAUDE.md**](../../../CLAUDE.md) | Project conventions the skill enforces. |
+| [**🧠 The `cronsole` skill**](../../skills/README.md) | What the skill knows, how it's installed (the per-machine junction). |
+| [**🧯 Troubleshooting**](../../docs/troubleshooting/README.md) | The canonical symptom → cause → fix log the skill routes to. |
+| [**🗺️ Roadmap**](../../docs/ROADMAP.md) | The plan of record — a material change updates it first. |
+| [**🤖 AGENTS.md**](../../AGENTS.md) | Project conventions the skill enforces. |
 
 ---
 

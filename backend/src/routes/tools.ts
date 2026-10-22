@@ -1748,7 +1748,7 @@ const occurrencesQuerySchema = z.object({
  * `/:id`.
  *
  * **Instants in, instants out — no timezone parameter.** Storage is 5-field cron
- * in UTC (CLAUDE.md §9) and the zone lives at the browser's edge, so which
+ * in UTC (AGENTS.md §9) and the zone lives at the browser's edge, so which
  * calendar *day* an instant falls on is the caller's arithmetic, not this
  * route's. Passing a zone here would put a second conversion in the stack, and
  * a calendar disagreeing with the times printed on its own cards is exactly the
@@ -2071,7 +2071,7 @@ const bulkStatusSchema = z.object({
  *
  * Lives on `/api/tools` rather than `/api/tasks` because it is a **cross-task**
  * route, and everything on `tasks.ts` competes with `/:id` in Express's
- * declaration-order matching (CLAUDE.md §9).
+ * declaration-order matching (AGENTS.md §9).
  *
  * It adds **no new agent verb and no new authority** — every task goes through
  * the same signed `task:set_status` the single toggle uses, via the same

@@ -38,7 +38,7 @@ import { GETTING_STARTED_STEPS, HELP_GUIDES } from '../onboarding';
  * nothing renders differently, and the only person who finds out is the user who
  * needed the answer.
  *
- * That is the same class of drift `/sync-surfaces` exists for (CLAUDE.md §11a):
+ * That is the same class of drift `/sync-surfaces` exists for (AGENTS.md §11a):
  * a surface that *describes* the repo rather than being compiled against it. The
  * difference is that this one can be mechanized completely, so it is.
  *

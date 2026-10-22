@@ -4,7 +4,7 @@
   `NOTIFY` and `SEQUENCE` remain deferred as written below; `SQL` remains rejected.
   Open questions 1 and 3 were settled before implementation — see *Decisions taken* at the end.
 - **Deciders:** Mike
-- **Related:** [ROADMAP › Native job types](../ROADMAP.md#native-job-types) · [CLAUDE.md §9 › Connector pattern](../../CLAUDE.md) · frozen spec [`archive/specs/Native_Tasks.md`](../archive/specs/Native_Tasks.md) (local-only)
+- **Related:** [ROADMAP › Native job types](../ROADMAP.md#native-job-types) · [AGENTS.md §9 › Connector pattern](../../AGENTS.md) · frozen spec [`archive/specs/Native_Tasks.md`](../archive/specs/Native_Tasks.md) (local-only)
 
 ## Context
 
@@ -299,7 +299,7 @@ on a checksum mismatch — the version-gap/integrity distinction is the point. S
 3. ~~`CHECK` through all five places~~ — done, with the execution-host sentence on the filesystem
    probes only, and four templates (two core).
 4. ~~Update the mirror surfaces in the same change~~ — done: `mcp-server/` tools + both tool tables,
-   the `cronsole` skill, the connect pack, `help.ts`, the Sources Guide, `CLAUDE.md` §8/§9,
+   the `cronsole` skill, the connect pack, `help.ts`, the Sources Guide, `AGENTS.md` §8/§9,
    `CHANGELOG.md`, `ROADMAP.md`, troubleshooting #58.
 5. **Still to do:** publish the registry (`pwsh scripts/publish-registry.ps1`) — the bundled catalog
    and `registry/` are rebuilt and committed, but installs fetch the *hosted* copy, so the six new

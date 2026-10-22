@@ -138,7 +138,7 @@ silent data loss lives.
 
 1. **Name the claim, not the code.** `rejects a duplicate Windows task name with 409` beats `test applyTemplate`.
 2. **Test the error path too.** Most Cronsole bugs are honesty bugs — the feature "works" but lies when it fails. Assert what the user is *told*.
-3. **Validate at boundaries.** Per CLAUDE.md, Zod guards the edges; trust internal code. Test the edge, not every internal hop.
+3. **Validate at boundaries.** Per AGENTS.md, Zod guards the edges; trust internal code. Test the edge, not every internal hop.
 4. **Prefer the cheapest layer.** If a Vitest unit test can prove it, don't spend an E2E run.
 5. **A new feature ships with its functional test.** Once it's merged, that test becomes [regression](../regression-testing/README.md) coverage for free.
 

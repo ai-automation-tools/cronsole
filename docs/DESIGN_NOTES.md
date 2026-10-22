@@ -586,7 +586,7 @@ This has already bitten, repeatedly: the skill went months with **zero** MCP cov
 | You changed… | Also update, same change |
 |---|---|
 | A backend route an MCP tool maps to — `/api/tasks`, `/api/tasks/:id/run`, `/api/templates`, `/api/templates/:id/apply`, `/api/tasks/preview` | `mcp-server/src/tools.ts` + `client.ts`; the tool tables in [`mcp-server/README.md`](../mcp-server/README.md) **and** [`MCP_Server_Guide.md`](../docs/user-guides/guides/MCP_Server_Guide.md) |
-| Added / removed / renamed an MCP tool, or changed its params | Both tool tables above + the tool list in [`skills/cronsole/SKILL.md`](../skills/cronsole/SKILL.md) › "The two AI surfaces" + the tool tiers and the affected prompt set in [`docs/prompts/mcp-server/`](../docs/prompts/mcp-server/README.md) |
+| Added / removed / renamed an MCP tool, or changed its params | Both tool tables above + the tool list in [`skills/cronsole/SKILL.md`](../skills/cronsole/SKILL.md) › "The two AI surfaces" + the tool tiers and the affected prompt set in [`prompts/mcp-server/`](../prompts/mcp-server/README.md) |
 | An MCP env var, or how it's read | [`mcp-server/.env.example`](../mcp-server/.env.example) + the config table in **both** READMEs |
 | A new invariant or architectural rule | §9 here + the invariants table in `SKILL.md` |
 | **Anything that took real digging** — a wrong turn, a confusing symptom, a trap | [`docs/troubleshooting/README.md`](../docs/troubleshooting/README.md) **and** the traps table in `SKILL.md`. **The bar is "it cost you time", not "it cost hours"** — if you had to work it out, the next person will too. |

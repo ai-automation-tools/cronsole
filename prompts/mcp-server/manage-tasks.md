@@ -153,7 +153,7 @@ operation and point me at the Mass Actions console instead.
 |:---|:---|
 | [**🔎 Inspect & audit**](inspect-and-audit.md) | Working out what needs managing in the first place. |
 | [**🧹 Cleanup & removal**](cleanup-and-removal.md) | When "manage" turns into "get rid of". |
-| [**🖥️ UI User Guide**](../../user-guides/guides/UI_User_Guide.md) | Bulk actions, favorites, and the confirmations they carry. |
+| [**🖥️ UI User Guide**](../../docs/user-guides/guides/UI_User_Guide.md) | Bulk actions, favorites, and the confirmations they carry. |
 
 ---
 

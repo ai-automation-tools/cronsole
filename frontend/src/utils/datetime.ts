@@ -5,7 +5,7 @@ import { machineZone, resolveZone, zoneAbbrev } from './timezone';
  * Format an ISO timestamp for display in the user's chosen zone.
  *
  * Timestamps arrive from the API as UTC ISO strings (schedules are stored in
- * UTC — CLAUDE.md §9); this renders them wherever the Settings zone points.
+ * UTC — AGENTS.md §9); this renders them wherever the Settings zone points.
  * The zone marker is appended whenever the reading is NOT the machine's own
  * zone, because a time in a zone other than the one on your taskbar is exactly
  * the case where an unlabelled clock reading is a lie.

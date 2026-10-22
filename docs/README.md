@@ -37,7 +37,7 @@ New to Cronsole? Follow this path in order:
 | [**⬇️ install/**](install/README.md) | Install Cronsole — Windows, macOS, and clone-the-repo paths. |
 | [**⚙️ setup/**](setup/README.md) | Configure it — environment variables, Docker vs. manual, agent pairing. |
 | [**🖥️ user-guides/**](user-guides/README.md) | Use it — dashboard walkthrough, the Windows agent guide, the [MCP server](user-guides/guides/MCP_Server_Guide.md) (drive Cronsole from Claude/Codex/Cursor), [remote access](user-guides/guides/Remote_Access_Guide.md) so you can reach your own instance from your phone, and [phone shortcuts](user-guides/guides/Phone_Shortcuts_Guide.md) that run one task from your home screen. |
-| [**💬 prompts/**](prompts/README.md) | Talk to it — copy-paste prompts for driving Cronsole in natural language, grouped by what you're doing: [scheduled scripts](prompts/mcp-server/windows-tasks.md), [headless coding-agent runs](prompts/mcp-server/ai-agent-jobs.md), [HTTP and script jobs](prompts/mcp-server/native-tasks.md), [Claude routines](prompts/mcp-server/claude-routines.md), audits, cleanup — plus the `cronsole` skill and the REST API. |
+| [**💬 prompts/**](../prompts/README.md) | Talk to it — copy-paste prompts for driving Cronsole in natural language, grouped by what you're doing: [scheduled scripts](../prompts/mcp-server/windows-tasks.md), [headless coding-agent runs](../prompts/mcp-server/ai-agent-jobs.md), [HTTP and script jobs](../prompts/mcp-server/native-tasks.md), [Claude routines](../prompts/mcp-server/claude-routines.md), audits, cleanup — plus the `cronsole` skill and the REST API. |
 | [**🧯 troubleshooting/**](troubleshooting/README.md) | Fix it — symptom → cause → fix for problems we've actually hit. |
 | [**🛠️ contributing/**](contributing/README.md) | Extend it — how to add a source (a new scheduler) as a connector: which shape it is, the contract, the build order, and which existing connector to copy. |
 | [**🧪 testing/**](testing/README.md) | Verify it — functional, integration, regression, and UAT: what to test, what covers it today, and how to run it. Includes copy-pasteable [manual runbooks](testing/manual-testing/README.md) for what no suite can prove (real Task Scheduler, agent resilience, security at rest). |
@@ -49,6 +49,7 @@ New to Cronsole? Follow this path in order:
 | [**📄 reports/**](reports/README.md) | Task templates (the two-tier catalog) and worked API examples. |
 | [**🧩 Template registry**](reports/templates/Registry_Schema_v1.md) | The target-agnostic Registry v1 JSON schema for templates (the catalog is a decoupled, hosted registry). |
 | [**🧭 diagrams/**](diagrams/README.md) | The source data-flow diagram the [homepage](https://cronsole.ai-automation-tools.dev/#sec-flow) shows: platforms → connectors → sync → PostgreSQL → dashboard, plus the native scheduler. Interactive, every node linked to its code, and drift-checked in CI. |
+| [**🔌 mcp-server.md**](mcp-server.md) | The MCP server on one page: entry file, stdio transport, install line, env vars, and every tool with a one-line purpose (the two gated delete tools marked). |
 | [**🧠 adr/**](adr/README.md) | Architecture decision records — the template registry, the four native job types, and per-job secrets. Each dated, and kept as written once it ships. |
 | [**🛠️ agent-tools/**](agent-tools/README.md) | The AI tooling Cronsole is built with — MCP servers, CLIs, and subagents. |
 | [**🧠 skills/**](../skills/README.md) | The Cronsole Agent Skill — architecture, invariants, and traps, so an AI agent knows the system before it edits it. |
@@ -63,7 +64,7 @@ New to Cronsole? Follow this path in order:
 | [**🛡️ TRUST.md**](TRUST.md) | What the elevated agent can and cannot do, stated as the complete verb list rather than a summary — plus a removal sequence, including the part `docker compose down -v` does not do. |
 | [**🔒 PRIVACY.md**](PRIVACY.md) | Which outbound connections exist, when, and to where. A default install initiates none; this is how to check that. |
 | [**🗺️ ROADMAP.md**](ROADMAP.md) | The living plan — what's shipped and what's next (P0 → P3), plus open decisions. |
-| [**🧠 DESIGN_NOTES.md**](DESIGN_NOTES.md) | The reasoning archive — the long-form arguments, failures and wrong turns behind every invariant listed in [`CLAUDE.md`](../CLAUDE.md) § 5. Read it before arguing with a rule, or removing one. |
+| [**🧠 DESIGN_NOTES.md**](DESIGN_NOTES.md) | The reasoning archive — the long-form arguments, failures and wrong turns behind every invariant listed in [`AGENTS.md`](../AGENTS.md) §9. Read it before arguing with a rule, or removing one. |
 
 > [!NOTE]
 > Two folders here are **local-only and not tracked in git**, so they will be absent from a fresh
@@ -79,7 +80,7 @@ New to Cronsole? Follow this path in order:
 | [**📝 CHANGELOG.md**](CHANGELOG.md) | Notable changes to the repository. |
 | [**🔧 scripts/**](../scripts/README.md) | Operational scripts — including the logon auto-start launcher. |
 | [**📋 CONTRIBUTING.md**](../CONTRIBUTING.md) | Local setup, validation commands, and PR expectations. |
-| [**🤖 CLAUDE.md**](../CLAUDE.md) | Project conventions and instructions for Claude Code. |
+| [**🤖 AGENTS.md**](../AGENTS.md) | Project conventions and instructions for every coding agent. [`CLAUDE.md`](../CLAUDE.md) imports it and adds the Claude Code commands. |
 
 <p align="right">(<a href="#docs-top">back to top</a>)</p>
 
@@ -90,7 +91,7 @@ New to Cronsole? Follow this path in order:
   <a href="ROADMAP.md">Roadmap</a> ·
   <a href="install/README.md">Install</a> ·
   <a href="user-guides/README.md">User Guides</a> ·
-  <a href="prompts/README.md">Prompts</a> ·
+  <a href="../prompts/README.md">Prompts</a> ·
   <a href="testing/README.md">Testing</a> ·
   <a href="troubleshooting/README.md">Troubleshooting</a>
 </p>

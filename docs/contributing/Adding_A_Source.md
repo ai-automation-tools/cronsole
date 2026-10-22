@@ -176,7 +176,7 @@ skip it.
 
 ### The records, in the same change
 
-`CLAUDE.md` §11a calls these **mirror surfaces**: they *describe* Cronsole rather than implementing
+`AGENTS.md` §11a calls these **mirror surfaces**: they *describe* Cronsole rather than implementing
 it, so **none of them breaks loudly when it drifts.** The suite stays green and the drift surfaces
 weeks later as someone confidently doing the wrong thing.
 
@@ -186,7 +186,7 @@ weeks later as someone confidently doing the wrong thing.
 - `ALL_PLATFORMS` and the platform sentences in `mcp-server/src/tools.ts`, plus the `list_tasks` and
   `list_platforms` rows in **both** MCP tool tables (`mcp-server/README.md` and
   `docs/user-guides/guides/MCP_Server_Guide.md`).
-- The platform line in `CLAUDE.md` §2, and any new invariant in §9.
+- The platform line in `AGENTS.md` §2, and any new invariant in §9.
 - [`docs/CHANGELOG.md`](../CHANGELOG.md) and [`docs/ROADMAP.md`](../ROADMAP.md), dated.
 
 ---
@@ -267,7 +267,7 @@ review looks at.
 ---
 
 *See also: the [Sources Guide](../user-guides/guides/Sources_Guide.md) for what each shipped source
-does, [`CLAUDE.md`](../../CLAUDE.md) §9 for the full invariant list, and
+does, [`AGENTS.md`](../../AGENTS.md) §9 for the full invariant list, and
 [`DESIGN_NOTES.md`](../DESIGN_NOTES.md) for the argument behind any rule you want to push back on.*
 
 *Last Updated: August 24, 2026*

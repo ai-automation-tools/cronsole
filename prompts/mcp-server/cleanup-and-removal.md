@@ -164,7 +164,7 @@ missing feature.
 | [**⚙️ Manage tasks**](manage-tasks.md) | Disable — the reversible option you usually want first. |
 | [**🧠 Claude routines**](claude-routines.md) | Disconnect in its own context. |
 | [**🖥️ Cronsole-native tasks**](native-tasks.md) | Where delete is allowed, and why nothing is orphaned. |
-| [**🧯 Troubleshooting #47**](../../troubleshooting/README.md) | The Claude task that kept coming back. |
+| [**🧯 Troubleshooting #47**](../../docs/troubleshooting/README.md) | The Claude task that kept coming back. |
 
 ---
 

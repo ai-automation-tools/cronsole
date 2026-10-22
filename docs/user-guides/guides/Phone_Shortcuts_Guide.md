@@ -155,7 +155,7 @@ dashboard was signed in on that phone too.
   and iOS ignores them.
 - **Deleting a task cannot widen its token.** The token records which task it may run as a plain
   ID. If that task is deleted the token keeps its restriction and gets `404`; it never falls back
-  to full access. (The full reasoning is in CLAUDE.md §9, *A credential on a phone can do one
+  to full access. (The full reasoning is in AGENTS.md §9, *A credential on a phone can do one
   thing*.)
 
 ## 🔗 Related

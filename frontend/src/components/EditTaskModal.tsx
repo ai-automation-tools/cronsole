@@ -43,7 +43,7 @@ import {
  *   - `PATCH /tasks/:id/actions`  — Windows: the agent rewrites the task on the
  *     `PATCH /tasks/:id/job`        machine. Native: the DB row *is* the task.
  *
- * That is deliberate and stays that way (see CLAUDE.md §9 — "Editing what a task
+ * That is deliberate and stays that way (see AGENTS.md §9 — "Editing what a task
  * runs is two routes, because it is two different operations"). What changes here
  * is only the *gesture*: the user makes one, and the modal fans it out.
  *

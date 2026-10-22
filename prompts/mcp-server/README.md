@@ -24,8 +24,8 @@ scheduler, or a routine on your Claude account.
 > (`cd mcp-server && npm run build`), and `CRONSOLE_TOKEN` exported in the environment your host
 > launched from. If the tools are missing entirely, or every call returns
 > `403 Invalid or expired token`, the token isn't reaching the server — see the
-> [**MCP Server Guide**](../../user-guides/guides/MCP_Server_Guide.md) and
-> [troubleshooting #8](../../troubleshooting/README.md#8-every-mcp-tool-returns-403-invalid-or-expired-token).
+> [**MCP Server Guide**](../../docs/user-guides/guides/MCP_Server_Guide.md) and
+> [troubleshooting #8](../../docs/troubleshooting/README.md#8-every-mcp-tool-returns-403-invalid-or-expired-token).
 
 ## 🗂️ The prompt sets
 
@@ -103,7 +103,7 @@ One tool has **no write counterpart, deliberately**: `list_task_secrets` reports
 native job needs and which are set, and nothing on this surface can store a value. A tool call goes
 through the model's context and into the host's transcript, which is the one place an encrypted-at-
 rest credential must not end up. The assistant writes the `${secret.NAME}` reference; you enter the
-value in Cronsole ([ADR 0003](../../adr/0003-per-job-secrets.md)).
+value in Cronsole ([ADR 0003](../../docs/adr/0003-per-job-secrets.md)).
 
 Gating is tiered rather than blanket. Reversible verbs are ungated, including `set_task_status`
 — parking a task is the recommended safe move, and putting a gate on the safe path pushes people
@@ -143,10 +143,10 @@ improvise a substitute. See [**rest-api/**](../rest-api/README.md):
 
 | Resource | Why |
 |:---|:---|
-| [**🧩 MCP Server Guide**](../../user-guides/guides/MCP_Server_Guide.md) | Setup, token minting, host wiring, its own troubleshooting. |
-| [**✍️ Task authoring & management**](../../../skills/cronsole/references/task-authoring.md) | The invariants behind these prompts, written for an agent. |
+| [**🧩 MCP Server Guide**](../../docs/user-guides/guides/MCP_Server_Guide.md) | Setup, token minting, host wiring, its own troubleshooting. |
+| [**✍️ Task authoring & management**](../../skills/cronsole/references/task-authoring.md) | The invariants behind these prompts, written for an agent. |
 | [**🌐 REST API prompts**](../rest-api/README.md) | The operations listed above. |
-| [**📦 mcp-server package**](../../../mcp-server/README.md) | The tool source and the MCP Inspector. |
+| [**📦 mcp-server package**](../../mcp-server/README.md) | The tool source and the MCP Inspector. |
 
 ---
 

@@ -31,7 +31,7 @@ describe('expandCron', () => {
   });
 
   it('expands in UTC regardless of the machine it runs on', () => {
-    // Storage is 5-field cron in UTC (CLAUDE.md §9). Which calendar *day* an
+    // Storage is 5-field cron in UTC (AGENTS.md §9). Which calendar *day* an
     // instant lands on is the browser's arithmetic; if this walked in the
     // server's local zone the whole conversion layer would have a second,
     // invisible definition sitting under it.

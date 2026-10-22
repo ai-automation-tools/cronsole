@@ -353,7 +353,7 @@ that runs unattended and can commit.
 | [**🧠 Claude routines**](claude-routines.md) | The same jobs in Anthropic's cloud, against a repo URL. |
 | [**📄 Templates**](templates.md) | Browsing and applying the catalog these draw on. |
 | [**🔎 Inspect & audit**](inspect-and-audit.md) | Confirming the 3am run did what the log claims. |
-| [**📦 Template catalog spec**](../../reports/templates/README.md) | Where the AI & Agents pack is defined. |
+| [**📦 Template catalog spec**](../../docs/reports/templates/README.md) | Where the AI & Agents pack is defined. |
 
 ---
 

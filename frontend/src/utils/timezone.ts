@@ -4,7 +4,7 @@ import type { TimezoneMode } from '../hooks/useSettings';
  * The schedule timezone layer.
  *
  * Storage does not move. Schedules are still 5-field cron in UTC everywhere
- * below this file (CLAUDE.md §9) — the backend converter, the HMAC-signed
+ * below this file (AGENTS.md §9) — the backend converter, the HMAC-signed
  * `task:create` payload, and the agent's `TriggerBuilder.UtcTimeToLocalToday`
  * all keep reading UTC. What changes is *authoring*: the user types a clock
  * time in their own zone and it is converted to UTC before it leaves the

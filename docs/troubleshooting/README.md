@@ -3340,7 +3340,7 @@ under the label "across 352 tasks" (fixed 2026-07-31). **The card was fixed; the
 were not**, because the card stopped mixing populations by filtering in the same place it
 counted, and nothing carried that to a second consumer.
 
-**The deeper cause is the wrapper owning logic.** `CLAUDE.md` §11a says `mcp-server/` owns no
+**The deeper cause is the wrapper owning logic.** `AGENTS.md` §11a says `mcp-server/` owns no
 logic, and `tier` / `includeSystem` / `limit` are logic: they decide which tasks the answer is
 about. Once that decision lives in the wrapper and the summary lives on the server, the two
 cannot agree by construction — no amount of care in either file fixes it, because neither
@@ -3944,7 +3944,7 @@ a member added later (`script` and `check`, 2026-08-15) is an unknown discrimina
 install, which fails the parse. Adding one action kind would have blanked the catalog for every
 user who had not updated, with a green build, a clean push, and no symptom locally.
 
-This is the [§11b](../../CLAUDE.md) failure mode in its purest form: **the surface that breaks is
+This is the [§11b](../../AGENTS.md) failure mode in its purest form: **the surface that breaks is
 not in this repo, and it breaks after everything here has passed.**
 
 **Fix.** Skip the template, keep the catalog:
@@ -4001,7 +4001,7 @@ happened, and its exit code is the answer.
 
 **The tell** is that Cronsole-native is the only platform that can reach this — it is the only one
 where dispatch and execution are the same act, so `success` means something different there than it
-does everywhere else in the codebase (see `ExecutionLog`'s rule in CLAUDE.md §9).
+does everywhere else in the codebase (see `ExecutionLog`'s rule in AGENTS.md §9).
 
 **Fix.** Say which question `success` is answering. `PlatformConnector.runTask` gained **`ran`**,
 orthogonal to `success`:
@@ -4315,7 +4315,7 @@ inlined string, where the wrong one still builds cleanly, passes `check:bundle`,
 that looks perfect.* Nothing in the pipeline can tell them apart, because neither is wrong in
 itself — `npm run build` is exactly right for the un-proxied stack. The mode is a **property of
 where the artifact will be served**, and the artifact cannot carry that intent. This is the same
-asymmetry as the publish step in [§11b](../../CLAUDE.md): a green build over a copy that is wrong
+asymmetry as the publish step in [§11b](../../AGENTS.md): a green build over a copy that is wrong
 for its destination.
 
 It is also worth noting *why* the desktop keeps working and hides this: on the machine running the
@@ -4377,7 +4377,7 @@ anything about your CSS.
 **The general rule.** *When a change appears not to apply, confirm the artifact under test is the
 one you edited before concluding anything about the edit.* This is the same shape as
 [#53](#53-the-proxied-dashboard-is-stale-while-the-dev-server-is-current) and the publish step in
-[§11b](../../CLAUDE.md) — a correct source and a stale copy — with the twist that here the copy is
+[§11b](../../AGENTS.md) — a correct source and a stale copy — with the twist that here the copy is
 one **you** made, minutes ago, which is exactly why it is not the first thing you suspect.
 
 *First hit: 2026-08-17, verifying the script/check rendering added to the gallery the same day.*
@@ -4532,7 +4532,7 @@ says **"Manage 373 tasks across your ecosystem."**
 http://localhost:7373/?status=any&system=include&q=test-search
 ```
 
-Filter state **is** the URL ([§9](../../CLAUDE.md)) — that is what makes a view shareable and
+Filter state **is** the URL ([§9](../../AGENTS.md)) — that is what makes a view shareable and
 reload-proof. The same property means a search you ran once survives a reload, a bookmark, a pinned
 tab and a session restore, and goes on filtering until something clears it. Nothing is wrong with
 the stack.
@@ -4746,7 +4746,7 @@ down across two days and several reboots, and nothing ever said so.
 Two things then conspired to keep it invisible:
 
 - **The proxy is profile-gated** (`profiles: ["proxy", "remote"]`), deliberately — remote access is
-  opt-in ([§9](../../CLAUDE.md)), so nothing about it runs on a plain `docker compose up -d`. A
+  opt-in ([§9](../../AGENTS.md)), so nothing about it runs on a plain `docker compose up -d`. A
   routine "bring everything back up" therefore *cannot* restart it, and doesn't fail either.
 - **`cronsole up` did not know the proxy existed**, so the `\Cronsole-Stack\CronsoleStack` task —
   which re-runs `cronsole up` every 5 minutes precisely so a dead service comes back — self-healed
@@ -6448,6 +6448,24 @@ unelevated agent cannot see the ACL'd folders (#74). Never use `cronsole up` as 
 In Docker mode, `docker restart taskhub-backend-1` is still right. For a republish, read
 `$env:TEMP\cronsole-republish.log` and act only after it says `DONE`. `/doctor` checks 1–3, the
 skill's traps table and its references now give both modes, default first.
+
+## 101. Typing in the dashboard search drops keys and sometimes wipes the box
+
+**Symptom.** The task search box is sluggish, misses keys, and can snap back to an older value
+mid-word. Typing "backup" quickly left **"b"** in the box. Other fields worked, only slowly.
+
+**Cause.** The input's `value` was the URL (`filters.search` from `useSearchParams`), and
+React Router 8's `BrowserRouter` applies every location change inside `startTransition`
+(`useTransitions` defaults on). After a keystroke the urgent render still read the **old** URL,
+so React put the old value back into the field. The new one landed only when the transition
+(a full re-filter of every task) committed, and the next keystroke interrupted it. Keeping the
+text in `DashboardScreen` state stopped the lost keys, but each key then cost 80–130 ms because
+it re-rendered the whole dashboard.
+
+**Fix.** `components/TaskSearchBox.tsx` holds the text in its own state, writes the URL 150 ms
+after typing pauses, and ignores the URL's late echo of its own write. Only a change made
+elsewhere (a clear button, a saved view, Back) flows into the box. A keystroke now re-renders
+only the box. **Never bind a text input's `value` to the URL** — keep it local and commit it.
 
 ---
 

@@ -26,7 +26,7 @@
 
     // Last run Cronsole PERFORMED — not the last time the task ran. A Windows
     // task firing on its own schedule writes no ExecutionLog row, and a manual
-    // run's SUCCESS means "the agent accepted the start". See CLAUDE.md §9.
+    // run's SUCCESS means "the agent accepted the start". See AGENTS.md §9.
     "lastRunStatus": "SUCCESS",
     "lastRunAt": "2026-04-15T14:22:00Z",
     "lastRunDurationMs": 412,

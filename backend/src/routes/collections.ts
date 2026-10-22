@@ -23,7 +23,7 @@ import { notifyTasksChanged } from '../ws/uiChannel.js';
  *
  * Mounted at `/api/collections` rather than under `/api/tasks`, which keeps it
  * clear of the `/:id` declaration-order trap that put every cross-task route on
- * `/api/tools` (CLAUDE.md §9).
+ * `/api/tools` (AGENTS.md §9).
  */
 const router = Router();
 

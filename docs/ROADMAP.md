@@ -14,7 +14,7 @@
 
 The Cronsole roadmap routine (`Cronsole Weekly Roadmap`, Friday 23:00) works this file: it takes the first open item under `## After public release` that isn't `🔒 Needs Mike` and isn't under **Open decisions**, builds it, ticks it, and opens a PR. **Every item above `## After public release` is a go-live gate**, and all of them closed when the repo went public on 2026-09-13; the phases up there are the record of what shipped before and around the flip. Below the line the groups run in priority order: **Next up, P0, P1, P2, Sources, P3, Post-launch**, then Open decisions (questions, not work) and two reference groups.
 
-Ticking an item appends ` — done YYYY-MM-DD: <what landed>` (older items carry their date in italics instead) and, **in the same commit**, adds the matching line to [`CHANGELOG.md`](CHANGELOG.md) and updates any doc the change made stale (CLAUDE.md §11a lists them). Keep the lines short: a shipped item's design record, verification notes and post-mortem belong in the CHANGELOG under its date, the rationale behind an invariant in [`DESIGN_NOTES.md`](DESIGN_NOTES.md), and a symptom→fix write-up in [`troubleshooting/README.md`](troubleshooting/README.md). When a material decision changes scope, edit the item here *first*, then implement. Done items stay where they are, ticked; nothing moves between sections.
+Ticking an item appends ` — done YYYY-MM-DD: <what landed>` (older items carry their date in italics instead) and, **in the same commit**, adds the matching line to [`CHANGELOG.md`](CHANGELOG.md) and updates any doc the change made stale (AGENTS.md §11a lists them). Keep the lines short: a shipped item's design record, verification notes and post-mortem belong in the CHANGELOG under its date, the rationale behind an invariant in [`DESIGN_NOTES.md`](DESIGN_NOTES.md), and a symptom→fix write-up in [`troubleshooting/README.md`](troubleshooting/README.md). When a material decision changes scope, edit the item here *first*, then implement. Done items stay where they are, ticked; nothing moves between sections.
 
 Markers: `- [ ]` open, `- [-]` claimed by a run in progress, `- [x]` done, `- [!]` blocked (the reason follows on the line). An open item that begins *Partly shipped:* names its remainder in the text; one that begins *Moved:* points at where it lives now. `` `small` `` marks an item a check verifies; `🔒 Needs Mike` marks one only Mike can do.
 
@@ -1880,6 +1880,25 @@ see [Part II](#completed--p1-correctness--honesty).
       Dockerfiles need Mike's review. **Done when**: `docker compose build` succeeds, the backend and
       frontend suites pass on the new major, and `/doctor` reports a healthy stack.
 
+- [ ] **Move `mcp-server/` to MCP TypeScript SDK v2** *(logged 2026-10-22 by the upstream check)*.
+      v2 is the stable line on `main` (released 2026-07-27, implements the 2026-07-28 MCP spec) and
+      ships as `@modelcontextprotocol/server` / `@modelcontextprotocol/client`; `@modelcontextprotocol/sdk`
+      1.x gets bug and security fixes only "for at least six months after" that date, so
+      about 2027-01-27 (source: github.com/modelcontextprotocol/typescript-sdk README;
+      migration guide: ts.sdk.modelcontextprotocol.io/v2/migration/upgrade-to-v2). We pin `^1.32.1`.
+      **What**: follow the migration guide (a `codemod` package exists), and drop the `zod ^3`
+      pin if v2's Standard Schema accepts the backend's zod 4. **Where**: `mcp-server/package.json`,
+      `mcp-server/src/index.ts`, `tools.ts`. **Done when**: `npm test` and `npm run typecheck` pass
+      in `mcp-server/`, and a hand-driven tool call against a running backend still works (the
+      suite stubs the HTTP client, §8).
+- [ ] **Bump the GitHub Actions to Node-24 majors** *(logged 2026-10-22 by the upstream check)*.
+      GitHub removed Node 20 from Actions runners on 2026-09-23 and now runs JavaScript actions on
+      Node 24 (source: github.blog/changelog/2026-09-23-node-20-is-no-longer-available-in-github-actions).
+      We use `actions/checkout@v4`, `setup-node@v4`, `setup-dotnet@v4`; the latest releases are
+      checkout v7, setup-node v7, setup-dotnet v6 (their releases pages). **What**: bump all three
+      across the workflows and read each release's breaking-changes notes. **Where**: `.github/workflows/`
+      (hold path, Mike reviews). **Done when**: CI is green on a PR that changes only the pins.
+
 <a id="connector-contract-test"></a>
 
 - [ ] **A connector contract test — diff a real API response against what the parser consumes**
@@ -2108,7 +2127,7 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
 > list in this section, re-checked every run, so "it has no API" is a finding with a date rather
 > than a reason to stop looking. First finding while setting it up: **OpenClaw and Hermes both
 > ship a built-in `cron` command** (list, create, pause, run), so their jobs live inside the
-> harness where no current source can see them. Both are still quick-link only in `CLAUDE.md` §2,
+> harness where no current source can see them. Both are still quick-link only in `AGENTS.md` §2,
 > and the Scout is told to judge them first. A harness whose jobs are Windows Task Scheduler tasks
 > (such as a DeepSeek harness) is already covered by the Windows source.
 

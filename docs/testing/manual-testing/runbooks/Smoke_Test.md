@@ -125,7 +125,7 @@ DevTools → Network → **Disable cache** → Fast 3G → reload.
 
 **Expect:** interactive in **< 2s** (NFR1). Record the number — there's no automated gate on
 this, so this reading *is* the measurement. Compare against
-[`artifacts/taskhub_performance_2026-07-10.md`](../../../../artifacts/taskhub_performance_2026-07-10.md).
+[`docs/testing/reports/taskhub_performance_2026-07-10.md`](../../reports/taskhub_performance_2026-07-10.md).
 
 ---
 

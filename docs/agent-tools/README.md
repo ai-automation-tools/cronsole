@@ -30,7 +30,7 @@ app runs.
 
 | Resource | Why you'd go there |
 |:---|:---|
-| [**🤖 CLAUDE.md**](../../CLAUDE.md) | The authoritative project conventions, skills, and subagent list. |
+| [**🤖 AGENTS.md**](../../AGENTS.md) | The authoritative project conventions, skills, and subagent list. |
 | [**📋 CONTRIBUTING.md**](../../CONTRIBUTING.md) | Local setup and validation commands. |
 
 ---

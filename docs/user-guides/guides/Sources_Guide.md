@@ -908,7 +908,7 @@ scheduler. See [ROADMAP.md](../../ROADMAP.md) › Sources.
 ---
 
 *See also: the [UI User Guide](UI_User_Guide.md) for the rest of the interface, the
-[prompt library](../../prompts/README.md) for creating any of these sources by asking an
+[prompt library](../../../prompts/README.md) for creating any of these sources by asking an
 assistant, and the [troubleshooting log](../../troubleshooting/README.md) when something behaves
 unexpectedly.*
 

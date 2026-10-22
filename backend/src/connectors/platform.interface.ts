@@ -451,7 +451,7 @@ export interface PlatformConnector {
    *
    * Only Cronsole-native can set it: it is the one platform where dispatch and
    * execution are the same act, so for every other connector `success` describes
-   * a handshake and nothing more (see `ExecutionLog`'s rule in CLAUDE.md §9).
+   * a handshake and nothing more (see `ExecutionLog`'s rule in AGENTS.md §9).
    */
   runTask(
     externalId: string,

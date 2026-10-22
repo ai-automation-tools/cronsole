@@ -33,7 +33,7 @@ There are **four** job types and they share nothing, which is the one thing to k
 **HTTP**, **Programs** (`EXEC`), **Scripts** (`SCRIPT`, added 2026-08-15 — the body lives in
 Cronsole) and **Checks** (`CHECK`, same date — a probe plus an assertion). The two newest have no
 prompt section of their own here yet; the tools are `create_native_script_task` and
-`create_native_check_task`, and [ADR 0002](../../adr/0002-native-job-types.md) describes what each
+`create_native_check_task`, and [ADR 0002](../../docs/adr/0002-native-job-types.md) describes what each
 is for.
 
 ## 🌐 Create an HTTP task
@@ -173,7 +173,7 @@ secrets and tell me which one is missing.
 >
 > References are legal in a URL, a header value, a request body, a program argument and an
 > environment value — and refused in a program's executable, a script's interpreter and a check's
-> assertions. See [Secrets](../../user-guides/guides/UI_User_Guide.md#secrets).
+> assertions. See [Secrets](../../docs/user-guides/guides/UI_User_Guide.md#secrets).
 
 ## 🗑️ Deleting one
 
@@ -203,7 +203,7 @@ this morning.
 | [**🪟 Windows task prompts**](windows-tasks.md) | When the job must run as you, on your desktop, or outlive Cronsole. |
 | [**🧹 Cleanup & removal**](cleanup-and-removal.md) | Untrack vs. disconnect vs. delete, and which one you actually want. |
 | [**🔎 Inspect & audit**](inspect-and-audit.md) | Reading exit codes and output — the thing native tasks are good at. |
-| [**⚙️ Setup & configuration**](../../setup/README.md) | Docker vs. host stack, which decides the execution host above. |
+| [**⚙️ Setup & configuration**](../../docs/setup/README.md) | Docker vs. host stack, which decides the execution host above. |
 
 ---
 

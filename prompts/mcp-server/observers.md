@@ -158,7 +158,7 @@ happen anyway.
 
 | What you'll see | What's happening |
 |:---|:---|
-| Sync reports success and no workflows arrive | The repository isn't in the watched set. Adding it is a sync naming that repository, not a plain refresh. ([#75](../../troubleshooting/README.md#75-a-github-repository-is-watched-sync-succeeds-and-no-workflows-ever-arrive)) |
+| Sync reports success and no workflows arrive | The repository isn't in the watched set. Adding it is a sync naming that repository, not a plain refresh. ([#75](../../docs/troubleshooting/README.md#75-a-github-repository-is-watched-sync-succeeds-and-no-workflows-ever-arrive)) |
 | A Vercel cron shows `unknown` forever | Correct and permanent — Vercel publishes no run history. Not a bug, not a broken cron. |
 | A schedule reads as null with a reason attached | Cronsole could not read that expression and refuses to guess a cron. The reason says why. |
 | "Run now" is missing or refused | Both platforms refuse `run`, by design. See the table above. |
@@ -170,8 +170,8 @@ happen anyway.
 |:---|:---|
 | [**✨ Gemini triggers**](gemini-triggers.md) | The counter-example — a hosted platform Cronsole fully controls. |
 | [**🔎 Inspect & audit**](inspect-and-audit.md) | Cross-platform reporting, where observers pull their weight. |
-| [**📘 Using GitHub Actions**](../../user-guides/sources/GitHub_Actions.md) | Setup, scopes, and watching repositories. |
-| [**📘 Using Vercel Cron**](../../user-guides/sources/Vercel_Cron.md) | Setup and what Vercel does and doesn't publish. |
+| [**📘 Using GitHub Actions**](../../docs/user-guides/sources/GitHub_Actions.md) | Setup, scopes, and watching repositories. |
+| [**📘 Using Vercel Cron**](../../docs/user-guides/sources/Vercel_Cron.md) | Setup and what Vercel does and doesn't publish. |
 
 ---
 

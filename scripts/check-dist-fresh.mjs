@@ -21,7 +21,7 @@
  * oversight to fix here: rebuilding on every `up` would make a routine start
  * command silently replace what is being served, which is a worse property than
  * an occasional stale bundle. So the gap is closed by *reporting* it — the
- * standing rule that a diagnostic reports and does not repair (CLAUDE.md §9,
+ * standing rule that a diagnostic reports and does not repair (AGENTS.md §9,
  * where three of four agent-health incidents were the readout lying).
  *
  * **Omitted, not passed, when nothing serves `dist`.** On a normal stack the

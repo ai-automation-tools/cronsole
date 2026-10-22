@@ -20,7 +20,7 @@ export interface SyncRequest {
  * rules exist to prevent. **Throws** on failure; the caller decides how to
  * report it (the route puts it in the row, the timer stores it).
  *
- * The rules this body carries, and why, live in CLAUDE.md §9 › Connectors
+ * The rules this body carries, and why, live in AGENTS.md §9 › Connectors
  * (refresh vs import, `partial`, `complete`, `lastSync` having one writer).
  */
 export async function syncConnection(

@@ -57,7 +57,7 @@ against real SQL is the entire point.
 | I1.4 | **Transactional writes** | Multi-step writes roll back fully on failure — no half-applied task | 🟡 |
 | I1.5 | **Batch upsert** | `TaskService.upsertTasks` batching handles large scans without N+1 or partial state | ✅ `data-flow.integration.test.ts` |
 | I1.6 | **Migrations** | `prisma migrate` applies cleanly to an empty DB **and** to a populated one | 🟡 `globalSetup.ts` migrates the test DB |
-| I1.7 | **Index coverage** | Every `WHERE` / `JOIN` / `ORDER BY` column is indexed (per CLAUDE.md) | ⬜ |
+| I1.7 | **Index coverage** | Every `WHERE` / `JOIN` / `ORDER BY` column is indexed (per AGENTS.md) | ⬜ |
 
 ## 🔐 API ↔ Auth ↔ Tenancy
 
@@ -138,7 +138,7 @@ export TEST_DATABASE_URL="postgresql://taskhub:password@localhost:5432/taskhub_t
 npm run test:integration
 ```
 
-`test/integration/globalSetup.ts` creates and migrates `taskhub_test` on that server;
+`tests/integration/globalSetup.ts` creates and migrates `taskhub_test` on that server;
 `setupEach.ts` gives each test a clean slate. CI does the same against a
 `postgres:16-alpine` service container.
 

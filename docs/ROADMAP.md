@@ -14,7 +14,7 @@
 
 The Cronsole roadmap routine (`Cronsole Weekly Roadmap`, Friday 23:00) works this file: it takes the first open item under `## After public release` that isn't `🔒 Needs Mike` and isn't under **Open decisions**, builds it, ticks it, and opens a PR. **Every item above `## After public release` is a go-live gate**, and all of them closed when the repo went public on 2026-09-13; the phases up there are the record of what shipped before and around the flip. Below the line the groups run in priority order: **Next up, P0, P1, P2, Sources, P3, Post-launch**, then Open decisions (questions, not work) and two reference groups.
 
-Ticking an item appends ` — done YYYY-MM-DD: <what landed>` (older items carry their date in italics instead) and, **in the same commit**, adds the matching line to [`CHANGELOG.md`](CHANGELOG.md) and updates any doc the change made stale (CLAUDE.md §11a lists them). Keep the lines short: a shipped item's design record, verification notes and post-mortem belong in the CHANGELOG under its date, the rationale behind an invariant in [`DESIGN_NOTES.md`](DESIGN_NOTES.md), and a symptom→fix write-up in [`troubleshooting/README.md`](troubleshooting/README.md). When a material decision changes scope, edit the item here *first*, then implement. Done items stay where they are, ticked; nothing moves between sections.
+Ticking an item appends ` — done YYYY-MM-DD: <what landed>` (older items carry their date in italics instead) and, **in the same commit**, adds the matching line to [`CHANGELOG.md`](CHANGELOG.md) and updates any doc the change made stale (AGENTS.md §11a lists them). Keep the lines short: a shipped item's design record, verification notes and post-mortem belong in the CHANGELOG under its date, the rationale behind an invariant in [`DESIGN_NOTES.md`](DESIGN_NOTES.md), and a symptom→fix write-up in [`troubleshooting/README.md`](troubleshooting/README.md). When a material decision changes scope, edit the item here *first*, then implement. Done items stay where they are, ticked; nothing moves between sections.
 
 Markers: `- [ ]` open, `- [-]` claimed by a run in progress, `- [x]` done, `- [!]` blocked (the reason follows on the line). An open item that begins *Partly shipped:* names its remainder in the text; one that begins *Moved:* points at where it lives now. `` `small` `` marks an item a check verifies; `🔒 Needs Mike` marks one only Mike can do.
 
@@ -2108,7 +2108,7 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
 > list in this section, re-checked every run, so "it has no API" is a finding with a date rather
 > than a reason to stop looking. First finding while setting it up: **OpenClaw and Hermes both
 > ship a built-in `cron` command** (list, create, pause, run), so their jobs live inside the
-> harness where no current source can see them. Both are still quick-link only in `CLAUDE.md` §2,
+> harness where no current source can see them. Both are still quick-link only in `AGENTS.md` §2,
 > and the Scout is told to judge them first. A harness whose jobs are Windows Task Scheduler tasks
 > (such as a DeepSeek harness) is already covered by the Windows source.
 

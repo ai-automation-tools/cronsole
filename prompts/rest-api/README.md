@@ -28,11 +28,11 @@ Two reasons to reach for this surface:
 > [!IMPORTANT]
 > **Prerequisites:** the backend running (default `http://localhost:3000`) and a **JWT** for
 > your user. The MCP server's `CRONSOLE_TOKEN` is exactly such a token — see the
-> [**MCP Server Guide**](../../user-guides/guides/MCP_Server_Guide.md) for how it's minted. Pass it
+> [**MCP Server Guide**](../../docs/user-guides/guides/MCP_Server_Guide.md) for how it's minted. Pass it
 > as `Authorization: Bearer <token>`. Never paste a real token into a shared prompt.
 
 For request/response shapes to hand the assistant, see
-[**reports/examples/**](../../reports/examples/README.md).
+[**reports/examples/**](../../docs/reports/examples/README.md).
 
 ---
 
@@ -241,11 +241,11 @@ report the result.
 
 | Resource | Why |
 |:---|:---|
-| [**🧪 API examples**](../../reports/examples/README.md) | Real request/response JSON to hand the assistant. |
-| [**🧩 MCP Server Guide**](../../user-guides/guides/MCP_Server_Guide.md) | How the JWT these prompts need is minted. |
+| [**🧪 API examples**](../../docs/reports/examples/README.md) | Real request/response JSON to hand the assistant. |
+| [**🧩 MCP Server Guide**](../../docs/user-guides/guides/MCP_Server_Guide.md) | How the JWT these prompts need is minted. |
 | [**🧩 MCP prompts**](../mcp-server/README.md) | The same operations in natural language, when you have an MCP host. |
 | [**🧹 Cleanup & removal**](../mcp-server/cleanup-and-removal.md) | Which removal verb you actually want, before you POST one in bulk. |
-| [**✍️ Task authoring & management**](../../../skills/cronsole/references/task-authoring.md) | The rules the API enforces — UTC cron, no-shell, folder refusals. |
+| [**✍️ Task authoring & management**](../../skills/cronsole/references/task-authoring.md) | The rules the API enforces — UTC cron, no-shell, folder refusals. |
 
 ---
 

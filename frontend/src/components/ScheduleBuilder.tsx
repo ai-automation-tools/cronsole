@@ -37,7 +37,7 @@ interface Props {
  * One schedule control, in two registers: a picker, and the cron it compiles to.
  *
  * **Why both, rather than replacing cron.** Cron is the storage and the contract
- * (CLAUDE.md §9), and it is also the only register that can express what the
+ * (AGENTS.md §9), and it is also the only register that can express what the
  * picker cannot — `0 9-17 * * 1-5` has no five-shape form and must stay
  * editable. But cron is a terrible *authoring* surface for the schedule almost
  * every task actually wants ("weekdays at 9"), which is what left this field a

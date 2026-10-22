@@ -14,7 +14,7 @@ Run **before committing** any non-trivial change, and before declaring work done
 when they drift, **nothing fails**. The suite stays green, CI is happy, and the drift
 surfaces weeks later as an agent — or a user — confidently doing the wrong thing.
 
-That is the *confident lie*, the failure mode `CLAUDE.md` §9 ranks as the worst there is,
+That is the *confident lie*, the failure mode `AGENTS.md` §9 ranks as the worst there is,
 aimed squarely at your future self. These surfaces do not get a follow-up pass. **They ship
 in the same change that obsoletes them.**
 
@@ -39,9 +39,9 @@ git diff --name-only <ref>        # explicit ref
 | `backend/src/routes/tasks.ts` or `templates.ts` — specifically `GET /api/tasks`, `POST /api/tasks/:id/run`, `GET /api/templates`, `POST /api/templates/:id/apply`, `POST /api/tasks/preview` | `mcp-server/src/tools.ts` + `client.ts`; the tool tables in `mcp-server/README.md` **and** `docs/user-guides/guides/MCP_Server_Guide.md` |
 | `mcp-server/src/tools.ts` — a tool added, removed, renamed, or its params changed | Both tool tables above, **and** the tool list in `skills/cronsole/SKILL.md` › "The two AI surfaces" |
 | `mcp-server/src/client.ts` — env vars or how they are read | `mcp-server/.env.example` + the config table in **both** READMEs |
-| A new architectural rule or invariant | `CLAUDE.md` §9 + the invariants table in `SKILL.md` |
+| A new architectural rule or invariant | `AGENTS.md` §9 + the invariants table in `SKILL.md` |
 | A new trap that cost real hours | `docs/troubleshooting/README.md` **and** the traps table in `SKILL.md` |
-| `backend/src/connectors/` or `backend/src/catalog/` | `CLAUDE.md` §9 + `SKILL.md` + `skills/cronsole/references/*.md` |
+| `backend/src/connectors/` or `backend/src/catalog/` | `AGENTS.md` §9 + `SKILL.md` + `skills/cronsole/references/*.md` |
 | Anything shipped, or scope moved | `docs/ROADMAP.md`, dated |
 | `agent/` — a new `task:*` command or a `SignableCommand` variant | The agent protocol section in `references/architecture.md`; confirm backend and agent ship **together** |
 

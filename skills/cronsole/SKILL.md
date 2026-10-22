@@ -319,7 +319,7 @@ Canonical, with full symptom/cause/fix: [`docs/troubleshooting/README.md`](../..
 | Question | Canonical source |
 |:---|:---|
 | What's shipped / what's next / open decisions | [`docs/ROADMAP.md`](../../docs/ROADMAP.md) — **the spec of record** |
-| Project conventions, domain rules | [`CLAUDE.md`](../../CLAUDE.md) — §9 is the invariant list |
+| Project conventions, domain rules | [`AGENTS.md`](../../AGENTS.md) — §9 is the invariant list |
 | **Why** an invariant exists — the argument, the failure that produced it | [`docs/DESIGN_NOTES.md`](../../docs/DESIGN_NOTES.md) — read before arguing with a rule or removing one |
 | Something's broken at setup/runtime | [`docs/troubleshooting/README.md`](../../docs/troubleshooting/README.md) — **check first** |
 | What to test, what covers it today | [`docs/testing/`](../../docs/testing/README.md) |
@@ -331,7 +331,7 @@ Canonical, with full symptom/cause/fix: [`docs/troubleshooting/README.md`](../..
 | **What a source is, and what Cronsole can do with each** — Windows, Cronsole HTTP, Cronsole scripts, Claude | [`docs/user-guides/guides/Sources_Guide.md`](../../docs/user-guides/guides/Sources_Guide.md) — also the deep-link target for every in-app source help topic |
 | **The MCP server** — tools, wiring, tokens, its troubleshooting | [`docs/user-guides/guides/MCP_Server_Guide.md`](../../docs/user-guides/guides/MCP_Server_Guide.md) — **the canonical doc** |
 | **MCP package internals** — source layout, design notes, `npm run inspect` | [`mcp-server/README.md`](../../mcp-server/README.md) |
-| **What a user should say to drive Cronsole** — worked prompts per task type | [`docs/prompts/`](../../docs/prompts/README.md); the MCP sets live in [`docs/prompts/mcp-server/`](../../docs/prompts/mcp-server/README.md). Adding or removing an MCP tool obligates these too. |
+| **What a user should say to drive Cronsole** — worked prompts per task type | [`prompts/`](../../prompts/README.md); the MCP sets live in [`prompts/mcp-server/`](../../prompts/mcp-server/README.md). Adding or removing an MCP tool obligates these too. |
 | This skill itself — install, design rules | [`skills/README.md`](../README.md) |
 | An external library's API | **`context7` MCP** — before writing code, not after |
 
@@ -419,7 +419,7 @@ confidently doing the wrong thing. That's "the confident lie" aimed at your futu
 | You changed… | Also update, same change |
 |:---|:---|
 | A backend route a tool maps to — `/api/tasks`, `/api/tasks/:id/run`, `/api/templates`, `/api/templates/:id/apply`, `/api/tasks/preview` | `mcp-server/src/tools.ts` + `client.ts`; the tool tables in [`mcp-server/README.md`](../../mcp-server/README.md) + [`MCP_Server_Guide.md`](../../docs/user-guides/guides/MCP_Server_Guide.md) |
-| Added / removed / renamed an MCP tool, or changed its params | Both tool tables above, the tool list in "The two AI surfaces" here, **and** the tool tiers + affected prompt set in [`docs/prompts/mcp-server/`](../../docs/prompts/mcp-server/README.md) |
+| Added / removed / renamed an MCP tool, or changed its params | Both tool tables above, the tool list in "The two AI surfaces" here, **and** the tool tiers + affected prompt set in [`prompts/mcp-server/`](../../prompts/mcp-server/README.md) |
 | An MCP env var, or how it's read | [`mcp-server/.env.example`](../../mcp-server/.env.example) + the config table in **both** READMEs |
 | A new invariant or architectural rule | The invariants table here |
 | A new trap that cost real hours | [`docs/troubleshooting/README.md`](../../docs/troubleshooting/README.md) **and** the traps table here |

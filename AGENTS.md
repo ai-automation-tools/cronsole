@@ -2,7 +2,7 @@
 
 > Agent instructions for **Cronsole** — a single pane of glass for scheduled tasks across Windows
 > Task Scheduler, Cronsole-native jobs, and Claude Code routines. This file is canonical for every
-> coding agent (Codex, Gemini CLI, opencode, Claude Code); [`CLAUDE.md`](CLAUDE.md) imports it and
+> coding agent (Codex, opencode, Antigravity, Claude Code); [`CLAUDE.md`](CLAUDE.md) imports it and
 > adds only what is specific to Claude Code (slash commands, the project-local `.claude/`).
 > Overrides any parent-workspace or user-scope `AGENTS.md` / `CLAUDE.md` where they conflict.
 

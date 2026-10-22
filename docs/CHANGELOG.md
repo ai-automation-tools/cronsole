@@ -14,6 +14,9 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **Four extended templates** (2026-10-22): `bkp-restic-backup` and `bkp-mysql-dump` (Backup &
+  Cleanup), `ntf-ntfy-push` (System & Utilities) and `dev-pip-audit-check` (Developer Pack). The
+  catalog is now 125 templates (115 extended). Registry regenerated; it reaches the hosted gallery when merged to `main`.
 - **A Cronsole-native or Windows task can be set to run on demand** (2026-10-21). Edit task ›
   Schedule has a **No schedule (run on demand)** box: the task stays and runs only when started
   by hand (Run now, a phone shortcut, MCP). Unticking it gives an on-demand task a schedule again.

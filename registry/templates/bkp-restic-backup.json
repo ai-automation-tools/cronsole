@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "1.0",
+  "id": "bkp-restic-backup",
+  "name": "Back Up a Folder with restic",
+  "description": "Take an encrypted, deduplicated snapshot of a folder into a restic repository on a schedule, so you keep a browsable history of every run for the cost of only what changed, which a plain zip or mirror cannot give you.",
+  "runtime": "executable",
+  "os": "cross-platform",
+  "category": "backup",
+  "tags": [
+    "backup",
+    "restic",
+    "snapshot",
+    "encrypted"
+  ],
+  "icon": "Archive",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 1 * * *"
+  },
+  "commandTemplate": "restic backup \"{{sourcePath}}\" --repo \"{{repoPath}}\" --password-file \"{{passwordFile}}\"",
+  "parameters": [
+    {
+      "key": "sourcePath",
+      "label": "Folder to back up",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Absolute path to the folder whose contents are snapshotted. The restic command-line tool must be installed and on the PATH."
+    },
+    {
+      "key": "repoPath",
+      "label": "Repository path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Absolute path of an existing restic repository, created once beforehand with restic init. Put it on a different drive or a synced folder, not next to the source."
+    },
+    {
+      "key": "passwordFile",
+      "label": "Password file path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Absolute path to a file containing only the repository password, readable by the account that runs the task. Losing the password means losing the backups."
+    }
+  ],
+  "compatibleTargets": [
+    "windows",
+    "macos"
+  ]
+}

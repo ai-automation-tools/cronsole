@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "1.0",
+  "id": "ntf-ntfy-push",
+  "name": "Push Notification via ntfy",
+  "description": "Send a scheduled push notification to your phone or desktop through ntfy, a free pub-sub service, with a single HTTP request and no account or app credentials to manage.",
+  "runtime": "executable",
+  "os": "cross-platform",
+  "category": "notification",
+  "tags": [
+    "notification",
+    "ntfy",
+    "push",
+    "mobile"
+  ],
+  "icon": "BellRing",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 8 * * 1-5"
+  },
+  "commandTemplate": "curl -fsS -d \"{{message}}\" \"https://ntfy.sh/{{topic}}\"",
+  "parameters": [
+    {
+      "key": "topic",
+      "label": "ntfy topic",
+      "type": "text",
+      "default": "",
+      "required": true,
+      "help": "The topic name to publish to. Anyone who knows a topic name can read it, so choose a long, hard-to-guess one and subscribe to it in the ntfy app. The curl tool must be installed."
+    },
+    {
+      "key": "message",
+      "label": "Message",
+      "type": "text",
+      "default": "Scheduled reminder from Cronsole",
+      "required": true,
+      "help": "The notification text. Avoid double quotes in it."
+    }
+  ],
+  "compatibleTargets": [
+    "windows",
+    "macos"
+  ]
+}

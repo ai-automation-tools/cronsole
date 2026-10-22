@@ -1,6 +1,6 @@
 {
   "registryVersion": "1.0",
-  "updatedAt": "2026-10-15T21:01:44.553Z",
+  "updatedAt": "2026-10-22T21:02:49.724Z",
   "templates": [
     {
       "id": "tpl_daily_database_backup",
@@ -1617,6 +1617,87 @@
       "sha256": "ad3f79a924914090b28c9f50779749c8317c8ba74c4414ec88b091637191e433"
     },
     {
+      "id": "bkp-restic-backup",
+      "name": "Back Up a Folder with restic",
+      "description": "Take an encrypted, deduplicated snapshot of a folder into a restic repository on a schedule, so you keep a browsable history of every run for the cost of only what changed, which a plain zip or mirror cannot give you.",
+      "category": "backup",
+      "tags": [
+        "backup",
+        "restic",
+        "snapshot",
+        "encrypted"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ],
+      "path": "templates/bkp-restic-backup.json",
+      "sha256": "b82a2d19c50c1b8e729218013c52ab9abf356a3af139a2b40b8816985b2f15c1"
+    },
+    {
+      "id": "bkp-mysql-dump",
+      "name": "Back Up a MySQL / MariaDB Database",
+      "description": "Write a full logical dump of one MySQL or MariaDB database to a file on a schedule with mysqldump, for the database engine the catalog’s PostgreSQL and SQLite backups do not cover.",
+      "category": "backup",
+      "tags": [
+        "backup",
+        "database",
+        "mysql",
+        "mariadb"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ],
+      "path": "templates/bkp-mysql-dump.json",
+      "sha256": "11b1c790b18af7cb03f3282496515cb0a7c304396e120f81f5b65b054a6fecdf"
+    },
+    {
+      "id": "ntf-ntfy-push",
+      "name": "Push Notification via ntfy",
+      "description": "Send a scheduled push notification to your phone or desktop through ntfy, a free pub-sub service, with a single HTTP request and no account or app credentials to manage.",
+      "category": "notification",
+      "tags": [
+        "notification",
+        "ntfy",
+        "push",
+        "mobile"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ],
+      "path": "templates/ntf-ntfy-push.json",
+      "sha256": "ef5ef8b94296ed20fabc161592f65e699e5f8ecd5f0792ce8700d79933040ca0"
+    },
+    {
+      "id": "dev-pip-audit-check",
+      "name": "Dependency Security Audit (pip)",
+      "description": "Scan a Python project’s requirements file for packages with known vulnerabilities using pip-audit on a schedule and write the findings to a report, the Python counterpart to the npm audit template.",
+      "category": "dev-workflow",
+      "tags": [
+        "dev",
+        "python",
+        "pip",
+        "security",
+        "dependencies"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ],
+      "path": "templates/dev-pip-audit-check.json",
+      "sha256": "10e3efafe22f600b265345f977e437fc5991c61389a68c0bc5013a2278242061"
+    },
+    {
       "id": "native-run-program",
       "name": "Run a Program (Cronsole)",
       "description": "Run any executable with arguments on the machine hosting Cronsole — no agent, no Task Scheduler entry. Cronsole schedules and runs it itself.",
@@ -2391,11 +2472,12 @@
         "dev-docker-compose-up",
         "dev-brew-update",
         "dev-npm-audit-check",
+        "dev-pip-audit-check",
         "tpl_github_pr_triage",
         "tpl_starter_git_sync"
       ],
       "path": "packs/developer.json",
-      "sha256": "ceeacf24b400e88c72140846aafe7d9ea4c4ff635c20d18fd2ff329abc8a8939"
+      "sha256": "8b01e64df469ea77dd5d03e771953cc31cce94d24b53d023bcc909000a3b251f"
     },
     {
       "id": "ai-agents",
@@ -2429,6 +2511,8 @@
         "bkp-registry-export",
         "bkp-sqlite-backup",
         "bkp-git-bundle",
+        "bkp-restic-backup",
+        "bkp-mysql-dump",
         "bkp-system-restore-point",
         "cln-old-files",
         "cln-recycle-bin",
@@ -2438,7 +2522,7 @@
         "sys-postgres-vacuum"
       ],
       "path": "packs/backup-cleanup.json",
-      "sha256": "b6b1971c44d60f377e2c2574dc6ed24821aa5b101b64c55816d69cee15daac90"
+      "sha256": "0ddf3f6f485b603fa1c8dd4eba10d6f2a9f92ac7158ac706aae22e4306872212"
     },
     {
       "id": "monitoring",
@@ -2550,6 +2634,7 @@
         "ntf-windows-broadcast-message",
         "ntf-email-alert",
         "ntf-sms-twilio-alert",
+        "ntf-ntfy-push",
         "sys-certbot-renew",
         "sys-process-watchdog",
         "sys-macos-update-check",
@@ -2559,7 +2644,7 @@
         "sys-dism-health-check"
       ],
       "path": "packs/system-utilities.json",
-      "sha256": "686af832b1f02013fe55f3367ba758ffd2440910400bb93c4fa84215769c80bb"
+      "sha256": "59488c5b3b9b9c7d557af4540fc778e7e72ad25eac30209b7003b50b9ed5304f"
     }
   ]
 }

@@ -1635,6 +1635,80 @@ const extendedPack: RegistryTemplate[] = [
       { key: 'days', label: 'Older than (days)', type: 'number', default: '30', required: true, help: 'Items last modified more than this many days ago are deleted permanently. The job may need Full Disk Access to read the Trash.' }
     ],
     compatibleTargets: ['macos']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'bkp-restic-backup',
+    name: 'Back Up a Folder with restic',
+    description: 'Take an encrypted, deduplicated snapshot of a folder into a restic repository on a schedule, so you keep a browsable history of every run for the cost of only what changed, which a plain zip or mirror cannot give you.',
+    runtime: 'executable',
+    os: 'cross-platform',
+    category: 'backup',
+    tags: ['backup', 'restic', 'snapshot', 'encrypted'],
+    icon: 'Archive',
+    trigger: sched('0 1 * * *'),
+    commandTemplate: 'restic backup "{{sourcePath}}" --repo "{{repoPath}}" --password-file "{{passwordFile}}"',
+    parameters: [
+      { key: 'sourcePath', label: 'Folder to back up', type: 'path', default: '', required: true, help: 'Absolute path to the folder whose contents are snapshotted. The restic command-line tool must be installed and on the PATH.' },
+      { key: 'repoPath', label: 'Repository path', type: 'path', default: '', required: true, help: 'Absolute path of an existing restic repository, created once beforehand with restic init. Put it on a different drive or a synced folder, not next to the source.' },
+      { key: 'passwordFile', label: 'Password file path', type: 'path', default: '', required: true, help: 'Absolute path to a file containing only the repository password, readable by the account that runs the task. Losing the password means losing the backups.' }
+    ],
+    compatibleTargets: ['windows', 'macos']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'bkp-mysql-dump',
+    name: 'Back Up a MySQL / MariaDB Database',
+    description: 'Write a full logical dump of one MySQL or MariaDB database to a file on a schedule with mysqldump, for the database engine the catalog’s PostgreSQL and SQLite backups do not cover.',
+    runtime: 'executable',
+    os: 'cross-platform',
+    category: 'backup',
+    tags: ['backup', 'database', 'mysql', 'mariadb'],
+    icon: 'Database',
+    trigger: sched('15 3 * * *'),
+    commandTemplate: 'mysqldump --user={{dbUser}} --single-transaction --result-file={{backupPath}} {{dbName}}',
+    parameters: [
+      { key: 'dbUser', label: 'Database user', type: 'text', default: 'root', required: true, help: 'The MySQL account to connect as. Store its password in a client option file such as my.cnf under a client section, because this command never prompts and never puts a password on the command line.' },
+      { key: 'dbName', label: 'Database name', type: 'text', default: '', required: true, help: 'The database to dump. The mysqldump tool must be installed and on the PATH.' },
+      { key: 'backupPath', label: 'Backup file path', type: 'path', default: '', required: true, help: 'Absolute path of the .sql file to write, with no spaces in it. It is overwritten on every run, so rotate it separately if you want history.' }
+    ],
+    compatibleTargets: ['windows', 'macos']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'ntf-ntfy-push',
+    name: 'Push Notification via ntfy',
+    description: 'Send a scheduled push notification to your phone or desktop through ntfy, a free pub-sub service, with a single HTTP request and no account or app credentials to manage.',
+    runtime: 'executable',
+    os: 'cross-platform',
+    category: 'notification',
+    tags: ['notification', 'ntfy', 'push', 'mobile'],
+    icon: 'BellRing',
+    trigger: sched('0 8 * * 1-5'),
+    commandTemplate: 'curl -fsS -d "{{message}}" "https://ntfy.sh/{{topic}}"',
+    parameters: [
+      { key: 'topic', label: 'ntfy topic', type: 'text', default: '', required: true, help: 'The topic name to publish to. Anyone who knows a topic name can read it, so choose a long, hard-to-guess one and subscribe to it in the ntfy app. The curl tool must be installed.' },
+      { key: 'message', label: 'Message', type: 'text', default: 'Scheduled reminder from Cronsole', required: true, help: 'The notification text. Avoid double quotes in it.' }
+    ],
+    compatibleTargets: ['windows', 'macos']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'dev-pip-audit-check',
+    name: 'Dependency Security Audit (pip)',
+    description: 'Scan a Python project’s requirements file for packages with known vulnerabilities using pip-audit on a schedule and write the findings to a report, the Python counterpart to the npm audit template.',
+    runtime: 'executable',
+    os: 'cross-platform',
+    category: 'dev-workflow',
+    tags: ['dev', 'python', 'pip', 'security', 'dependencies'],
+    icon: 'ShieldAlert',
+    trigger: sched('0 7 * * 1'),
+    commandTemplate: 'pip-audit -r "{{requirementsPath}}" -o "{{reportPath}}"',
+    parameters: [
+      { key: 'requirementsPath', label: 'Requirements file path', type: 'path', default: '', required: true, help: 'Absolute path to the requirements.txt to audit. The pip-audit tool must be installed, for example with pip install pip-audit.' },
+      { key: 'reportPath', label: 'Report file path', type: 'path', default: '', required: true, help: 'Where to write the audit report. pip-audit exits non-zero when it finds a vulnerable package, so the run shows as failed exactly when there is something to fix.' }
+    ],
+    compatibleTargets: ['windows', 'macos']
   }
 ];
 

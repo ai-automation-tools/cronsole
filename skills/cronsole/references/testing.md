@@ -123,7 +123,7 @@ Honest list — real holes, not polish:
 | **MCP tools never run against a real backend** | The suite stubs the HTTP client, so it pins what the wrapper *does*, not that the wrapper and the API still **agree**. A route whose response shape moves keeps the stub green while the real tool breaks — [#9](../../../docs/troubleshooting/README.md#9-agent-payload-arrives-with-every-field-empty) one layer up: *both sides green while disagreeing about the wire.* Drive the tools by hand after touching a wrapped route — there is now a procedure for it: [MCP Tools runbook](../../../docs/testing/manual-testing/runbooks/MCP_Tools.md). |
 | **The recovery paths rest on one live pass** | `POST /api/tasks/import`, `POST /api/tools/task-archives/:id/restore`, and `DELETE /api/tasks/:id` now archiving like the MCP route. The **parser** is well covered (`taskImport.test.ts`, refusals mutation-tested) and the components are too — but the routes themselves, and *the two delete doors behaving alike*, were proven end to end on 2026-08-17 and by nothing since. Bites late by construction: nobody exercises undo until they need it. |
 | **No visual regression** | Theme/layout breaks caught by eye only |
-| **No performance gate** | A baseline exists in `artifacts/`; nothing fails on drift |
+| **No performance gate** | A baseline exists in `docs/testing/reports/`; nothing fails on drift |
 
 ## The invariant guards
 

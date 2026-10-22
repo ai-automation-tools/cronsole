@@ -199,6 +199,7 @@ And the key guides, one click away:
 | [**🍎 macOS Install**](docs/install/guides/macOS_Install_Guide.md) | Dashboard + backend on macOS (no Windows agent yet). |
 | [**🖥️ UI User Guide**](docs/user-guides/guides/UI_User_Guide.md) | Navigating the dashboard, categorizing tasks, applying templates. |
 | [**🤖 Windows Agent Setup**](docs/user-guides/guides/Agent_Setup_Guide.md) | Installing, verifying, and troubleshooting the local agent. |
+| [**🔌 MCP Server Setup**](docs/mcp-server.md) | The install line for each client, its environment, and every tool. |
 | [**🧩 MCP Server**](docs/user-guides/guides/MCP_Server_Guide.md) | Wiring Cronsole into Claude / Codex / Cursor to manage tasks in natural language. |
 | [**🌐 Remote Access**](docs/user-guides/guides/Remote_Access_Guide.md) <sub>· optional</sub> | Reaching your own instance from your phone — one HTTPS origin behind Tailscale or a Cloudflare Tunnel, with nothing on the public internet. |
 | [**📱 Phone Shortcuts**](docs/user-guides/guides/Phone_Shortcuts_Guide.md) <sub>· optional</sub> | A home-screen icon that runs one task — with a token that can do nothing else. |

@@ -33,6 +33,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Changed
 
+- **The README links the MCP setup page** (2026-10-22). The root README links to `docs/mcp-server.md`, the one page with the install line for each client, so the MCP setup is one click from the repo's front page.
 - **The repo follows the org folder layout** (2026-10-22, org roadmap P2-21). Four moves, no
   behavior change:
   - **`AGENTS.md` is the instruction file.** `CLAUDE.md` was renamed to it, so Codex, Gemini CLI

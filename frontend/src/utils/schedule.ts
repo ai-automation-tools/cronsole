@@ -9,7 +9,7 @@ import { ordinalDay } from './scheduleBuilder';
  * confidently so callers fall back to showing the raw expression rather than
  * guessing wrong.
  *
- * Schedules are stored in UTC (see CLAUDE.md §9). The expression is shifted into
+ * Schedules are stored in UTC (see AGENTS.md §9). The expression is shifted into
  * the Settings zone first (`utils/timezone.ts`) and described from there, so the
  * weekday roll across midnight — Mon 02:00 UTC is Sunday evening in Pacific —
  * falls out of the shift instead of being re-derived here. Only the shapes with
@@ -154,7 +154,7 @@ export interface SchedulePreview {
  * card is being added to fix.
  *
  * The shifted reading does **not** print the stored UTC cron beside it here —
- * unlike the schedule *fields*, which must (CLAUDE.md §9). A card is a preview,
+ * unlike the schedule *fields*, which must (AGENTS.md §9). A card is a preview,
  * not an input: the UTC form rides in the tooltip and is printed in full by the
  * detail modal one click away.
  */

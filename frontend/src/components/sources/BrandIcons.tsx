@@ -16,7 +16,7 @@ import type { LucideIcon } from 'lucide-react';
  * thousands of icons.
  *
  * **These render in the brand's real, fixed colour — deliberately not a
- * role token.** CLAUDE.md §9's rule against raw palette literals is about
+ * role token.** AGENTS.md §9's rule against raw palette literals is about
  * *our own* product colours, which must stay theme-aware because they carry
  * no fixed meaning of their own (`bg-amber-500` says nothing about which
  * theme it is in). A brand mark is the opposite kind of colour: Anthropic's

@@ -158,3 +158,4 @@ frontend/.playwright/
 
 # Archify build receipts and screenshots (scripts/build-diagram.mjs)
 docs/diagrams/.build/
+artifacts/

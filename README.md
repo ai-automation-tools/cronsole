@@ -185,7 +185,7 @@ Full documentation lives in **[`docs/`](docs/README.md)**. The main sections:
 | [**⬇️ Installation**](docs/install/README.md) | Install Cronsole on Windows or macOS, or clone the repo. |
 | [**⚙️ Setup & Configuration**](docs/setup/README.md) | Environment variables, Docker vs. manual, agent pairing. |
 | [**🖥️ User Guides**](docs/user-guides/README.md) | Day-to-day guides for using Cronsole once it's running. |
-| [**💬 Prompt Library**](docs/prompts/README.md) | Copy-paste prompts for driving Cronsole in plain English — scheduled scripts, headless coding-agent runs, HTTP jobs, audits. |
+| [**💬 Prompt Library**](prompts/README.md) | Copy-paste prompts for driving Cronsole in plain English — scheduled scripts, headless coding-agent runs, HTTP jobs, audits. |
 | [**🧯 Troubleshooting**](docs/troubleshooting/README.md) | Symptom → cause → fix for problems we've actually hit. |
 | [**🧪 Testing**](docs/testing/README.md) | What to test and how to run it — functional, integration, regression, and UAT, plus step-by-step manual runbooks. |
 | [**🗺️ Roadmap**](docs/ROADMAP.md) | What's shipped and what's next, in priority order. |
@@ -203,7 +203,7 @@ And the key guides, one click away:
 | [**🌐 Remote Access**](docs/user-guides/guides/Remote_Access_Guide.md) <sub>· optional</sub> | Reaching your own instance from your phone — one HTTPS origin behind Tailscale or a Cloudflare Tunnel, with nothing on the public internet. |
 | [**📱 Phone Shortcuts**](docs/user-guides/guides/Phone_Shortcuts_Guide.md) <sub>· optional</sub> | A home-screen icon that runs one task — with a token that can do nothing else. |
 | [**🍳 Ready-made recipes**](https://github.com/ai-automation-tools/ai-automation-recipes) | Scheduled Claude Code automations (stories, digests, images, audio) packaged as Cronsole templates, with [live samples](https://ai-automation-recipes-demo.ai-automation-tools.dev) of what they make. |
-| [**💬 Prompts to start with**](docs/prompts/mcp-server/README.md) | What to actually say once the MCP server is connected, grouped by what you're trying to do. |
+| [**💬 Prompts to start with**](prompts/mcp-server/README.md) | What to actually say once the MCP server is connected, grouped by what you're trying to do. |
 | [**💾 Backup & Restore**](docs/user-guides/guides/Backup_Restore_Guide.md) | Backing up the database, scheduling it as a Cronsole job, and testing the restore — which is the part that makes it real. |
 | [**🔥 Smoke Test**](docs/testing/manual-testing/runbooks/Smoke_Test.md) | Verifying your stack is actually alive and the agent is talking — in about 10 minutes. |
 
@@ -244,7 +244,7 @@ a scheduled agent routine needs. Install them over this clone with that repo's i
 ## 🤝 Contributing
 
 Cronsole is an MVP-stage project. If you're working on it, start with
-[`CONTRIBUTING.md`](CONTRIBUTING.md) and [`CLAUDE.md`](CLAUDE.md), and track work on the
+[`CONTRIBUTING.md`](CONTRIBUTING.md) and [`AGENTS.md`](AGENTS.md), and track work on the
 [Roadmap](docs/ROADMAP.md). Recent changes are logged in [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
 
 Before opening a PR, run the suites and — for anything touching the agent, real Task

@@ -9,7 +9,7 @@ Cronsole is at **MVP stage**. The goal of this guide is to keep changes small, r
 Read these first:
 
 1. [`README.md`](README.md)
-2. [`CLAUDE.md`](CLAUDE.md)
+2. [`AGENTS.md`](AGENTS.md)
 3. [`docs/ROADMAP.md`](docs/ROADMAP.md) — the living plan (the phase docs, specs, and research it replaced are kept locally under `docs/archive/`, not tracked in git)
 4. [`docs/README.md`](docs/README.md) — the documentation map
 

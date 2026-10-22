@@ -296,7 +296,7 @@ export function nextRunOf(task: Task): Date | null {
  *
  * "Today" is the calendar date **in the user's schedule timezone**, not UTC and
  * not necessarily the machine's zone — the dashboard already reads and writes
- * every schedule in `settings.timezone` (CLAUDE.md §9), and a "Due today" that
+ * every schedule in `settings.timezone` (AGENTS.md §9), and a "Due today" that
  * disagreed with the times printed next to it would be the same class of lie
  * the zone work was done to remove.
  *

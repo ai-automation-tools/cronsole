@@ -28,7 +28,7 @@
 import { prisma } from '../db.js';
 import { catalogSource, type TemplateCatalogSource } from './source.js';
 
-// The shared catalog is owned by the MVP placeholder user (see CLAUDE.md — the
+// The shared catalog is owned by the MVP placeholder user (see AGENTS.md — the
 // curated library is seeded under this user and read globally).
 export const CATALOG_OWNER_ID = 'cli_user_placeholder';
 const CATALOG_OWNER_EMAIL = 'mike@example.com';

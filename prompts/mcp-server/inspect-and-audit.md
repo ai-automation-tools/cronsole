@@ -266,8 +266,8 @@ Excel mangles non-ASCII task names.
 |:---|:---|
 | [**⚙️ Manage tasks**](manage-tasks.md) | Acting on what you found here. |
 | [**🌐 REST API prompts**](../rest-api/README.md) | Analytics, CSV export, archives — the read surfaces MCP doesn't wrap. |
-| [**🧯 Troubleshooting**](../../troubleshooting/README.md) | When the answer is "that's a known trap". |
-| [**🧪 Testing**](../../testing/README.md) | The runbooks for proving a stack is alive rather than assuming it. |
+| [**🧯 Troubleshooting**](../../docs/troubleshooting/README.md) | When the answer is "that's a known trap". |
+| [**🧪 Testing**](../../docs/testing/README.md) | The runbooks for proving a stack is alive rather than assuming it. |
 
 ---
 

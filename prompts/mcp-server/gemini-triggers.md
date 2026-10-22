@@ -111,7 +111,7 @@ two web pages and writes a summary.
 > accepts — `filesystem` is the known case. Such a trigger is created successfully and then fails
 > in about five seconds on every run. If a brand-new trigger fails almost instantly, read the run
 > output before touching the prompt: it will name the rejected tool
-> ([#84](../../troubleshooting/README.md#84-a-gemini-run-fails-in-five-seconds-and-cronsole-says-there-is-nothing-to-read)).
+> ([#84](../../docs/troubleshooting/README.md#84-a-gemini-run-fails-in-five-seconds-and-cronsole-says-there-is-nothing-to-read)).
 
 **The allowlist** — domains the sandbox may contact. Empty means it reaches nothing outside
 itself, which is why a trigger asked to email a report will quietly write a file instead and
@@ -286,10 +286,10 @@ happens across a daylight-saving change, then create it.
 
 | What you'll see | What's happening |
 |:---|:---|
-| A brand-new trigger fails in ~5 seconds, every time | The managed agent refused a tool the API accepted — usually `filesystem`. Read the run output; it names it. ([#84](../../troubleshooting/README.md#84-a-gemini-run-fails-in-five-seconds-and-cronsole-says-there-is-nothing-to-read)) |
+| A brand-new trigger fails in ~5 seconds, every time | The managed agent refused a tool the API accepted — usually `filesystem`. Read the run output; it names it. ([#84](../../docs/troubleshooting/README.md#84-a-gemini-run-fails-in-five-seconds-and-cronsole-says-there-is-nothing-to-read)) |
 | Every run says `completed` but the job isn't getting done | Status ≠ outcome. Read the step list. Usually the sandbox lacked a tool or a domain, so the agent did the nearest thing it could. |
 | Run history is empty although it's been running for days | You read `get_task_history` (Cronsole's own log, empty by design here) instead of `list_platform_runs`. |
-| "Edit schedule" fails mentioning a word you never typed | Google's `schedule` parameter. The platform has no reschedule; recreate. ([#82](../../troubleshooting/README.md#82-a-gemini-trigger-loses-its-prompt-on-the-first-sync-and-edit-schedule-fails-with-googles-word)) |
+| "Edit schedule" fails mentioning a word you never typed | Google's `schedule` parameter. The platform has no reschedule; recreate. ([#82](../../docs/troubleshooting/README.md#82-a-gemini-trigger-loses-its-prompt-on-the-first-sync-and-edit-schedule-fails-with-googles-word)) |
 | A trigger disabled itself | The platform paused it after consecutive failures. Fix the cause, then re-enable. |
 | Every trigger lands in one category | Correct. An API key is scoped to one Google Cloud project and sees a flat list, so the tracked set is the constant `Gemini`. Rename or recategorize in Cronsole if you want your own grouping — those are Cronsole labels and sync never overwrites them. |
 
@@ -301,7 +301,7 @@ happens across a daylight-saving change, then create it.
 | [**🔎 Inspect & audit**](inspect-and-audit.md) | Platform run history across every source, not just this one. |
 | [**🤖 AI agent jobs**](ai-agent-jobs.md) | The *other* Gemini — the CLI, scheduled locally as a Windows task. |
 | [**🧠 Claude routines**](claude-routines.md) | The other hosted agent platform, and how the two differ. |
-| [**📘 Using Gemini API Triggers**](../../user-guides/sources/Gemini_API_Triggers.md) | Setup, the API key, and the source panel. |
+| [**📘 Using Gemini API Triggers**](../../docs/user-guides/sources/Gemini_API_Triggers.md) | Setup, the API key, and the source panel. |
 
 ---
 

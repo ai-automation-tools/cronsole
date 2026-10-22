@@ -14,7 +14,7 @@ import type { LucideIcon } from 'lucide-react';
  *
  * **The count is part of the label, and it governs exactly what the tab holds.**
  * A number beside a control describes the population that control governs
- * (CLAUDE.md §9) — so *Connected 3* is three connected sources, never three
+ * (AGENTS.md §9) — so *Connected 3* is three connected sources, never three
  * sources of which some are connected.
  *
  * A tab may legitimately read `0`: "nothing is connected yet" is a destination

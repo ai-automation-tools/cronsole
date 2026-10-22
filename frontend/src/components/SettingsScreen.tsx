@@ -165,7 +165,7 @@ const Row = ({
  * account to follow. `error` is a failure, and it names the consequence the user
  * would otherwise discover on the next device rather than reassuring them.
  * Collapsing the two into one "not syncing" would be the same lie in both
- * directions that the health tiers exist to avoid (CLAUDE.md §9).
+ * directions that the health tiers exist to avoid (AGENTS.md §9).
  */
 const SYNC_COPY: Record<SettingsSyncStatus, string> = {
   local:

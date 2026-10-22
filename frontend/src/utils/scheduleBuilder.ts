@@ -3,7 +3,7 @@
  * translation both ways.
  *
  * Cron stays the storage, the API, the signed agent command and the MCP
- * contract (CLAUDE.md §9). This adds no second representation of a schedule:
+ * contract (AGENTS.md §9). This adds no second representation of a schedule:
  * the shape below exists only between a click and the cron string it compiles
  * to, and every surface still holds **a cron in the user's zone** and converts
  * once on submit (`useScheduleZone`). Nothing downstream can tell whether an

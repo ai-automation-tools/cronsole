@@ -17,7 +17,7 @@ export type TemplateView = 'grid' | 'list' | 'kanban';
  * instead of silently resetting.
  *
  * This affects **authoring and display only**. Storage stays 5-field cron in
- * UTC (CLAUDE.md §9); `utils/timezone.ts` converts at the edge.
+ * UTC (AGENTS.md §9); `utils/timezone.ts` converts at the edge.
  */
 export type TimezoneMode = 'local' | 'utc' | (string & {});
 

@@ -128,7 +128,7 @@ anything you made.
 | [**🤖 AI agent jobs**](ai-agent-jobs.md) | The AI & Agents pack in use, with its fencing explained. |
 | [**🖥️ Cronsole-native tasks**](native-tasks.md) | Where the native pack's templates end up. |
 | [**🌐 REST API prompts**](../rest-api/README.md) | Import, export, and save-as-template. |
-| [**📦 Template catalog spec**](../../reports/templates/README.md) | How templates are defined, tiered, and published. |
+| [**📦 Template catalog spec**](../../docs/reports/templates/README.md) | How templates are defined, tiered, and published. |
 | [**🌍 Public gallery**](https://mikesailab.com/cronsole-registry) | Browse all 66 in a browser and download packs. |
 
 ---

@@ -173,8 +173,8 @@ a routine or a local headless task is the right shape, then create it.
 |:---|:---|
 | [**🤖 AI agent jobs**](ai-agent-jobs.md) | The local equivalent — headless Claude Code and Codex on Task Scheduler. |
 | [**🧹 Cleanup & removal**](cleanup-and-removal.md) | Disconnect in context, next to untrack and delete. |
-| [**🧯 Troubleshooting #47**](../../troubleshooting/README.md) | Why a Claude task kept coming back after "remove from Cronsole". |
-| [**🖥️ UI User Guide**](../../user-guides/guides/UI_User_Guide.md) | The same operations in the dashboard. |
+| [**🧯 Troubleshooting #47**](../../docs/troubleshooting/README.md) | Why a Claude task kept coming back after "remove from Cronsole". |
+| [**🖥️ UI User Guide**](../../docs/user-guides/guides/UI_User_Guide.md) | The same operations in the dashboard. |
 
 ---
 

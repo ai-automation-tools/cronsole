@@ -37,7 +37,7 @@ via environment variables (never committed).
 | Resource | Why you'd go there |
 |:---|:---|
 | [**🛠️ Agent Tools home**](../README.md) | MCP servers, CLIs, and subagents overview. |
-| [**🤖 CLAUDE.md** (§8)](../../../CLAUDE.md) | The canonical description of each MCP server and when to use it. |
+| [**🤖 AGENTS.md** (§8)](../../../AGENTS.md) | The canonical description of each MCP server and when to use it. |
 
 ---
 

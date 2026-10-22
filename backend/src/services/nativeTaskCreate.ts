@@ -38,7 +38,7 @@ export interface NativeTaskInput {
   name: string;
   /** Cronsole label. Defaults to `Cronsole` — the platform owns neither name nor category. */
   category?: string;
-  /** 5-field cron, **UTC** — the storage contract (CLAUDE.md §9 › Data model). */
+  /** 5-field cron, **UTC** — the storage contract (AGENTS.md §9 › Data model). */
   schedule: string;
   /** Normalized by `buildNativeJob`, then checked by the executor's own `validateJob`. */
   job: unknown;

@@ -6,7 +6,7 @@
  * GitHub still serves the page — scrolled to the top, no error anywhere — so a
  * sentence promising *"see Removing a task"* quietly starts delivering the table
  * of contents. Nothing throws, no test reddens, and the only person who finds
- * out is whoever needed the answer. That is CLAUDE.md §11a's drift, in the one
+ * out is whoever needed the answer. That is AGENTS.md §11a's drift, in the one
  * form that can be mechanized completely.
  *
  * It has already rotted: the TaskHub → Cronsole rename (2026-07-31) renamed
@@ -54,7 +54,7 @@ import { posix } from 'node:path';
 /**
  * Paths deliberately absent from a clone.
  *
- * `docs/archive/` and `docs/local/` are gitignored by design (CLAUDE.md §4), so
+ * `docs/archive/` and `docs/local/` are gitignored by design (AGENTS.md §4), so
  * a link to them is correct *and* unresolvable here. Keep this list SHORT — every
  * entry is a hole, and the failure mode it hides is a link nobody can follow.
  */

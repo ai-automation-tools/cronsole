@@ -51,7 +51,7 @@ pwsh scripts\cronsole.ps1 remote     # say which this machine is
 ```
 
 **`remote` is the durability half of remote access.** The reverse proxy is opt-in by design
-(compose profile `proxy`, [§9](../CLAUDE.md)), so nothing starts it by accident — but that also
+(compose profile `proxy`, [§9](../AGENTS.md)), so nothing starts it by accident — but that also
 means nothing restarted it after a `docker compose stop`, and `restart: unless-stopped` deliberately
 does not undo a deliberate stop. `remote on` starts it *and* records the choice in `.cronsole-remote`
 (gitignored, per-machine), which is what lets `up` — and therefore the 5-minute self-heal — bring it

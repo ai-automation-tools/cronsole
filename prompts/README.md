@@ -9,7 +9,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/for-users_&_agents-8B5CF6?style=for-the-badge" alt="For users and agents">
   <img src="https://img.shields.io/badge/style-copy--paste-2ea44f?style=for-the-badge" alt="Copy-paste">
-  <a href="../README.md"><img src="https://img.shields.io/badge/↩-docs_home-6B7280?style=for-the-badge" alt="Docs home"></a>
+  <a href="../docs/README.md"><img src="https://img.shields.io/badge/↩-docs_home-6B7280?style=for-the-badge" alt="Docs home"></a>
 </p>
 
 ---
@@ -121,16 +121,16 @@ becomes a real Task Scheduler trigger, and where the conversion can go lossy.
 
 | Resource | Why you'd go there |
 |:---|:---|
-| [**🧩 MCP Server Guide**](../user-guides/guides/MCP_Server_Guide.md) | Wire the server into your host and mint a token — before any of this works. |
-| [**✍️ Task authoring & management**](../../skills/cronsole/references/task-authoring.md) | The invariants behind a good task: UTC cron, no-shell commands, folders, verification. |
-| [**🧠 The `cronsole` skill**](../../skills/README.md) | What the skill knows and how it's installed. |
-| [**📄 Templates**](../reports/templates/README.md) | The catalog the "from a template" prompts draw on. |
-| [**🖥️ UI User Guide**](../user-guides/guides/UI_User_Guide.md) | The same operations, done by hand in the dashboard. |
+| [**🧩 MCP Server Guide**](../docs/user-guides/guides/MCP_Server_Guide.md) | Wire the server into your host and mint a token — before any of this works. |
+| [**✍️ Task authoring & management**](../skills/cronsole/references/task-authoring.md) | The invariants behind a good task: UTC cron, no-shell commands, folders, verification. |
+| [**🧠 The `cronsole` skill**](../skills/README.md) | What the skill knows and how it's installed. |
+| [**📄 Templates**](../docs/reports/templates/README.md) | The catalog the "from a template" prompts draw on. |
+| [**🖥️ UI User Guide**](../docs/user-guides/guides/UI_User_Guide.md) | The same operations, done by hand in the dashboard. |
 
 ---
 
 <p align="center">
-  <a href="../README.md">← Docs home</a> ·
+  <a href="../docs/README.md">← Docs home</a> ·
   <a href="mcp-server/README.md">MCP Server</a> ·
   <a href="skills/README.md">Skills</a> ·
   <a href="rest-api/README.md">REST API</a>

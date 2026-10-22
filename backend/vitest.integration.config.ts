@@ -10,10 +10,10 @@ const TEST_DATABASE_URL =
 
 export default defineConfig({
   test: {
-    include: ['test/integration/**/*.integration.test.ts'],
+    include: ['tests/integration/**/*.integration.test.ts'],
     environment: 'node',
-    globalSetup: ['./test/integration/globalSetup.ts'],
-    setupFiles: ['./test/integration/setupEach.ts'],
+    globalSetup: ['./tests/integration/globalSetup.ts'],
+    setupFiles: ['./tests/integration/setupEach.ts'],
     // One shared database → run serially in a single worker, never in parallel.
     fileParallelism: false,
     pool: 'forks',

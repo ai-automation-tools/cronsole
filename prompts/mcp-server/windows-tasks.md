@@ -21,7 +21,7 @@ Two things decide whether a prompt here works:
 
 - **The agent has to be online.** Cronsole cannot register a Windows task on its own. If it's
   offline the create fails with a 502 rather than half-succeeding — check the sidebar or the
-  [Agent Setup Guide](../../user-guides/guides/Agent_Setup_Guide.md).
+  [Agent Setup Guide](../../docs/user-guides/guides/Agent_Setup_Guide.md).
 - **The folder has to exist already.** Cronsole creates only its own `\Cronsole` folder,
   because deleting a folder the elevated agent made needs administrator rights and Cronsole
   won't leave you one to clean up by hand.
@@ -159,8 +159,8 @@ never ran, and a good assistant will say so.
 | [**🤖 AI agent jobs**](ai-agent-jobs.md) | Headless Claude Code / Codex runs — the same platform, a much sharper blast radius. |
 | [**🖥️ Cronsole-native tasks**](native-tasks.md) | When you'd rather the backend ran it and gave you a real exit code. |
 | [**🔎 Inspect & audit**](inspect-and-audit.md) | Checking what actually ran, and what's quietly failing. |
-| [**🤖 Windows Agent Setup**](../../user-guides/guides/Agent_Setup_Guide.md) | Getting the agent online, which every prompt here depends on. |
-| [**✍️ Task authoring**](../../../skills/cronsole/references/task-authoring.md) | The invariants behind all of this, written for an agent. |
+| [**🤖 Windows Agent Setup**](../../docs/user-guides/guides/Agent_Setup_Guide.md) | Getting the agent online, which every prompt here depends on. |
+| [**✍️ Task authoring**](../../skills/cronsole/references/task-authoring.md) | The invariants behind all of this, written for an agent. |
 
 ---
 

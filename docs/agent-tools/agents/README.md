@@ -47,7 +47,7 @@ they are listed rather than linked.
 
 > [!TIP]
 > The full mapping of subagents to skills and MCP servers is maintained in
-> [`CLAUDE.md`](../../../CLAUDE.md) (§8). Treat that as the source of truth; this page is the
+> [`AGENTS.md`](../../../AGENTS.md) (§8). Treat that as the source of truth; this page is the
 > quick index.
 
 ## 🔗 Related
@@ -55,7 +55,7 @@ they are listed rather than linked.
 | Resource | Why you'd go there |
 |:---|:---|
 | [**🛠️ Agent Tools home**](../README.md) | MCP servers, CLIs, and subagents overview. |
-| [**🤖 CLAUDE.md** (§8)](../../../CLAUDE.md) | Skills, subagents, and MCP servers in full. |
+| [**🤖 AGENTS.md** (§8)](../../../AGENTS.md) | Skills, subagents, and MCP servers in full. |
 
 ---
 

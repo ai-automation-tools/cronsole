@@ -38,7 +38,7 @@ authenticate the dashboard, and connect the agent. If you haven't installed yet,
 > [!IMPORTANT]
 > Secrets never belong in committed code. Copy `backend/.env.example` → `backend/.env` and
 > `frontend/.env.example` → `frontend/.env.local` and fill in real values (both are gitignored).
-> See the security conventions in [`CLAUDE.md`](../../CLAUDE.md) (§9) for how config is handled
+> See the security conventions in [`AGENTS.md`](../../AGENTS.md) (§9) for how config is handled
 > and encrypted at rest.
 
 ## 🐳 Docker vs. manual

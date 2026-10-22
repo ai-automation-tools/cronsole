@@ -28,7 +28,7 @@ export interface OccurrencesResponse {
  *
  * The **server** walks the cron, for the reason `useTaskHealthTiers` carries the
  * server's tier rather than computing one: the stored expression is UTC 5-field
- * cron (CLAUDE.md §9) and there is one definition of what it means. What comes
+ * cron (AGENTS.md §9) and there is one definition of what it means. What comes
  * back is instants; which calendar *day* each lands on is this side's
  * arithmetic, and stays at the browser's edge with every other zone conversion.
  *

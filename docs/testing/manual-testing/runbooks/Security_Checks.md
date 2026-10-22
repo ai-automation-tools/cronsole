@@ -6,8 +6,8 @@
 P0 hardening is **complete** — this runbook exists to prove it stayed that way, by inspecting
 the **actual database** and the **actual wire**, not by trusting the tests that assert it.
 
-The automated suites cover most of this ([`encryption-at-rest.integration.test.ts`](../../../../backend/test/integration/encryption-at-rest.integration.test.ts),
-[`idor.integration.test.ts`](../../../../backend/test/integration/idor.integration.test.ts)).
+The automated suites cover most of this ([`encryption-at-rest.integration.test.ts`](../../../../backend/tests/integration/encryption-at-rest.integration.test.ts),
+[`idor.integration.test.ts`](../../../../backend/tests/integration/idor.integration.test.ts)).
 Run this before a release anyway: those tests prove the code path, this proves the **running
 system**.
 
@@ -226,7 +226,7 @@ cd ..\frontend ; npm audit --omit=dev
 
 **Expect:** **0 production vulnerabilities**. Nothing gates this in CI, so this reading is the
 check. Baseline:
-[`artifacts/taskhub_security_audit_2026-07-10.md`](../../../../artifacts/taskhub_security_audit_2026-07-10.md).
+[`docs/testing/reports/taskhub_security_audit_2026-07-10.md`](../../reports/taskhub_security_audit_2026-07-10.md).
 
 ## 13. No secrets committed
 

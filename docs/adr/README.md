@@ -25,7 +25,7 @@ is the reasoning, not the outcome.
 > [!NOTE]
 > ADRs record a decision, not the current state of the code. When one disagrees with the repo, the
 > repo wins and the ADR stays as it was — that is the whole point of dating them. The living rules
-> are in [`CLAUDE.md`](../../CLAUDE.md) §9, with the longer arguments in
+> are in [`AGENTS.md`](../../AGENTS.md) §9, with the longer arguments in
 > [`DESIGN_NOTES.md`](../DESIGN_NOTES.md).
 
 ---

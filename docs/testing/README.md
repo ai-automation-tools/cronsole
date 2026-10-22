@@ -158,7 +158,7 @@ Honest list. These are real holes, not aspirational polish:
 |:---|:---|
 | [**🗺️ ROADMAP.md**](../ROADMAP.md) | Testing status of record — P1 correctness (the QA suite) and open items. |
 | [**🧯 troubleshooting/**](../troubleshooting/README.md) | Every entry is a bug that escaped. Good source of regression test ideas. |
-| [**📦 artifacts/**](../../artifacts) | Dated QA evidence: security audit, performance baseline, resilience, notifications. |
+| [**📦 reports/**](reports/) | Dated QA evidence: security audit, performance baseline, resilience, notifications. |
 | `docs/archive/specs/Test_Plan.md` | The original Phase 4 test plan. **Local-only, gitignored, and frozen** — history, not the live spec. |
 
 <p align="right">(<a href="#testing-top">back to top</a>)</p>

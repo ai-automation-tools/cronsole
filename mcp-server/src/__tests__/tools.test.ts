@@ -117,7 +117,7 @@ const task = (over: Partial<Record<string, unknown>> = {}) => ({
 describe('the tool surface', () => {
   it('registers exactly the documented non-destructive tools', async () => {
     // Pins the surface itself: adding or renaming a tool obligates the two
-    // README tool tables and the skill (CLAUDE.md 11a). This is the tripwire.
+    // README tool tables and the skill (AGENTS.md 11a). This is the tripwire.
     const { client } = stubClient({});
     const mcp = await connect(client);
     const names = (await mcp.listTools()).tools.map(t => t.name).sort();

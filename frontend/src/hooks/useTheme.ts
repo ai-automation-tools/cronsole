@@ -14,7 +14,7 @@ const ALL_THEME_CLASSES = ['dark', 'light', ...NAMED_THEMES] as const;
 const VALID_MODES: readonly ThemeMode[] = ['light', 'dark', 'system', ...NAMED_THEMES];
 
 /**
- * Dark is Cronsole's default, not an opt-in (CLAUDE.md §9) — the token set, the
+ * Dark is Cronsole's default, not an opt-in (AGENTS.md §9) — the token set, the
  * design system, and both public sites are built dark-first, so "follow the OS"
  * would ship a first paint the product was never designed in. `system` stays
  * available, but only as a mode the user picks on purpose.

@@ -3,7 +3,7 @@
 - **Status:** **Accepted and implemented (2026-08-21).**
 - **Deciders:** Mike
 - **Related:** [ADR 0002 › open question 4](0002-native-job-types.md) · [ROADMAP › Next up](../ROADMAP.md#native-job-types) ·
-  [CLAUDE.md §9 › Connectors, Security](../../CLAUDE.md) · [UI User Guide › Secrets](../user-guides/guides/UI_User_Guide.md#secrets)
+  [AGENTS.md §9 › Connectors, Security](../../AGENTS.md) · [UI User Guide › Secrets](../user-guides/guides/UI_User_Guide.md#secrets)
 
 ## Context
 

@@ -164,18 +164,18 @@ pwsh .\scripts\cronsole.ps1 up
     source cannot ship without a guide; it is the one item on this list that fails loudly. The Sources
     Guide *compares* sources and this *is* one, and the split exists because a reader who has already
     chosen lands two-thirds down a long page about five others otherwise.
-13. **Then the rest of the mirror surfaces, in the same change** (CLAUDE.md §11a): a `HelpTopic` in
+13. **Then the rest of the mirror surfaces, in the same change** (AGENTS.md §11a): a `HelpTopic` in
     `frontend/src/data/help.ts` pointing at a **new section in the Sources Guide** (`docsLinks.test.ts`
     checks the anchor resolves), the `ALL_PLATFORMS` enum and the platform sentences in
     `mcp-server/src/tools.ts`, the `list_tasks` / `list_platforms` rows in **both** MCP tool tables,
-    the platform line in CLAUDE.md §2, and CHANGELOG + ROADMAP.
+    the platform line in AGENTS.md §2, and CHANGELOG + ROADMAP.
 
 ## Add an API route
 
 1. Route in `backend/src/routes/{tasks,templates,auth}.ts`.
 2. **Validate at the boundary with Zod.** Trust internal code.
 3. **Scope by `userId`.** Every new route is a fresh chance to leak across tenants.
-4. **Add it to the IDOR sweep** (`backend/test/integration/idor.integration.test.ts`) **in the
+4. **Add it to the IDOR sweep** (`backend/tests/integration/idor.integration.test.ts`) **in the
    same PR** — reads *and* mutations.
 5. Index any new `WHERE`/`JOIN`/`ORDER BY` column.
 6. Restart the backend before testing live (`Start-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleRestart'`, or `docker restart taskhub-backend-1` in Docker mode), or you'll debug a stale process.

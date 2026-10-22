@@ -121,7 +121,7 @@ Only `cronsole`, `release-engineering`, and `api-architect` are in this repo. Th
 repo — don't re-add copies here.
 Two more are an **overlay installed from outside** and may or may not be present on a given clone:
 `cronsole-windows-jobs` and `cronsole-claude-routines`, in
-[`ai-automation-tools/agent-skills` › `Skills/Projects/cronsole/`](https://github.com/ai-automation-tools/agent-skills/tree/main/Skills/Projects/cronsole).
+[`ai-automation-tools/agent-skills` › `skills/projects/cronsole/`](https://github.com/ai-automation-tools/agent-skills/tree/main/skills/projects/cronsole).
 They cover **designing the jobs Cronsole schedules** — which is not what the `cronsole` skill covers,
 and not a place to move any of its content to. Don't vendor copies into `skills/`; that repo is
 canonical and a second copy would drift silently.

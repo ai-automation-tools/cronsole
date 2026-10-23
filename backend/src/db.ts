@@ -1,3 +1,8 @@
+// Prisma 6's client loaded .env itself; Prisma 7's does not, and the URL is read
+// below at import time. index.ts loads dotenv first, but `npm run seed` and
+// `npm run db:check` import this module directly, so load it here too (dotenv
+// never overrides a variable that is already set).
+import 'dotenv/config';
 import { PrismaClient, TaskStatus } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 

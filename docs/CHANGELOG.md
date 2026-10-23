@@ -14,6 +14,9 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **Docs catch up with the 2026-10-23 consolidation** (2026-10-23). ROADMAP ticks the registry
+  move (verified by the #346 publish) and records the cleared Dependabot backlog; `docs/UPSTREAMS.md`
+  now pins Prisma 7.10.1 and `mcp-server` zod 4.
 - **Four extended templates** (2026-10-22): `bkp-restic-backup` and `bkp-mysql-dump` (Backup &
   Cleanup), `ntf-ntfy-push` (System & Utilities) and `dev-pip-audit-check` (Developer Pack). The
   catalog is now 125 templates (115 extended). Registry regenerated; it reaches the hosted gallery when merged to `main`.

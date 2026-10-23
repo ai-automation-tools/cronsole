@@ -207,6 +207,8 @@ export class GitHubActionsConnector implements PlatformConnector {
     // the ordinary case — and identical on screen to a broken sync unless the
     // numbers are said out loud. See {@link SyncOutcome}.
     let workflowsRead = 0;
+    /** GitHub-managed workflows (Dependabot, Pages, dependency graph), skipped. */
+    let managed = 0;
     /** Repositories that had workflows, none of them scheduled. Named, not counted. */
     const noneScheduled: string[] = [];
 
@@ -239,6 +241,11 @@ export class GitHubActionsConnector implements PlatformConnector {
       let scheduledHere = 0;
 
       for (const workflow of listed.data.workflows) {
+        // **GitHub-managed workflows have no file** (`dynamic/dependabot/…`,
+        // `dynamic/pages/…`), so the contents read 404s and the unreadable-file
+        // rule kept every one as "schedule unknown" — 23 of 30 rows on a real
+        // org. They run on GitHub's events, never on a cron the user wrote.
+        if (workflow.path.startsWith('dynamic/')) { managed++; continue; }
         const task = await this.toTaskInfo(token, repository, workflow);
         if (task) { tasks.push(task); scheduledHere++; }
       }
@@ -266,6 +273,9 @@ export class GitHubActionsConnector implements PlatformConnector {
     for (const failure of failures) warnings.push(`Could not read ${failure}`);
 
     notes.push(coverageNote(repositories.length, workflowsRead, tasks.length));
+    if (managed > 0) {
+      notes.push(`Skipped ${managed} GitHub-managed ${managed === 1 ? 'workflow' : 'workflows'} (Dependabot, Pages, dependency graph) — they have no schedule of yours.`);
+    }
     // Named while the list is short; an owner watch makes it one line per repo
     // across dozens, which buries the coverage note it sits under.
     if (noneScheduled.length > 3) {

@@ -618,3 +618,17 @@ describe('watching a whole owner', () => {
     await expect(connector.syncTasks(config({ repositories: [], owners: ['acme'] }))).rejects.toThrow(/Bad credentials/);
   });
 });
+
+describe('GitHub-managed workflows', () => {
+  it('skips dynamic/ workflows instead of keeping them as schedule-unknown rows', async () => {
+    okWorkflows([
+      workflow(),
+      workflow({ id: 7, name: 'Dependabot Updates', path: 'dynamic/dependabot/dependabot-updates' }),
+      workflow({ id: 8, name: 'pages-build-deployment', path: 'dynamic/pages/pages-build-deployment' })
+    ]);
+    const outcome = await connector.syncTasks(config());
+    expect(outcome.tasks.map(t => t.name)).toEqual(['Nightly']);
+    expect(schedulesMock).toHaveBeenCalledTimes(1);
+    expect(outcome.notes?.join(' ')).toMatch(/Skipped 2 GitHub-managed workflows/);
+  });
+});

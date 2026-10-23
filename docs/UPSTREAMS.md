@@ -35,7 +35,7 @@ read the source. `—` means never checked.
 
 | Upstream | What the code assumes | Where | Check at | Last checked |
 |:---|:---|:---|:---|:---|
-| **MCP spec + TypeScript SDK** | `@modelcontextprotocol/sdk ^1.32.1` with `zod ^3.25.76` (the backend is on zod 4). v2 is the stable line since 2026-07-27 (`@modelcontextprotocol/server`/`client`); 1.x is supported for about 6 months after (queued on ROADMAP) | `mcp-server/` | github.com/modelcontextprotocol/typescript-sdk/releases; modelcontextprotocol.io/specification | 2026-10-22 |
+| **MCP spec + TypeScript SDK** | `@modelcontextprotocol/sdk ^1.32.1` with `zod ^4.6.7` (since 2026-10-23, the same major as the backend; the SDK accepts `^3.25 \|\| ^4.0`). v2 is the stable line since 2026-07-27 (`@modelcontextprotocol/server`/`client`); 1.x is supported for about 6 months after (queued on ROADMAP) | `mcp-server/` | github.com/modelcontextprotocol/typescript-sdk/releases; modelcontextprotocol.io/specification | 2026-10-22 |
 | **Socket.IO** | `socket.io` / `socket.io-client ^4.8.3`; .NET `SocketIOClient` 4.0.5; agent handshake `{agentId,nonce,ts,hmac}` (HMAC-SHA256) | `backend/src/ws/`, frontend hooks, `agent/Cronsole.Agent/SocketIOWrapper.cs` | github.com/socketio/socket.io/releases; github.com/doghappy/socket.io-client-csharp/releases | 2026-10-22 (latest release tag v4.0.2; socket.io `4.8.4` is the npm latest) |
 
 ## Runtime, stack, and hosting
@@ -44,7 +44,7 @@ read the source. `—` means never checked.
 |:---|:---|:---|:---|:---|
 | **Node.js** | `node:20-alpine` in the Dockerfiles, 22 in CI, no `engines` field | `backend/Dockerfile`, `frontend/Dockerfile`, `.github/workflows/` | nodejs.org/en/about/previous-releases (EOL dates) | 2026-10-08 (20 is EOL since 2026-04-30; queued on ROADMAP) |
 | **.NET** | `net10.0` | `agent/**/*.csproj` | dotnet.microsoft.com/platform/support/policy | 2026-10-22 (.NET 10 LTS supported to 2028-11-14) |
-| **Prisma** | 6.19.3 exact | `backend/package.json`, `backend/prisma/` | github.com/prisma/prisma/releases | 2026-10-22 (7 is stable, 8.0 is at rc; no end-of-life statement for 6.x found) |
+| **Prisma** | 7.10.1 exact (`prisma`, `@prisma/client`, `@prisma/adapter-pg`); `prisma.config.ts` holds the datasource URL | `backend/package.json`, `backend/prisma/`, `backend/prisma.config.ts` | github.com/prisma/prisma/releases | 2026-10-23 (upgraded from 6.19.3 in #354; 8.0 is at rc) |
 | **Postgres, Redis, Caddy, cloudflared images** | `postgres:16-alpine`, `redis:7-alpine`, `caddy:2.11-alpine`, `cloudflare/cloudflared:2025.11.1` | `docker-compose.yml` | each project's releases / EOL page | 2026-10-22 (Postgres 16 supported to 2028-11-09; Redis 7.4 to 2029-12-01) |
 | **Express, React, react-router, Vite, Tailwind, TanStack Query, TypeScript, Vitest, Playwright** | see each `package.json` | `backend/`, `frontend/`, `mcp-server/` | each project's GitHub releases | 2026-10-22 (no breaking major past our pins except TypeScript 7.0.2 and Vitest 5.0.5, left to Dependabot) |
 | **GitHub Actions and Pages** | `actions/checkout@v4`, `setup-node@v4`, `setup-dotnet@v4`; three publish workflows push to Pages repos. Node 20 was removed from runners 2026-09-23, so these run on Node 24 (bump queued on ROADMAP) | `.github/workflows/` | the actions' releases pages; github.blog/changelog/label/actions; docs.github.com/pages | 2026-10-22 |

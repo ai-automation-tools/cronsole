@@ -1194,6 +1194,9 @@ cover the repo and product going public, not standing up a multi-tenant cloud se
       trade a dev-only advisory for real CLI and schema risk. `prisma` is a **devDependency**; the
       runtime `@prisma/client` is not in the chain, so nothing here ships in the running backend.
       Revisit when `@prisma/config` picks up `deepmerge-ts 8`.
+      **Cleared 2026-10-23:** the Prisma 7 upgrade (#354) dropped the `deepmerge-ts` chain, and the
+      later `follow-redirects` (#353) and `zod` (#355) alerts in `mcp-server` were fixed the same
+      day. No Dependabot alert is open.
 - [x] **Final README/docs pass for a stranger audience** — the CLAUDE.md cloud-hosting row is fixed
       *(2026-07-31)*, four false README claims were corrected *(2026-08-17)*, and the **quick start
       now actually starts the stack** *(2026-09-09)*: it said `docker compose up --build` brought up
@@ -1886,8 +1889,9 @@ see [Part II](#completed--p1-correctness--honesty).
       1.x gets bug and security fixes only "for at least six months after" that date, so
       about 2027-01-27 (source: github.com/modelcontextprotocol/typescript-sdk README;
       migration guide: ts.sdk.modelcontextprotocol.io/v2/migration/upgrade-to-v2). We pin `^1.32.1`.
-      **What**: follow the migration guide (a `codemod` package exists), and drop the `zod ^3`
-      pin if v2's Standard Schema accepts the backend's zod 4. **Where**: `mcp-server/package.json`,
+      **What**: follow the migration guide (a `codemod` package exists). `mcp-server` is already
+      on zod 4 (`^4.6.7`, #355, 2026-10-23), the same major as the backend, so there is no zod pin
+      left to drop. **Where**: `mcp-server/package.json`,
       `mcp-server/src/index.ts`, `tools.ts`. **Done when**: `npm test` and `npm run typecheck` pass
       in `mcp-server/`, and a hand-driven tool call against a running backend still works (the
       suite stubs the HTTP client, §8).
@@ -2657,7 +2661,9 @@ work, none of it a gate on anybody using Cronsole.
       read at runtime by installed copies, GitHub does not redirect renamed Pages paths, and moving
       it is a silent outage on somebody else's machine. That the *human* host can move while the
       *machine* path is frozen is exactly what the two-link rule was built for, and this is the first
-      time it has paid out.
+      time it has paid out. *(Superseded 2026-10-23: the registry did move once more, to
+      `cronsole.ai-automation-tools.dev`, with the old path kept up as a frozen snapshot so no
+      install 404s. See the next item.)*
 
       **The old host stays live.** GitHub Pages cannot issue a 308, so the `edge-spectrum` precedent
       (a path-preserving redirect on Vercel) does not transfer — `cronsole.mikesailab.com` keeps
@@ -2684,7 +2690,11 @@ work, none of it a gate on anybody using Cronsole.
       and `publish-frontdoor.ps1` target the org host only. The registry path is unchanged — one page,
       two hosts. *(Registry path superseded the same day — see the next item.)*
 
-- [ ] **Move the template registry onto the org front door** *(2026-10-23, Mike's decision)* —
+- [x] **Move the template registry onto the org front door** *(2026-10-23, Mike's decision; done
+      2026-10-23 in #351: `index.json` returns 200 at the new base, and the first publish after it,
+      #346, served all 125 templates with sha256s matching `main`. `michaelschecht/cronsole-registry`
+      is archived. Still open: deleting the unused `REGISTRY_DEPLOY_KEY` and `SITE_DEPLOY_KEY`
+      secrets, Mike's call)* —
       `ai-automation-tools/cronsole-site` serves `index.json` + `templates/` + `packs/` beside the
       gallery, and `https://cronsole.ai-automation-tools.dev/` is the new frozen registry base.
       `publish-registry.yml` publishes registry + page in one job with `SITE_ORG_DEPLOY_KEY`;

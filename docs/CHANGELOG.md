@@ -206,6 +206,13 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Fixed
 
+- **`mcp-server`: `follow-redirects` 1.16.0 → 1.16.1** (2026-10-23), closing two high Dependabot
+  alerts (GHSA-q3jh-wrc6-jgq8 and its sibling): credential headers could survive a cross-origin
+  redirect via array-form headers or an unescaped `sensitiveHeaders` pattern. Reached through
+  `axios`; lockfile only, no code change. Build clean, 222 tests green, production `npm audit` 0 for
+  `mcp-server` and `frontend`. The backend still reports `deepmerge-ts` (through the Prisma CLI's
+  config loader), whose only fix is the Prisma 7 major; left for its own change.
+
 - **The dashboard search box dropped keys and sometimes wiped itself** (2026-10-21). Fast typing
   lost characters ("backup" became "b") because the field was bound to the URL, which React Router
   updates in a transition. The box now keeps its own text, updates the URL once you pause, and a

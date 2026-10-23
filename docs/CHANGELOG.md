@@ -229,6 +229,9 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Fixed
 
+- **GitHub Actions no longer imports GitHub's own workflows** (2026-10-23). Dependabot Updates,
+  Dependency Graph and pages-build-deployment have no workflow file, so they arrived as
+  "schedule unknown" rows in every repository. They are skipped now, and the sync note counts them.
 - **`mcp-server`: `zod` 3.25.76 → 4.6.7** (2026-10-23), closing high Dependabot alert #85
   (oversized constrained collections could exhaust memory during validation; fixed only in 4.6.6+).
   The MCP SDK accepts `^3.25 || ^4.0`, and the one deprecated call (`z.string().url()`) still works.

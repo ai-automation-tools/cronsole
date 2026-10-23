@@ -166,7 +166,7 @@ See [Setup & configuration](docs/setup/README.md) for every option.
 |:---|:---|
 | **Frontend** | React 19 + TypeScript + Vite + Tailwind CSS + TanStack Query + React Router |
 | **Backend** | Node.js + Express 5 + Socket.io (TypeScript) |
-| **Database** | PostgreSQL 16 + Prisma 6 ORM |
+| **Database** | PostgreSQL 16 + Prisma 7 ORM |
 | **Windows agent** | .NET 10 (`Cronsole.Agent`) reading Windows Task Scheduler |
 | **Hosting** | Runs locally — backend + agent on your machine; dev stack via Docker Compose |
 

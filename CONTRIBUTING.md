@@ -81,9 +81,8 @@ Backend:
 
 ```bash
 cd backend
-npm install
-npx prisma migrate dev
-npm run dev
+npm install          # postinstall runs `prisma generate`
+npm run dev          # predev applies migrations (`prisma migrate deploy`)
 ```
 
 Frontend:

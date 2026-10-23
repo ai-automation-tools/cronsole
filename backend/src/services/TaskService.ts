@@ -16,6 +16,20 @@ export interface NormalizedTask {
   metadata?: any;
 }
 
+/**
+ * Where a task's name is set, when that is on the platform rather than in
+ * Cronsole — or null. A connector writes `metadata.nameSource` only for a
+ * platform Cronsole cannot rename a task on, so a non-null answer means two
+ * things at once: sync keeps the name current, and a rename here is refused
+ * (it would be reverted by the next sync).
+ */
+export function nameSourceOf(metadata: unknown): string | null {
+  const v = (metadata as { nameSource?: unknown } | null | undefined)?.nameSource;
+  return typeof v === 'string' && v.length > 0 ? v : null;
+}
+
+const isNameFromSource = (metadata: unknown) => nameSourceOf(metadata) !== null;
+
 // Upserts per $transaction batch: bounds transaction size on large syncs
 // (a full Windows sync is hundreds of tasks) while still cutting the
 // one-round-trip-per-task chatter of sequential awaits.
@@ -68,9 +82,19 @@ export class TaskService {
           ...(t.schedule ? { schedule: t.schedule } : {}),
           // nextRunTime is a live value; update it whenever the caller supplied
           // one (including an explicit null), but don't clobber it when omitted.
-          ...(t.nextRunTime !== undefined ? { nextRunTime: t.nextRunTime } : {})
-          // Note: We DO NOT update `category` or `name` here — both are Cronsole
-          // labels the user may have overridden, and a sync must not undo that.
+          ...(t.nextRunTime !== undefined ? { nextRunTime: t.nextRunTime } : {}),
+          // **The name follows the platform where Cronsole cannot rename the
+          // task there** (2026-10-23). The premise below held for Windows,
+          // declared Claude routines and native rows, and was falsified by every
+          // connector since: a GitHub workflow, n8n workflow, Gemini trigger or
+          // OAuth-read Claude routine keeps its id through a rename, so the
+          // platform *can* supply a new name for an existing row — and a label
+          // frozen at import goes stale with nothing on screen to say so. The
+          // connector marks those rows with `metadata.nameSource` (where the
+          // name lives, as a sentence) and the rename route refuses them with it.
+          ...(isNameFromSource(t.metadata) ? { name: t.name } : {})
+          // Note: We DO NOT update `category` here, nor `name` for any other
+          // row — both are Cronsole labels the user may have overridden.
           //
           // `name` was updated here until 2026-08-12, which made a rename revert
           // on the next sync and was the whole reason renaming was not offered.

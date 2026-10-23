@@ -118,7 +118,7 @@ read-only and ships ungated.
 | `update_task_schedule` | Change a task's schedule, or make it run on demand |
 | `update_task_action` | Replace what a Windows task runs |
 | `update_native_job` | Replace what a Cronsole-native task runs |
-| `rename_task` | Change the name Cronsole shows, leaving the platform untouched |
+| `rename_task` | Change the name Cronsole shows, leaving the platform untouched. Refused where the platform owns the name (GitHub Actions, Vercel, n8n, Gemini, OAuth-read Claude) |
 | `edit_claude_routine` | Correct a connected routine's id or name, keeping its token |
 
 ### Remove

@@ -248,6 +248,7 @@ export class VercelCronConnector implements PlatformConnector {
         nextRunTime: null,
         metadata: {
           project: stored.name,
+          nameSource: `the cron's \`description\` in ${stored.name}'s vercel.json`,
           projectId: stored.id,
           ...(stored.teamId ? { teamId: stored.teamId } : {}),
           path,

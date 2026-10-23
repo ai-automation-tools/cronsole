@@ -521,6 +521,7 @@ export function toTaskInfo(
     // the platform's own scheduler with nothing on screen to say which was right.
     nextRunTime: null,
     metadata: {
+      nameSource: 'the workflow name in n8n',
       ...(onDemandTriggers
         ? {
             onDemand: true,

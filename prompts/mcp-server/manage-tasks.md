@@ -121,6 +121,10 @@ produce a *different task* rather than a new name on this one. The dashboard kee
 path on screen once the two diverge, which is what stops you searching Task Scheduler for a name
 that was never there.
 
+GitHub Actions, Vercel, n8n, Gemini and Claude routines are the exception: their names come from
+the platform and follow it on every sync, so `rename_task` refuses them and says where to rename
+instead.
+
 ## 🔄 Keep things in sync
 
 ```text

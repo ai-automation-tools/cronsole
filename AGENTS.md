@@ -183,7 +183,12 @@ Non-negotiable rules. **Every one has a reason recorded in
 - `(platform, externalId)` is unique. `PlatformConnection.config` is AES-256-GCM encrypted at the
   application layer; never log decrypted values.
 - **`name` and `category` are Cronsole labels** — sync overwrites neither, and a rename is DB-only, so
-  the UI keeps the real `externalId` on screen once they diverge.
+  the UI keeps the real `externalId` on screen once they diverge. **Except a name the platform owns**:
+  where the id survives a rename on the platform and Cronsole cannot rename it there (GitHub Actions,
+  Vercel, n8n, Gemini, OAuth-read Claude), the connector sets `metadata.nameSource` — *where* the name
+  is set, as a sentence — sync writes `name` back every pass, and `PATCH /api/tasks/:id` refuses a
+  rename with that sentence (`nameSourceOf`, one definition). A connector that gains a rename verb
+  drops the marker. Windows, declared Claude and native rows keep the label rule.
 - **One gesture may fan out to several routes, but must then report per route.** Partial success is
   the normal case; a single verdict over a fan-out is a lie in one direction or the other.
 - **On live-data screens, object identity is not entity identity** — key resets on the record's `id`

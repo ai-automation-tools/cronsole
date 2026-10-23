@@ -159,11 +159,23 @@ export type Editable<T> =
   | { editable: false; reason: string };
 
 // ---------------------------------------------------------------------------
-// Labels — always editable, on every platform
+// Labels — category always editable; name unless the platform owns it
 // ---------------------------------------------------------------------------
 
 export function labelValues(task: Task): LabelValues {
   return { name: task.name, category: task.category ?? '' };
+}
+
+/**
+ * Where this task's name is set, when the platform owns it — or null.
+ *
+ * The server's fact (`metadata.nameSource`, written by the connector), read
+ * rather than re-derived: sync keeps such a name current and the rename route
+ * refuses it, so the field must say so before the save, not after.
+ */
+export function nameSource(task: Task): string | null {
+  const v = (task.metadata as { nameSource?: unknown } | null | undefined)?.nameSource;
+  return typeof v === 'string' && v.length > 0 ? v : null;
 }
 
 /**

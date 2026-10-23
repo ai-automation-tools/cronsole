@@ -1053,7 +1053,9 @@ const taskActions: HelpTopic = {
         'Nothing is renamed on your machine. A Windows task\'s real name is the last part of its ' +
         'Task Scheduler path, and that path is how every command addresses it — so once the two ' +
         'differ, the modal keeps showing the real one. Changing the category does not move it ' +
-        'between Task Scheduler folders either.'
+        'between Task Scheduler folders either. On GitHub Actions, Vercel, n8n, Gemini and Claude ' +
+        'routines the name comes from the platform and follows it on every sync, so the field is ' +
+        'locked and says where to rename it.'
     },
     {
       label: 'Remove from Cronsole is the safe one',

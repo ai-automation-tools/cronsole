@@ -12,6 +12,15 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
+### Changed
+
+- **Task names follow the platform where Cronsole cannot rename them there** (2026-10-23). On GitHub
+  Actions, Vercel, n8n, Gemini and Claude routines read through sign-in, renaming a task on the
+  platform now renames it in Cronsole on the next sync. Renaming one of these in Cronsole is no longer
+  offered: the Edit form locks the name and says where to change it (for example, the workflow's
+  `name:` line), and `rename_task` refuses with the same sentence. Windows, Cronsole-native and
+  declared Claude routines rename as before.
+
 ### Added
 
 - **GitHub Actions can watch a whole account or organization** (2026-10-23). In the Sources tab's

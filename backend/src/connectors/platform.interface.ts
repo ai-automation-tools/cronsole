@@ -270,6 +270,10 @@ export interface ConnectorHealth {
 
 export interface TaskInfo {
   externalId: string;
+  /**
+   * The platform's name for the task. Written on create only, **unless**
+   * `metadata.nameSource` is set — see `TaskService.upsertTasks`.
+   */
   name: string;
   status: 'ACTIVE' | 'DISABLED';
   /** Normalized 5-field cron (UTC) derived from the platform's trigger, if expressible. */

@@ -4,8 +4,10 @@ import {
   useDisconnectGitHub,
   useGitHubConnection,
   useSetGitHubToken,
+  useUnwatchOwner,
   useUnwatchRepository,
   useWatchRepository,
+  type WatchedOwner,
   type WatchedRepository
 } from '../hooks/useGitHubConnection';
 import { errorMessage } from '../utils/errorMessage';
@@ -43,6 +45,7 @@ export const GitHubReposPanel = () => {
   const setToken = useSetGitHubToken();
   const watch = useWatchRepository();
   const unwatch = useUnwatchRepository();
+  const unwatchOwner = useUnwatchOwner();
   const disconnect = useDisconnectGitHub();
 
   const [tokenOpen, setTokenOpen] = useState(false);
@@ -55,6 +58,7 @@ export const GitHubReposPanel = () => {
 
   const hasToken = data?.hasToken ?? false;
   const repositories = data?.repositories ?? [];
+  const owners = data?.owners ?? [];
 
   const submitToken = async () => {
     setError(null);
@@ -80,13 +84,26 @@ export const GitHubReposPanel = () => {
       // What syncing will find, stated now. `workflowCount` is every workflow in
       // the repository — how many are *scheduled* needs each file read, which is
       // the sync's job, so this deliberately does not promise a task count.
-      setNote(
-        result.already
-          ? `${result.repository.fullName} was already being watched.`
-          : `Watching ${result.repository.fullName} — ${result.workflowCount} workflow${
-              result.workflowCount === 1 ? '' : 's'
-            } in the repository. Sync to bring in the scheduled ones.`
-      );
+      if (result.kind === 'owner') {
+        const { owner } = result.owner;
+        const skipped = result.skippedCount > 0
+          ? ` (${result.skippedCount} archived or forked skipped)`
+          : '';
+        setNote(
+          result.already
+            ? `Every repository under ${owner} was already being watched.`
+            : `Watching every repository under ${owner} — ${result.repositoryCount} today${skipped}, ` +
+                'and any added later. Sync to bring in the scheduled workflows.'
+        );
+      } else {
+        setNote(
+          result.already
+            ? `${result.repository.fullName} was already being watched.`
+            : `Watching ${result.repository.fullName} — ${result.workflowCount} workflow${
+                result.workflowCount === 1 ? '' : 's'
+              } in the repository. Sync to bring in the scheduled ones.`
+        );
+      }
       setRepository('');
       setRepoOpen(false);
     } catch (e) {
@@ -118,8 +135,34 @@ export const GitHubReposPanel = () => {
     }
   };
 
+  const onUnwatchOwner = async (owner: WatchedOwner) => {
+    const ok = window.confirm(
+      `Stop watching every repository under ${owner.owner}?\n\n` +
+        'The workflows keep running on GitHub exactly as before — Cronsole only reads them. ' +
+        'Repositories you also added on their own stay watched; workflows from the rest leave the dashboard.'
+    );
+    if (!ok) return;
+    setError(null);
+    setNote(null);
+    try {
+      const result = await unwatchOwner.mutateAsync(owner);
+      setNote(
+        `Stopped watching ${result.removed}` +
+          (result.tasksRemoved > 0
+            ? ` — ${result.tasksRemoved} workflow${result.tasksRemoved === 1 ? '' : 's'} removed from the dashboard.`
+            : '.')
+      );
+    } catch (e) {
+      setError(errorMessage(e, 'Could not stop watching that owner.'));
+    }
+  };
+
   const onDisconnect = async () => {
-    const tracked = repositories.reduce((sum, r) => sum + r.taskCount, 0);
+    // Not summed across both lists: an owner's count includes repositories also named.
+    const tracked = Math.max(
+      repositories.reduce((sum, r) => sum + r.taskCount, 0),
+      owners.reduce((sum, o) => sum + o.taskCount, 0)
+    );
     const ok = window.confirm(
       'Disconnect GitHub?\n\n' +
         'Cronsole forgets the token and every watched repository. Nothing changes on GitHub — the ' +
@@ -146,7 +189,8 @@ export const GitHubReposPanel = () => {
           </h5>
           <p className="text-[11px] text-muted-foreground mt-1 max-w-prose">
             Cronsole reads the <span className="font-bold text-foreground">scheduled</span> workflows
-            in the repositories you name — their crons and how their last runs actually went — and
+            in the repositories you name, or in every repository under an account or organization —
+            their crons and how their last runs actually went — and
             changes nothing. Running, pausing and editing stay on GitHub.
           </p>
         </div>
@@ -229,10 +273,47 @@ export const GitHubReposPanel = () => {
 
       {isLoading ? (
         <p className="text-[11px] text-subtle-foreground">Loading…</p>
-      ) : repositories.length === 0 ? (
+      ) : repositories.length === 0 && owners.length === 0 ? (
         <p className="text-[11px] text-subtle-foreground">No repositories watched yet.</p>
       ) : (
         <ul className="flex flex-col gap-2">
+          {owners.map(owner => (
+            <li
+              key={`owner:${owner.owner}`}
+              className="flex items-center justify-between gap-3 bg-muted/40 border border-border rounded-xl px-3 py-2"
+            >
+              <div className="min-w-0">
+                <p className="text-xs font-bold truncate font-mono">{owner.owner}/*</p>
+                <p className="text-[10px] text-subtle-foreground">
+                  Every repository under this owner, including new ones ·{' '}
+                  {owner.taskCount === 0
+                    ? 'nothing tracked yet — sync to read them.'
+                    : `${owner.taskCount} scheduled workflow${owner.taskCount === 1 ? '' : 's'} tracked`}
+                </p>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <a
+                  href={`https://github.com/${owner.owner}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  title={`Open ${owner.owner} on GitHub`}
+                  aria-label={`Open ${owner.owner} on GitHub`}
+                  className="p-1 rounded-lg text-subtle-foreground hover:text-foreground transition-colors"
+                >
+                  <Eye size={13} />
+                </a>
+                <button
+                  onClick={() => onUnwatchOwner(owner)}
+                  disabled={unwatchOwner.isPending}
+                  title={`Stop watching ${owner.owner} (its workflows keep running on GitHub)`}
+                  aria-label={`Stop watching ${owner.owner}`}
+                  className="p-1 rounded-lg text-subtle-foreground hover:text-danger-text transition-colors disabled:opacity-40"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            </li>
+          ))}
           {repositories.map(repo => (
             <li
               key={repo.fullName}
@@ -302,11 +383,11 @@ export const GitHubReposPanel = () => {
       {repoOpen ? (
         <div className="bg-background border border-border rounded-xl p-3 space-y-2">
           <Field
-            label="Repository"
-            hint="The URL from your browser, or owner/name. Cronsole checks it can read the repository before saving."
+            label="Repository, account or organization"
+            hint="A repository URL or owner/name watches one repository. An account or organization name (or its URL) watches every repository under it your token can see, including ones created later; forks and archived repositories are skipped. Cronsole checks it can read it before saving."
             value={repository}
             onChange={setRepository}
-            placeholder="github.com/acme/website   or   acme/website"
+            placeholder="acme/website   or   acme   or   github.com/acme"
           />
           <div className="flex justify-end gap-2 pt-1">
             <button
@@ -321,7 +402,7 @@ export const GitHubReposPanel = () => {
               className="flex items-center gap-1.5 bg-primary hover:bg-primary-hover disabled:opacity-40 px-4 py-1.5 rounded-xl text-[11px] font-bold text-primary-foreground transition-all active:scale-95"
             >
               {watch.isPending ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
-              Watch repository
+              Watch
             </button>
           </div>
         </div>

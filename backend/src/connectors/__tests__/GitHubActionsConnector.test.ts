@@ -8,17 +8,25 @@ vi.mock('../../services/githubActions.js', () => ({
   listWorkflows: vi.fn(),
   listWorkflowRuns: vi.fn(),
   listRunJobs: vi.fn(),
+  listAccessibleRepositories: vi.fn(),
   workflowSchedules: vi.fn()
 }));
 
 import { GitHubActionsConnector } from '../GitHubActionsConnector.js';
 import { prisma } from '../../db.js';
-import { listWorkflows, listWorkflowRuns, listRunJobs, workflowSchedules } from '../../services/githubActions.js';
+import {
+  listWorkflows,
+  listWorkflowRuns,
+  listRunJobs,
+  listAccessibleRepositories,
+  workflowSchedules
+} from '../../services/githubActions.js';
 
 const listWorkflowsMock = vi.mocked(listWorkflows);
 const listRunsMock = vi.mocked(listWorkflowRuns);
 const schedulesMock = vi.mocked(workflowSchedules);
 const listJobsMock = vi.mocked(listRunJobs);
+const listReposMock = vi.mocked(listAccessibleRepositories);
 const findFirst = vi.mocked(prisma.platformCapability.findFirst);
 
 import { PlatformType } from '@prisma/client';
@@ -555,5 +563,58 @@ describe('an observer reads its own run history without softening its boundary',
   it('refuses an externalId it cannot parse rather than calling GitHub', async () => {
     expect(await connector.listPlatformRuns!('not-an-id', config)).toMatchObject({ success: false });
     expect(listRunsMock).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * **A watched owner is a declaration GitHub has to expand.** Every sync asks
+ * which repositories the owner has, so one created later is adopted without a
+ * second gesture — and the resolved set travels back as the tracked set, or a
+ * plain Sync would filter every one of them out (#75's shape again).
+ */
+describe('watching a whole owner', () => {
+  const repo = (owner: string, name: string, over: Record<string, unknown> = {}) =>
+    ({ owner, repo: name, archived: false, fork: false, ...over });
+
+  it('expands the owner, skips forks and archives, and reports the resolved set as tracked', async () => {
+    listReposMock.mockResolvedValue({ ok: true, data: { truncated: false, repositories: [
+      repo('Acme', 'api'), repo('acme', 'old', { archived: true }), repo('acme', 'fork', { fork: true }),
+      repo('someone-else', 'thing')
+    ] } } as never);
+    okWorkflows([workflow()]);
+
+    const outcome = await connector.syncTasks(config({ repositories: [], owners: ['acme'] }));
+
+    expect(listWorkflowsMock.mock.calls.map(c => `${c[1]}/${c[2]}`)).toEqual(['Acme/api']);
+    expect(outcome.trackedCategories).toEqual(['Acme/api']);
+    expect(outcome.partial).toBe(false);
+    expect(outcome.notes).toContain('Skipped 2 archived or forked repositories under watched owners.');
+  });
+
+  it('does not sync a named repository twice when its owner is watched too', async () => {
+    listReposMock.mockResolvedValue({ ok: true, data: { truncated: false, repositories: [repo('ACME', 'website')] } } as never);
+    okWorkflows([workflow()]);
+
+    const outcome = await connector.syncTasks(config({ owners: ['acme'] }));
+
+    expect(listWorkflowsMock).toHaveBeenCalledTimes(1);
+    expect(outcome.trackedCategories).toEqual(['acme/website']);
+  });
+
+  it('a truncated or failed expansion is partial, never an emptier platform', async () => {
+    listReposMock.mockResolvedValue({ ok: true, data: { truncated: true, repositories: [repo('acme', 'api')] } } as never);
+    okWorkflows([workflow()]);
+    expect((await connector.syncTasks(config({ repositories: [], owners: ['acme'] }))).partial).toBe(true);
+
+    listReposMock.mockResolvedValue({ ok: false, status: 401, message: 'Bad credentials' } as never);
+    const outcome = await connector.syncTasks(config({ owners: ['acme'] }));
+    expect(outcome.partial).toBe(true);
+    expect(outcome.tasks).toHaveLength(1); // the named repository still synced
+    expect(outcome.warnings?.join(' ')).toMatch(/acme: Bad credentials/);
+  });
+
+  it('throws when the owner could not be expanded and nothing else was named', async () => {
+    listReposMock.mockResolvedValue({ ok: false, status: 401, message: 'Bad credentials' } as never);
+    await expect(connector.syncTasks(config({ repositories: [], owners: ['acme'] }))).rejects.toThrow(/Bad credentials/);
   });
 });

@@ -308,6 +308,9 @@ Non-negotiable rules. **Every one has a reason recorded in
   over nothing** with no second gesture to reach for, because the discovery modal talks to the agent
   ([#75](docs/troubleshooting/README.md#75-a-github-repository-is-watched-sync-succeeds-and-no-workflows-ever-arrive)).
   It changes only which categories are *included*; it must never clear an exclusion.
+  **When the declaration has to be expanded by the platform** (a watched GitHub *owner* names no
+  repositories until GitHub is asked), the sync returns the resolved set as
+  `SyncOutcome.trackedCategories`, which outranks the synchronous method.
 - **A sync reports what it *looked at*, not only what it kept.** `SyncOutcome` carries `notes`
   (coverage — success information, so it obeys `toastOnSuccess`), `warnings` (what it could not do
   while still returning what it had — never suppressible, the untracked sentence's rule) and

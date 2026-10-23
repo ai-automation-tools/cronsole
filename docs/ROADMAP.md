@@ -256,6 +256,12 @@ under that date.
       `services/taskHealth.ts` scores it on the outcome of the work rather than on "the agent
       accepted a start" — better-founded health than the platform Cronsole controls most. It also
       surfaces GitHub's **silent 60-day inactivity disable** as its own signal.
+- [x] **GitHub Actions: watch a whole owner** *(2026-10-23)*. `owners` in the connection config,
+      re-expanded **every sync** through `GET /user/repos` (the token is the allowlist), so a new
+      repository is adopted without a second gesture. Because the tracked set is only known after
+      that call, the connector returns it as `SyncOutcome.trackedCategories`, which outranks the
+      synchronous `trackedCategories(config)`; otherwise a plain Sync would filter out every
+      expanded repository (#75's shape). A failed or truncated expansion is `partial`.
 - [x] **Native job types — scripts (`EXEC`)** *(2026-08-12)*: `StructuredAction {executable,
       args[]}` reused, containerization detected at boot so a task states where it executes, and
       real `ExecutionLog` rows.

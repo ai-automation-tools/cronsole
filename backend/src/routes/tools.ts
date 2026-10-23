@@ -33,6 +33,8 @@ import {
   readConfig as readGitHubConfig,
   redactConfig as redactGitHubConfig,
   normalizeRepository,
+  normalizeOwner,
+  watchesOwner,
   repoFullName,
   removeRepository,
   upsertRepository,
@@ -41,7 +43,11 @@ import {
   tokenInputSchema,
   repositoryInputSchema
 } from '../services/githubRepositories.js';
-import { listWorkflows, verifyToken as verifyGitHubToken } from '../services/githubActions.js';
+import {
+  listAccessibleRepositories,
+  listWorkflows,
+  verifyToken as verifyGitHubToken
+} from '../services/githubActions.js';
 import {
   readConfig as readVercelConfig,
   redactConfig as redactVercelConfig,
@@ -1153,9 +1159,13 @@ router.get('/platforms/github/connection', async (req: Request, res: Response) =
     select: { externalId: true }
   });
   const counts = new Map<string, number>();
+  const ownerCounts = new Map<string, number>();
   for (const t of tasks) {
     const repo = repositoryFromExternalId(t.externalId)?.toLowerCase();
-    if (repo) counts.set(repo, (counts.get(repo) ?? 0) + 1);
+    if (!repo) continue;
+    counts.set(repo, (counts.get(repo) ?? 0) + 1);
+    const owner = repo.split('/')[0];
+    ownerCounts.set(owner, (ownerCounts.get(owner) ?? 0) + 1);
   }
 
   const redacted = redactGitHubConfig(config);
@@ -1167,7 +1177,10 @@ router.get('/platforms/github/connection', async (req: Request, res: Response) =
       ...r,
       fullName: repoFullName(r),
       taskCount: counts.get(repoFullName(r).toLowerCase()) ?? 0
-    }))
+    })),
+    // Includes workflows from a repository also named on its own — removing the
+    // owner keeps those, and the DELETE below says how many it actually took.
+    owners: redacted.owners.map(owner => ({ owner, taskCount: ownerCounts.get(owner.toLowerCase()) ?? 0 }))
   });
 });
 
@@ -1234,12 +1247,13 @@ router.post(
     const userId = (req as AuthRequest).user!.id;
     const raw = String((req.body as { repository: string }).repository);
 
-    const repository = normalizeRepository(raw);
-    if (!repository) {
+    const owner = normalizeOwner(raw);
+    const repository = owner ? null : normalizeRepository(raw);
+    if (!owner && !repository) {
       throw new HttpError(
         400,
-        'Could not read an owner/repo from that. Paste the repository URL, or its owner and name — ' +
-          'for example github.com/acme/website or acme/website.'
+        'Could not read a repository or owner from that. Paste a repository URL or owner/name ' +
+          '(github.com/acme/website, acme/website), or an account or organization (acme, github.com/acme).'
       );
     }
 
@@ -1247,6 +1261,42 @@ router.post(
     if (!config.token) {
       throw new HttpError(400, 'Add a GitHub token first — Cronsole needs one to read a repository.');
     }
+
+    // **A whole owner** — a user or an organization. Verified the same way a
+    // repository is, by asking GitHub, so an owner this token cannot see fails
+    // here rather than as one line inside a sync. Stored as the login GitHub
+    // reports, and re-expanded on every sync (see the connector).
+    if (owner) {
+      const listed = await listAccessibleRepositories(config.token);
+      if (!listed.ok) {
+        throw new HttpError(listed.status === null ? 502 : 400, listed.message);
+      }
+      const mine = listed.data.repositories.filter(r => r.owner.toLowerCase() === owner.toLowerCase());
+      const active = mine.filter(r => !r.archived && !r.fork);
+      if (mine.length === 0) {
+        throw new HttpError(
+          400,
+          `This token can see no repositories owned by ${owner}. Check the name, and that the token ` +
+            'has access to that account or organization (a fine-grained token lists its repositories by owner).'
+        );
+      }
+      const login = mine[0].owner;
+      const already = watchesOwner(config.owners, login);
+      if (!already) {
+        await saveGitHubConnection(userId, connection?.id, { ...config, owners: [...config.owners, login] });
+      }
+      res.status(already ? 200 : 201).json({
+        kind: 'owner',
+        owner: { owner: login, taskCount: 0 },
+        already,
+        // Archived and forked repositories are counted out loud, not dropped
+        // silently — the sync skips them because GitHub runs no schedules there.
+        repositoryCount: active.length,
+        skippedCount: mine.length - active.length
+      });
+      return;
+    }
+    if (!repository) throw new HttpError(400, 'Could not read a repository from that.');
 
     const probe = await listWorkflows(config.token, repository.owner, repository.repo);
     if (!probe.ok) {
@@ -1262,6 +1312,7 @@ router.post(
     });
 
     res.status(already ? 200 : 201).json({
+      kind: 'repository',
       repository: { ...repository, fullName: repoFullName(repository), taskCount: 0 },
       already,
       // What syncing would find. Every workflow in the repository — how many are
@@ -1324,6 +1375,49 @@ router.delete('/platforms/github/repositories/:owner/:repo', async (req: Request
   }
 
   res.json({ removed: repoFullName(target), tasksRemoved: doomedIds.length, watching: remaining.length });
+});
+
+/**
+ * Stop watching a whole owner, and remove the workflows only it put there.
+ *
+ * Cronsole-side only, like the repository route above. A repository that is
+ * **also named on its own** keeps its workflows — the user asked for it twice,
+ * and removing the broader watch is not a request to drop the narrower one.
+ */
+router.delete('/platforms/github/owners/:owner', async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+  const target = String(req.params.owner);
+  const key = target.toLowerCase();
+
+  const { connection, config } = await loadGitHubConnection(userId);
+  if (!watchesOwner(config.owners, target)) {
+    throw new HttpError(404, `${target} is not being watched.`);
+  }
+
+  const owners = config.owners.filter(o => o.toLowerCase() !== key);
+  await saveGitHubConnection(userId, connection?.id, { ...config, owners });
+
+  const named = new Set(config.repositories.map(r => repoFullName(r).toLowerCase()));
+  const doomed = await prisma.task.findMany({
+    where: { userId, platform: PlatformType.GITHUB_ACTIONS },
+    select: { id: true, externalId: true }
+  });
+  const doomedIds = doomed
+    .filter(t => {
+      const repo = repositoryFromExternalId(t.externalId)?.toLowerCase();
+      return repo !== undefined && repo.split('/')[0] === key && !named.has(repo);
+    })
+    .map(t => t.id);
+
+  if (doomedIds.length) {
+    await prisma.$transaction([
+      prisma.executionLog.deleteMany({ where: { taskId: { in: doomedIds } } }),
+      prisma.task.deleteMany({ where: { id: { in: doomedIds } } })
+    ]);
+    notifyTasksChanged(userId);
+  }
+
+  res.json({ removed: target, tasksRemoved: doomedIds.length });
 });
 
 /**

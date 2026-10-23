@@ -26,7 +26,8 @@ reads *Unsupported*, and two of the three have working APIs behind them.
    and **Actions: read** on the repositories you care about.
 2. Sources tab → **GitHub Actions** → paste it. Cronsole verifies it against GitHub before storing,
    so a bad paste fails at the click.
-3. **Add repositories** by URL or `owner/name`.
+3. **Add repositories** by URL or `owner/name` — or a whole **account or organization** by its name
+   or URL (`acme`, `github.com/acme`), which watches every repository under it (see below).
 4. **Sync.**
 
 > [!WARNING]
@@ -62,6 +63,22 @@ stated boundary rather than a pending feature.
 
 **You watch a repository, not a workflow.** `owner/repo` is the category, so adding one brings in
 every scheduled workflow it has — now and later — and *Stop watching* takes them all back out.
+
+**Or watch a whole owner.** Type an account or organization (`acme`, `acme/*`, `github.com/acme`,
+`github.com/orgs/acme`) instead of a repository. It is listed as `acme/*`, and **every sync asks
+GitHub again** which repositories it has, so a repository created next month is picked up with no
+second step. Three details:
+
+- **The token is the boundary.** Cronsole lists what the token can see (`GET /user/repos`), private
+  repositories included. A fine-grained token's repository selection is therefore the allowlist —
+  narrow it on GitHub, not here.
+- **Forks and archived repositories are skipped**, and the sync note says how many. GitHub runs no
+  schedules in either by default.
+- **Stopping an owner watch keeps any repository you also added on its own.** Asking for one twice
+  and removing the broader ask is not a request to drop the narrower one.
+
+If the repository list cannot be read, or runs past 1,000 repositories, that sync is **partial**: it
+adds and refreshes, but retires nothing.
 
 To drop a **single** workflow while keeping the rest, use **Remove from Cronsole** on that task. The
 ordinary untrack path works here and the next sync will not bring it back.

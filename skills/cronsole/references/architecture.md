@@ -94,6 +94,8 @@ createTask(name, schedule, command, config, options?): Promise<{ success, extern
   in its config, and deriving from rows made *adding a repository* unable to adopt anything — empty
   include-set, every workflow filtered out, **Sync reporting success over nothing**
   ([#75](../../../docs/troubleshooting/README.md#75-a-github-repository-is-watched-sync-succeeds-and-no-workflows-ever-arrive)).
+  When the platform has to expand the declaration first (a watched GitHub **owner**), return the
+  resolved set as `SyncOutcome.trackedCategories` instead — it outranks this method.
   It changes inclusion only; it must never clear a `TaskExclusion`.
 - **`syncTasks` may return a `SyncOutcome`** instead of a bare `TaskInfo[]`: `notes` (what the sync
   *covered* — success info, obeys `toastOnSuccess`), `warnings` (what it could not do while still

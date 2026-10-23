@@ -365,6 +365,13 @@ export interface SyncOutcome {
    * whose failures throw or fall back elsewhere. Never together with `partial`.
    */
   complete?: boolean;
+  /**
+   * The tracked set **this pass resolved**, when the declaration needed the
+   * platform to expand it — a watched GitHub owner names no repositories until
+   * GitHub is asked which it has. Outranks {@link PlatformConnector.trackedCategories}
+   * on a refresh; like it, it changes only what is included and clears no exclusion.
+   */
+  trackedCategories?: string[];
 }
 
 /** One shape for the route, whichever form a connector returned. */

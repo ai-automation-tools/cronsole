@@ -43,6 +43,12 @@ export interface GitHubConfig {
   /** The account PAT. Absent on a connection whose token was cleared. */
   token?: string;
   repositories: StoredRepository[];
+  /**
+   * Whole accounts or organizations to watch — every repository the token can
+   * see under each, re-expanded on **every sync** so a repository created later
+   * is adopted without a second gesture. Stored as the login GitHub shows.
+   */
+  owners: string[];
 }
 
 /** What may leave the server: the repositories, and a fact about the token. */
@@ -59,6 +65,7 @@ export interface RedactedGitHubConfig {
    */
   tokenHint: string | null;
   repositories: StoredRepository[];
+  owners: string[];
 }
 
 /** `owner/repo`, the form used as a Cronsole category and in every message. */
@@ -113,8 +120,18 @@ export function repositoryFromExternalId(externalId: string): string | null {
  * itself — the same call the Claude route makes about `trig_` ids.
  */
 export function normalizeRepository(input: string): StoredRepository | null {
+  const segments = pathSegments(input);
+  if (segments.length < 2 || segments[1] === '*') return null;
+
+  const [owner, repo] = segments;
+  if (!owner || !repo) return null;
+  return { owner, repo };
+}
+
+/** What is left of a pasted URL, SSH remote or `owner/repo` once the host is gone. */
+function pathSegments(input: string): string[] {
   const trimmed = input.trim();
-  if (!trimmed) return null;
+  if (!trimmed) return [];
 
   // Strip a scheme+host, or the SSH `git@github.com:` prefix, leaving a path.
   let path = trimmed
@@ -125,12 +142,24 @@ export function normalizeRepository(input: string): StoredRepository | null {
   // A `.git` suffix belongs to the clone URL, never to the name.
   path = path.replace(/\.git(?:\/.*)?$/i, '');
 
-  const segments = path.split(/[/?#]/).filter(s => s.length > 0);
-  if (segments.length < 2) return null;
+  // A query or fragment is never part of a name (`github.com/acme?tab=repositories`).
+  return path.replace(/[?#].*$/, '').split('/').filter(s => s.length > 0);
+}
 
-  const [owner, repo] = segments;
-  if (!owner || !repo) return null;
-  return { owner, repo };
+/**
+ * Reduce a paste to an **owner** — a user or organization to watch whole — or null.
+ *
+ * Accepts `acme`, `acme/*`, `github.com/acme` and `github.com/orgs/acme` (the
+ * address bar on an org page). Anything with a real second segment is a
+ * repository and goes to {@link normalizeRepository} instead, so one input box
+ * serves both without a mode switch.
+ */
+export function normalizeOwner(input: string): string | null {
+  const segments = pathSegments(input);
+  if (segments[0]?.toLowerCase() === 'orgs') return segments[1] ?? null;
+  if (segments.length === 1) return segments[0];
+  if (segments.length === 2 && segments[1] === '*') return segments[0];
+  return null;
 }
 
 /** Read the stored config, tolerating a shape written by an older build. */
@@ -146,7 +175,10 @@ export function readConfig(raw: unknown): GitHubConfig {
           ? { owner: row.owner, repo: row.repo }
           : null;
       })
-      .filter((r): r is StoredRepository => r !== null)
+      .filter((r): r is StoredRepository => r !== null),
+    owners: (Array.isArray(c.owners) ? c.owners : []).filter(
+      (o): o is string => typeof o === 'string' && o.length > 0
+    )
   };
 }
 
@@ -155,7 +187,8 @@ export function redactConfig(config: GitHubConfig): RedactedGitHubConfig {
   return {
     hasToken: Boolean(config.token),
     tokenHint: config.token ? config.token.slice(-4) : null,
-    repositories: config.repositories
+    repositories: config.repositories,
+    owners: config.owners
   };
 }
 
@@ -177,6 +210,10 @@ export function upsertRepository(
     ? repositories
     : [...repositories, next];
 }
+
+/** Is this owner already watched whole? Case-insensitive, as GitHub logins are. */
+export const watchesOwner = (owners: string[], owner: string) =>
+  owners.some(o => o.toLowerCase() === owner.toLowerCase());
 
 /** Drop a repository by name, case-insensitively. */
 export function removeRepository(

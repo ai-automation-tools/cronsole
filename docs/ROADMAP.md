@@ -302,8 +302,8 @@ under that date.
       whose premise held only for Windows, declared Claude and native rows.
 - [ ] **Rename at the source where the platform allows it** — Gemini's `PATCH` takes
       `display_name`; a connector that gains the verb drops the `nameSource` marker for its rows.
-      Windows (re-register at the new path, then rekey the row so history and favourites keep) is
-      the larger one, deferred by the owner on 2026-10-23.
+      **Windows is not planned** *(owner's decision, 2026-10-23)*: a Cronsole rename stays a label,
+      and the real Task Scheduler path shown under the title is enough.
 - [x] **Renaming a task** *(2026-08-12)*: DB-only, every platform, `rename_task` over MCP. The
       three-way design fork turned out not to be one — a line of code is evidence that something was
       intended, not that it is reachable.

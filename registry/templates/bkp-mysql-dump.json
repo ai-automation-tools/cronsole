@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "1.0",
+  "id": "bkp-mysql-dump",
+  "name": "Back Up a MySQL / MariaDB Database",
+  "description": "Write a full logical dump of one MySQL or MariaDB database to a file on a schedule with mysqldump, for the database engine the catalog’s PostgreSQL and SQLite backups do not cover.",
+  "runtime": "executable",
+  "os": "cross-platform",
+  "category": "backup",
+  "tags": [
+    "backup",
+    "database",
+    "mysql",
+    "mariadb"
+  ],
+  "icon": "Database",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "15 3 * * *"
+  },
+  "commandTemplate": "mysqldump --user={{dbUser}} --single-transaction --result-file={{backupPath}} {{dbName}}",
+  "parameters": [
+    {
+      "key": "dbUser",
+      "label": "Database user",
+      "type": "text",
+      "default": "root",
+      "required": true,
+      "help": "The MySQL account to connect as. Store its password in a client option file such as my.cnf under a client section, because this command never prompts and never puts a password on the command line."
+    },
+    {
+      "key": "dbName",
+      "label": "Database name",
+      "type": "text",
+      "default": "",
+      "required": true,
+      "help": "The database to dump. The mysqldump tool must be installed and on the PATH."
+    },
+    {
+      "key": "backupPath",
+      "label": "Backup file path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Absolute path of the .sql file to write, with no spaces in it. It is overwritten on every run, so rotate it separately if you want history."
+    }
+  ],
+  "compatibleTargets": [
+    "windows",
+    "macos"
+  ]
+}

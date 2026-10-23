@@ -89,6 +89,7 @@ export const bundledPacks: BundledPack[] = [
       'dev-docker-compose-up',
       'dev-brew-update',
       'dev-npm-audit-check',
+      'dev-pip-audit-check',
       'tpl_github_pr_triage',
       'tpl_starter_git_sync'
     ]
@@ -125,6 +126,8 @@ export const bundledPacks: BundledPack[] = [
       'bkp-registry-export',
       'bkp-sqlite-backup',
       'bkp-git-bundle',
+      'bkp-restic-backup',
+      'bkp-mysql-dump',
       'bkp-system-restore-point',
       'cln-old-files',
       'cln-recycle-bin',
@@ -273,6 +276,7 @@ export const bundledPacks: BundledPack[] = [
       'ntf-windows-broadcast-message',
       'ntf-email-alert',
       'ntf-sms-twilio-alert',
+      'ntf-ntfy-push',
       'sys-certbot-renew',
       'sys-process-watchdog',
       'sys-macos-update-check',

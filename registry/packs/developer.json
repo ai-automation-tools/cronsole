@@ -435,6 +435,50 @@
     },
     {
       "schemaVersion": "1.0",
+      "id": "dev-pip-audit-check",
+      "name": "Dependency Security Audit (pip)",
+      "description": "Scan a Python project’s requirements file for packages with known vulnerabilities using pip-audit on a schedule and write the findings to a report, the Python counterpart to the npm audit template.",
+      "runtime": "executable",
+      "os": "cross-platform",
+      "category": "dev-workflow",
+      "tags": [
+        "dev",
+        "python",
+        "pip",
+        "security",
+        "dependencies"
+      ],
+      "icon": "ShieldAlert",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 7 * * 1"
+      },
+      "commandTemplate": "pip-audit -r \"{{requirementsPath}}\" -o \"{{reportPath}}\"",
+      "parameters": [
+        {
+          "key": "requirementsPath",
+          "label": "Requirements file path",
+          "type": "path",
+          "default": "",
+          "required": true,
+          "help": "Absolute path to the requirements.txt to audit. The pip-audit tool must be installed, for example with pip install pip-audit."
+        },
+        {
+          "key": "reportPath",
+          "label": "Report file path",
+          "type": "path",
+          "default": "",
+          "required": true,
+          "help": "Where to write the audit report. pip-audit exits non-zero when it finds a vulnerable package, so the run shows as failed exactly when there is something to fix."
+        }
+      ],
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
       "id": "tpl_github_pr_triage",
       "name": "GitHub PR Triage",
       "description": "Triage new pull requests in a repo and label them by content.",

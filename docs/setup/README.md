@@ -74,7 +74,9 @@ cd backend
 npm install
 npm start                   # http://localhost:3000 — `prestart` applies migrations first
                             # (use `npx prisma migrate dev` only to AUTHOR a new migration
-                            #  from a schema.prisma change; `deploy` never generates one)
+                            #  from a schema.prisma change; `deploy` never generates one.
+                            #  Prisma 7's `migrate dev` no longer regenerates the client:
+                            #  follow it with `npx prisma generate`)
 
 # Frontend — second terminal
 cd frontend

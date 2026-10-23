@@ -42,7 +42,8 @@ cd backend && npm run registry:build
 # 3. Drift + whole-catalog resolvability guards
 npm test
 # 4. Commit bundled.ts AND registry/ together — they must stay in lockstep
-# 5. Mirror to the public repo (does NOT regenerate — build first)
+# 5. Merge to main — the Publish registry + front door workflow mirrors it.
+#    Manual path (does NOT regenerate — build first):
 pwsh scripts/publish-registry.ps1
 ```
 
@@ -246,25 +247,25 @@ pins the exact tool list and will fail, deliberately), both README tool tables, 
 
 ## Publish the sites
 
+Merging to `main` does this (`publish-registry.yml`). By hand:
+
 ```powershell
-pwsh scripts/publish-registry.ps1    # registry/ + registry-site/index.html → cronsole-registry
-pwsh scripts/publish-frontdoor.ps1   # registry-site/index.html             → cronsole-site
+pwsh scripts/publish-registry.ps1    # registry/ + registry-site/ → ai-automation-tools/cronsole-site
 ```
 
-**There is one page, published to two hosts.** Both scripts ship the *same*
-`registry-site/index.html`: to `mikesailab.com/cronsole-registry` (beside the registry JSON)
-and to `cronsole.ai-automation-tools.dev` (the front door). The page works at both because it tries
-`./index.json` and falls back to the canonical registry origin when it isn't co-located.
+**One host since 2026-10-23.** `cronsole.ai-automation-tools.dev` serves the gallery page and
+the registry JSON beside it, and is the frozen `TEMPLATE_REGISTRY_URL`.
+`mikesailab.com/cronsole-registry/` is an archived frozen snapshot — never publish there.
+There is no `publish-frontdoor.ps1` any more; it was folded into this script.
 
 > **There is no `publish-landing.ps1` and no `landing-site/`.** The separate marketing
 > landing page was retired 2026-07-28 and the gallery took over its domain. This block gave
 > that command until 2026-07-31 — and a skill is *instructions*, so a stale command here is
 > not a stale record, it is an agent running `pwsh` on a file that does not exist.
 
-Both reset their working clone to `origin/main` — **never keep manual work in
-`Repos\Private\Tools\cronsole-*`**. Both **exclude `README.md`** and **`CNAME`** (the public repos own
-their front pages, and CNAME decides which domain a Pages repo answers on — mirroring a stray
-one would move the registry off its documented URL). Neither regenerates the registry: run
+It always clones fresh into `%TEMP%` and refuses any target but the org repo. It **excludes
+`README.md`** and **`CNAME`** (the public repo owns its front page, and CNAME decides which domain
+a Pages repo answers on — losing it would take the registry URL down). It does not regenerate the registry: run
 `cd backend && npm run registry:build` first if `bundled.ts` changed.
 
 ## Run the tests

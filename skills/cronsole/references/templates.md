@@ -36,9 +36,9 @@ backend/src/catalog/packs.ts       ← SOURCE OF TRUTH (pack membership). Edit h
         ▼
 registry/                          ← GENERATED. index.json + templates/*.json + packs/*.json
         │                            content-addressed (sha256). NEVER hand-edit.
-        │  pwsh scripts/publish-registry.ps1
+        │  merge to main → publish-registry.yml  (manual: pwsh scripts/publish-registry.ps1)
         ▼
-github.com/michaelschecht/cronsole-registry  → https://mikesailab.com/cronsole-registry
+github.com/ai-automation-tools/cronsole-site  → https://cronsole.ai-automation-tools.dev/
         │  RegistryCatalogSource (sha256-verified, cached, bundled fallback)
         ▼
 catalogSync  → DB (boot + interval)
@@ -165,7 +165,8 @@ reads `.templates` and ignores the rest.
    through the Apply pipeline, and the **drift test** fails if `registry/` doesn't match
    `bundled.ts`.
 7. **Commit `registry/` with your `bundled.ts` change** — they must stay in lockstep.
-8. Publish: `pwsh scripts/publish-registry.ps1`
+8. Publish: merge to `main` (the **Publish registry + front door** workflow). Manual path:
+   `pwsh scripts/publish-registry.ps1`
 
 > [!WARNING]
 > **Resolvability is not correctness.** The sweep in step 6 proves a `commandTemplate`
@@ -194,29 +195,33 @@ cd backend; npm run registry:build   # regenerate
 cd ..;      npm test                 # drift + resolvability
 git add registry backend/src/catalog/bundled.ts
 git commit -m "feat(catalog): …"
-pwsh scripts/publish-registry.ps1    # mirror to the public repo
+# merge to main publishes it; manual path:
+pwsh scripts/publish-registry.ps1    # mirror to ai-automation-tools/cronsole-site
 ```
 
 **`publish-registry.ps1` does NOT regenerate** — it only mirrors `registry/`. Build and commit
 first, or you'll publish stale JSON that disagrees with the repo.
 
-### The two public site repos
+### The public site repo
 
-Local clones live side by side in a maintainer's own `Tools\` folder — `CRONSOLE_REGISTRY_CLONE`
-and `CRONSOLE_SITE_CLONE` name them, and an unset variable falls back to a `%TEMP%` clone:
+| Remote | Serves | Source in this repo |
+|:---|:---|:---|
+| `ai-automation-tools/cronsole-site` | `https://cronsole.ai-automation-tools.dev/` — the front door **and** the registry (`index.json` + `templates/` + `packs/` beside the gallery page) since 2026-10-23 | `registry/` + `registry-site/` |
 
-| Clone | Remote | Serves | Source in this repo |
-|:---|:---|:---|:---|
-| `Tools\cronsole-registry` | `michaelschecht/cronsole-registry` | `mikesailab.com/cronsole-registry` (registry JSON **+** gallery) | `registry/` + `registry-site/` |
-| `Tools\cronsole-site` | `michaelschecht/cronsole-site` | `cronsole.ai-automation-tools.dev` (the front door — **the same gallery page**, not a landing page) | `registry-site/` |
+That URL is the **frozen registry base** (`TEMPLATE_REGISTRY_URL`). Retired, never publish to them:
 
-- They are **separate, independent git repos — NOT submodules.**
-- **These clones double as the publish working clones.** The scripts default `-WorkDir` to
-  them (falling back to `%TEMP%` elsewhere), `git reset --hard origin/main`, copy, commit,
-  push. **Never keep manual work in them** — the reset will eat it.
-- **The public repos own their own `README.md`** (house-style front pages). Both publish
-  scripts **exclude `README.md`** from the mirror, so the clones' READMEs are safe. The
-  in-repo folder READMEs are dev notes and diverge on purpose.
+- `michaelschecht/cronsole-registry` → `mikesailab.com/cronsole-registry/` — **archived frozen
+  snapshot** (2026-10-23), kept only so older opted-in installs do not 404. An install still set
+  to it should update `TEMPLATE_REGISTRY_URL`.
+- `michaelschecht/cronsole-site` → `cronsole.mikesailab.com` — retired 2026-10-23, redirects.
+
+- It is a **separate, independent git repo — NOT a submodule.**
+- **One job publishes both** (`publish-registry.yml`), so two writers never race on one repo.
+  `templates/` and `packs/` are replaced wholesale; nothing else in the target is touched.
+- The manual script **always clones fresh into `%TEMP%`** and refuses any other target.
+- **The public repo owns its own `README.md`, `CNAME` and `.gitattributes`** (which pins the
+  JSON LF). Publishing excludes them. The in-repo folder READMEs are dev notes and diverge on
+  purpose.
 
 ## Content-addressing rules
 

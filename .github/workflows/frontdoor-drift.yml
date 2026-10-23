@@ -1,15 +1,14 @@
-# Do both public hosts serve the gallery page that is on main?
+# Does the public host serve the gallery page that is on main?
 #
-# The sibling of registry-drift.yml, for the other published surface. Kept as
-# its own workflow rather than a second job there because the two answer
-# different questions and fail for different reasons: that one compares a
-# content-addressed JSON artifact, this one compares rendered HTML bytes across
-# two hosts. A single red "drift" check covering both would need reading twice
-# to learn which surface is wrong.
-#
-# The particular quiet failure here: whichever host you happen to open looks
-# fine, so the page can be badly stale at the OTHER address and nothing you do
-# in a browser reveals it.
+# The sibling of registry-drift.yml, for the other published surface. Both now
+# live on one host (cronsole.ai-automation-tools.dev, published by one job in
+# publish-registry.yml since 2026-10-23), but they stay separate checks because
+# they answer different questions and fail for different reasons: that one
+# compares a content-addressed JSON artifact, this one compares rendered HTML
+# bytes. A single red "drift" check covering both would need reading twice to
+# learn which surface is wrong. The retired hosts (cronsole.mikesailab.com, a
+# redirect; mikesailab.com/cronsole-registry/, a frozen snapshot) are not
+# checked.
 name: Front door drift
 
 on:
@@ -22,7 +21,7 @@ on:
 
 jobs:
   drift:
-    name: Both hosts serve the current gallery page
+    name: The front door serves the current gallery page
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -35,5 +34,5 @@ jobs:
         with:
           node-version: 22
 
-      - name: Compare both hosts against the committed page
+      - name: Compare the host against the committed page
         run: node scripts/check-frontdoor-published.mjs

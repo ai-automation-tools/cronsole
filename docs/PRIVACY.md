@@ -92,7 +92,7 @@ login of the tool that created the task.
 - **`EXEC` and `SCRIPT` jobs** run the program you named, which can do anything that program does.
   Cronsole gives such a child process an **allowlisted environment**, never the backend's own —
   that process holds the key encrypting every stored credential, and it does not get handed down.
-- **The hosted template registry** (`mikesailab.com/cronsole-registry`) is fetched only if you set
+- **The hosted template registry** (`cronsole.ai-automation-tools.dev`) is fetched only if you set
   `TEMPLATE_REGISTRY_URL`. It is a static JSON file; the request carries no identity beyond an
   ordinary HTTP request's, and Cronsole sends nothing about your tasks with it.
 - **Remote access**, if you turn it on, deliberately publishes your dashboard through a tunnel you

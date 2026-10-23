@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 
 /**
  * **Which n8n folder each workflow is in, read from n8n's own database.**
@@ -58,7 +59,10 @@ export function describeDbUrl(value: string): string | null {
 }
 
 export async function readFolderPaths(dbUrl: string): Promise<FolderReadResult> {
-  const client = new PrismaClient({ datasourceUrl: withLightPool(dbUrl) });
+  // One connection, short waits — this runs inside a user's Sync click.
+  const client = new PrismaClient({
+    adapter: new PrismaPg({ connectionString: dbUrl, max: 1, connectionTimeoutMillis: 10_000 })
+  });
   try {
     const rows = await client.$queryRawUnsafe<{ workflowId: string; path: string[] }[]>(FOLDER_PATHS_SQL);
     return { ok: true, data: new Map(rows.map(r => [r.workflowId, r.path])) };
@@ -66,18 +70,6 @@ export async function readFolderPaths(dbUrl: string): Promise<FolderReadResult> 
     return { ok: false, message: describeError(err, dbUrl) };
   } finally {
     await client.$disconnect().catch(() => {});
-  }
-}
-
-/** One connection, short waits — this runs inside a user's Sync click. */
-function withLightPool(dbUrl: string): string {
-  try {
-    const u = new URL(dbUrl);
-    if (!u.searchParams.has('connection_limit')) u.searchParams.set('connection_limit', '1');
-    if (!u.searchParams.has('connect_timeout')) u.searchParams.set('connect_timeout', '10');
-    return u.toString();
-  } catch {
-    return dbUrl;
   }
 }
 
@@ -94,7 +86,7 @@ function describeError(err: unknown, dbUrl: string): string {
   const e = err as { code?: string; errorCode?: string } | null;
   const code = e?.errorCode ?? e?.code;
   if (code === 'P1000' || /authentication failed/i.test(raw)) return 'n8n database rejected the user name or password.';
-  if (code === 'P1001' || /can't reach database server|database server is running/i.test(raw)) {
+  if (code === 'P1001' || /can't reach database server|database server is running|ECONNREFUSED|ENOTFOUND|ETIMEDOUT/i.test(raw)) {
     return 'Could not reach the n8n database — check the host, port and firewall.';
   }
   if (code === 'P1003') return 'That database does not exist on the server.';

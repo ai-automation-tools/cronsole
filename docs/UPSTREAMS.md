@@ -50,5 +50,5 @@ read the source. `—` means never checked.
 | **GitHub Actions and Pages** | `actions/checkout@v4`, `setup-node@v4`, `setup-dotnet@v4`; three publish workflows push to Pages repos. Node 20 was removed from runners 2026-09-23, so these run on Node 24 (bump queued on ROADMAP) | `.github/workflows/` | the actions' releases pages; github.blog/changelog/label/actions; docs.github.com/pages | 2026-10-22 |
 
 Flag breaking majors, EOL runtimes, and security advisories only. Routine bumps are
-Dependabot's job. The hosted template registry (`mikesailab.com/cronsole-registry/`) is ours,
+Dependabot's job. The hosted template registry (`cronsole.ai-automation-tools.dev`) is ours,
 not an upstream.

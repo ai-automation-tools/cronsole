@@ -27,14 +27,14 @@ model, invariants, and hard-won traps **before** it starts editing.
 ## 🌍 More Cronsole skills, in the skills repo
 
 Two further skills live outside this repo, in the org's skill library —
-**[`agent-skills` › `Skills/Projects/cronsole/`](https://github.com/ai-automation-tools/agent-skills/tree/main/Skills/Projects/cronsole)**.
+**[`agent-skills` › `skills/projects/cronsole/`](https://github.com/ai-automation-tools/agent-skills/tree/main/skills/projects/cronsole)**.
 They are an **overlay**, not a replacement: nothing here is duplicated there, and nothing there
 replaces a skill in this folder.
 
 | Skill | What it gives an agent |
 |:---|:---|
-| [**🪟 cronsole-windows-jobs**](https://github.com/ai-automation-tools/agent-skills/tree/main/Skills/Projects/cronsole/cronsole-windows-jobs) | The four archetypes a Windows Task Scheduler job turns out to be — an unattended agent CLI run, a wrapped maintenance script, a service watchdog, a plain command — plus a runnable wrapper and registrar, and how to verify a job actually works rather than merely reports that it did. |
-| [**☁️ cronsole-claude-routines**](https://github.com/ai-automation-tools/agent-skills/tree/main/Skills/Projects/cronsole/cronsole-claude-routines) | Scheduled agent routines in the cloud: the four routine types, the prompt contract an unattended prompt needs, and Cronsole's dual-mode `CLAUDE_CODE` connector. |
+| [**🪟 cronsole-windows-jobs**](https://github.com/ai-automation-tools/agent-skills/tree/main/skills/projects/cronsole/cronsole-windows-jobs) | The four archetypes a Windows Task Scheduler job turns out to be — an unattended agent CLI run, a wrapped maintenance script, a service watchdog, a plain command — plus a runnable wrapper and registrar, and how to verify a job actually works rather than merely reports that it did. |
+| [**☁️ cronsole-claude-routines**](https://github.com/ai-automation-tools/agent-skills/tree/main/skills/projects/cronsole/cronsole-claude-routines) | Scheduled agent routines in the cloud: the four routine types, the prompt contract an unattended prompt needs, and Cronsole's dual-mode `CLAUDE_CODE` connector. |
 
 **The split is deliberate.** The skills *here* teach an agent to work on **Cronsole's codebase**;
 those teach it to **design the jobs Cronsole schedules**. Different audience, different lifecycle —

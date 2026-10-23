@@ -2,11 +2,10 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm install
-
+# postinstall runs `prisma generate`, so the schema and config must be here first.
+COPY package*.json prisma.config.ts ./
 COPY prisma ./prisma
-RUN npx prisma generate
+RUN npm install
 
 COPY . .
 

@@ -38,8 +38,8 @@ const NAV = [
   { id: 'settings', label: 'Settings', Icon: Settings }
 ] as const;
 
-/** The public template catalog's browsable front page (michaelschecht/cronsole-registry). */
-const REGISTRY_URL = 'https://mikesailab.com/cronsole-registry/';
+/** The public template gallery, which also serves the registry JSON (ai-automation-tools/cronsole-site). */
+const REGISTRY_URL = 'https://cronsole.ai-automation-tools.dev/';
 
 interface TopBarProps {
   activeTab: string;

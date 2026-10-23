@@ -1,8 +1,9 @@
 # registry-site/ — Cronsole's homepage and template gallery
 
 Source of truth for **Cronsole's public homepage**, served at
-**`https://cronsole.ai-automation-tools.dev/`** (and mirrored to `cronsole.mikesailab.com` and
-**`https://mikesailab.com/cronsole-registry/`**, beside the registry JSON). Since 2026-10-19 the page
+**`https://cronsole.ai-automation-tools.dev/`**, beside the registry JSON it reads (since
+2026-10-23 that host serves the registry too; `mikesailab.com/cronsole-registry/` is an archived
+frozen snapshot, and the old `cronsole.mikesailab.com` redirects to the org site). Since 2026-10-19 the page
 leads with the product, not the registry: the hero's primary button opens the live demo
 (`https://cronsole-demo.ai-automation-tools.dev/`), the second jumps to the **Template registry**
 section, the third goes to GitHub. The browse-and-import gallery below is unchanged. Every outbound
@@ -49,13 +50,14 @@ follow-up (roadmap part 3).
 
 ## How it ships
 
-Like `registry/`, this folder is the **source of truth in this (private) repo**; it is mirrored
-to the public [`cronsole-registry`](https://github.com/michaelschecht/cronsole-registry) repo by
-`scripts/publish-registry.ps1`, which copies every file here into the clone **root** (so
+Like `registry/`, this folder is the **source of truth in this repo**; it is mirrored to the
+public [`ai-automation-tools/cronsole-site`](https://github.com/ai-automation-tools/cronsole-site)
+repo by the **Publish registry + front door** workflow on every merge to `main` (or by hand with
+`scripts/publish-registry.ps1`), which copies every file here into the clone **root** (so
 `index.html` sits next to the published `index.json`). GitHub Pages then serves the gallery.
 
-- Edit the gallery here, then `pwsh scripts/publish-registry.ps1` to publish (same command that
-  publishes the registry JSON — they ship together).
+- Edit the gallery here and merge to `main` — the same job publishes the registry JSON, so they
+  ship together.
 - The gallery uses **relative** fetches (`./index.json`, `./templates/<id>.json`), so it also
   works when served locally from a directory that contains both this `index.html` and a copy of
   the registry artifact.

@@ -36,6 +36,41 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Changed
 
+- **Backend upgraded to Prisma 7.10.1** (2026-10-23). Clears the three high `npm audit --omit=dev`
+  findings (`deepmerge-ts` stack exhaustion, GHSA-ggr8-5vv4-36mx, via `@prisma/config`). The
+  datasource URL moved from `schema.prisma` to `backend/prisma.config.ts`, which loads `.env`
+  itself (Prisma 7 no longer does). The client now connects through the `@prisma/adapter-pg` driver
+  adapter (`src/db.ts`, the n8n folder reader, the integration `globalSetup`). The generator stays
+  `prisma-client-js`, so every `@prisma/client` import is unchanged. `npm install` now runs
+  `prisma generate` (postinstall), because Prisma 7 no longer generates on install and its
+  `migrate dev` no longer regenerates either. No migration, no schema change. There is no query
+  engine DLL any more, so the Windows `EPERM` on `prisma generate` (troubleshooting #26) cannot
+  happen on 7. **Upgrading a running install:** `pwsh scripts/cronsole.ps1 down`, `npm ci` in
+  `backend/` (regenerates the client), `pwsh scripts/cronsole.ps1 up` (`predev` applies migrations). Docker mode: `docker compose --profile docker up -d --build -V backend`.
+- **The template registry moved to `https://cronsole.ai-automation-tools.dev/`** (2026-10-23).
+  The org front door repo `ai-automation-tools/cronsole-site` now serves `index.json`,
+  `templates/` and `packs/` beside the gallery page, and that is the new, frozen registry base.
+  **If you set `TEMPLATE_REGISTRY_URL`, change it to `https://cronsole.ai-automation-tools.dev/`.**
+  The old base `https://mikesailab.com/cronsole-registry/` (`michaelschecht/cronsole-registry`)
+  becomes an archived snapshot: it keeps answering so existing installs do not 404, but it is no
+  longer updated. One workflow, `publish-registry.yml`, now publishes the registry and the page in
+  **one job** (two jobs pushing the same repo would race); it replaces `templates/` + `packs/`
+  wholesale, leaves the page files' neighbours (`CNAME`, `README.md`, `.gitattributes`) alone, and
+  refuses to run if the target loses its `CNAME` or its LF pin for JSON. `publish-frontdoor.yml`
+  and `publish-frontdoor.ps1` are removed; `publish-registry.ps1` targets the org site from a fresh
+  `%TEMP%` clone and refuses any other repo. `REGISTRY_DEPLOY_KEY` is no longer used. The gallery's
+  `REGISTRY_BASE`, its registry and "Request a template" links (now the app repo and its issues),
+  the Templates-tab gallery link, both drift checks, the skill, the template-curator agent and the
+  docs point at the new host.
+- **`cronsole.ai-automation-tools.dev` is the only front door** (2026-10-23). The personal front
+  door `cronsole.mikesailab.com` (`michaelschecht/cronsole-site`) is retired and now redirects to
+  the org site. `publish-frontdoor.yml` no longer publishes there (its `SITE_DEPLOY_KEY` job is
+  gone), and the org job now **fails** on a missing `SITE_ORG_DEPLOY_KEY` or `CNAME` instead of
+  skipping, since it is load-bearing. `check-frontdoor-published.mjs` / **Front door drift** check the
+  org host and the registry path only; `publish-frontdoor.ps1` targets the org repo and refuses a
+  clone whose origin is anything else. The registry URL `mikesailab.com/cronsole-registry/` is
+  unchanged. Docs and the skill updated to match.
+- **The README links the MCP setup page** (2026-10-22). The root README links to `docs/mcp-server.md`, the one page with the install line for each client, so the MCP setup is one click from the repo's front page.
 - **The repo follows the org folder layout** (2026-10-22, org roadmap P2-21). Four moves, no
   behavior change:
   - **`AGENTS.md` is the instruction file.** `CLAUDE.md` was renamed to it, so Codex, Gemini CLI
@@ -184,6 +219,13 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
   picked in Settings now updates the top bar straight away.
 
 ### Fixed
+
+- **`mcp-server`: `follow-redirects` 1.16.0 → 1.16.1** (2026-10-23), closing two high Dependabot
+  alerts (GHSA-q3jh-wrc6-jgq8 and its sibling): credential headers could survive a cross-origin
+  redirect via array-form headers or an unescaped `sensitiveHeaders` pattern. Reached through
+  `axios`; lockfile only, no code change. Build clean, 222 tests green, production `npm audit` 0 for
+  `mcp-server` and `frontend`. The backend still reports `deepmerge-ts` (through the Prisma CLI's
+  config loader), whose only fix is the Prisma 7 major; left for its own change.
 
 - **The dashboard search box dropped keys and sometimes wiped itself** (2026-10-21). Fast typing
   lost characters ("backup" became "b") because the field was bound to the URL, which React Router

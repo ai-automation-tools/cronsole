@@ -1,12 +1,21 @@
+// Prisma 6's client loaded .env itself; Prisma 7's does not, and the URL is read
+// below at import time. index.ts loads dotenv first, but `npm run seed` and
+// `npm run db:check` import this module directly, so load it here too (dotenv
+// never overrides a variable that is already set).
+import 'dotenv/config';
 import { PrismaClient, TaskStatus } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 
 /**
  * Shared Prisma client. Every module must import this instance instead of
  * constructing its own — each PrismaClient owns a connection pool, so the old
  * one-client-per-file pattern multiplied idle Postgres connections and made
  * transaction/middleware behavior inconsistent across the app.
+ *
+ * Prisma 7 talks to Postgres through a driver adapter (`pg`), not a bundled
+ * engine, so the URL is handed over here rather than read from the schema.
  */
-export const prisma = new PrismaClient();
+export const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
 
 /**
  * Enum members the code writes and therefore cannot function without. Kept as

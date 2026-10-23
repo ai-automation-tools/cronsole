@@ -1,5 +1,6 @@
 import { execSync } from 'node:child_process';
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 
 // Must match the default in vitest.integration.config.ts.
 const TEST_DATABASE_URL =
@@ -18,7 +19,7 @@ export default async function setup() {
   // always-present `postgres` maintenance database to create it if absent.
   const adminUrl = new URL(TEST_DATABASE_URL);
   adminUrl.pathname = '/postgres';
-  const admin = new PrismaClient({ datasourceUrl: adminUrl.toString() });
+  const admin = new PrismaClient({ adapter: new PrismaPg({ connectionString: adminUrl.toString() }) });
   try {
     await admin.$executeRawUnsafe(`CREATE DATABASE "${dbName}"`);
     console.log(`[integration] created database ${dbName}`);

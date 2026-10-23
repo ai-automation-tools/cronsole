@@ -33,6 +33,17 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Changed
 
+- **Backend upgraded to Prisma 7.10.1** (2026-10-23). Clears the three high `npm audit --omit=dev`
+  findings (`deepmerge-ts` stack exhaustion, GHSA-ggr8-5vv4-36mx, via `@prisma/config`). The
+  datasource URL moved from `schema.prisma` to `backend/prisma.config.ts`, which loads `.env`
+  itself (Prisma 7 no longer does). The client now connects through the `@prisma/adapter-pg` driver
+  adapter (`src/db.ts`, the n8n folder reader, the integration `globalSetup`). The generator stays
+  `prisma-client-js`, so every `@prisma/client` import is unchanged. `npm install` now runs
+  `prisma generate` (postinstall), because Prisma 7 no longer generates on install and its
+  `migrate dev` no longer regenerates either. No migration, no schema change. There is no query
+  engine DLL any more, so the Windows `EPERM` on `prisma generate` (troubleshooting #26) cannot
+  happen on 7. **Upgrading a running install:** `pwsh scripts/cronsole.ps1 down`, `npm ci` in
+  `backend/` (regenerates the client), `pwsh scripts/cronsole.ps1 up` (`predev` applies migrations). Docker mode: `docker compose --profile docker up -d --build -V backend`.
 - **The template registry moved to `https://cronsole.ai-automation-tools.dev/`** (2026-10-23).
   The org front door repo `ai-automation-tools/cronsole-site` now serves `index.json`,
   `templates/` and `packs/` beside the gallery page, and that is the new, frozen registry base.

@@ -4713,6 +4713,10 @@ platform. `registry/**` was pinned LF from the start for exactly this reason —
 never extended to the page next to it.
 
 *First hit: 2026-08-19, on the drift check's first run against the real hosts.*
+*The output above predates 2026-10-23, when `cronsole.mikesailab.com` was retired (it now redirects
+to `cronsole.ai-automation-tools.dev`); the check today covers the org front door and the registry
+path. Never republish to `michaelschecht/cronsole-site`.*
+
 ## 70. The Tailscale URL is dead for days while every other service is healthy
 
 **Symptom.** `http://my-pc.my-tailnet.ts.net:8080/` returns **502 Bad Gateway** with an empty body,

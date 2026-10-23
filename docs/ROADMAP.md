@@ -2675,6 +2675,14 @@ work, none of it a gate on anybody using Cronsole.
       **`check-frontdoor-published.mjs` checks three hosts now.** The old `cronsole.mikesailab.com`
       stays in the list on purpose: it keeps *serving* rather than redirecting, because GitHub Pages
       cannot issue a 308, so it can go stale exactly like the others and nobody would notice.
+      *(Superseded 2026-10-23 — see the next item.)*
+
+- [x] **Retire the personal front door `cronsole.mikesailab.com`** — done 2026-10-23: Mike's
+      decision. `cronsole.ai-automation-tools.dev` is the only front door; `michaelschecht/cronsole-site`
+      becomes a redirect page (done in that repo, not here). `publish-frontdoor.yml` lost its personal
+      job and its org job now **fails** on a missing key or CNAME instead of skipping; the drift check
+      and `publish-frontdoor.ps1` target the org host only. The registry path is unchanged — one page,
+      two hosts.
 
 - [ ] **Multi-user / hosted account system** *(deferred — explicitly not a local-first launch
       requirement)*: password reset (needs email infra), open registration as a *designed*

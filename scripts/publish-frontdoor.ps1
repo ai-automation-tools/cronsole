@@ -45,8 +45,15 @@
 
     Since 2026-08-19 this normally runs itself: the "Publish front door" GitHub
     Actions workflow mirrors the page on every merge to main that touches
-    registry-site/, and "Front door drift" checks both hosts daily. This script
-    remains the manual path. One difference worth knowing: the workflow copies
+    registry-site/, and "Front door drift" checks both hosts daily.
+
+    Target: ai-automation-tools/cronsole-site, the only front door since
+    2026-10-23. michaelschecht/cronsole-site (cronsole.mikesailab.com) is
+    retired -- it redirects to the org site -- and this script refuses a clone
+    whose origin is anything other than the org repo, so an old
+    CRONSOLE_SITE_CLONE pointing at the personal clone cannot republish there.
+
+    This script remains the manual path. One difference worth knowing: the workflow copies
     every flat file in registry-site/ (as publish-registry.ps1 always has),
     while this script copies index.html alone -- so if you add a stylesheet,
     publish through the workflow or the two hosts will disagree.
@@ -57,7 +64,7 @@
 
 [CmdletBinding()]
 param(
-    [string]$SiteRepoUrl = 'https://github.com/michaelschecht/cronsole-site.git',
+    [string]$SiteRepoUrl = 'https://github.com/ai-automation-tools/cronsole-site.git',
     # A local reference clone doubles as the publish working clone, so every publish leaves
     # it updated to the pushed state. It's a pure mirror -- this script runs
     # `git reset --hard origin/main` on it, so never keep manual work there. Point
@@ -99,6 +106,10 @@ if (-not (Test-Path $SrcFile)) {
 }
 
 if (Test-Path (Join-Path $WorkDir '.git')) {
+    $origin = "$(git -C $WorkDir remote get-url origin)".Trim()
+    if ($origin -notmatch 'ai-automation-tools/cronsole-site(\.git)?$') {
+        throw "Refusing to publish: $WorkDir points at '$origin', not ai-automation-tools/cronsole-site. michaelschecht/cronsole-site is retired (it redirects to the org site). Unset CRONSOLE_SITE_CLONE or point it at an org clone -- or just run Actions -> Publish front door."
+    }
     Write-Host "Refreshing clone at $WorkDir" -ForegroundColor Cyan
     git -C $WorkDir fetch --quiet origin
     git -C $WorkDir reset --hard --quiet origin/main
@@ -130,5 +141,5 @@ $stamp = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
 git -C $WorkDir commit --quiet -m "Publish front door ($stamp)"
 git -C $WorkDir push --quiet origin main
 
-$liveUrl = if (Test-Path $cname) { 'https://' + (Get-Content $cname -Raw).Trim() } else { 'https://mikesailab.com/cronsole-site/' }
+$liveUrl = if (Test-Path $cname) { 'https://' + (Get-Content $cname -Raw).Trim() } else { 'https://ai-automation-tools.github.io/cronsole-site/' }
 Write-Host "Published. GitHub Pages will rebuild shortly ($liveUrl)." -ForegroundColor Green

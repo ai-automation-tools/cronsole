@@ -33,6 +33,14 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Changed
 
+- **`cronsole.ai-automation-tools.dev` is the only front door** (2026-10-23). The personal front
+  door `cronsole.mikesailab.com` (`michaelschecht/cronsole-site`) is retired and now redirects to
+  the org site. `publish-frontdoor.yml` no longer publishes there (its `SITE_DEPLOY_KEY` job is
+  gone), and the org job now **fails** on a missing `SITE_ORG_DEPLOY_KEY` or `CNAME` instead of
+  skipping, since it is load-bearing. `check-frontdoor-published.mjs` / **Front door drift** check the
+  org host and the registry path only; `publish-frontdoor.ps1` targets the org repo and refuses a
+  clone whose origin is anything else. The registry URL `mikesailab.com/cronsole-registry/` is
+  unchanged. Docs and the skill updated to match.
 - **The README links the MCP setup page** (2026-10-22). The root README links to `docs/mcp-server.md`, the one page with the install line for each client, so the MCP setup is one click from the repo's front page.
 - **The repo follows the org folder layout** (2026-10-22, org roadmap P2-21). Four moves, no
   behavior change:

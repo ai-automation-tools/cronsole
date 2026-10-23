@@ -509,7 +509,9 @@ A missing compiler is never a silent failure — it's the declared-but-manual pa
   public repo `michaelschecht/cronsole-registry` (GitHub Pages → `https://mikesailab.com/cronsole-registry`,
   set as `TEMPLATE_REGISTRY_URL`) via `scripts/publish-registry.ps1`; the backend syncs the catalog
   into the DB on boot + on an interval (`catalog/catalogSync.ts`), so registry changes land with no
-  reseed. Verified live end-to-end.
+  reseed. Verified live end-to-end. *(2026-10-23: the registry moved to the org front door,
+  `ai-automation-tools/cronsole-site` → `https://cronsole.ai-automation-tools.dev/`; the old host is an
+  archived frozen snapshot.)*
 - **First content pack — Developer Pack** (2026-07-13): 9 dev-workflow templates added to the
   bundled snapshot + published registry (24 → 33 templates), the first entries using the
   plain-kebab id form (`dev-*`) and the free-form tags. A whole-catalog resolvability test now

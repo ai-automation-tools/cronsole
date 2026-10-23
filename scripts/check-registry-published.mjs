@@ -1,6 +1,10 @@
 /**
  * Does the hosted registry actually serve what main says it should?
  *
+ * The registry is served from https://cronsole.ai-automation-tools.dev/ (since
+ * 2026-10-23; mikesailab.com/cronsole-registry/ is an archived, frozen snapshot
+ * and deliberately not checked -- it is supposed to stop matching).
+ *
  * The committed `registry/` is guarded by a drift test: if it does not match a
  * fresh `npm run registry:build`, CI reddens. Nothing guarded the step AFTER
  * that. The artifact is mirrored to a separate public repo and served from
@@ -31,7 +35,7 @@ class Failure extends Error {}
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '..');
-const baseUrl = (process.env.REGISTRY_URL || 'https://mikesailab.com/cronsole-registry').replace(/\/+$/, '');
+const baseUrl = (process.env.REGISTRY_URL || 'https://cronsole.ai-automation-tools.dev').replace(/\/+$/, '');
 const indexUrl = `${baseUrl}/index.json`;
 
 const problems = [];
@@ -119,7 +123,7 @@ async function main() {
       `   host: ${(hosted.templates || []).length} templates / ${(hosted.packs || []).length} packs`
   );
   console.error('');
-  console.error('Fix: the "Publish registry" workflow runs on every merge to main that touches registry/.');
+  console.error('Fix: the "Publish registry + front door" workflow runs on every merge to main that touches registry/.');
   console.error('If it did not run or failed, re-run it from the Actions tab, or publish manually with');
   console.error('  pwsh scripts/publish-registry.ps1');
   return false;

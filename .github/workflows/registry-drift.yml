@@ -1,6 +1,8 @@
 # Is the hosted registry actually serving what main says it should?
 #
-# The backstop for publish-registry.yml. That workflow can fail in ways that do
+# The registry is served from https://cronsole.ai-automation-tools.dev/ (since
+# 2026-10-23; the old mikesailab.com/cronsole-registry/ is a frozen, archived
+# snapshot and is not checked). The backstop for publish-registry.yml. That workflow can fail in ways that do
 # not redden anything a person looks at: a revoked deploy key, a path filter
 # that stops matching, a run that never triggered. Every one of those failure
 # modes looks exactly like "nobody changed the registry lately" from inside the

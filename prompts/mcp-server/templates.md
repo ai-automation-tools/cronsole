@@ -18,7 +18,7 @@ know *what you want done* and would rather not work out the exact command line. 
 know the command, [create the task directly](windows-tasks.md); the catalog isn't a gate.
 
 Your install ships **7 built-in** templates and can import the rest. The other 59 live in the
-hosted registry and in the [public gallery](https://mikesailab.com/cronsole-registry), grouped
+hosted registry and in the [public gallery](https://cronsole.ai-automation-tools.dev/), grouped
 into 8 downloadable packs.
 
 ## 🔎 Find one
@@ -129,7 +129,7 @@ anything you made.
 | [**🖥️ Cronsole-native tasks**](native-tasks.md) | Where the native pack's templates end up. |
 | [**🌐 REST API prompts**](../rest-api/README.md) | Import, export, and save-as-template. |
 | [**📦 Template catalog spec**](../../docs/reports/templates/README.md) | How templates are defined, tiered, and published. |
-| [**🌍 Public gallery**](https://mikesailab.com/cronsole-registry) | Browse all 66 in a browser and download packs. |
+| [**🌍 Public gallery**](https://cronsole.ai-automation-tools.dev/) | Browse all 66 in a browser and download packs. |
 
 ---
 

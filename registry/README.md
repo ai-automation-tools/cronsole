@@ -73,16 +73,19 @@ catalog edit that forgets `registry:build` is caught in CI.
 This artifact is mirrored to a **separate, independent public repo** served over
 GitHub Pages:
 
-- **Repo:** https://github.com/michaelschecht/cronsole-registry
-- **Local clone:** wherever `CRONSOLE_REGISTRY_CLONE` points; unset falls back to a `%TEMP%` clone
-- **Served at:** `https://mikesailab.com/cronsole-registry` → set as `TEMPLATE_REGISTRY_URL`.
+- **Repo:** https://github.com/ai-automation-tools/cronsole-site (the front door; the registry
+  sits beside the gallery page there since 2026-10-23)
+- **Published by:** the **Publish registry + front door** workflow on merge to `main`; manually,
+  `scripts/publish-registry.ps1` (always a fresh `%TEMP%` clone)
+- **Served at:** `https://cronsole.ai-automation-tools.dev/` → set as `TEMPLATE_REGISTRY_URL`.
+  The old `https://mikesailab.com/cronsole-registry/` is an archived, frozen snapshot.
 
 This folder is the source of truth; to ship a catalog change:
 
 ```bash
 cd backend && npm run registry:build     # regenerate this folder
 # commit registry/ in the cronsole repo, then mirror it to the public repo:
-pwsh scripts/publish-registry.ps1         # copies index.json + templates/ -> the clone, pushes
+pwsh scripts/publish-registry.ps1         # copies index.json + templates/ + packs/ + the page -> cronsole-site, pushes
 ```
 
 GitHub Pages rebuilds on push (usually < 1 min); the backend picks up the change on

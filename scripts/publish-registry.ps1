@@ -1,23 +1,34 @@
 <#
 .SYNOPSIS
-    Mirror the generated template registry to the public cronsole-registry repo.
+    Publish the template registry and the gallery page to Cronsole's public host,
+    ai-automation-tools/cronsole-site (https://cronsole.ai-automation-tools.dev/).
 
 .DESCRIPTION
     Source of truth is <cronsole>/registry/ (generated from
-    backend/src/catalog/bundled.ts via `npm run registry:build` and drift-tested).
-    This script copies that folder into a local clone of the separate public repo
-    (github.com/michaelschecht/cronsole-registry) and pushes it. GitHub Pages then
-    rebuilds and serves it at https://mikesailab.com/cronsole-registry.
+    backend/src/catalog/bundled.ts via `npm run registry:build` and drift-tested)
+    plus <cronsole>/registry-site/ (the one public page). This script makes a
+    FRESH clone of the org site repo in %TEMP%, mirrors both into it, and pushes.
+    GitHub Pages then serves index.json + templates/ + packs/ beside index.html.
 
     Idempotent: if nothing changed, it makes no commit. It does NOT regenerate the
     registry -- run `npm run registry:build` (in backend/) and commit registry/ in
     the main repo first, so the two stay in lockstep.
 
-    Since 2026-08-19 this normally runs itself: the "Publish registry" GitHub
-    Actions workflow mirrors the artifact on every merge to main that touches
-    registry/. This script remains the manual path -- for publishing out of band,
-    and for when the workflow is broken. Both do the same mirroring and both are
-    idempotent, so running this after the workflow is a no-op.
+    This normally runs itself: the "Publish registry + front door" workflow
+    (publish-registry.yml) does the same mirroring on every merge to main that
+    touches registry/ or registry-site/. This script is the manual path -- for
+    publishing out of band, and for when the workflow is broken.
+
+    History: until 2026-10-23 the registry was mirrored to the personal repo
+    michaelschecht/cronsole-registry (mikesailab.com/cronsole-registry/) and the
+    page to the org site by a second script, publish-frontdoor.ps1. Both are
+    gone. The personal repo is an archived, frozen snapshot; this script refuses
+    any target other than the org repo, and it always clones fresh rather than
+    reusing CRONSOLE_REGISTRY_CLONE, which on most machines still points at the
+    old personal clone.
+
+    What this script does NOT touch: CNAME, README.md and .gitattributes in the
+    target. They are infrastructure owned by the public repo, not content.
 
 .EXAMPLE
     pwsh scripts/publish-registry.ps1
@@ -25,16 +36,7 @@
 
 [CmdletBinding()]
 param(
-    [string]$RegistryRepoUrl = 'https://github.com/michaelschecht/cronsole-registry.git',
-    # A local reference clone doubles as the publish working clone, so every publish leaves
-    # it updated to the pushed state. It's a pure mirror -- this script runs
-    # `git reset --hard origin/main` on it, so never keep manual work there. Point
-    # CRONSOLE_REGISTRY_CLONE at yours; unset (or not a clone) falls back to %TEMP%, which
-    # is the portable path and needs no setup.
-    [string]$WorkDir = $(
-        $tools = $env:CRONSOLE_REGISTRY_CLONE
-        if ($tools -and (Test-Path (Join-Path $tools '.git'))) { $tools } else { Join-Path $env:TEMP 'cronsole-registry-publish' }
-    ),
+    [string]$SiteRepoUrl = 'https://github.com/ai-automation-tools/cronsole-site.git',
     # Publish whatever is checked out, even when it is not up-to-date main. For
     # deliberately publishing a branch; never the routine path.
     [switch]$Force
@@ -42,17 +44,18 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-# Main-repo registry/ (source of truth): repo root = two levels up from this script.
+if ($SiteRepoUrl -notmatch 'ai-automation-tools/cronsole-site(\.git)?$') {
+    throw "Refusing to publish to '$SiteRepoUrl'. The registry and the gallery are published to ai-automation-tools/cronsole-site only; michaelschecht/cronsole-registry is an archived snapshot (2026-10-23)."
+}
+
 $RepoRoot = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Definition)
 
-# This publishes the registry/ in the WORKING TREE, and nothing about the run
-# says which commit that is. On a feature branch, or on a working branch behind
-# main, it will republish an older catalog over a newer one and print
-# "Published." like any other day. On 2026-08-19 the working branch was 158
-# commits behind main, and publishing from it would have replaced five
-# just-merged templates with the previous 72. The artifact is content-addressed,
-# so the result is not corrupt -- it is confidently, verifiably wrong, which is
-# the harder kind to notice.
+# This publishes registry/ and registry-site/ from the WORKING TREE, and nothing
+# about the run says which commit that is. On a feature branch, or a working
+# branch behind main, it will republish an older catalog over a newer one and
+# print "Published." like any other day (troubleshooting #68). The artifact is
+# content-addressed, so the result is not corrupt -- it is confidently,
+# verifiably wrong, which is the harder kind to notice.
 if (-not $Force) {
     $branch = "$(git -C $RepoRoot rev-parse --abbrev-ref HEAD)".Trim()
     git -C $RepoRoot fetch --quiet origin main
@@ -67,75 +70,63 @@ if (-not $Force) {
 }
 
 $SrcDir = Join-Path $RepoRoot 'registry'
+$SiteDir = Join-Path $RepoRoot 'registry-site'
 if (-not (Test-Path (Join-Path $SrcDir 'index.json'))) {
     throw "No registry/index.json at $SrcDir -- run 'npm run registry:build' in backend/ first."
 }
-# Gallery site (browse/import UI) -- source of truth for the public site is <cronsole>/registry-site/.
-# Served at https://mikesailab.com/cronsole-registry/ (index.html at the clone root); it fetches
-# the registry's index.json + templates/*.json from the same origin.
-$SiteDir = Join-Path $RepoRoot 'registry-site'
-
-# Clone or refresh the target repo.
-if (Test-Path (Join-Path $WorkDir '.git')) {
-    Write-Host "Refreshing clone at $WorkDir" -ForegroundColor Cyan
-    git -C $WorkDir fetch --quiet origin
-    git -C $WorkDir reset --hard --quiet origin/main
-} else {
-    Write-Host "Cloning $RegistryRepoUrl -> $WorkDir" -ForegroundColor Cyan
-    if (Test-Path $WorkDir) { Remove-Item -Recurse -Force $WorkDir }
-    git clone --quiet $RegistryRepoUrl $WorkDir
+foreach ($dir in @('templates', 'packs')) {
+    if (-not (Test-Path (Join-Path $SrcDir $dir))) {
+        throw "No registry/$dir/ -- the index would reference paths that 404. Run 'npm run registry:build' first."
+    }
+}
+if (-not (Test-Path (Join-Path $SiteDir 'index.html'))) {
+    throw "No registry-site/index.html -- the front door would 404."
 }
 
-# Mirror the served content: replace index.json + templates/ + packs/ wholesale
-# (so a removed template or pack disappears -- a deleted pack that keeps serving
-# its old bundle is a URL that still works and no longer should). Leave
-# .nojekyll / .gitattributes / README.md -- they belong to the public repo, not
-# the generated artifact. The public repo owns its own house-style README (front
-# page); the in-repo registry/README.md is a separate developer folder-note.
-# Do NOT copy README over it.
-Copy-Item (Join-Path $SrcDir 'index.json') (Join-Path $WorkDir 'index.json') -Force
+# Always a fresh clone: no stale working clone, and no chance of an old env var
+# steering the push at the archived personal repo.
+$WorkDir = Join-Path $env:TEMP 'cronsole-site-publish'
+if (Test-Path $WorkDir) { Remove-Item -Recurse -Force $WorkDir }
+Write-Host "Cloning $SiteRepoUrl -> $WorkDir" -ForegroundColor Cyan
+git clone --quiet $SiteRepoUrl $WorkDir
 
+# The custom domain is now also TEMPLATE_REGISTRY_URL, so a missing CNAME breaks
+# catalog sync for opted-in installs, not just a page.
+$cname = Join-Path $WorkDir 'CNAME'
+if (-not (Test-Path $cname)) {
+    throw "No CNAME in the cronsole-site clone -- cronsole.ai-automation-tools.dev would not serve this. Restore it in that repo first."
+}
+# Registry files are content-addressed: sha256 over exact bytes. If the target
+# stops pinning JSON to LF, a Windows clone would CRLF them and break every
+# checksum, so check rather than trust.
+$eol = "$(git -C $WorkDir check-attr eol -- index.json)".Trim()
+if ($eol -notmatch ': lf$') {
+    throw "cronsole-site's .gitattributes does not pin index.json to LF ('$eol'). Add '*.json text eol=lf' there first."
+}
+
+# Registry data: replace index.json + templates/ + packs/ wholesale, so a removed
+# template or pack disappears. Nothing else in the target is touched.
+Copy-Item (Join-Path $SrcDir 'index.json') (Join-Path $WorkDir 'index.json') -Force
 foreach ($dir in @('templates', 'packs')) {
-    $src = Join-Path $SrcDir $dir
     $dst = Join-Path $WorkDir $dir
     if (Test-Path $dst) { Remove-Item -Recurse -Force $dst }
-    if (Test-Path $src) {
-        Copy-Item $src $dst -Recurse
-    } else {
-        # Only reachable if the registry was generated by an older build. The
-        # index would then reference pack paths that aren't there, so say so
-        # rather than publishing a registry whose links 404.
-        Write-Host "No $dir/ in $SrcDir -- run 'npm run registry:build' first." -ForegroundColor Yellow
-    }
+    Copy-Item (Join-Path $SrcDir $dir) $dst -Recurse
 }
 
-# Mirror the gallery site into the clone root (its own file, not part of the generated
-# JSON artifact -- so it lives alongside index.json without a subpath). Copy the site
-# assets flat to the root, so adding CSS/JS/images later Just Works. README.md is
-# excluded -- the public repo owns its own house-style front-page README (never overwrite
-# it, mirroring how the registry JSON copy leaves README/.nojekyll/.gitattributes alone).
-if (Test-Path (Join-Path $SiteDir 'index.html')) {
-    # NB: the wildcard path (...\*) is required -- `Get-ChildItem -Path <dir> -Exclude` on a
-    # bare directory silently returns nothing.
-    # CNAME is excluded defensively: it decides which domain a Pages repo answers
-    # on, so a stray one in registry-site/ would hand cronsole.ai-automation-tools.dev to
-    # the REGISTRY repo -- moving the registry JSON off its documented URL and
-    # breaking catalog sync for every installed Cronsole. Domains belong to the
-    # target repo, never to mirrored content.
-    Get-ChildItem -Path (Join-Path $SiteDir '*') -File -Exclude 'README.md', 'CNAME' | ForEach-Object {
-        Copy-Item $_.FullName (Join-Path $WorkDir $_.Name) -Force
-    }
-} else {
-    Write-Host "No registry-site/index.html -- skipping gallery site (registry JSON still published)." -ForegroundColor Yellow
+# Gallery page: every flat file, minus the two the target owns.
+# NB: the wildcard path (...\*) is required -- `Get-ChildItem -Path <dir> -Exclude`
+# on a bare directory silently returns nothing.
+Get-ChildItem -Path (Join-Path $SiteDir '*') -File -Exclude 'README.md', 'CNAME' | ForEach-Object {
+    Copy-Item $_.FullName (Join-Path $WorkDir $_.Name) -Force
 }
 
 git -C $WorkDir add -A
 if ((git -C $WorkDir status --porcelain).Length -eq 0) {
-    Write-Host 'Registry already up to date -- nothing to publish.' -ForegroundColor Green
+    Write-Host 'cronsole-site already up to date -- nothing to publish.' -ForegroundColor Green
     return
 }
 
 $stamp = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
-git -C $WorkDir commit --quiet -m "Publish registry ($stamp)"
+git -C $WorkDir commit --quiet -m "Publish registry + front door ($stamp)"
 git -C $WorkDir push --quiet origin main
-Write-Host 'Published. GitHub Pages will rebuild shortly (https://mikesailab.com/cronsole-registry).' -ForegroundColor Green
+Write-Host ("Published. GitHub Pages will rebuild shortly (https://" + (Get-Content $cname -Raw).Trim() + "/).") -ForegroundColor Green

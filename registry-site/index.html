@@ -637,10 +637,10 @@
         <!-- No raw-artifact link here. The registry JSON and its apex path are plumbing: this
              page is the only public face of the catalog, and the host it happens to be served
              from is not something a visitor should have to know. The page still READS the JSON
-             (REGISTRY_BASE below) - that is a machine read, and the URL is frozen for it.
-             "Request a template" points at the registry mirror only because the app repo is
-             still private; move it to ai-automation-tools/cronsole/issues when that flips. -->
-        <a href="https://github.com/michaelschecht/cronsole-registry/issues" target="_blank" rel="noopener">Request a template</a>
+             (index.json beside it, REGISTRY_BASE below as a fallback) - that is a machine read,
+             and the URL is frozen for it. Template requests go to the app repo's issues, where
+             the catalog source (bundled.ts) lives. -->
+        <a href="https://github.com/ai-automation-tools/cronsole/issues" target="_blank" rel="noopener">Request a template</a>
         <a href="https://ai-automation-tools.dev">More tools</a>
         <a href="https://ai-automation-tools.dev/cookies.html">Cookies</a>
         <a href="#" data-ail-consent="manage">Cookie settings</a>
@@ -658,18 +658,18 @@
     /**
      * Where the registry actually lives.
      *
-     * This one file is served from TWO places: cronsole.ai-automation-tools.dev (the
-     * front door) and mikesailab.com/cronsole-registry/ (alongside the JSON).
-     * Only the second has index.json next to it.
+     * Since 2026-10-23 the registry is served from the front door itself:
+     * cronsole.ai-automation-tools.dev hosts index.json, templates/ and packs/
+     * beside this page, so the co-located ./index.json normally answers. That
+     * base is the documented `TEMPLATE_REGISTRY_URL` and is frozen there.
      *
-     * The registry base is deliberately NOT moved to the new domain: it is the
-     * documented `TEMPLATE_REGISTRY_URL` that installed Cronsoles already fetch
-     * from, so changing it would break catalog sync for every existing install.
-     * Instead the page tries its own directory first and falls back to the
-     * canonical origin — GitHub Pages serves `Access-Control-Allow-Origin: *`,
-     * so the cross-origin fetch is allowed.
+     * The fallback covers a copy of this page served somewhere WITHOUT the JSON
+     * beside it (a fork, a local preview): it reads the canonical origin, which
+     * GitHub Pages serves with `Access-Control-Allow-Origin: *`. The old base,
+     * mikesailab.com/cronsole-registry/, is an archived frozen snapshot -- never
+     * point anything new at it.
      */
-    var REGISTRY_BASE = "https://mikesailab.com/cronsole-registry/";
+    var REGISTRY_BASE = "https://cronsole.ai-automation-tools.dev/";
     var INDEX_URL = "./index.json";
     var ASSET_BASE = "./";           // set to REGISTRY_BASE if the local index is absent
 
@@ -682,8 +682,8 @@
       changelog: "https://github.com/ai-automation-tools/cronsole/blob/main/docs/CHANGELOG.md",
       roadmap: "https://github.com/ai-automation-tools/cronsole/blob/main/docs/ROADMAP.md",
       org: "https://ai-automation-tools.dev/",
-      registryRepo: "https://github.com/michaelschecht/cronsole-registry",
-      registryIssues: "https://github.com/michaelschecht/cronsole-registry/issues"
+      registryRepo: "https://github.com/ai-automation-tools/cronsole/tree/main/registry",
+      registryIssues: "https://github.com/ai-automation-tools/cronsole/issues"
     };
 
     // MUST match the README's quick start verbatim -- one definition, because this page is the
@@ -1104,7 +1104,7 @@
           '<div class="coll-grid">' +
             repoCard("Try it", "Live demo", "The Cronsole dashboard in your browser — click around before you install anything.", LINKS.demo, "cronsole-demo.ai-automation-tools.dev") +
             repoCard("App · Source", "Cronsole app", "React dashboard, Node/Postgres backend, the .NET Windows agent, and the MCP server. Apache-2.0.", LINKS.appRepo, "github.com/ai-automation-tools/cronsole") +
-            repoCard("Data · Registry", "Template registry", "The public, versioned catalog — index.json plus one file per template, content-addressed with sha256. Propose new templates here.", LINKS.registryRepo, "github.com/michaelschecht/cronsole-registry") +
+            repoCard("Data · Registry", "Template registry", "The public, versioned catalog — index.json plus one file per template, content-addressed with sha256. Propose new templates here.", LINKS.registryRepo, "github.com/ai-automation-tools/cronsole/registry") +
             repoCard("Feedback", "Request a template", "Missing an automation you\'d use? Open an issue and describe it — the catalog grows from real requests.", LINKS.registryIssues, "Open an issue") +
           '</div>' +
           '<p class="mono" style="color:var(--ink-3);font-size:12px;margin-top:16px;line-height:2">' +

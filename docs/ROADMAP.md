@@ -2682,7 +2682,17 @@ work, none of it a gate on anybody using Cronsole.
       becomes a redirect page (done in that repo, not here). `publish-frontdoor.yml` lost its personal
       job and its org job now **fails** on a missing key or CNAME instead of skipping; the drift check
       and `publish-frontdoor.ps1` target the org host only. The registry path is unchanged — one page,
-      two hosts.
+      two hosts. *(Registry path superseded the same day — see the next item.)*
+
+- [ ] **Move the template registry onto the org front door** *(2026-10-23, Mike's decision)* —
+      `ai-automation-tools/cronsole-site` serves `index.json` + `templates/` + `packs/` beside the
+      gallery, and `https://cronsole.ai-automation-tools.dev/` is the new frozen registry base.
+      `publish-registry.yml` publishes registry + page in one job with `SITE_ORG_DEPLOY_KEY`;
+      `publish-frontdoor.yml` / `publish-frontdoor.ps1` are gone; every reference repointed.
+      *Implemented in the PR of 2026-10-23; tick when it merges and the new host is verified
+      (`index.json` returns 200, Registry drift and Front door drift green).* After that, outside
+      this repo: archive `michaelschecht/cronsole-registry` (Pages stays up as a frozen snapshot)
+      and delete the unused `REGISTRY_DEPLOY_KEY` secret.
 
 - [ ] **Multi-user / hosted account system** *(deferred — explicitly not a local-first launch
       requirement)*: password reset (needs email infra), open registration as a *designed*

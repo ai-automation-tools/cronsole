@@ -76,7 +76,7 @@ cronsole/
 │                    #   user-guides/ · testing/ · adr/ · reports/
 │                    #   archive/ + local/ are LOCAL-ONLY (gitignored, NOT backed up)
 ├── registry/        # generated template registry artifact — never hand-edit
-├── registry-site/   # Cronsole's homepage + template gallery, one page (published to two hosts)
+├── registry-site/   # Cronsole's homepage + template gallery, one page, published with the registry to cronsole.ai-automation-tools.dev
 ├── proxy/           # opt-in single-origin reverse proxy (Caddyfile); nothing runs by default
 ├── prompts/         # copy-paste prompts for driving Cronsole: mcp-server/ · skills/ · rest-api/
 ├── backend/src/     # catalog/ · connectors/ · routes/ · services/ · ws/ · auth/ · tools/
@@ -811,7 +811,8 @@ Non-negotiable rules. **Every one has a reason recorded in
 ### Template catalog
 - **Templates are content, not code.** Edit `backend/src/catalog/bundled.ts` → `npm run registry:build`
   → commit `registry/` → **merge to `main`, which publishes itself**
-  (`.github/workflows/publish-registry.yml`). **The drift test catches an unbuilt `registry/`; the
+  (`.github/workflows/publish-registry.yml` — one job that writes the registry and the gallery page
+  to `ai-automation-tools/cronsole-site`). **The drift test catches an unbuilt `registry/`; the
   daily `Registry drift` workflow catches an unpublished one**
   (`scripts/check-registry-published.mjs`, comparing the live index's ids and sha256s against the
   committed artifact) — a stale CDN and a correct `registry/` are indistinguishable from inside the
@@ -826,18 +827,20 @@ Non-negotiable rules. **Every one has a reason recorded in
   extended templates reach a user by being browsed and imported. Publish because the gallery is
   advertising a catalog it does not have, not because installs are broken.
 - Registry files are **content-addressed** (sha256 over exact bytes): keep them LF, never hand-edit
-  `registry/`. The registry base URL is **frozen** at `https://mikesailab.com/cronsole-registry/` —
-  GitHub does not redirect renamed Pages paths, so there is no second free move.
-- **The front door is the only public face of the catalog; the registry host is a machine read**
-  *(decided 2026-09-09)*. One page is served from two hosts, so every link has a choice of host and
-  the choice is not arbitrary: **a human-facing link goes to `cronsole.ai-automation-tools.dev`** (README, the
-  Templates-tab gallery pointer, the onboarding resource list) and **the apex path is what code
-  fetches** (`TEMPLATE_REGISTRY_URL`, the gallery's own `REGISTRY_BASE` fallback). The registry repo
-  is a **mirror with no source in it**, so linking a user at it offers them a worse copy of a page
-  they were already on. This is also why `cronsole-registry` **stays on the personal account
-  permanently** — it borrows the apex domain from `michaelschecht.github.io` with `cname: null`, and
-  moving it to an org changes the frozen URL above with no redirect. The two rules are the same rule:
-  the *path* cannot move, so nothing a user sees should depend on it.
+  `registry/`. The publish target pins them LF too (`cronsole-site`'s `.gitattributes`), and the
+  publish job refuses to run if that pin goes missing.
+- **The registry base URL is frozen at `https://cronsole.ai-automation-tools.dev/`, from
+  2026-10-23** *(owner's decision, 2026-10-23)*. The org front door repo
+  `ai-automation-tools/cronsole-site` serves `index.json`, `templates/` and `packs/` beside the
+  gallery `index.html`, so the page, `TEMPLATE_REGISTRY_URL`, the gallery's `REGISTRY_BASE`
+  fallback and every human-facing link name **one host**. GitHub does not redirect Pages paths, so
+  this was the one deliberate move and there is no second one. The previous base,
+  **`https://mikesailab.com/cronsole-registry/`** (`michaelschecht/cronsole-registry`), is an
+  **archived, frozen snapshot — no longer updated**, kept up only so pre-2026-10-23 opted-in installs
+  do not 404. Nothing publishes to it, nothing checks it, nothing new links to it; an install still
+  pointing there should **update `TEMPLATE_REGISTRY_URL`**. (This supersedes the 2026-09-09 rule
+  that kept the registry on the personal account and split human links from machine reads across
+  two hosts — with one host, there is no choice to get wrong.)
 - **Core vs extended**: `catalogSync` auto-syncs only `core: true`, marks those rows `managed` and
   prunes managed rows outside the core set (guarded against an empty core). Imported and
   saved-as-template rows are `managed: false` and never pruned.
@@ -902,7 +905,7 @@ three weeks — confidently doing the wrong thing.
 | A new invariant or architectural rule | §9 here + the invariants table in `SKILL.md` (rationale → [`DESIGN_NOTES.md`](docs/DESIGN_NOTES.md)) |
 | **Anything that took real digging** | [`troubleshooting/README.md`](docs/troubleshooting/README.md) **and** the traps table in `SKILL.md` |
 | The catalog (`bundled.ts`, `packs.ts`) | `npm run registry:build` and **commit `registry/`** — merging to `main` publishes it (`publish-registry.yml`), and the daily **Registry drift** check reddens if that ever stops working |
-| A capability or claim the public gallery states | [`registry-site/index.html`](registry-site/README.md) — merging to `main` publishes it to **both** hosts (`publish-registry.yml` + `publish-frontdoor.yml`), and **Front door drift** checks both daily. One page, two hosts, so a fix that reaches one and not the other is the failure to look for |
+| A capability or claim the public gallery states | [`registry-site/index.html`](registry-site/README.md) — merging to `main` publishes it in the same job as the registry (`publish-registry.yml`), and **Front door drift** checks the served page daily |
 | A field on a probe or action shape | The gallery's renderer — a *partial* reading is worse than raw JSON; absent and malformed are different facts |
 | A new platform / connector / catalog rule | §9 here + `SKILL.md` + the relevant `skills/cronsole/references/*.md` |
 | **A new source on the Sources tab** | Its own guide in [`docs/user-guides/sources/`](docs/user-guides/sources/README.md), registered in `SOURCE_DOCS` (`frontend/src/data/docs.ts`) so the card carries its **Read: using X** link, and listed in that folder's `README.md`. `docsLinks.test.ts` pins the count to the number of sources, so this one **fails loudly** — the only mirror surface that does |
@@ -919,25 +922,24 @@ Two asymmetries: **the repo wins** — when the skill and a doc disagree, fix th
 belongs in a backend route.
 
 **Published surfaces are mirror surfaces too, and they stay wrong after a green build and a clean
-push**: the hosted registry and the gallery page are read by *other people's machines*. **Both now
-publish on merge and are checked daily** — `publish-registry.yml` + `publish-frontdoor.yml`,
-`registry-drift.yml` + `frontdoor-drift.yml`. The two publish scripts remain the manual path and
-both now **refuse any branch that is not up-to-date `main`**; both `git reset --hard origin/main`
-their working clone (`Repos/Private/Tools/cronsole-registry`, and an org `cronsole-site` clone or
-`%TEMP%` for the front door — the script refuses a clone whose origin is not
-`ai-automation-tools/cronsole-site`) — **never keep manual work there** — and both exclude `README.md` and `CNAME`, which the public repos own. `CNAME`
-is infrastructure, not content: it decides which domain a Pages repo answers on, so the front-door
-workflow **fails** when the target has none rather than publishing a page nobody can reach.
+push**: the hosted registry and the gallery page are read by *other people's machines*. **Both
+publish on merge, in one job, to one repo, and are checked daily** — `publish-registry.yml` writes
+`ai-automation-tools/cronsole-site` (one job, because two jobs pushing the same branch race);
+`registry-drift.yml` + `frontdoor-drift.yml` check it. `pwsh scripts/publish-registry.ps1` is the
+manual path: it **refuses any branch that is not up-to-date `main`**, always clones fresh into
+`%TEMP%`, and refuses any target but the org repo. Both paths replace `templates/` + `packs/`
+wholesale and exclude `README.md` and `CNAME`, which the public repo owns. `CNAME` is
+infrastructure, not content: it decides which domain a Pages repo answers on — and that domain is
+now the registry base — so publishing **fails** when the target has none.
 
-**One page, two hosts, so it is checked at both.** `registry-site/index.html` is served from
-`cronsole.ai-automation-tools.dev` *and* `mikesailab.com/cronsole-registry/`, by two different publish
-paths — so the stale half is whichever one you did not happen to open. `check-frontdoor-published.mjs`
-compares sha256 over the served bytes at both, **LF-normalized**: a CRLF working tree makes the same
-commit pass on Linux and fail on Windows, and makes a manual publish copy different bytes than CI
+`check-frontdoor-published.mjs` compares sha256 over the served page bytes, **LF-normalized**: a
+CRLF working tree makes the same commit pass on Linux and fail on Windows, and makes a manual publish
+copy different bytes than CI
 ([#69](docs/troubleshooting/README.md#69-a-published-page-check-reports-both-hosts-stale-and-they-are-not)).
-`registry-site/**` is pinned `text eol=lf` for the same reason `registry/**` is. **`cronsole.mikesailab.com`
-(`michaelschecht/cronsole-site`) was retired on 2026-10-23** and now redirects to the org site; nothing
-here publishes to it or checks it, and it must not be added back as a target.
+`registry-site/**` is pinned `text eol=lf` for the same reason `registry/**` is. **Retired on
+2026-10-23, never publish to or check them:** `cronsole.mikesailab.com` (`michaelschecht/cronsole-site`,
+now a redirect) and `mikesailab.com/cronsole-registry/` (`michaelschecht/cronsole-registry`, an
+archived frozen snapshot).
 
 ---
 

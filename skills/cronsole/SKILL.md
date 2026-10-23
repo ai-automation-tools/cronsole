@@ -362,30 +362,25 @@ Load these on demand — don't read them all up front:
 9. **The MCP server and this skill are mirror surfaces — update them in the same change.** See below.
 9a. **So are the two published surfaces, and they are the only ones a stranger reads.** A catalog
     change needs `npm run registry:build` and the **committed** `registry/`; merging that to `main`
-    publishes it (`.github/workflows/publish-registry.yml`, since 2026-08-19), and the daily
+    publishes it (`.github/workflows/publish-registry.yml`, since 2026-08-19 — one job that writes
+    the registry **and** the gallery page to `ai-automation-tools/cronsole-site`), and the daily
     **Registry drift** workflow reddens if publishing ever stops working
     (`node scripts/check-registry-published.mjs` runs it by hand). `pwsh scripts/publish-registry.ps1`
     is the manual path and now **refuses any branch that is not up-to-date `main`** — it mirrors the
     working tree, so a stale branch replaces the public catalog with an older one and still prints
     *"Published."* ([#68](../../docs/troubleshooting/README.md#68-the-hosted-registry-goes-backwards-after-a-successful-publish)).
-    **The front door is automated too, as of the same day**: `registry-site/index.html` is one page
-    on two hosts (`cronsole.ai-automation-tools.dev` and `mikesailab.com/cronsole-registry/`; the old
-    `cronsole.mikesailab.com` was retired 2026-10-23 and redirects — never publish to
-    `michaelschecht/cronsole-site`), and merging to
-    `main` publishes it to both (`publish-frontdoor.yml` + `publish-registry.yml`), with
-    **Front door drift** comparing served sha256 at both daily. The stale half is always whichever
-    host you did not happen to open, which is why it is checked rather than eyeballed.
-    **Two hosts means every link has a choice, and the choice is fixed** *(2026-09-09)*: a
-    **human-facing link goes to `cronsole.ai-automation-tools.dev`**, and `mikesailab.com/cronsole-registry/`
-    appears only where **code** fetches it — `TEMPLATE_REGISTRY_URL` and the gallery's own
-    `REGISTRY_BASE` fallback. Never point a user at the registry host or at the mirror repo: it holds
-    no source, and it is a worse copy of the page they were already on. Same reason
-    `cronsole-registry` stays on the personal account forever — it borrows the apex domain with
-    `cname: null`, so an org move breaks the frozen URL. Never keep
-    manual work in the two publish clones (`Repos/Private/Tools/cronsole-registry`, and the org
-    `cronsole-site` clone or `%TEMP%`)
-    — each script `git reset --hard`s them first, and both now refuse a branch that is not
-    up-to-date `main`.
+    **One host since 2026-10-23**: `https://cronsole.ai-automation-tools.dev/`
+    (`ai-automation-tools/cronsole-site`) serves the gallery page *and* `index.json` + `templates/`
+    + `packs/` beside it. **That is the registry base, and it is frozen there** —
+    `TEMPLATE_REGISTRY_URL`, the gallery's `REGISTRY_BASE` fallback and every link use it.
+    `mikesailab.com/cronsole-registry/` (`michaelschecht/cronsole-registry`) is an **archived,
+    frozen snapshot** kept only so pre-2026-10-23 opted-in installs do not 404 — never publish to
+    it, never link to it, and tell an install still pointing there to update
+    `TEMPLATE_REGISTRY_URL`. `cronsole.mikesailab.com` (`michaelschecht/cronsole-site`) is retired
+    and redirects — never publish there either. **Registry drift** (ids + sha256) and **Front door
+    drift** (page bytes) both check the one host daily. The manual script always clones fresh into
+    `%TEMP%`, refuses any target but the org repo, and refuses a branch that is not up-to-date
+    `main`.
     **Be accurate about who a stale registry hurts**: `TEMPLATE_REGISTRY_URL` is commented out by
     default, so a default install reads the compiled-in `bundled.ts` and needs no publish. The hosted
     artifact is what the **public gallery** serves and what an opted-in install syncs — and
@@ -429,7 +424,7 @@ confidently doing the wrong thing. That's "the confident lie" aimed at your futu
 | A new user-facing control worth explaining | A topic in `help.ts` **and** the guide section it links to. Doc first: a topic must summarise something written down, never be the only place it is |
 | A new platform / connector / catalog rule | The invariants table here + the relevant `references/*.md` |
 | **The catalog** — `bundled.ts`, `packs.ts`, or what a template *is* | `npm run registry:build` and **commit `registry/`**. Merging to `main` publishes it (`publish-registry.yml`), and the daily **Registry drift** workflow fails if that ever stops working — the two guards that used to be missing. The drift *test* still fails on an unbuilt `registry/`. The manual `pwsh scripts/publish-registry.ps1` now refuses any branch that is not up-to-date `main` ([#68](../../docs/troubleshooting/README.md#68-the-hosted-registry-goes-backwards-after-a-successful-publish)) |
-| **A capability or refusal the public gallery states** | [`registry-site/index.html`](../../registry-site/README.md). Merging to `main` publishes it to **both** hosts (`publish-frontdoor.yml` + `publish-registry.yml`) and **Front door drift** compares served sha256 at both daily — publishing one and not the other used to leave the page stale at whichever address you did not open. The gallery is static and cannot ask a server what an install can do, so it states the **condition** ("needs sign-in") where the app states the answer |
+| **A capability or refusal the public gallery states** | [`registry-site/index.html`](../../registry-site/README.md). Merging to `main` publishes it with the registry, in one job (`publish-registry.yml`), to `cronsole.ai-automation-tools.dev`, and **Front door drift** compares the served sha256 daily. The gallery is static and cannot ask a server what an install can do, so it states the **condition** ("needs sign-in") where the app states the answer |
 | Anything shipped, or scope moved | [`docs/ROADMAP.md`](../../docs/ROADMAP.md), dated |
 
 **Ask on every change: "would an agent reading only this skill now be wrong?"** If yes, the

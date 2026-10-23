@@ -22,9 +22,9 @@ backend/src/catalog/bundled.ts   (source of truth — edit HERE)
         │  npm run registry:build
         ▼
 registry/  (index.json + templates/*.json — GENERATED, never hand-edit)
-        │  pwsh scripts/publish-registry.ps1
+        │  merge to main → publish-registry.yml (manual: pwsh scripts/publish-registry.ps1)
         ▼
-public cronsole-registry repo → https://mikesailab.com/cronsole-registry
+ai-automation-tools/cronsole-site → https://cronsole.ai-automation-tools.dev/
         │  RegistryCatalogSource (sha256-verified, cached, falls back to bundled)
         ▼
 catalogSync → DB (on boot + interval)
@@ -72,12 +72,15 @@ registry→DB→export. Tags are how packs are grouped and faceted.
 3. `npm test` — the drift test proves `registry/` matches `bundled.ts`, and the
    **whole-catalog resolvability test** drives every `commandTemplate` through the Apply
    pipeline. A template whose placeholders do not resolve fails here, not in a user's face.
-4. `pwsh scripts/publish-registry.ps1` to mirror it to the public repo.
+4. Commit `registry/` and merge to `main` — the **Publish registry + front door** workflow
+   mirrors it to `ai-automation-tools/cronsole-site`. `pwsh scripts/publish-registry.ps1` is the
+   manual path.
 5. Update `docs/ROADMAP.md` if the catalog gained a pack or a tier moved.
 
-> The publish script **resets its working clone to `origin/main`** — never keep manual work
-> in `Repos\Private\Tools\cronsole-registry`. It also **excludes `README.md`**; the public repo owns
-> its own front page.
+> The publish script **always clones fresh into `%TEMP%`** and refuses any target but
+> `ai-automation-tools/cronsole-site`. It **excludes `README.md` and `CNAME`**; the public repo owns
+> both. `michaelschecht/cronsole-registry` (`mikesailab.com/cronsole-registry/`) is an archived
+> frozen snapshot since 2026-10-23 — never publish to it.
 
 ## Auditing a template
 

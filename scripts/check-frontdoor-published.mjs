@@ -1,19 +1,20 @@
 /**
- * Do BOTH public hosts serve the gallery page that is on main?
+ * Does the public host serve the gallery page that is on main?
  *
- * `registry-site/index.html` is one page served from two addresses:
+ * `registry-site/index.html` is served at
  *
- *   https://cronsole.ai-automation-tools.dev/           the front door
- *   https://mikesailab.com/cronsole-registry/           beside the registry JSON
+ *   https://cronsole.ai-automation-tools.dev/           the front door, and since
+ *                                                       2026-10-23 the registry host too
  *
- * (cronsole.mikesailab.com was a third host until 2026-10-23; it now redirects
- * to the org site and is deliberately not checked -- a redirect page is not
- * supposed to match.)
+ * It used to be served from more: cronsole.mikesailab.com until 2026-10-23 (now
+ * a redirect), and mikesailab.com/cronsole-registry/ beside the registry JSON
+ * (now an archived, frozen snapshot of both). Neither is checked -- a redirect
+ * and a frozen snapshot are supposed to stop matching.
  *
- * Two hosts, two publish paths, and for a long time two chances to forget. The
- * failure is quiet in a particular way: whichever host you happen to open looks
- * fine, so the page can be a month stale at the *other* address and nothing in
- * the repo, the tests, or your own browsing says so.
+ * For a long time that meant N hosts, N publish paths and N chances to forget,
+ * and the check still takes a list (SITE_URLS) so a second host can never be
+ * added without being checked: the stale one is always whichever you did not
+ * happen to open.
  *
  * GitHub Pages serves the file raw, so the comparison is exact: sha256 over the
  * committed bytes against sha256 over what each host returns. No parsing, no
@@ -21,7 +22,7 @@
  *
  *   node scripts/check-frontdoor-published.mjs
  *
- * Exit 0 = both hosts serve the current page. Exit 1 = at least one does not,
+ * Exit 0 = every host serves the current page. Exit 1 = at least one does not,
  * and the output says which.
  */
 
@@ -35,13 +36,9 @@ class Failure extends Error {}
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '..');
 
-// Both hosts are checked by default. Override for a fork or a staging host.
-// Every host that serves this page gets checked, because the stale one is always
-// whichever you did not happen to open.
-const HOSTS = (process.env.SITE_URLS || [
-  'https://cronsole.ai-automation-tools.dev/',
-  'https://mikesailab.com/cronsole-registry/'
-].join(','))
+// Override (comma-separated) for a fork or a staging host. Every host that
+// serves this page gets checked.
+const HOSTS = (process.env.SITE_URLS || 'https://cronsole.ai-automation-tools.dev/')
   .split(',')
   .map((u) => u.trim())
   .filter(Boolean);
@@ -119,12 +116,9 @@ async function main() {
   console.error('');
   for (const p of problems) console.error(`  - ${p}`);
   console.error('');
-  console.error('Fix: "Publish front door" runs on every merge to main that touches registry-site/,');
-  console.error('and "Publish registry" mirrors the same page to the registry host. Re-run whichever');
-  console.error('did not run from the Actions tab, or publish manually with');
-  console.error('  Actions -> Publish front door           (cronsole.ai-automation-tools.dev)');
-  console.error('  pwsh scripts/publish-frontdoor.ps1      (cronsole.ai-automation-tools.dev)');
-  console.error('  pwsh scripts/publish-registry.ps1       (mikesailab.com/cronsole-registry)');
+  console.error('Fix: "Publish registry + front door" runs on every merge to main that touches');
+  console.error('registry/ or registry-site/. Re-run it from the Actions tab, or publish manually with');
+  console.error('  pwsh scripts/publish-registry.ps1');
   return false;
 }
 

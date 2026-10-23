@@ -33,6 +33,21 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Changed
 
+- **The template registry moved to `https://cronsole.ai-automation-tools.dev/`** (2026-10-23).
+  The org front door repo `ai-automation-tools/cronsole-site` now serves `index.json`,
+  `templates/` and `packs/` beside the gallery page, and that is the new, frozen registry base.
+  **If you set `TEMPLATE_REGISTRY_URL`, change it to `https://cronsole.ai-automation-tools.dev/`.**
+  The old base `https://mikesailab.com/cronsole-registry/` (`michaelschecht/cronsole-registry`)
+  becomes an archived snapshot: it keeps answering so existing installs do not 404, but it is no
+  longer updated. One workflow, `publish-registry.yml`, now publishes the registry and the page in
+  **one job** (two jobs pushing the same repo would race); it replaces `templates/` + `packs/`
+  wholesale, leaves the page files' neighbours (`CNAME`, `README.md`, `.gitattributes`) alone, and
+  refuses to run if the target loses its `CNAME` or its LF pin for JSON. `publish-frontdoor.yml`
+  and `publish-frontdoor.ps1` are removed; `publish-registry.ps1` targets the org site from a fresh
+  `%TEMP%` clone and refuses any other repo. `REGISTRY_DEPLOY_KEY` is no longer used. The gallery's
+  `REGISTRY_BASE`, its registry and "Request a template" links (now the app repo and its issues),
+  the Templates-tab gallery link, both drift checks, the skill, the template-curator agent and the
+  docs point at the new host.
 - **`cronsole.ai-automation-tools.dev` is the only front door** (2026-10-23). The personal front
   door `cronsole.mikesailab.com` (`michaelschecht/cronsole-site`) is retired and now redirects to
   the org site. `publish-frontdoor.yml` no longer publishes there (its `SITE_DEPLOY_KEY` job is

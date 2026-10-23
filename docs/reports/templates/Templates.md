@@ -6,7 +6,7 @@
 >
 > **Status:** Catalog drafted + schema migrated + starters seeded (2026-06-10); Apply modal + library UI shipped.
 > The catalog now lives behind the Registry v1 source (`backend/src/catalog/` + hosted
-> `cronsole-registry`) in two tiers: Tier A script starters and Tier B use-case patterns
+> registry at `cronsole.ai-automation-tools.dev`) in two tiers: Tier A script starters and Tier B use-case patterns
 > (Developer Pack, Claude Code AI pack, and Codex AI pack included). The **Apply modal** (§7 step 3) shipped, backed by
 > `GET /api/templates` + `POST /api/templates/:id/apply`; since 2026-07-10 the modal sends **raw
 > parameter values** and the **backend owns `{{placeholder}}` substitution per-token** (§5).

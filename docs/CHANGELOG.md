@@ -220,6 +220,13 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Fixed
 
+- **`mcp-server`: `zod` 3.25.76 → 4.6.7** (2026-10-23), closing high Dependabot alert #85
+  (oversized constrained collections could exhaust memory during validation; fixed only in 4.6.6+).
+  The MCP SDK accepts `^3.25 || ^4.0`, and the one deprecated call (`z.string().url()`) still works.
+  `tools/list` was compared tool by tool against the zod 3 build: same 36 tools, properties and
+  required fields; zod 4 drops the `additionalProperties: false` zod 3 advertised (unknown keys were
+  always stripped, never rejected) and adds `propertyNames` and safe-integer bounds. Build clean, 222
+  tests green, production `npm audit` 0.
 - **`mcp-server`: `follow-redirects` 1.16.0 → 1.16.1** (2026-10-23), closing two high Dependabot
   alerts (GHSA-q3jh-wrc6-jgq8 and its sibling): credential headers could survive a cross-origin
   redirect via array-form headers or an unescaped `sensitiveHeaders` pattern. Reached through

@@ -14,6 +14,12 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **GitHub Actions can watch a whole account or organization** (2026-10-23). In the Sources tab's
+  repository box, type an owner (`acme`, `github.com/acme`) instead of `owner/repo`, and every
+  repository under it that your token can see is read, including ones created later. Forks and
+  archived repositories are skipped. Stopping an owner watch keeps repositories you also added on
+  their own.
+
 - **Docs catch up with the 2026-10-23 consolidation** (2026-10-23). ROADMAP ticks the registry
   move (verified by the #346 publish) and records the cleared Dependabot backlog; `docs/UPSTREAMS.md`
   now pins Prisma 7.10.1 and `mcp-server` zod 4.

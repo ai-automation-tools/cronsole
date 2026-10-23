@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   normalizeRepository,
+  normalizeOwner,
   repoFullName,
   workflowExternalId,
   repositoryFromExternalId,
@@ -84,6 +85,29 @@ describe('the external id', () => {
   });
 });
 
+/**
+ * One input box takes a repository **or** a whole account/org. An owner is a
+ * single path segment (or `owner/*`); anything with a real second segment stays
+ * a repository, so no existing paste changes meaning.
+ */
+describe('normalizeOwner', () => {
+  it('reads a bare login, an owner URL, an org page and owner/*', () => {
+    expect(normalizeOwner('acme')).toBe('acme');
+    expect(normalizeOwner('https://github.com/acme')).toBe('acme');
+    expect(normalizeOwner('https://github.com/acme?tab=repositories')).toBe('acme');
+    expect(normalizeOwner('https://github.com/orgs/acme/repositories')).toBe('acme');
+    expect(normalizeOwner('acme/*')).toBe('acme');
+  });
+
+  it('leaves a repository to normalizeRepository', () => {
+    expect(normalizeOwner('acme/website')).toBeNull();
+    expect(normalizeOwner('https://github.com/acme/website/actions')).toBeNull();
+    expect(normalizeOwner('')).toBeNull();
+    // ...which in turn refuses the wildcard rather than storing a repo called `*`.
+    expect(normalizeRepository('acme/*')).toBeNull();
+  });
+});
+
 describe('the stored config', () => {
   it('drops rows it cannot read rather than carrying half a repository', () => {
     const config = readConfig({
@@ -94,8 +118,8 @@ describe('the stored config', () => {
   });
 
   it('reads an absent config as an empty, well-formed one', () => {
-    expect(readConfig(undefined)).toEqual({ repositories: [] });
-    expect(readConfig({})).toEqual({ repositories: [] });
+    expect(readConfig(undefined)).toEqual({ repositories: [], owners: [] });
+    expect(readConfig({})).toEqual({ repositories: [], owners: [] });
   });
 
   it('never lets the token leave', () => {
@@ -105,7 +129,8 @@ describe('the stored config', () => {
     // PAT either.
     const redacted = redactConfig({
       token: 'ghp_abcdefghijklmnopqrstuvwxyz012345',
-      repositories: [{ owner: 'acme', repo: 'website' }]
+      repositories: [{ owner: 'acme', repo: 'website' }],
+      owners: []
     });
     expect(redacted.hasToken).toBe(true);
     expect(redacted.tokenHint).toBe('2345');
@@ -113,8 +138,8 @@ describe('the stored config', () => {
   });
 
   it('reports no token as a distinct state, not an empty string', () => {
-    const redacted = redactConfig({ repositories: [] });
-    expect(redacted).toEqual({ hasToken: false, tokenHint: null, repositories: [] });
+    const redacted = redactConfig({ repositories: [], owners: [] });
+    expect(redacted).toEqual({ hasToken: false, tokenHint: null, repositories: [], owners: [] });
   });
 });
 

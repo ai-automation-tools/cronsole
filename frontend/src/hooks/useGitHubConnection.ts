@@ -30,12 +30,20 @@ export interface WatchedRepository {
   taskCount: number;
 }
 
+/** A whole account or organization, re-expanded on every sync. */
+export interface WatchedOwner {
+  owner: string;
+  /** Tracked workflows under this owner, including any from repositories also named on their own. */
+  taskCount: number;
+}
+
 export interface GitHubConnection {
   connected: boolean;
   hasToken: boolean;
   /** Last four characters of the stored token, or null. Never the value. */
   tokenHint: string | null;
   repositories: WatchedRepository[];
+  owners: WatchedOwner[];
 }
 
 const CONNECTION_KEY = ['github-connection'];
@@ -99,12 +107,23 @@ export const useWatchRepository = () => {
   return useMutation({
     mutationFn: async (repository: string) => {
       const { data } = await api.post('/tools/platforms/github/repositories', { repository });
-      return data as {
-        repository: WatchedRepository;
-        already: boolean;
-        /** Every workflow in the repository — not every *scheduled* one. */
-        workflowCount: number;
-      };
+      return data as
+        | {
+            kind: 'repository';
+            repository: WatchedRepository;
+            already: boolean;
+            /** Every workflow in the repository — not every *scheduled* one. */
+            workflowCount: number;
+          }
+        | {
+            kind: 'owner';
+            owner: WatchedOwner;
+            already: boolean;
+            /** Repositories the token sees under this owner that a sync will read. */
+            repositoryCount: number;
+            /** Archived or forked — seen, and skipped, because GitHub runs no schedules there. */
+            skippedCount: number;
+          };
     },
     onSuccess: () => invalidateAll(qc)
   });
@@ -128,6 +147,18 @@ export const useUnwatchRepository = () => {
         `/tools/platforms/github/repositories/${encodeURIComponent(repo.owner)}/${encodeURIComponent(repo.repo)}`
       );
       return data as { removed: string; tasksRemoved: number; watching: number };
+    },
+    onSuccess: () => invalidateAll(qc)
+  });
+};
+
+/** Stop watching a whole owner. Repositories also named on their own stay. */
+export const useUnwatchOwner = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (owner: WatchedOwner) => {
+      const { data } = await api.delete(`/tools/platforms/github/owners/${encodeURIComponent(owner.owner)}`);
+      return data as { removed: string; tasksRemoved: number };
     },
     onSuccess: () => invalidateAll(qc)
   });

@@ -13,6 +13,7 @@ import {
   listWorkflows,
   listWorkflowRuns,
   listRunJobs,
+  listAccessibleRepositories,
   workflowSchedules,
   type GitHubRun,
   type GitHubWorkflow
@@ -21,6 +22,8 @@ import {
   readConfig,
   repoFullName,
   repositoryFromExternalId,
+  upsertRepository,
+  watchesOwner,
   workflowExternalId,
   WORKFLOW_SEP,
   type StoredRepository
@@ -148,14 +151,18 @@ export class GitHubActionsConnector implements PlatformConnector {
    * **Adding a repository is the gesture that names the folder**, so this is
    * where that fact belongs. It deliberately does not clear exclusions: an
    * individually untracked workflow must survive a refresh.
+   *
+   * Only the **named** repositories: a watched owner's are unknown until GitHub
+   * is asked, so `syncTasks` returns the full resolved set as
+   * `SyncOutcome.trackedCategories`, which outranks this.
    */
   trackedCategories(config: any): string[] {
     return readConfig(config).repositories.map(repoFullName);
   }
 
   async syncTasks(config: any): Promise<SyncOutcome> {
-    const { token, repositories } = readConfig(config);
-    if (!token || repositories.length === 0) return { tasks: [] };
+    const { token, repositories: named, owners } = readConfig(config);
+    if (!token || (named.length === 0 && owners.length === 0)) return { tasks: [] };
 
     const tasks: TaskInfo[] = [];
     const failures: string[] = [];
@@ -163,6 +170,37 @@ export class GitHubActionsConnector implements PlatformConnector {
     const warnings: string[] = [];
     /** Did this sync see less than the whole platform? See {@link SyncOutcome.partial}. */
     let partial = false;
+
+    // **A watched owner is re-expanded every pass**, so a repository created
+    // since the last sync is adopted with no second gesture. Forks and archived
+    // repositories are left out: GitHub runs no schedules in either by default.
+    let repositories = named;
+    if (owners.length > 0) {
+      const listed = await listAccessibleRepositories(token);
+      if (!listed.ok) {
+        // Nothing under any owner could be named, so nothing under one may be
+        // retired — the named repositories still sync.
+        partial = true;
+        failures.push(`${owners.join(', ')}: ${listed.message}`);
+      } else {
+        if (listed.data.truncated) {
+          partial = true;
+          warnings.push(
+            `This token can see more than ${listed.data.repositories.length} repositories; Cronsole read ` +
+              'that many and stopped, so nothing outside them is retired this sync.'
+          );
+        }
+        let skipped = 0;
+        for (const r of listed.data.repositories) {
+          if (!watchesOwner(owners, r.owner)) continue;
+          if (r.archived || r.fork) { skipped++; continue; }
+          repositories = upsertRepository(repositories, { owner: r.owner, repo: r.repo });
+        }
+        if (skipped > 0) {
+          notes.push(`Skipped ${skipped} archived or forked ${skipped === 1 ? 'repository' : 'repositories'} under watched owners.`);
+        }
+      }
+    }
 
     // Coverage: what this sync *looked at*, not only what it kept. Most
     // workflows in a real repository run on `push`, so importing none of them is
@@ -228,11 +266,17 @@ export class GitHubActionsConnector implements PlatformConnector {
     for (const failure of failures) warnings.push(`Could not read ${failure}`);
 
     notes.push(coverageNote(repositories.length, workflowsRead, tasks.length));
-    for (const repo of noneScheduled) {
-      notes.push(`${repo} has no scheduled workflows — nothing there runs on a clock.`);
+    // Named while the list is short; an owner watch makes it one line per repo
+    // across dozens, which buries the coverage note it sits under.
+    if (noneScheduled.length > 3) {
+      notes.push(`${noneScheduled.length} repositories have workflows, none of them scheduled.`);
+    } else {
+      for (const repo of noneScheduled) {
+        notes.push(`${repo} has no scheduled workflows — nothing there runs on a clock.`);
+      }
     }
 
-    return { tasks, notes, warnings, partial };
+    return { tasks, notes, warnings, partial, trackedCategories: repositories.map(repoFullName) };
   }
 
   /** One workflow as a Cronsole task, or null when it has no schedule. */
@@ -348,12 +392,12 @@ export class GitHubActionsConnector implements PlatformConnector {
    * amber over something they should.
    */
   async getHealth(config: any): Promise<ConnectorHealth> {
-    const { token, repositories } = readConfig(config);
+    const { token, repositories, owners } = readConfig(config);
 
     if (!token) {
       return { state: HealthState.UNKNOWN, reason: 'No GitHub token stored — nothing has been read yet.' };
     }
-    if (repositories.length === 0) {
+    if (repositories.length === 0 && owners.length === 0) {
       return {
         state: HealthState.UNKNOWN,
         reason: 'Connected, but no repositories are being watched yet. Add one to start reading workflows.'
@@ -382,9 +426,13 @@ export class GitHubActionsConnector implements PlatformConnector {
 
     if (!succeeded && !failed) {
       const count = repositories.length;
+      const watched = [
+        ...(count > 0 ? [`${count} repositor${count === 1 ? 'y' : 'ies'}`] : []),
+        ...(owners.length > 0 ? [`${owners.length} owner${owners.length === 1 ? '' : 's'}`] : [])
+      ].join(' and ');
       return {
         state: HealthState.UNKNOWN,
-        reason: `${count} repositor${count === 1 ? 'y' : 'ies'} configured, none read yet. Sync to check.`
+        reason: `${watched} configured, none read yet. Sync to check.`
       };
     }
 

@@ -56,7 +56,8 @@ export async function syncConnection(
     // connector keeps the platform-specific half inside the connector layer,
     // where §9 requires it.
     const include = scope === 'tracked'
-      ? connector.trackedCategories?.(connectorConfig)
+      ? outcome.trackedCategories
+        ?? connector.trackedCategories?.(connectorConfig)
         ?? await TaskService.trackedCategories(userId, conn.platform)
       : categories;
 

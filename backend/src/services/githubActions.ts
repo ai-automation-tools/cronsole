@@ -235,6 +235,56 @@ export async function verifyToken(token: string): Promise<GitHubResult<{ login: 
   );
 }
 
+export interface AccessibleRepository {
+  owner: string;
+  repo: string;
+  archived: boolean;
+  fork: boolean;
+}
+
+/** Pages of 100 read before an owner watch reports itself truncated. */
+const MAX_REPOSITORY_PAGES = 10;
+
+/**
+ * Every repository the token can see — what a watched owner expands to.
+ *
+ * `/user/repos` rather than `/orgs/{org}/repos` or `/users/{user}/repos`, for
+ * three reasons that are one: it includes **private** repositories on both
+ * kinds of owner, it works for a user and an org without asking which, and it
+ * is bounded by the token — so a fine-grained PAT's repository selection on
+ * GitHub *is* the allowlist, and Cronsole keeps no second one.
+ *
+ * Read once per sync and filtered per owner by the caller. `truncated` is said
+ * out loud: an expansion that stopped at the cap is a narrowed reader, and the
+ * connector must not retire anything on it.
+ */
+export async function listAccessibleRepositories(
+  token: string
+): Promise<GitHubResult<{ repositories: AccessibleRepository[]; truncated: boolean }>> {
+  const repositories: AccessibleRepository[] = [];
+  for (let page = 1; page <= MAX_REPOSITORY_PAGES; page++) {
+    const result = await attempt(
+      'the repositories this token can see',
+      () => client(token).get('/user/repos', {
+        params: { per_page: 100, page, affiliation: 'owner,collaborator,organization_member' }
+      }),
+      data => (Array.isArray(data) ? data : []).map(toAccessibleRepository).filter(
+        (r): r is AccessibleRepository => r !== null
+      )
+    );
+    if (!result.ok) return result;
+    repositories.push(...result.data);
+    if (result.data.length < 100) return { ok: true, data: { repositories, truncated: false } };
+  }
+  return { ok: true, data: { repositories, truncated: true } };
+}
+
+function toAccessibleRepository(raw: unknown): AccessibleRepository | null {
+  const r = (raw ?? {}) as { name?: unknown; owner?: { login?: unknown }; archived?: unknown; fork?: unknown };
+  if (typeof r.name !== 'string' || typeof r.owner?.login !== 'string') return null;
+  return { owner: r.owner.login, repo: r.name, archived: r.archived === true, fork: r.fork === true };
+}
+
 /**
  * Every workflow defined in a repository — scheduled or not.
  *

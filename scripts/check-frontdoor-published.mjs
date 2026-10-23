@@ -4,8 +4,11 @@
  * `registry-site/index.html` is one page served from two addresses:
  *
  *   https://cronsole.ai-automation-tools.dev/           the front door
- *   https://cronsole.mikesailab.com/                    the OLD front door, still served
  *   https://mikesailab.com/cronsole-registry/           beside the registry JSON
+ *
+ * (cronsole.mikesailab.com was a third host until 2026-10-23; it now redirects
+ * to the org site and is deliberately not checked -- a redirect page is not
+ * supposed to match.)
  *
  * Two hosts, two publish paths, and for a long time two chances to forget. The
  * failure is quiet in a particular way: whichever host you happen to open looks
@@ -34,12 +37,9 @@ const repoRoot = resolve(here, '..');
 
 // Both hosts are checked by default. Override for a fork or a staging host.
 // Every host that serves this page gets checked, because the stale one is always
-// whichever you did not happen to open. The old front door is still in the list on
-// purpose: it keeps serving rather than redirecting (GitHub Pages cannot issue a
-// 308), so it can go stale exactly like the others and nobody would notice.
+// whichever you did not happen to open.
 const HOSTS = (process.env.SITE_URLS || [
   'https://cronsole.ai-automation-tools.dev/',
-  'https://cronsole.mikesailab.com/',
   'https://mikesailab.com/cronsole-registry/'
 ].join(','))
   .split(',')
@@ -122,8 +122,8 @@ async function main() {
   console.error('Fix: "Publish front door" runs on every merge to main that touches registry-site/,');
   console.error('and "Publish registry" mirrors the same page to the registry host. Re-run whichever');
   console.error('did not run from the Actions tab, or publish manually with');
-  console.error('  Actions -> Publish front door           (both front-door hosts)');
-  console.error('  pwsh scripts/publish-frontdoor.ps1      (cronsole.mikesailab.com only)');
+  console.error('  Actions -> Publish front door           (cronsole.ai-automation-tools.dev)');
+  console.error('  pwsh scripts/publish-frontdoor.ps1      (cronsole.ai-automation-tools.dev)');
   console.error('  pwsh scripts/publish-registry.ps1       (mikesailab.com/cronsole-registry)');
   return false;
 }

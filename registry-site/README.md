@@ -1,8 +1,9 @@
 # registry-site/ — Cronsole's homepage and template gallery
 
 Source of truth for **Cronsole's public homepage**, served at
-**`https://cronsole.ai-automation-tools.dev/`** (and mirrored to `cronsole.mikesailab.com` and
-**`https://mikesailab.com/cronsole-registry/`**, beside the registry JSON). Since 2026-10-19 the page
+**`https://cronsole.ai-automation-tools.dev/`** (and mirrored to
+**`https://mikesailab.com/cronsole-registry/`**, beside the registry JSON; the old
+`cronsole.mikesailab.com` was retired on 2026-10-23 and redirects to the org site). Since 2026-10-19 the page
 leads with the product, not the registry: the hero's primary button opens the live demo
 (`https://cronsole-demo.ai-automation-tools.dev/`), the second jumps to the **Template registry**
 section, the third goes to GitHub. The browse-and-import gallery below is unchanged. Every outbound

@@ -369,8 +369,9 @@ Load these on demand — don't read them all up front:
     working tree, so a stale branch replaces the public catalog with an older one and still prints
     *"Published."* ([#68](../../docs/troubleshooting/README.md#68-the-hosted-registry-goes-backwards-after-a-successful-publish)).
     **The front door is automated too, as of the same day**: `registry-site/index.html` is one page
-    on three hosts (`cronsole.ai-automation-tools.dev`, the old `cronsole.mikesailab.com` kept alive, and
-    `mikesailab.com/cronsole-registry/`), and merging to
+    on two hosts (`cronsole.ai-automation-tools.dev` and `mikesailab.com/cronsole-registry/`; the old
+    `cronsole.mikesailab.com` was retired 2026-10-23 and redirects — never publish to
+    `michaelschecht/cronsole-site`), and merging to
     `main` publishes it to both (`publish-frontdoor.yml` + `publish-registry.yml`), with
     **Front door drift** comparing served sha256 at both daily. The stale half is always whichever
     host you did not happen to open, which is why it is checked rather than eyeballed.
@@ -381,7 +382,8 @@ Load these on demand — don't read them all up front:
     no source, and it is a worse copy of the page they were already on. Same reason
     `cronsole-registry` stays on the personal account forever — it borrows the apex domain with
     `cname: null`, so an org move breaks the frozen URL. Never keep
-    manual work in the two publish clones (`Repos/Private/Tools/cronsole-registry`, `Repos/Private/Tools/cronsole-site`)
+    manual work in the two publish clones (`Repos/Private/Tools/cronsole-registry`, and the org
+    `cronsole-site` clone or `%TEMP%`)
     — each script `git reset --hard`s them first, and both now refuse a branch that is not
     up-to-date `main`.
     **Be accurate about who a stale registry hurts**: `TEMPLATE_REGISTRY_URL` is commented out by

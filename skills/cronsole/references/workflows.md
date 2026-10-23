@@ -248,7 +248,7 @@ pins the exact tool list and will fail, deliberately), both README tool tables, 
 
 ```powershell
 pwsh scripts/publish-registry.ps1    # registry/ + registry-site/index.html → cronsole-registry
-pwsh scripts/publish-frontdoor.ps1   # registry-site/index.html             → cronsole-site
+pwsh scripts/publish-frontdoor.ps1   # registry-site/index.html             → ai-automation-tools/cronsole-site
 ```
 
 **There is one page, published to two hosts.** Both scripts ship the *same*

@@ -40,16 +40,20 @@ erased by the next publish. Everything else in that repo — `README.md`, `.noje
 
 ## The second surface: the gallery page
 
-`registry-site/index.html` is **one page served from three hosts**:
+`registry-site/index.html` is **one page served from two hosts**:
 
 | Host | Why it exists |
 |:---|:---|
-| `https://cronsole.ai-automation-tools.dev/` | The front door, on the org's own domain since 2026-09-13. |
-| `https://cronsole.mikesailab.com/` | The **old** front door. Still served, not redirected — GitHub Pages cannot issue a 308, so every published link to it has to keep working the slow way. |
+| `https://cronsole.ai-automation-tools.dev/` | The front door, on the org's own domain since 2026-09-13 and the **only** front door since 2026-10-23. |
 | `https://mikesailab.com/cronsole-registry/` | The same page, sitting beside the registry JSON it reads. |
 
 The page is built to work at both: it tries `./index.json` first and falls back to the canonical
 registry origin when it is not co-located (GitHub Pages sends `Access-Control-Allow-Origin: *`).
+
+> [!NOTE]
+> `https://cronsole.mikesailab.com/` (repo `michaelschecht/cronsole-site`) was the front door until
+> 2026-10-23. It is **retired** and now redirects to the org site. Nothing here publishes to it or
+> checks it — do not publish to that repo.
 
 **The registry JSON is deliberately not on the front door's domain.** The two have different blast
 radii. A page can move and the worst case is a bad link; the catalog URL moving breaks sync for
@@ -78,24 +82,24 @@ Both publish workflows push to a *different* repository than the one they run in
 | Secret on `cronsole` | Deploy key on | Used by |
 |:---|:---|:---|
 | `REGISTRY_DEPLOY_KEY` | `michaelschecht/cronsole-registry` | Publish registry |
-| `SITE_DEPLOY_KEY` | `michaelschecht/cronsole-site` | Publish front door (old host) |
-| `SITE_ORG_DEPLOY_KEY` | `ai-automation-tools/cronsole-site` | Publish front door (new host) |
+| `SITE_ORG_DEPLOY_KEY` | `ai-automation-tools/cronsole-site` | Publish front door |
 | `DEMO_DEPLOY_KEY` | `ai-automation-tools/cronsole-demo` | Publish demo |
 
 > [!NOTE]
-> **Deploy keys are disabled by default on the org**, which is why the first two targets are
-> personal repos and why the org ones needed that policy turned on (*Organization settings →
-> Repository → Deploy keys*). The two org-target jobs **skip with a notice** when their secret is
-> absent rather than failing, unlike the two established jobs — a job that reddens every unrelated
-> merge teaches people to ignore a red X.
+> **Deploy keys are disabled by default on the org**, which is why the org targets needed that
+> policy turned on (*Organization settings → Repository → Deploy keys*). **Publish front door
+> fails** when `SITE_ORG_DEPLOY_KEY` is missing — it is the only front door, so a missing key is an
+> outage. **Publish demo** still skips with a notice when `DEMO_DEPLOY_KEY` is absent. The old
+> `SITE_DEPLOY_KEY` secret (for the retired `michaelschecht/cronsole-site`) is no longer read by any
+> workflow and can be deleted.
 
 Use a **deploy key**, not a personal access token. A deploy key is scoped to exactly one repository,
 so a leak reaches that repo and nothing else; a PAT carries your whole account. Two keys rather than
 one shared key, for the same reason: the front-door workflow has no business being able to write the
 catalog.
 
-The steps below are written for the registry key. Repeat them with `cronsole-site` and
-`SITE_DEPLOY_KEY` for the front door.
+The steps below are written for the registry key. Repeat them with
+`ai-automation-tools/cronsole-site` and `SITE_ORG_DEPLOY_KEY` for the front door.
 
 1. **Generate a keypair** (no passphrase — the runner is non-interactive):
 
@@ -135,7 +139,7 @@ The steps below are written for the registry key. Repeat them with `cronsole-sit
 | Trigger | What happens |
 |:---|:---|
 | Merge to `main` touching `registry/**` or `registry-site/**` | **Publish registry** mirrors the artifact and the gallery page to `cronsole-registry`, commits only if something changed, and pushes. Pages rebuilds within a minute or two. |
-| Merge to `main` touching `registry-site/**` | **Publish front door** mirrors the same page to `cronsole-site`, after checking the target still has its `CNAME`. |
+| Merge to `main` touching `registry-site/**` | **Publish front door** mirrors the same page to `ai-automation-tools/cronsole-site`, after checking the target still has its `CNAME`. |
 | Daily at 13:10 UTC | **Registry drift** fetches the live `index.json` and compares ids and `sha256`s against the committed `registry/`. Fails if the host is behind, ahead, or different. |
 | Daily at 13:20 UTC | **Front door drift** compares sha256 over the page served at *both* hosts against the committed `registry-site/index.html`. |
 | You, manually | `pwsh scripts/publish-registry.ps1` / `pwsh scripts/publish-frontdoor.ps1` — the out-of-band path, and what you reach for when a workflow is broken. Idempotent, so running one after the workflow is a no-op. |

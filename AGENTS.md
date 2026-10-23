@@ -76,7 +76,7 @@ cronsole/
 │                    #   user-guides/ · testing/ · adr/ · reports/
 │                    #   archive/ + local/ are LOCAL-ONLY (gitignored, NOT backed up)
 ├── registry/        # generated template registry artifact — never hand-edit
-├── registry-site/   # Cronsole's homepage + template gallery, one page (published to three hosts)
+├── registry-site/   # Cronsole's homepage + template gallery, one page (published to two hosts)
 ├── proxy/           # opt-in single-origin reverse proxy (Caddyfile); nothing runs by default
 ├── prompts/         # copy-paste prompts for driving Cronsole: mcp-server/ · skills/ · rest-api/
 ├── backend/src/     # catalog/ · connectors/ · routes/ · services/ · ws/ · auth/ · tools/
@@ -923,19 +923,21 @@ push**: the hosted registry and the gallery page are read by *other people's mac
 publish on merge and are checked daily** — `publish-registry.yml` + `publish-frontdoor.yml`,
 `registry-drift.yml` + `frontdoor-drift.yml`. The two publish scripts remain the manual path and
 both now **refuse any branch that is not up-to-date `main`**; both `git reset --hard origin/main`
-their working clone (`Repos/Private/Tools/cronsole-registry`, `Repos/Private/Tools/cronsole-site`) — **never keep
-manual work there** — and both exclude `README.md` and `CNAME`, which the public repos own. `CNAME`
+their working clone (`Repos/Private/Tools/cronsole-registry`, and an org `cronsole-site` clone or
+`%TEMP%` for the front door — the script refuses a clone whose origin is not
+`ai-automation-tools/cronsole-site`) — **never keep manual work there** — and both exclude `README.md` and `CNAME`, which the public repos own. `CNAME`
 is infrastructure, not content: it decides which domain a Pages repo answers on, so the front-door
 workflow **fails** when the target has none rather than publishing a page nobody can reach.
 
 **One page, two hosts, so it is checked at both.** `registry-site/index.html` is served from
-`cronsole.ai-automation-tools.dev`, `cronsole.mikesailab.com` *and* `mikesailab.com/cronsole-registry/`,
-by three different publish paths —
-so the stale half is whichever one you did not happen to open. `check-frontdoor-published.mjs`
+`cronsole.ai-automation-tools.dev` *and* `mikesailab.com/cronsole-registry/`, by two different publish
+paths — so the stale half is whichever one you did not happen to open. `check-frontdoor-published.mjs`
 compares sha256 over the served bytes at both, **LF-normalized**: a CRLF working tree makes the same
 commit pass on Linux and fail on Windows, and makes a manual publish copy different bytes than CI
 ([#69](docs/troubleshooting/README.md#69-a-published-page-check-reports-both-hosts-stale-and-they-are-not)).
-`registry-site/**` is pinned `text eol=lf` for the same reason `registry/**` is.
+`registry-site/**` is pinned `text eol=lf` for the same reason `registry/**` is. **`cronsole.mikesailab.com`
+(`michaelschecht/cronsole-site`) was retired on 2026-10-23** and now redirects to the org site; nothing
+here publishes to it or checks it, and it must not be added back as a target.
 
 ---
 

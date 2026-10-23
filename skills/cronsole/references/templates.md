@@ -208,7 +208,11 @@ and `CRONSOLE_SITE_CLONE` name them, and an unset variable falls back to a `%TEM
 | Clone | Remote | Serves | Source in this repo |
 |:---|:---|:---|:---|
 | `Tools\cronsole-registry` | `michaelschecht/cronsole-registry` | `mikesailab.com/cronsole-registry` (registry JSON **+** gallery) | `registry/` + `registry-site/` |
-| `Tools\cronsole-site` | `michaelschecht/cronsole-site` | `cronsole.ai-automation-tools.dev` (the front door — **the same gallery page**, not a landing page) | `registry-site/` |
+| org `cronsole-site` clone (or `%TEMP%`) | `ai-automation-tools/cronsole-site` | `cronsole.ai-automation-tools.dev` (the front door — **the same gallery page**, not a landing page) | `registry-site/` |
+
+`cronsole.mikesailab.com` (`michaelschecht/cronsole-site`, cloned at `Tools\cronsole-site`) was
+**retired on 2026-10-23** and redirects to the org site. Never publish to it;
+`publish-frontdoor.ps1` refuses a clone whose origin is not the org repo.
 
 - They are **separate, independent git repos — NOT submodules.**
 - **These clones double as the publish working clones.** The scripts default `-WorkDir` to

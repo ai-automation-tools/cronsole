@@ -105,6 +105,21 @@ describe('TaskService', () => {
     }));
   });
 
+  it('keeps the name current when the platform owns it (metadata.nameSource)', async () => {
+    // GitHub, n8n, Gemini, Vercel and OAuth-read Claude rows keep their id
+    // through a rename on the platform, so a label frozen at import goes
+    // stale. Cronsole cannot rename them there, so the platform's name wins.
+    const tasks = [{
+      externalId: 'acme/site#1', name: 'Site tests', status: 'ACTIVE' as const,
+      metadata: { nameSource: 'the `name:` line of .github/workflows/test.yml in acme/site' }
+    }];
+    mockPrisma.task.upsert.mockResolvedValue({ id: '1' });
+
+    await TaskService.upsertTasks('user-1', 'GITHUB_ACTIONS' as any, tasks);
+
+    expect(mockPrisma.task.upsert.mock.calls[0][0].update.name).toBe('Site tests');
+  });
+
   it('sets the name on create but never on update, so a rename survives sync', async () => {
     // This one line was the whole reason renaming a task was not offered: sync
     // wrote `name` back from the platform on every pass, so a Cronsole-side

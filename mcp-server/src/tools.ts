@@ -2356,7 +2356,9 @@ Next run: ${task.nextRunTime}` : '')
         'unchanged and remains the way to find it on the machine. ' +
         'The new name survives future syncs. It cannot collide with anything — Cronsole\'s duplicate-name guard ' +
         'applies when creating a task (where the name becomes part of the Windows path), and a rename never ' +
-        'touches the path. Works on every platform.',
+        'touches the path. **Refused (400) where the platform owns the name** — GitHub Actions, Vercel, n8n, ' +
+        'Gemini and Claude routines read through sign-in: sync keeps those names current, so a rename here ' +
+        'would revert. The refusal names where to rename it on the platform; pass that on to the user.',
       inputSchema: {
         taskId: z.string().describe('The Cronsole task id (from list_tasks).'),
         name: z

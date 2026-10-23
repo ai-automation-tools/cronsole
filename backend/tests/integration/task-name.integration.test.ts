@@ -445,3 +445,39 @@ describe('renaming a task', () => {
     expect(after!.name).toBe('Private');
   });
 });
+
+/**
+ * **A platform-owned name cannot be renamed here.** Sync writes the platform's
+ * name back on every pass for these rows, so a rename would silently revert —
+ * the route refuses it and says where the name is actually set.
+ */
+describe('PATCH /tasks/:id on a platform-owned name', () => {
+  it('refuses a rename with the place to make it, and still allows the unchanged name and a category', async () => {
+    const owner = await createUser('source-named@example.com');
+    const task = await prisma.task.create({
+      data: {
+        userId: owner.user.id,
+        platform: PlatformType.GITHUB_ACTIONS,
+        externalId: 'acme/site#1',
+        name: 'test',
+        category: 'acme/site',
+        status: TaskStatus.ACTIVE,
+        metadata: { nameSource: 'the `name:` line of .github/workflows/test.yml in acme/site' }
+      }
+    });
+
+    const refused = await request(app)
+      .patch(`/api/tasks/${task.id}`)
+      .set('Authorization', owner.auth)
+      .send({ name: 'Site tests' });
+    expect(refused.status).toBe(400);
+    expect(refused.body.error).toMatch(/name:` line of \.github\/workflows\/test\.yml/);
+
+    const unchanged = await request(app)
+      .patch(`/api/tasks/${task.id}`)
+      .set('Authorization', owner.auth)
+      .send({ name: 'test', category: 'CI' });
+    expect(unchanged.status).toBe(200);
+    expect(unchanged.body.category).toBe('CI');
+  });
+});

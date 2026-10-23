@@ -296,6 +296,14 @@ under that date.
       "no current evidence" covers both never-checked and expired. Failure evidence ages out at 15
       minutes; connection evidence renews itself; `UNKNOWN` ranks above healthy in any summary.
       Closed all four instances of the shape, including the schema's `@default(HEALTHY)`.
+- [x] **A platform-owned name follows the platform** *(2026-10-23)*: GitHub Actions, Vercel, n8n,
+      Gemini and OAuth-read Claude rows carry `metadata.nameSource`; sync writes `name` back and
+      the rename route refuses with where to rename it. Narrows the 2026-08-12 label rule below,
+      whose premise held only for Windows, declared Claude and native rows.
+- [ ] **Rename at the source where the platform allows it** — Gemini's `PATCH` takes
+      `display_name`; a connector that gains the verb drops the `nameSource` marker for its rows.
+      Windows (re-register at the new path, then rekey the row so history and favourites keep) is
+      the larger one, deferred by the owner on 2026-10-23.
 - [x] **Renaming a task** *(2026-08-12)*: DB-only, every platform, `rename_task` over MCP. The
       three-way design fork turned out not to be one — a line of code is evidence that something was
       intended, not that it is reachable.

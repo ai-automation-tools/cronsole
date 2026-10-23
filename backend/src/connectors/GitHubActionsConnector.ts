@@ -332,6 +332,7 @@ export class GitHubActionsConnector implements PlatformConnector {
         workflowId: workflow.id,
         path: workflow.path,
         state: workflow.state,
+        nameSource: `the \`name:\` line of ${workflow.path} in ${repoFullName(repository)}`,
         url: workflow.html_url,
         ...(crons.length > 1 ? { allSchedules: crons } : {}),
         ...(scheduleReason ? { scheduleReason } : {}),

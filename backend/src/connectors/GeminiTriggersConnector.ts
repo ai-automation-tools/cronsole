@@ -277,6 +277,7 @@ export class GeminiTriggersConnector implements PlatformConnector {
       // Vercel connectors make, reached from a fourth direction.
       nextRunTime: trigger.nextRunTime,
       metadata: {
+        nameSource: "the trigger's display name in Gemini",
         // The pair the shift came from, always, so a shifted field prints what it
         // was shifted from. Kept even when no shift happened: "stored in UTC" is
         // itself worth being able to see.

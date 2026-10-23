@@ -484,6 +484,7 @@ function toTaskInfo(trigger: ClaudeTrigger): TaskInfo {
     nextRunTime: parseTimestamp(trigger.next_run_at),
     metadata: {
       declared: false,
+      nameSource: 'the routine name at claude.ai',
       ...(prompt ? { prompt } : {}),
       ...(repositories.length ? { repositories } : {}),
       ...(trigger.last_fired_at ? { lastFiredAt: trigger.last_fired_at } : {}),

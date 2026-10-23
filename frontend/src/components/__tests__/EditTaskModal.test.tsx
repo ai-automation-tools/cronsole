@@ -474,3 +474,33 @@ describe('closing with unsaved work', () => {
     expect(confirmMock).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * **A platform-owned name is shown, not edited.** Sync writes it back every
+ * pass and the route refuses a rename, so the field says where the name is
+ * really set before anyone types into it.
+ */
+describe('a name the platform owns', () => {
+  const githubTask: Task = {
+    id: 'gh-1',
+    name: 'Site tests',
+    externalId: 'acme/site#1',
+    platform: 'GITHUB_ACTIONS',
+    status: 'ACTIVE',
+    category: 'acme/site',
+    updatedAt: '2026-10-23T11:00:00Z',
+    metadata: { nameSource: 'the `name:` line of .github/workflows/test.yml in acme/site' }
+  };
+
+  it('locks the name field and names where to rename it', () => {
+    renderModal(githubTask);
+    const field = screen.getByLabelText(/Name/) as HTMLInputElement;
+    expect(field.readOnly).toBe(true);
+    expect(screen.getByText(/the `name:` line of \.github\/workflows\/test\.yml/)).toBeInTheDocument();
+  });
+
+  it('leaves names Cronsole owns editable', () => {
+    renderModal(claudeTask);
+    expect((screen.getByLabelText(/Name/) as HTMLInputElement).readOnly).toBe(false);
+  });
+});

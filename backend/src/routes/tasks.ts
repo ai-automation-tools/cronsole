@@ -8,7 +8,7 @@ import { AuthRequest } from '../auth/auth.js';
 import { serializeConfig, deserializeConfig } from '../auth/connectionConfig.js';
 import { notifyTasksChanged } from '../ws/uiChannel.js';
 import { agentManager } from '../ws/AgentManager.js';
-import { TaskService } from '../services/TaskService.js';
+import { TaskService, nameSourceOf } from '../services/TaskService.js';
 import { preflightPrompt } from '../services/promptPreflight.js';
 import { validateJob, NativeJob } from '../services/NativeTaskExecutor.js';
 import { buildNativeJob } from '../services/nativeJob.js';
@@ -151,6 +151,11 @@ const patchTaskSchema = z
  * no longer matches it. And a rename **cannot collide**: the Windows duplicate
  * guard exists because a created task's name becomes its path, and this one
  * never touches the path.
+ *
+ * **Except where the platform owns the name** (2026-10-23): a row whose
+ * connector set `metadata.nameSource` keeps its id through a rename on the
+ * platform, so sync writes the platform's name back and a rename here would
+ * revert. It is refused below with where to rename it instead.
  */
 router.patch('/:id', validateBody(patchTaskSchema), async (req: Request, res: Response) => {
   const id = req.params.id as string;
@@ -161,6 +166,17 @@ router.patch('/:id', validateBody(patchTaskSchema), async (req: Request, res: Re
   const owned = await prisma.task.findFirst({ where: { id, userId } });
   if (!owned) {
     throw new HttpError(404, 'Task not found');
+  }
+  // A name the platform owns and Cronsole cannot change there would be
+  // reverted by the next sync, so the rename is refused with where to make it.
+  // An unchanged name passes: the Edit form sends the label section whole.
+  const nameSource = nameSourceOf(owned.metadata);
+  if (name !== undefined && name !== owned.name && nameSource) {
+    throw new HttpError(
+      400,
+      `This name comes from the platform — change ${nameSource}, and the next sync brings it here. ` +
+        'Cronsole cannot rename it there, and a name changed only here would be overwritten.'
+    );
   }
   const task = await prisma.task.update({
     where: { id },

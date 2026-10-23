@@ -18,7 +18,7 @@ import { NativeJobFields } from './edit/NativeJobFields';
 import { TaskSecretsFields, type StoredSecretsState } from './edit/TaskSecretsFields';
 import { HelpButton } from './HelpButton';
 import {
-  labelValues, platformName, runsEdit, scheduleEdit,
+  labelValues, nameSource, platformName, runsEdit, scheduleEdit,
   nativeJobPayload, nativeJobUnreadable, nativeJobIncomplete, windowsActionPayload, emptyNativeJobValues,
   type LabelValues, type NativeJobValues, type WindowsActionValues
 } from '../utils/taskEditing';
@@ -339,6 +339,7 @@ export const EditTaskModal = ({ task, executionHost, onClose }: Props) => {
   const failedCount = plans.filter(p => status[p.key].state === 'failed').length;
 
   const platformLabelName = platformName(task);
+  const ownedName = nameSource(task);
 
   return (
     <Modal
@@ -373,9 +374,22 @@ export const EditTaskModal = ({ task, executionHost, onClose }: Props) => {
               id="edit-task-name"
               value={labels.name}
               maxLength={200}
+              readOnly={ownedName !== null}
+              aria-describedby={ownedName ? 'edit-task-name-source' : undefined}
               onChange={e => setLabels({ ...labels, name: e.target.value })}
-              className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary transition-colors"
+              className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary transition-colors read-only:text-subtle-foreground"
             />
+            {/*
+              The platform owns this name and Cronsole cannot rename it there, so
+              sync writes it back every pass. A sentence, not just a locked field:
+              the useful half is where to rename it.
+            */}
+            {ownedName && (
+              <p id="edit-task-name-source" className="text-[11px] text-subtle-foreground">
+                This name comes from the platform. To rename it, change {ownedName} — the next sync
+                brings the new name here.
+              </p>
+            )}
             {/*
               A rename is DB-only. A Windows task keeps answering to its Task
               Scheduler path, so someone who renames one here and then searches

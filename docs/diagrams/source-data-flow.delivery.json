@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
-  "receiptId": "c9f7c056-ba8a-47c1-b9df-f6b33e756ec5",
+  "receiptId": "7dde8c94-9cd7-4760-8ac6-fcb22c5ae6c6",
   "status": "current",
   "command": "deliver",
   "type": "dataflow",
   "input": "docs/diagrams/source-data-flow.json",
   "output": "docs/diagrams/source-data-flow.html",
   "specification": {
-    "sha256": "2508c7aa73e3313d2d29693c9edcb9209a369a04af9fa85c658558babb4335c3",
-    "bytes": 13471
+    "sha256": "b858df12b1726818406f08ba5f9bae733c10f70de7bd49c26ff03bc291872bf2",
+    "bytes": 13731
   },
   "artifact": {
-    "sha256": "b33287f1c83bfef14059cd73f6217015f5ef532ce29cb5dd83e4990f78b76c69",
-    "bytes": 841576
+    "sha256": "ddc9b03e584019b0dbd8165b0207a8e2060453b1d57b6ced0006f1a2db43d809",
+    "bytes": 843913
   }
 }

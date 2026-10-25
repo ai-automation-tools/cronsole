@@ -14,6 +14,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Changed
 
+- **Source data flow diagram re-pinned to current code** (2026-10-24). Line ranges refreshed for the GitHub, Gemini, sync, TaskService, schema and tasks route sources; the GitHub node and cards now mention watched owners and platform-owned task names.
 - **Task names follow the platform where Cronsole cannot rename them there** (2026-10-23). On GitHub
   Actions, Vercel, n8n, Gemini and Claude routines read through sign-in, renaming a task on the
   platform now renames it in Cronsole on the next sync. Renaming one of these in Cronsole is no longer

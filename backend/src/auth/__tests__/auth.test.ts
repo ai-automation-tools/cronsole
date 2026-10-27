@@ -129,6 +129,12 @@ describe('token verification', () => {
     expect(forged).toMatchObject({ ok: false, status: 403 });
   });
 
+  it('rejects a token signed with the right secret but another algorithm', async () => {
+    const { checkToken } = await loadAuth('24h');
+    const hs512 = jwt.sign({ id: USER.id, email: USER.email }, SECRET, { algorithm: 'HS512' });
+    expect(await checkToken(hs512)).toMatchObject({ ok: false, status: 403 });
+  });
+
   it('rejects an expired token', async () => {
     const { checkToken } = await loadAuth('24h');
     const expired = jwt.sign({ id: USER.id, email: USER.email }, SECRET, { expiresIn: -10 });

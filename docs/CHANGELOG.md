@@ -12,6 +12,10 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
+### Security
+
+- **Token and secret checks tightened** (2026-10-26, security sweep). `checkToken` accepts only HS256, the algorithm `generateToken` signs with. `decrypt` refuses an auth tag that isn't the full 16 bytes. `ci.yml`, `frontdoor-drift.yml` and `registry-drift.yml` declare `permissions: contents: read`. A new `.gitleaksignore` suppresses the nine test-fixture and docs-placeholder hits.
+
 ### Changed
 
 - **Task names follow the platform where Cronsole cannot rename them there** (2026-10-23). On GitHub

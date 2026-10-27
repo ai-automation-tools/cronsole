@@ -182,7 +182,8 @@ export const runScopeAllows = (runTaskId: string, request?: { method: string; pa
 export async function checkToken(token: string, request?: { method: string; path: string }): Promise<TokenCheck> {
   let payload: { id?: unknown; jti?: unknown };
   try {
-    payload = jwt.verify(token, JWT_SECRET) as typeof payload;
+    // Pinned to what generateToken signs with, so no other algorithm is ever accepted.
+    payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as typeof payload;
   } catch {
     return { ok: false, status: 403, error: 'Invalid or expired token' };
   }

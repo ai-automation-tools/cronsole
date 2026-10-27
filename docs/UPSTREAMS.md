@@ -42,7 +42,7 @@ read the source. `—` means never checked.
 
 | Upstream | Pinned | Where | Check at | Last checked |
 |:---|:---|:---|:---|:---|
-| **Node.js** | `node:20-alpine` in the Dockerfiles, 22 in CI, no `engines` field | `backend/Dockerfile`, `frontend/Dockerfile`, `.github/workflows/` | nodejs.org/en/about/previous-releases (EOL dates) | 2026-10-08 (20 is EOL since 2026-04-30; queued on ROADMAP) |
+| **Node.js** | `node:22-alpine3.23` in the Dockerfiles, 22 in CI, `engines.node >=22` in the three `package.json` files | `backend/Dockerfile`, `frontend/Dockerfile`, `.github/workflows/` | nodejs.org/en/about/previous-releases (EOL dates) | 2026-10-23 (20 was EOL 2026-04-30; images moved to 22 the same day) |
 | **.NET** | `net10.0` | `agent/**/*.csproj` | dotnet.microsoft.com/platform/support/policy | 2026-10-22 (.NET 10 LTS supported to 2028-11-14) |
 | **Prisma** | 7.10.1 exact (`prisma`, `@prisma/client`, `@prisma/adapter-pg`); `prisma.config.ts` holds the datasource URL | `backend/package.json`, `backend/prisma/`, `backend/prisma.config.ts` | github.com/prisma/prisma/releases | 2026-10-23 (upgraded from 6.19.3 in #354; 8.0 is at rc) |
 | **Postgres, Redis, Caddy, cloudflared images** | `postgres:16-alpine`, `redis:7-alpine`, `caddy:2.11-alpine`, `cloudflare/cloudflared:2025.11.1` | `docker-compose.yml` | each project's releases / EOL page | 2026-10-22 (Postgres 16 supported to 2028-11-09; Redis 7.4 to 2029-12-01) |

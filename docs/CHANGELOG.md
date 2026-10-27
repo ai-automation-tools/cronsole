@@ -14,6 +14,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Security
 
+- **Backend `body-parser` 2.4.0 and `qs` 6.17.0** (2026-10-27, security sweep). Both come in through Express. The old `body-parser` could be tied up by a body with trailing bytes after the JSON, and the old `qs` threw on one `stringify` format (Dependabot #86, #87). Lockfile only; the frontend and `mcp-server` copies have their own Dependabot PRs.
 - **Token and secret checks tightened** (2026-10-26, security sweep). `checkToken` accepts only HS256, the algorithm `generateToken` signs with. `decrypt` refuses an auth tag that isn't the full 16 bytes. `ci.yml`, `frontdoor-drift.yml` and `registry-drift.yml` declare `permissions: contents: read`. A new `.gitleaksignore` suppresses the nine test-fixture and docs-placeholder hits.
 
 ### Changed

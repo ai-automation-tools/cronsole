@@ -1,0 +1,13 @@
+# Unit/integration test fixtures: made-up tokens and HMAC test vectors, never valid anywhere.
+62b9bd63d146fdfc89aa371c1072751b59f85ae9:agent/Cronsole.Agent.Tests/AgentAuthenticatorTests.cs:generic-api-key:24
+62b9bd63d146fdfc89aa371c1072751b59f85ae9:backend/src/auth/__tests__/auth.test.ts:generic-api-key:27
+62b9bd63d146fdfc89aa371c1072751b59f85ae9:backend/src/connectors/__tests__/VercelCronConnector.test.ts:generic-api-key:25
+62b9bd63d146fdfc89aa371c1072751b59f85ae9:backend/src/ws/__tests__/agentAuth.test.ts:generic-api-key:45
+62b9bd63d146fdfc89aa371c1072751b59f85ae9:backend/test/integration/claude-routines.integration.test.ts:generic-api-key:163
+62b9bd63d146fdfc89aa371c1072751b59f85ae9:backend/test/integration/task-secrets.integration.test.ts:generic-api-key:26
+e58b513ee6f54ef8ced785d391b766a21226c42f:backend/src/connectors/__tests__/N8nConnector.test.ts:generic-api-key:165
+e58b513ee6f54ef8ced785d391b766a21226c42f:backend/src/connectors/__tests__/N8nConnector.test.ts:generic-api-key:28
+
+# Docs example in a vendored skill: a short hex placeholder after sk_live_, not a Stripe key.
+62b9bd63d146fdfc89aa371c1072751b59f85ae9:.claude/skills/api-architect/SKILL.md:stripe-access-token:157
+

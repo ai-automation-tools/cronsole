@@ -21,6 +21,9 @@ on:
     - cron: '10 13 * * *'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   drift:
     name: Hosted registry matches main

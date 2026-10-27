@@ -12,6 +12,10 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
+### Security
+
+- **Token and secret checks tightened** (2026-10-26, security sweep). `checkToken` accepts only HS256, the algorithm `generateToken` signs with. `decrypt` refuses an auth tag that isn't the full 16 bytes. `ci.yml`, `frontdoor-drift.yml` and `registry-drift.yml` declare `permissions: contents: read`. A new `.gitleaksignore` suppresses the nine test-fixture and docs-placeholder hits.
+
 ### Changed
 
 - **The backend and frontend containers run Node 22** (2026-10-23), up from Node 20, which stopped

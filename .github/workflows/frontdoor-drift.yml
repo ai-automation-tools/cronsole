@@ -19,6 +19,9 @@ on:
     - cron: '20 13 * * *'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   drift:
     name: The front door serves the current gallery page

@@ -38,7 +38,11 @@ export function decrypt(encryptedText: string): string {
 
   const iv = Buffer.from(ivHex, 'hex');
   const tag = Buffer.from(tagHex, 'hex');
-  const decipher = crypto.createDecipheriv(ALGORITHM, Buffer.from(ENCRYPTION_KEY!), iv);
+  // GCM would verify a shortened tag too, which makes forging far cheaper.
+  if (tag.length !== TAG_LENGTH) {
+    throw new Error('Invalid encrypted text format');
+  }
+  const decipher = crypto.createDecipheriv(ALGORITHM, Buffer.from(ENCRYPTION_KEY!), iv, { authTagLength: TAG_LENGTH });
   
   decipher.setAuthTag(tag);
   

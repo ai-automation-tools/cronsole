@@ -2493,10 +2493,10 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
   documented machine-readable output (`--json`) on `hermes cron list` / `runs` / `status` — the
   CLI reference documents none, and the docs advise against reading the jobs file directly; no
   timezone setting is documented either. Has `list`, `pause`, `resume`, `run`, `runs`, `status`.
-  Checked 2026-10-13, <https://hermes-agent.nousresearch.com/docs/user-guide/features/cron>.
+  Checked 2026-10-27 (unchanged), <https://hermes-agent.nousresearch.com/docs/user-guide/features/cron>.
 - **Kimi** (rank not in the top four of Business Today's June 2026 visit ranking; no global figure
   found) — schedules: daily, weekly, monthly or one-time prompts, cloud or in the Kimi Work desktop
-  app. Missing: any API or CLI; the help page mentions neither. Checked 2026-10-13,
+  app. Missing: any API or CLI; the help page mentions neither. Checked 2026-10-27 (unchanged),
   <https://www.kimi.com/en/help/features/scheduled-tasks>.
 - **Perplexity** (no global rank found this run) — schedules: recurring background Scheduled Tasks on
   the Automations dashboard (replaced Perplexity Tasks). Missing: any API. Checked 2026-10-13,
@@ -2506,7 +2506,9 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
   <https://manus.im/docs/automations>.
 - **Cursor Automations** (no rank found this run) — schedules: preset or cron-expression triggers,
   plus Slack / PR / webhook triggers. Missing: a documented list API (the docs page read names
-  none). Checked 2026-10-13, <https://cursor.com/docs/cloud-agent/automations>.
+  none). 2026-10-27: the page names an "API or Terraform provider" that creates automations but
+  documents no list or read call; webhook triggers only start runs. Checked 2026-10-27,
+  <https://cursor.com/docs/cloud-agent/automations>.
 - **Codex scheduled tasks** (inside ChatGPT, rank 1 by traffic) — schedules: UI controls or an RFC
   5545 `RRULE`; event triggers from Gmail, Slack and GitHub. Missing: any list API or CLI — the docs
   say the CLI and IDE extension have no management interface. Checked 2026-10-13,
@@ -2515,7 +2517,8 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
   extensions). Not watched as a source; a DeepSeek harness whose jobs are Task Scheduler tasks is
   already covered by Windows. Checked 2026-10-13.
 - **Muse** (<https://muse.ai/>) — not assessed: the site redirected to a sign-in/redirect chain
-  that could not be read. Re-check next run.
+  that could not be read (still a 307 to a sign-in page on 2026-10-27; likely not a scheduler).
+  Re-check next run.
 
 ---
 

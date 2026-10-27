@@ -14,6 +14,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Changed
 
+- Source scout 2026-10-27: queued none; watching Hermes, Kimi, Cursor Automations and Muse re-checked (no door yet); quick links unchanged.
 - **Task names follow the platform where Cronsole cannot rename them there** (2026-10-23). On GitHub
   Actions, Vercel, n8n, Gemini and Claude routines read through sign-in, renaming a task on the
   platform now renames it in Cronsole on the next sync. Renaming one of these in Cronsole is no longer

@@ -12,8 +12,16 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
+### Security
+
+- **Token and secret checks tightened** (2026-10-26, security sweep). `checkToken` accepts only HS256, the algorithm `generateToken` signs with. `decrypt` refuses an auth tag that isn't the full 16 bytes. `ci.yml`, `frontdoor-drift.yml` and `registry-drift.yml` declare `permissions: contents: read`. A new `.gitleaksignore` suppresses the nine test-fixture and docs-placeholder hits.
+
 ### Changed
 
+- **The backend and frontend containers run Node 22** (2026-10-23), up from Node 20, which stopped
+  getting security fixes in April. The three packages now declare `engines.node >=22`, so an older
+  Node refuses `npm install` rather than failing later. Rebuild the stack (`docker compose build`)
+  to pick it up.
 - **Task names follow the platform where Cronsole cannot rename them there** (2026-10-23). On GitHub
   Actions, Vercel, n8n, Gemini and Claude routines read through sign-in, renaming a task on the
   platform now renames it in Cronsole on the next sync. Renaming one of these in Cronsole is no longer

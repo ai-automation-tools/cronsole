@@ -1886,7 +1886,7 @@ the class is finished.*
 New correctness work lands here as it is found. Everything logged before 2026-08-16 is closed —
 see [Part II](#completed--p1-correctness--honesty).
 
-- [ ] **Move the Dockerfiles off Node 20, which reached end of life 2026-04-30** *(logged 2026-10-08
+- [x] **Move the Dockerfiles off Node 20, which reached end of life 2026-04-30** *(logged 2026-10-08
       by the upstream check)*. `backend/Dockerfile` and `frontend/Dockerfile` both start
       `FROM node:20-alpine`, so the shipped backend runs on a runtime that no longer gets security
       fixes. Node 22 and 24 are both LTS (source: nodejs.org/en/about/previous-releases); CI already
@@ -1896,6 +1896,10 @@ see [Part II](#completed--p1-correctness--honesty).
       `mcp-server/` `package.json`, and the Node row in `docs/UPSTREAMS.md`. **Hold paths**: the
       Dockerfiles need Mike's review. **Done when**: `docker compose build` succeeds, the backend and
       frontend suites pass on the new major, and `/doctor` reports a healthy stack.
+      **Done 2026-10-23:** both images are `node:22-alpine3.23` (22 is what CI runs; 24 not tried),
+      and `engines.node >=22` is in all three `package.json` files. Both images built from a clean
+      tree and report Node 22.23; backend (1348), frontend (1207) and mcp-server (222) unit suites
+      pass. Not run: the full `docker compose up` / `/doctor`, and the integration suite.
 
 - [ ] **Move `mcp-server/` to MCP TypeScript SDK v2** *(logged 2026-10-22 by the upstream check)*.
       v2 is the stable line on `main` (released 2026-07-27, implements the 2026-07-28 MCP spec) and

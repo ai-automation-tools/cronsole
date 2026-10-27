@@ -24,6 +24,11 @@ describe('Encryption Helpers', () => {
     expect(() => decrypt('invalidformat')).toThrow('Invalid encrypted text format');
   });
 
+  it('should refuse a shortened auth tag', () => {
+    const [iv, tag, data] = encrypt('hello world').split(':');
+    expect(() => decrypt(`${iv}:${tag.slice(0, 8)}:${data}`)).toThrow();
+  });
+
   it('should generate unique IVs for same input', () => {
     const text = 'same text';
     const enc1 = encrypt(text);

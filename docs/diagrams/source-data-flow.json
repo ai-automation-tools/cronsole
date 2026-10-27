@@ -8,7 +8,7 @@
     "output": "source-data-flow.html",
     "repository": {
       "url": "https://github.com/ai-automation-tools/cronsole.git",
-      "revision": "41ab7837b56198a541c3d237d8d07eb09e6027f8"
+      "revision": "4ee25b1ebd861d74fb95571edc8e0acbb8cca8eb"
     }
   },
   "stages": [
@@ -124,8 +124,8 @@
         },
         {
           "path": "backend/src/connectors/GeminiTriggersConnector.ts",
-          "line": 341,
-          "end_line": 355
+          "line": 342,
+          "end_line": 356
         }
       ]
     },
@@ -144,8 +144,8 @@
         },
         {
           "path": "backend/src/connectors/GeminiTriggersConnector.ts",
-          "line": 341,
-          "end_line": 355
+          "line": 342,
+          "end_line": 356
         }
       ]
     },
@@ -153,19 +153,19 @@
       "id": "github",
       "type": "cloud",
       "label": "GitHub Actions",
-      "sublabel": "Watched repositories",
+      "sublabel": "Watched repos + owners",
       "stage": 0,
       "row": 3,
       "sources": [
         {
           "path": "backend/src/connectors/GitHubActionsConnector.ts",
-          "line": 156,
-          "end_line": 205
+          "line": 163,
+          "end_line": 250
         },
         {
           "path": "backend/src/connectors/GitHubActionsConnector.ts",
-          "line": 239,
-          "end_line": 263
+          "line": 293,
+          "end_line": 317
         }
       ]
     },
@@ -179,13 +179,13 @@
       "sources": [
         {
           "path": "backend/src/connectors/GitHubActionsConnector.ts",
-          "line": 156,
-          "end_line": 205
+          "line": 163,
+          "end_line": 250
         },
         {
           "path": "backend/src/connectors/GitHubActionsConnector.ts",
-          "line": 239,
-          "end_line": 263
+          "line": 293,
+          "end_line": 317
         }
       ]
     },
@@ -255,7 +255,7 @@
         {
           "path": "backend/src/services/syncConnection.ts",
           "line": 58,
-          "end_line": 96
+          "end_line": 97
         },
         {
           "path": "backend/src/services/AutoSync.ts",
@@ -275,12 +275,12 @@
         {
           "path": "backend/prisma/schema.prisma",
           "line": 8,
-          "end_line": 11
+          "end_line": 10
         },
         {
           "path": "backend/src/services/TaskService.ts",
-          "line": 54,
-          "end_line": 106
+          "line": 68,
+          "end_line": 130
         },
         {
           "path": "backend/src/services/NativeScheduler.ts",
@@ -304,8 +304,8 @@
         },
         {
           "path": "backend/src/routes/tasks.ts",
-          "line": 1222,
-          "end_line": 1240
+          "line": 1297,
+          "end_line": 1315
         },
         {
           "path": "frontend/src/hooks/useLiveTaskUpdates.ts",
@@ -502,7 +502,7 @@
       "dot": "amber",
       "title": "Platform boundaries",
       "items": [
-        "GitHub Actions is an observer: reads scheduled workflows, YAML schedules and run outcomes; changes and runs stay on GitHub.",
+        "GitHub Actions is an observer: reads scheduled workflows in watched repositories or every repository under a watched account or organization (forks, archives and GitHub-managed workflows skipped), with YAML schedules and run outcomes; changes and runs stay on GitHub.",
         "n8n reads workflows and execution results through REST. Run requires an MCP token; publishing and editing stay in n8n.",
         "Gemini supports run, create, pause and delete. In-place schedule/prompt changes are unavailable; recreation is a separate operation. Claude deletion stays in claude.ai."
       ]
@@ -511,7 +511,7 @@
       "dot": "emerald",
       "title": "One app view; different execution owners",
       "items": [
-        "Scope + sync filters tracked folders or configured scope and exclusions, then upserts platform tasks without overwriting user labels. Partial listings must not retire missing tasks.",
+        "Scope + sync filters tracked folders or configured scope and exclusions, then upserts platform tasks without overwriting user labels, except a name the platform owns (GitHub, n8n, Gemini, OAuth-read Claude), which follows the platform. Partial listings must not retire missing tasks.",
         "Native job definitions already live in PostgreSQL: no external import or Windows agent. The backend executes HTTP, program, script and check jobs and stores their outcomes. Due runs more than five minutes late are skipped.",
         "The dashboard reads stored task data through REST. Socket.IO task:updated invalidates queries and prompts a refetch; PostgreSQL does not push directly to the browser.",
         "Platform run history/output is read separately on demand where supported; it is not all copied into ExecutionLog."

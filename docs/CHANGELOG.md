@@ -33,6 +33,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **Four extended templates** (2026-10-29): `dev-pytest-run` (scheduled pytest with a JUnit report), `bkp-mongodump`, `bkp-redis-bgsave` and `cln-pip-cache-purge`. They join the Developer and Backup & Cleanup packs; none is core. The catalog is now 129 templates.
 - **GitHub Actions can watch a whole account or organization** (2026-10-23). In the Sources tab's
   repository box, type an owner (`acme`, `github.com/acme`) instead of `owner/repo`, and every
   repository under it that your token can see is read, including ones created later. Forks and

@@ -1,6 +1,6 @@
 {
   "registryVersion": "1.0",
-  "updatedAt": "2026-10-22T21:02:49.724Z",
+  "updatedAt": "2026-10-29T21:03:06.985Z",
   "templates": [
     {
       "id": "tpl_daily_database_backup",
@@ -1698,6 +1698,87 @@
       "sha256": "10e3efafe22f600b265345f977e437fc5991c61389a68c0bc5013a2278242061"
     },
     {
+      "id": "dev-pytest-run",
+      "name": "Scheduled Test Run (pytest)",
+      "description": "Run a Python project’s pytest suite on a schedule and write a JUnit XML report, the Python counterpart to the npm test template. A failing test makes the run fail.",
+      "category": "dev-workflow",
+      "tags": [
+        "dev",
+        "python",
+        "pytest",
+        "test",
+        "ci"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ],
+      "path": "templates/dev-pytest-run.json",
+      "sha256": "21370557d4cc07876ed3a86a43fbefd0fcc0deebee1aac9e901d1641cc966de9"
+    },
+    {
+      "id": "bkp-mongodump",
+      "name": "Back Up a MongoDB Database",
+      "description": "Write a compressed archive of one MongoDB database to a file on a schedule with mongodump, for the document store the catalog’s PostgreSQL, MySQL and SQLite backups do not cover.",
+      "category": "backup",
+      "tags": [
+        "backup",
+        "database",
+        "mongodb"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ],
+      "path": "templates/bkp-mongodump.json",
+      "sha256": "e0ece452215f4752026519ec310be357dfe4c74b612b2bc8558d4f0cd5fe9b50"
+    },
+    {
+      "id": "bkp-redis-bgsave",
+      "name": "Redis Snapshot (BGSAVE)",
+      "description": "Ask a Redis server to write an RDB snapshot to its own disk in the background on a schedule with redis-cli. This triggers the snapshot on the server; it does not copy the file anywhere else.",
+      "category": "backup",
+      "tags": [
+        "backup",
+        "database",
+        "redis",
+        "snapshot"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ],
+      "path": "templates/bkp-redis-bgsave.json",
+      "sha256": "e4689706f9e0b30a81028f41d87ea1dfa6bc7d45bb7cc1dac0f114944ddb8c90"
+    },
+    {
+      "id": "cln-pip-cache-purge",
+      "name": "Purge the pip Download Cache",
+      "description": "Delete every wheel and HTTP response pip has cached on a schedule to reclaim disk space; the next install simply downloads again. This only touches pip’s cache, never installed packages.",
+      "category": "cleanup",
+      "tags": [
+        "cleanup",
+        "python",
+        "pip",
+        "cache",
+        "disk"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ],
+      "path": "templates/cln-pip-cache-purge.json",
+      "sha256": "e676d1d4faecc3036c98bf1f9366cefe4de45959ddbad623c141a59e0131cb21"
+    },
+    {
       "id": "native-run-program",
       "name": "Run a Program (Cronsole)",
       "description": "Run any executable with arguments on the machine hosting Cronsole — no agent, no Task Scheduler entry. Cronsole schedules and runs it itself.",
@@ -2473,11 +2554,12 @@
         "dev-brew-update",
         "dev-npm-audit-check",
         "dev-pip-audit-check",
+        "dev-pytest-run",
         "tpl_github_pr_triage",
         "tpl_starter_git_sync"
       ],
       "path": "packs/developer.json",
-      "sha256": "8b01e64df469ea77dd5d03e771953cc31cce94d24b53d023bcc909000a3b251f"
+      "sha256": "d82808331dee766774bc264be44aa96f27e7823236cba197f1cd82e5b943575c"
     },
     {
       "id": "ai-agents",
@@ -2513,6 +2595,9 @@
         "bkp-git-bundle",
         "bkp-restic-backup",
         "bkp-mysql-dump",
+        "bkp-mongodump",
+        "bkp-redis-bgsave",
+        "cln-pip-cache-purge",
         "bkp-system-restore-point",
         "cln-old-files",
         "cln-recycle-bin",
@@ -2522,7 +2607,7 @@
         "sys-postgres-vacuum"
       ],
       "path": "packs/backup-cleanup.json",
-      "sha256": "0ddf3f6f485b603fa1c8dd4eba10d6f2a9f92ac7158ac706aae22e4306872212"
+      "sha256": "22a0ddb848494d943864d944c81a075509c1773e609761051452b76d82b2445b"
     },
     {
       "id": "monitoring",

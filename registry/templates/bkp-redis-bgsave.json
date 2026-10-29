@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "1.0",
+  "id": "bkp-redis-bgsave",
+  "name": "Redis Snapshot (BGSAVE)",
+  "description": "Ask a Redis server to write an RDB snapshot to its own disk in the background on a schedule with redis-cli. This triggers the snapshot on the server; it does not copy the file anywhere else.",
+  "runtime": "executable",
+  "os": "cross-platform",
+  "category": "backup",
+  "tags": [
+    "backup",
+    "database",
+    "redis",
+    "snapshot"
+  ],
+  "icon": "Database",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "45 3 * * *"
+  },
+  "commandTemplate": "redis-cli -h {{redisHost}} -p {{redisPort}} BGSAVE",
+  "parameters": [
+    {
+      "key": "redisHost",
+      "label": "Redis host",
+      "type": "text",
+      "default": "127.0.0.1",
+      "required": true,
+      "help": "The hostname or address of the Redis server. The redis-cli tool must be installed and on the PATH."
+    },
+    {
+      "key": "redisPort",
+      "label": "Redis port",
+      "type": "text",
+      "default": "6379",
+      "required": true,
+      "help": "The port the Redis server listens on. This command sends no password, so the server must allow unauthenticated access from this machine."
+    }
+  ],
+  "compatibleTargets": [
+    "windows",
+    "macos"
+  ]
+}

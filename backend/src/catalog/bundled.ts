@@ -1709,6 +1709,75 @@ const extendedPack: RegistryTemplate[] = [
       { key: 'reportPath', label: 'Report file path', type: 'path', default: '', required: true, help: 'Where to write the audit report. pip-audit exits non-zero when it finds a vulnerable package, so the run shows as failed exactly when there is something to fix.' }
     ],
     compatibleTargets: ['windows', 'macos']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'dev-pytest-run',
+    name: 'Scheduled Test Run (pytest)',
+    description: 'Run a Python project’s pytest suite on a schedule and write a JUnit XML report, the Python counterpart to the npm test template. A failing test makes the run fail.',
+    runtime: 'executable',
+    os: 'cross-platform',
+    category: 'dev-workflow',
+    tags: ['dev', 'python', 'pytest', 'test', 'ci'],
+    icon: 'FlaskConical',
+    trigger: sched('0 5 * * *'),
+    commandTemplate: 'python -m pytest "{{testsPath}}" -q --junitxml="{{reportPath}}"',
+    parameters: [
+      { key: 'testsPath', label: 'Tests path', type: 'path', default: '', required: true, help: 'Absolute path to the folder or file pytest should run. Python and pytest must be installed, for example with pip install pytest.' },
+      { key: 'reportPath', label: 'JUnit report path', type: 'path', default: '', required: true, help: 'Where to write the JUnit XML report. It is overwritten on every run.' }
+    ],
+    compatibleTargets: ['windows', 'macos']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'bkp-mongodump',
+    name: 'Back Up a MongoDB Database',
+    description: 'Write a compressed archive of one MongoDB database to a file on a schedule with mongodump, for the document store the catalog’s PostgreSQL, MySQL and SQLite backups do not cover.',
+    runtime: 'executable',
+    os: 'cross-platform',
+    category: 'backup',
+    tags: ['backup', 'database', 'mongodb'],
+    icon: 'Database',
+    trigger: sched('30 3 * * *'),
+    commandTemplate: 'mongodump --uri={{mongoUri}} --archive={{archivePath}} --gzip',
+    parameters: [
+      { key: 'mongoUri', label: 'MongoDB connection URI', type: 'text', default: 'mongodb://localhost:27017/mydb', required: true, help: 'The connection string including the database name, with no spaces in it. A password in the URI is stored in the task, so prefer a local or credential-free connection. The mongodump tool must be installed and on the PATH.' },
+      { key: 'archivePath', label: 'Archive file path', type: 'path', default: '', required: true, help: 'Absolute path of the .gz archive to write, with no spaces in it. It is overwritten on every run, so rotate it separately if you want history.' }
+    ],
+    compatibleTargets: ['windows', 'macos']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'bkp-redis-bgsave',
+    name: 'Redis Snapshot (BGSAVE)',
+    description: 'Ask a Redis server to write an RDB snapshot to its own disk in the background on a schedule with redis-cli. This triggers the snapshot on the server; it does not copy the file anywhere else.',
+    runtime: 'executable',
+    os: 'cross-platform',
+    category: 'backup',
+    tags: ['backup', 'database', 'redis', 'snapshot'],
+    icon: 'Database',
+    trigger: sched('45 3 * * *'),
+    commandTemplate: 'redis-cli -h {{redisHost}} -p {{redisPort}} BGSAVE',
+    parameters: [
+      { key: 'redisHost', label: 'Redis host', type: 'text', default: '127.0.0.1', required: true, help: 'The hostname or address of the Redis server. The redis-cli tool must be installed and on the PATH.' },
+      { key: 'redisPort', label: 'Redis port', type: 'text', default: '6379', required: true, help: 'The port the Redis server listens on. This command sends no password, so the server must allow unauthenticated access from this machine.' }
+    ],
+    compatibleTargets: ['windows', 'macos']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'cln-pip-cache-purge',
+    name: 'Purge the pip Download Cache',
+    description: 'Delete every wheel and HTTP response pip has cached on a schedule to reclaim disk space; the next install simply downloads again. This only touches pip’s cache, never installed packages.',
+    runtime: 'executable',
+    os: 'cross-platform',
+    category: 'cleanup',
+    tags: ['cleanup', 'python', 'pip', 'cache', 'disk'],
+    icon: 'Trash2',
+    trigger: sched('0 4 1 * *'),
+    commandTemplate: 'python -m pip cache purge',
+    parameters: [],
+    compatibleTargets: ['windows', 'macos']
   }
 ];
 

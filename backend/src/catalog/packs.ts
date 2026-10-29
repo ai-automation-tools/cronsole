@@ -90,6 +90,7 @@ export const bundledPacks: BundledPack[] = [
       'dev-brew-update',
       'dev-npm-audit-check',
       'dev-pip-audit-check',
+      'dev-pytest-run',
       'tpl_github_pr_triage',
       'tpl_starter_git_sync'
     ]
@@ -128,6 +129,9 @@ export const bundledPacks: BundledPack[] = [
       'bkp-git-bundle',
       'bkp-restic-backup',
       'bkp-mysql-dump',
+      'bkp-mongodump',
+      'bkp-redis-bgsave',
+      'cln-pip-cache-purge',
       'bkp-system-restore-point',
       'cln-old-files',
       'cln-recycle-bin',

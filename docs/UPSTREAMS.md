@@ -35,7 +35,7 @@ read the source. `—` means never checked.
 
 | Upstream | What the code assumes | Where | Check at | Last checked |
 |:---|:---|:---|:---|:---|
-| **MCP spec + TypeScript SDK** | `@modelcontextprotocol/sdk ^1.32.1` with `zod ^4.6.7` (since 2026-10-23, the same major as the backend; the SDK accepts `^3.25 \|\| ^4.0`). v2 is the stable line since 2026-07-27 (`@modelcontextprotocol/server`/`client`); 1.x is supported for about 6 months after (queued on ROADMAP) | `mcp-server/` | github.com/modelcontextprotocol/typescript-sdk/releases; modelcontextprotocol.io/specification | 2026-10-22 |
+| **MCP spec + TypeScript SDK** | `@modelcontextprotocol/server ^2.4.0` (+ `client` as a dev dependency for the tests) with `zod ^4.6.7` (v2 requires `^4.2`). Moved from 1.x on 2026-10-30; 1.x gets fixes only until about 2027-01-27 | `mcp-server/` | github.com/modelcontextprotocol/typescript-sdk/releases; modelcontextprotocol.io/specification | 2026-10-22 |
 | **Socket.IO** | `socket.io` / `socket.io-client ^4.8.3`; .NET `SocketIOClient` 4.0.5; agent handshake `{agentId,nonce,ts,hmac}` (HMAC-SHA256) | `backend/src/ws/`, frontend hooks, `agent/Cronsole.Agent/SocketIOWrapper.cs` | github.com/socketio/socket.io/releases; github.com/doghappy/socket.io-client-csharp/releases | 2026-10-22 (latest release tag v4.0.2; socket.io `4.8.4` is the npm latest) |
 
 ## Runtime, stack, and hosting

@@ -1913,6 +1913,15 @@ see [Part II](#completed--p1-correctness--honesty).
       `mcp-server/src/index.ts`, `tools.ts`. **Done when**: `npm test` and `npm run typecheck` pass
       in `mcp-server/`, and a hand-driven tool call against a running backend still works (the
       suite stubs the HTTP client, §8).
+
+      *2026-10-30 — moved, one check left.* `@modelcontextprotocol/sdk` is replaced by
+      `@modelcontextprotocol/server` 2.4 (`client` as a dev dependency); `npm test` (222) and
+      `npm run typecheck` pass, and the built server was driven over real stdio by a v2 client:
+      initialize, 36 tools listed, a call answering with the "could not reach the backend" sentence.
+      The migration was three import paths and one test: an unregistered tool, the destructive-gate
+      case, now rejects with a JSON-RPC `ProtocolError` instead of returning `isError`. **Left:**
+      one tool call against a running backend, which no unattended run can make. Tick this when
+      someone has.
 - [ ] **Bump the GitHub Actions to Node-24 majors** *(logged 2026-10-22 by the upstream check)*.
       GitHub removed Node 20 from Actions runners on 2026-09-23 and now runs JavaScript actions on
       Node 24 (source: github.blog/changelog/2026-09-23-node-20-is-no-longer-available-in-github-actions).

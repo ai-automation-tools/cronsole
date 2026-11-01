@@ -19,6 +19,12 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Changed
 
+- **The MCP server runs on MCP TypeScript SDK v2** (2026-10-30). `mcp-server/` moved from
+  `@modelcontextprotocol/sdk` 1.x to `@modelcontextprotocol/server` 2.4 (the test client is a dev
+  dependency), ahead of 1.x going bug-fix-only around 2027-01-27. Tools, schemas and output are
+  unchanged. One visible difference: a call to a tool that is not registered, such as `delete_task`
+  while the destructive gate is closed, now comes back as a JSON-RPC error instead of an `isError`
+  result. Rebuild with `npm run build` in `mcp-server/` to pick it up.
 - **The backend and frontend containers run Node 22** (2026-10-23), up from Node 20, which stopped
   getting security fixes in April. The three packages now declare `engines.node >=22`, so an older
   Node refuses `npm install` rather than failing later. Rebuild the stack (`docker compose build`)

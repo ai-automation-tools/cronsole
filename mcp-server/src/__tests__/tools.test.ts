@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { describe, it, expect, beforeEach } from 'vitest';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { McpServer } from '@modelcontextprotocol/server';
+import { Client } from '@modelcontextprotocol/client';
+import { InMemoryTransport } from '@modelcontextprotocol/server';
 import { registerTools } from '../tools.js';
 import { CronsoleClient, CronsoleApiError } from '../client.js';
 
@@ -251,9 +251,10 @@ describe('the destructive-op gate', () => {
     // handler. The gate is the absence.
     const { client, calls } = stubClient({ 'DELETE /tasks/id1': { message: 'Task deleted' } });
     const mcp = await connect(client, false);
-    const r = await call(mcp, 'delete_task', { taskId: 'id1' });
-    expect(r.isError).toBe(true);
-    expect(text(r)).toMatch(/delete_task.*not found/i);
+    // SDK v2 rejects with a JSON-RPC ProtocolError; v1 returned an `isError` result.
+    await expect(call(mcp, 'delete_task', { taskId: 'id1' })).rejects.toThrow(
+      /delete_task.*not found/i
+    );
     // And nothing reached the API on the way to that refusal.
     expect(calls).toHaveLength(0);
   });

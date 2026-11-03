@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "1.0",
+  "id": "dev-pytest-run",
+  "name": "Scheduled Test Run (pytest)",
+  "description": "Run a Python project’s pytest suite on a schedule and write a JUnit XML report, the Python counterpart to the npm test template. A failing test makes the run fail.",
+  "runtime": "executable",
+  "os": "cross-platform",
+  "category": "dev-workflow",
+  "tags": [
+    "dev",
+    "python",
+    "pytest",
+    "test",
+    "ci"
+  ],
+  "icon": "FlaskConical",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 5 * * *"
+  },
+  "commandTemplate": "python -m pytest \"{{testsPath}}\" -q --junitxml=\"{{reportPath}}\"",
+  "parameters": [
+    {
+      "key": "testsPath",
+      "label": "Tests path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Absolute path to the folder or file pytest should run. Python and pytest must be installed, for example with pip install pytest."
+    },
+    {
+      "key": "reportPath",
+      "label": "JUnit report path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Where to write the JUnit XML report. It is overwritten on every run."
+    }
+  ],
+  "compatibleTargets": [
+    "windows",
+    "macos"
+  ]
+}

@@ -34,10 +34,10 @@ describe('bundled catalog snapshot', () => {
     }
   });
 
-  it('has the expected shape: 125 templates (4 patterns + 12 dev + 7 ai + 20 starters + 46 extended + 8 native + 15 native scripts&checks + 10 claude routines + 4 gemini triggers)', () => {
-    expect(bundledCatalog).toHaveLength(125);
+  it('has the expected shape: 129 templates (4 patterns + 13 dev + 7 ai + 20 starters + 50 extended + 8 native + 15 native scripts&checks + 10 claude routines + 4 gemini triggers)', () => {
+    expect(bundledCatalog).toHaveLength(129);
     expect(bundledCatalog.filter((t) => t.isStarter)).toHaveLength(24);
-    expect(bundledCatalog.filter((t) => t.id.startsWith('dev-'))).toHaveLength(12);
+    expect(bundledCatalog.filter((t) => t.id.startsWith('dev-'))).toHaveLength(13);
     expect(bundledCatalog.filter((t) => t.id.startsWith('ai-'))).toHaveLength(7);
     expect(bundledCatalog.filter((t) => t.id.startsWith('native-'))).toHaveLength(23);
     expect(bundledCatalog.filter((t) => t.id.startsWith('claude-routine-'))).toHaveLength(10);
@@ -105,7 +105,7 @@ describe('bundled catalog snapshot', () => {
     // first template in the catalog that is guaranteed to work on a fresh
     // install rather than merely applicable to one.
     expect(core).toHaveLength(10);
-    expect(extended).toHaveLength(115);
+    expect(extended).toHaveLength(119);
     expect(core.length).toBeLessThan(bundledCatalog.length); // registry > default
     // Extended Pack templates use the ext-namespace prefixes and are never core.
     for (const t of bundledCatalog.filter((x) => /^(bkp|cln|sys|mon|data|ntf)-/.test(x.id))) {
@@ -270,10 +270,10 @@ describe('normalizeTemplate -> Prisma shape', () => {
 });
 
 describe('BundledCatalogSource', () => {
-  it('lists all 125 normalized templates', async () => {
+  it('lists all 129 normalized templates', async () => {
     const src = new BundledCatalogSource();
     const list = await src.list();
-    expect(list).toHaveLength(125);
+    expect(list).toHaveLength(129);
     expect(src.name).toBe('bundled');
   });
 });

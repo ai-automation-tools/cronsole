@@ -60,7 +60,8 @@ describe('TaskCard Component', () => {
 
   it('shows the schedule in words on the card', () => {
     renderCard({ ...mockTask, schedule: '0 15 * * *' });
-    expect(screen.getByText(/^Daily at 8:00 AM P[DS]T$/)).toBeInTheDocument();
+    // 15:00 UTC reads 8 AM in PDT and 7 AM in PST, so the expected hour follows the date.
+    expect(screen.getByText(/^Daily at (8:00 AM PDT|7:00 AM PST)$/)).toBeInTheDocument();
   });
 
   it('shows the raw cron when the shape is one describeCron will not guess at', () => {

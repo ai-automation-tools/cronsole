@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "1.0",
+  "id": "cln-pip-cache-purge",
+  "name": "Purge the pip Download Cache",
+  "description": "Delete every wheel and HTTP response pip has cached on a schedule to reclaim disk space; the next install simply downloads again. This only touches pip’s cache, never installed packages.",
+  "runtime": "executable",
+  "os": "cross-platform",
+  "category": "cleanup",
+  "tags": [
+    "cleanup",
+    "python",
+    "pip",
+    "cache",
+    "disk"
+  ],
+  "icon": "Trash2",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 4 1 * *"
+  },
+  "commandTemplate": "python -m pip cache purge",
+  "parameters": [],
+  "compatibleTargets": [
+    "windows",
+    "macos"
+  ]
+}

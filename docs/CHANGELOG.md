@@ -19,6 +19,12 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Changed
 
+- **The self-heal launcher waits for its script** (2026-11-03). `scripts/startup-task/run-hidden.vbs`
+  ran PowerShell fire-and-forget, so each `\Cronsole-Stack\` task ended within a second: `IgnoreNew`
+  never stopped a hung `cronsole.ps1 up` from getting a new copy every 5 minutes (the 2026-09-22
+  `docker.exe` pile-up), and Last Result was always 0. It now waits and returns the script's exit
+  code, still with no window. `Register-CronsoleStack.ps1` gives the tasks a 10-minute limit instead
+  of none, so a hung run is ended rather than blocking every later one.
 - **The MCP server runs on MCP TypeScript SDK v2** (2026-10-30). `mcp-server/` moved from
   `@modelcontextprotocol/sdk` 1.x to `@modelcontextprotocol/server` 2.4 (the test client is a dev
   dependency), ahead of 1.x going bug-fix-only around 2027-01-27. Tools, schemas and output are

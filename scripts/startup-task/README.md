@@ -20,7 +20,7 @@ at **RunLevel Highest** in the interactive user's session.
 
 | File | Purpose |
 |---|---|
-| `run-hidden.vbs` | **No-flash launcher.** Runs a PowerShell script hidden from creation via `WScript.Shell.Run(cmd, 0, False)`, so no console/conhost window flashes on recurring triggers. All three tasks launch through it. |
+| `run-hidden.vbs` | **No-flash launcher.** Runs a PowerShell script hidden from creation via `WScript.Shell.Run(cmd, 0, True)`, so no console/conhost window flashes on recurring triggers. It waits for the script and returns its exit code (since 2026-11-03; it was fire-and-forget before), so `IgnoreNew` stops overlapping runs and Last Result is real. All three tasks launch through it. |
 | `Register-CronsoleStack.ps1` | Registers **`CronsoleStack`**, the recurring self-heal. Also removes the obsolete `CronsoleAgent` (see below). Run once, **as Administrator**. |
 | `Register-RepublishTask.ps1` | Registers **`CronsoleRepublish`**, the on-demand elevated agent rebuild. Run once, **as Administrator**. |
 | `Register-RestartTask.ps1` | Registers **`CronsoleRestart`**, the on-demand elevated stack restart. Run once, **as Administrator**. |
@@ -87,7 +87,7 @@ nothing appears on screen.
 
 The same shim is used by the two on-demand tasks, for consistency rather than for flashing:
 they fire rarely, but a republish or a restart has no console to attach to either, which is
-why both write their own log instead of relying on an exit code.
+why both write their own log. Since 2026-11-03 the shim waits, so the exit code reaches Task Scheduler too; `CronsoleStack` has a 10-minute limit so a hung `up` can't block every later run.
 
 ## The `\Cronsole-Stack\` tasks are deliberately NOT tracked in the dashboard
 

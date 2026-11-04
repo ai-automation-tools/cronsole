@@ -14,6 +14,8 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Security
 
+- **`minimatch` 11 in `frontend/`** (2026-11-03). eslint 10 and typescript-eslint pull 10.2.5, which Dependabot can't lift past the parents' `^10` range (Dependabot #104). An npm `overrides` entry in `frontend/package.json` pins `^11.0.1`. Dev only.
+- **`follow-redirects` 1.16.2 in `frontend/` and `backend/`** (2026-11-03, security sweep). It comes in through `axios`. 1.16.1 could carry custom credential headers across a cross-origin redirect (Dependabot #102, #103). Lockfiles only.
 - **Backend `body-parser` 2.4.0 and `qs` 6.17.0** (2026-10-27, security sweep). Both come in through Express. The old `body-parser` could be tied up by a body with trailing bytes after the JSON, and the old `qs` threw on one `stringify` format (Dependabot #86, #87). Lockfile only; the frontend and `mcp-server` copies have their own Dependabot PRs.
 - **Token and secret checks tightened** (2026-10-26, security sweep). `checkToken` accepts only HS256, the algorithm `generateToken` signs with. `decrypt` refuses an auth tag that isn't the full 16 bytes. `ci.yml`, `frontdoor-drift.yml` and `registry-drift.yml` declare `permissions: contents: read`. A new `.gitleaksignore` suppresses the nine test-fixture and docs-placeholder hits.
 
@@ -45,6 +47,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **Four extended templates** (2026-10-29): `dev-pytest-run` (scheduled pytest with a JUnit report), `bkp-mongodump`, `bkp-redis-bgsave` and `cln-pip-cache-purge`. They join the Developer and Backup & Cleanup packs; none is core. The catalog is now 129 templates.
 - **GitHub Actions can watch a whole account or organization** (2026-10-23). In the Sources tab's
   repository box, type an owner (`acme`, `github.com/acme`) instead of `owner/repo`, and every
   repository under it that your token can see is read, including ones created later. Forks and

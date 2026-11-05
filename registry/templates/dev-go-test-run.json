@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "1.0",
+  "id": "dev-go-test-run",
+  "name": "Scheduled Test Run (Go)",
+  "description": "Run every test in a Go module on a schedule with go test, the Go counterpart to the npm test and pytest templates. A failing test makes the run fail.",
+  "runtime": "executable",
+  "os": "cross-platform",
+  "category": "dev-workflow",
+  "tags": [
+    "dev",
+    "go",
+    "test",
+    "ci"
+  ],
+  "icon": "FlaskConical",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "30 5 * * *"
+  },
+  "commandTemplate": "go test -C {{modulePath}} ./...",
+  "parameters": [
+    {
+      "key": "modulePath",
+      "label": "Module folder",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Absolute path to the folder containing go.mod, with no spaces in it. Go 1.21 or newer must be installed and on the PATH, because the -C flag changes into this folder before testing."
+    }
+  ],
+  "compatibleTargets": [
+    "windows",
+    "macos"
+  ]
+}

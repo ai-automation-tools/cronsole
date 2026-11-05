@@ -1778,6 +1778,59 @@ const extendedPack: RegistryTemplate[] = [
     commandTemplate: 'python -m pip cache purge',
     parameters: [],
     compatibleTargets: ['windows', 'macos']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'dev-cargo-audit-check',
+    name: 'Dependency Security Audit (Cargo)',
+    description: 'Scan a Rust project’s Cargo.lock for crates with known security advisories using cargo-audit on a schedule, the Rust counterpart to the npm and pip audit templates.',
+    runtime: 'executable',
+    os: 'cross-platform',
+    category: 'dev-workflow',
+    tags: ['dev', 'rust', 'cargo', 'security', 'dependencies'],
+    icon: 'ShieldAlert',
+    trigger: sched('0 7 * * 2'),
+    commandTemplate: 'cargo audit --file "{{lockfilePath}}"',
+    parameters: [
+      { key: 'lockfilePath', label: 'Cargo.lock path', type: 'path', default: '', required: true, help: 'Absolute path to the Cargo.lock file to audit. The cargo-audit tool must be installed, for example with cargo install cargo-audit. It exits non-zero when it finds a vulnerable crate, so the run shows as failed exactly when there is something to fix.' }
+    ],
+    compatibleTargets: ['windows', 'macos']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'dev-go-test-run',
+    name: 'Scheduled Test Run (Go)',
+    description: 'Run every test in a Go module on a schedule with go test, the Go counterpart to the npm test and pytest templates. A failing test makes the run fail.',
+    runtime: 'executable',
+    os: 'cross-platform',
+    category: 'dev-workflow',
+    tags: ['dev', 'go', 'test', 'ci'],
+    icon: 'FlaskConical',
+    trigger: sched('30 5 * * *'),
+    commandTemplate: 'go test -C {{modulePath}} ./...',
+    parameters: [
+      { key: 'modulePath', label: 'Module folder', type: 'path', default: '', required: true, help: 'Absolute path to the folder containing go.mod, with no spaces in it. Go 1.21 or newer must be installed and on the PATH, because the -C flag changes into this folder before testing.' }
+    ],
+    compatibleTargets: ['windows', 'macos']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'ntf-telegram-message',
+    name: 'Telegram Bot Message',
+    description: 'Send a scheduled message to a Telegram chat through the Bot API with a single HTTPS request, for people who already live in Telegram rather than Slack, Discord or ntfy.',
+    runtime: 'executable',
+    os: 'cross-platform',
+    category: 'notification',
+    tags: ['notification', 'telegram', 'bot', 'mobile'],
+    icon: 'Send',
+    trigger: sched('0 8 * * *'),
+    commandTemplate: 'curl -fsS https://api.telegram.org/bot{{botToken}}/sendMessage -d chat_id={{chatId}} --data-urlencode "text={{message}}"',
+    parameters: [
+      { key: 'botToken', label: 'Bot token', type: 'text', default: '', required: true, help: 'The token BotFather gave you when you created the bot. It is stored in the task and visible in its command line, so use a bot made only for this. The curl tool must be installed.' },
+      { key: 'chatId', label: 'Chat ID', type: 'text', default: '', required: true, help: 'The numeric ID of the chat to message. Send your bot a message first, then read the ID from the getUpdates method of the Bot API.' },
+      { key: 'message', label: 'Message', type: 'text', default: 'Scheduled reminder from Cronsole', required: true, help: 'The notification text. Avoid double quotes in it.' }
+    ],
+    compatibleTargets: ['windows', 'macos']
   }
 ];
 

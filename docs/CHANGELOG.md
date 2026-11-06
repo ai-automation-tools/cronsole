@@ -22,6 +22,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 ### Changed
 
 - **No more blank screen while the dashboard loads** (2026-11-06). `index.html` now draws a spinner before the JS bundle arrives, which takes about a second (~160 dev modules, or one 1MB built bundle). React replaces it when it mounts. The Vite dev server also pre-transforms the import graph at startup (`server.warmup`), so the first load after a restart no longer pays for cold transforms. The other tabs (Sources, Templates, Tools, Settings, Links) and the task, create, clone, import and sync modals now load as separate chunks when first opened. The bundle the dashboard waits on dropped from 1,055KB to 570KB (306KB to 173KB gzipped).
+- **Re-registering the self-heal no longer switches it off** (2026-11-06). `CronsoleStack`'s 5-minute repetition hung off its logon trigger, which starts repeating only at a logon. So re-running `Register-CronsoleStack.ps1` mid-session left the self-heal off until the next logon, with nothing reporting it (troubleshooting #102). The repetition now sits on its own time trigger and runs from the moment the task is registered. Re-run `Register-CronsoleStack.ps1` elevated once to get it.
 - **The self-heal launcher waits for its script** (2026-11-03). `scripts/startup-task/run-hidden.vbs`
   ran PowerShell fire-and-forget, so each `\Cronsole-Stack\` task ended within a second: `IgnoreNew`
   never stopped a hung `cronsole.ps1 up` from getting a new copy every 5 minutes (the 2026-09-22

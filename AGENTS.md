@@ -488,9 +488,14 @@ Non-negotiable rules. **Every one has a reason recorded in
 - **`\Cronsole-Stack\` is deliberately untracked** — it is the thing that runs Cronsole, not work
   Cronsole runs. Nothing enforces this; it is a standing choice.
 - **A launcher task is not the process it launched, and exactly one script may own a task name.**
-  Every `\Cronsole-Stack\` task runs `wscript.exe` → `run-hidden.vbs`, which is fire-and-forget, so
-  the instance ends in under a second while what it started runs on unparented: `Stop-ScheduledTask`
-  stops **nothing** and `LastTaskResult: 0` is a statement about the shim, never about the stack.
+  Every `\Cronsole-Stack\` task runs `wscript.exe` → `run-hidden.vbs`, which waits for its script
+  (since 2026-11-03, so `IgnoreNew` really prevents overlap and a 10-minute limit ends a hung run),
+  but the services the script starts are `Start-Process`ed and outlive it: `Stop-ScheduledTask`
+  at most ends a script in progress, and **`LastTaskResult` is about one script run, never about
+  the stack** — `cronsole.ps1 up` returns 0 even when something stayed down. **A repetition must
+  hang off a time trigger, never the logon trigger**: a logon trigger's repetition starts only at a
+  logon, so re-registering mid-session silently disarmed the self-heal for days
+  ([#102](docs/troubleshooting/README.md#102-the-5-minute-self-heal-stops-after-re-registering-cronsolestack)).
   Restarting is therefore a property of the *script* (`cronsole.ps1 restart`, on-demand elevated as
   `CronsoleRestart`), and **`up` may never be used as a restart** — it is idempotent by design, which
   is the same property that lets the 5-minute self-heal run at all. The name and description are

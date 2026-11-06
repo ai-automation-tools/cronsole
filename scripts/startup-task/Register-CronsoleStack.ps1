@@ -82,25 +82,31 @@ $settings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew `
 $stackArg    = "$q$HiddenVbs$q $q$ControlPs1$q up"
 $stackAction = New-ScheduledTaskAction -Execute $WScript -Argument $stackArg -WorkingDirectory $RepoRoot
 
-# AtLogon trigger + an indefinite repetition (borrow the Repetition object from a
-# throwaway -Once trigger - the documented way to attach one; unset duration = forever).
-$stackTrigger = New-ScheduledTaskTrigger -AtLogOn
-$stackTrigger.Repetition = (New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) `
-    -RepetitionInterval (New-TimeSpan -Minutes $IntervalMinutes)).Repetition
+# Two triggers, and the repetition lives on the time-based one (troubleshooting #102).
+# It used to hang off the AtLogon trigger, and a logon trigger's repetition only starts AT
+# a logon - so re-running this script mid-session (as every fix to these tasks asks) left
+# the self-heal disarmed until the next logon, possibly days, with State 'Ready' and no
+# error anywhere. A -Once trigger with an unset duration repeats forever from the moment
+# it is registered; the bare AtLogon trigger only makes a fresh session start the stack
+# straight away instead of within $IntervalMinutes minutes.
+$stackTrigger = @(
+    New-ScheduledTaskTrigger -AtLogOn
+    New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) `
+        -RepetitionInterval (New-TimeSpan -Minutes $IntervalMinutes)
+)
 
 # The description is what someone reads in taskschd.msc before deciding what this does, so it
-# states the two facts that are NOT visible there: what `up` actually starts, and that Ready is
-# the correct resting state (troubleshooting #86 - a task in this folder never reads Running,
-# and reading its State or LastTaskResult as a claim about the stack is how this folder went
-# wrong the first time).
+# states the two facts that are NOT visible there: what `up` actually starts, and that the
+# task's State and LastTaskResult are about one `up` run, not the stack (troubleshooting #86 -
+# reading them as a claim about the stack is how this folder went wrong the first time).
 $stackDescription = @"
 KEEPS THE LOCAL CRONSOLE STACK UP. Runs scripts\cronsole.ps1 up at logon and every $IntervalMinutes minutes.
 
 Starts whatever is currently DOWN and leaves what is up alone (idempotent, so it never spawns duplicates): the Docker engine, Postgres + Redis, the backend (:3000), the frontend (:7373), the Windows agent, and the reverse proxy on machines that ran 'cronsole remote on'.
 
-STATE READS 'READY', NEVER 'RUNNING' - THAT IS CORRECT. This task launches fire-and-forget through run-hidden.vbs, so the instance ends within a second while what it started runs on independently. Its State and LastTaskResult describe the launcher shim, never the stack. To ask whether the stack is up:  pwsh scripts\cronsole.ps1 status
+STATE AND LAST RESULT DESCRIBE ONE 'up' RUN, NEVER THE STACK. run-hidden.vbs waits for 'up' (seconds, normally), so the task reads Running only while that run lasts, and a run past 10 minutes is ended. What it started is launched with Start-Process and runs on independently. 'up' returns 0 even when something stayed down, so a Last Result of 0 is not a health check. To ask whether the stack is up:  pwsh scripts\cronsole.ps1 status
 
-Do not use Stop-ScheduledTask on this task to stop the stack - it stops nothing. Use 'cronsole.ps1 down' (elevated), and disable this task first or it will restart everything within $IntervalMinutes minutes.
+Do not use Stop-ScheduledTask on this task to stop the stack - at most it ends an 'up' in progress; the services keep running. Use 'cronsole.ps1 down' (elevated), and disable this task first or it will restart everything within $IntervalMinutes minutes.
 
 Registered by scripts\startup-task\Register-CronsoleStack.ps1. Runs as the interactive user at RunLevel Highest - the agent needs elevation to enumerate ACL'd Task Scheduler folders (troubleshooting #74).
 "@
@@ -121,9 +127,9 @@ Write-Host "Registered \Cronsole-Stack\CronsoleStack (State: $($t.State)) - recu
 if ($RemoveAgentTask) {
     $agent = Get-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleAgent' -ErrorAction SilentlyContinue
     if ($agent) {
-        # It launches fire-and-forget through wscript, so there is nothing running to
-        # stop - but the processes it started (agent, dev servers) are independent of
-        # the task and survive this untouched. Removing it stops nothing.
+        # The processes it started (agent, dev servers) were launched with Start-Process
+        # and are independent of the task, so they survive this untouched. Removing it
+        # stops nothing.
         Unregister-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleAgent' -Confirm:$false
         Write-Host 'Removed \Cronsole-Stack\CronsoleAgent - obsolete; "cronsole up" now starts the Docker engine itself.'
     } else {

@@ -170,10 +170,10 @@ $down = Join-Path $OldRoot 'scripts\cronsole.ps1'
 if (Test-Path $down) {
     & pwsh -NoProfile -File $down down 2>&1 | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
 }
-# No Stop-ScheduledTask here on purpose. Every task in this folder launches through
-# run-hidden.vbs, which is fire-and-forget, so the task instance is gone within a
-# second while the processes it started run on independently. Stopping the task stops
-# nothing; the Stop-Process below is what actually releases the handles.
+# No Stop-ScheduledTask here on purpose. Every task in this folder starts its services
+# with Start-Process, so they outlive the task instance and run on independently.
+# Stopping the task at most ends a script in progress; the Stop-Process below is what
+# actually releases the handles.
 
 # Stop the agent under BOTH names. An agent that started before the 2026-07-31 exe
 # rename is still called TaskHub.Agent, holds the same handles inside agent\publish,

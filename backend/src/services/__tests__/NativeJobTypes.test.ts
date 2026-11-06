@@ -437,3 +437,45 @@ describe('secret references in a URL that is only a reference', () => {
     expect(missingSecretRefs(job, [])).toEqual(['DISCORD_WEBHOOK_URL']);
   });
 });
+
+describe('passEnv — named variables from Cronsole\'s environment', () => {
+  const script = (passEnv: unknown, body = 'console.log(process.env.CRONSOLE_TEST_PASS_A ?? "none")') =>
+    ({ jobType: 'SCRIPT', interpreter: 'node', body, passEnv }) as unknown as NativeJob;
+
+  it('refuses Cronsole\'s own configuration by name, and every key in .env.example is protected', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { PROTECTED_ENV } = await import('../NativeTaskExecutor.js');
+    const example = readFileSync(new URL('../../../.env.example', import.meta.url), 'utf8');
+    const keys = [...example.matchAll(/^#?\s*([A-Z][A-Z0-9_]+)=/gm)].map(m => m[1]!);
+    expect(keys.length).toBeGreaterThan(5);
+    for (const key of keys) expect(PROTECTED_ENV.has(key) || key.startsWith('CRONSOLE_'), key).toBe(true);
+
+    expect(validateJob(script(['ENCRYPTION_KEY']))).toMatch(/ENCRYPTION_KEY.*Cronsole's own configuration/);
+    expect(validateJob(script(['CRONSOLE_ANYTHING']))).toMatch(/Cronsole's own configuration/);
+    expect(validateJob(script(['not-a-name']))).toMatch(/list of variable names/);
+    expect(validateJob(script(['GH_TOKEN']))).toBeNull();
+  });
+
+  it('passes the value to the child and redacts it from the log', async () => {
+    process.env.PASS_ME_THROUGH = 'swordfish-123';
+    try {
+      const job = buildNativeJob({
+        jobType: 'SCRIPT', interpreter: 'node', body: 'console.log("v=" + process.env.PASS_ME_THROUGH)',
+        passEnv: ['PASS_ME_THROUGH', 'PASS_ME_THROUGH', '']
+      });
+      expect((job as { passEnv?: string[] }).passEnv).toEqual(['PASS_ME_THROUGH']);
+      const result = await executeJob(job);
+      expect(result.success).toBe(true);
+      expect(result.log).toContain('v=${env.PASS_ME_THROUGH}');
+      expect(result.log).not.toContain('swordfish-123');
+    } finally {
+      delete process.env.PASS_ME_THROUGH;
+    }
+  }, 20_000);
+
+  it('refuses to start when a named variable is not set, and says which', async () => {
+    const result = await executeJob(script(['DEFINITELY_NOT_SET_XYZ']));
+    expect(result.ran).toBe(false);
+    expect(result.log).toMatch(/DEFINITELY_NOT_SET_XYZ .*not set there/);
+  });
+});

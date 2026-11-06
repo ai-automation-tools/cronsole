@@ -60,6 +60,14 @@ function buildPolicy(raw: unknown): RunPolicy | undefined {
   return Object.keys(out).length ? out : undefined;
 }
 
+/** Trimmed, de-duplicated, and absent when empty. A non-list passes through for `validateJob` to name. */
+function buildPassEnv(raw: unknown): string[] | undefined {
+  if (raw === undefined || raw === null) return undefined;
+  if (!Array.isArray(raw)) return raw as string[];
+  const names = [...new Set(raw.map(n => (typeof n === 'string' ? n.trim() : n)).filter(n => n !== ''))];
+  return names.length ? (names as string[]) : undefined;
+}
+
 function buildJobBody(job: Record<string, unknown>): NativeJob {
   if (job.jobType === 'EXEC') {
     const env = job.env as Record<string, string> | undefined;
@@ -81,6 +89,7 @@ function buildJobBody(job: Record<string, unknown>): NativeJob {
         : Array.isArray(job.args) ? (job.args as string[]) : undefined,
       workingDirectory: job.workingDirectory ? String(job.workingDirectory).trim() : undefined,
       env: env && Object.keys(env).length ? env : undefined,
+      passEnv: buildPassEnv(job.passEnv),
       timeoutMs: job.timeoutMs !== undefined ? Number(job.timeoutMs) : undefined
     };
   }
@@ -96,6 +105,7 @@ function buildJobBody(job: Record<string, unknown>): NativeJob {
       body: typeof job.body === 'string' ? job.body : '',
       workingDirectory: job.workingDirectory ? String(job.workingDirectory).trim() : undefined,
       env: env && Object.keys(env).length ? env : undefined,
+      passEnv: buildPassEnv(job.passEnv),
       timeoutMs: job.timeoutMs !== undefined ? Number(job.timeoutMs) : undefined
     };
   }

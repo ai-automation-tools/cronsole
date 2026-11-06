@@ -367,7 +367,10 @@ Non-negotiable rules. **Every one has a reason recorded in
   not invalidate the login of the tool that created it.
 - **A native `EXEC` child gets an allowlist (`childEnv()`), never `process.env`** — this process holds
   the key encrypting every stored platform credential. Tasks state their execution host
-  (`services/runtimeContext.ts`): a native job runs where the *backend* runs.
+  (`services/runtimeContext.ts`): a native job runs where the *backend* runs. **`passEnv` is the one
+  door out, and it is by name**: EXEC/SCRIPT may list variables to copy from Cronsole's environment;
+  `PROTECTED_ENV` (every `backend/.env.example` key, held by a test) and any `CRONSOLE_*` name are
+  refused, an unset name is a `ran: false` refusal, and the values are redacted as `${env.NAME}`.
 - **Four native job types** — HTTP · EXEC (Programs) · SCRIPT · CHECK ([ADR 0002](docs/adr/0002-native-job-types.md)).
   A type is a permanent rail row, so the test is "a different *kind* of thing", not "useful".
   `SCRIPT` carries its body and uses a fixed interpreter allowlist; `CHECK` is the only type whose

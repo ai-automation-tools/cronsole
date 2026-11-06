@@ -89,6 +89,13 @@ export interface ExecJob {
    * Cronsole's own environment** — see `childEnv`.
    */
   env?: Record<string, string>;
+  /**
+   * Names of variables to copy from **Cronsole's own environment** into the
+   * child's. Opt-in per job and by name, never a blanket inherit — the backend's
+   * environment holds `ENCRYPTION_KEY`, so `PROTECTED_ENV` names are refused.
+   * Values are redacted from the run log like secrets.
+   */
+  passEnv?: string[];
   /** Hard kill after this long. Defaults to 5 min, capped at 24 h (ADR 0004). */
   timeoutMs?: number;
 }
@@ -117,6 +124,13 @@ export interface ScriptJob {
   workingDirectory?: string;
   /** Extra environment. Added to a minimal base, never to Cronsole's — `childEnv`. */
   env?: Record<string, string>;
+  /**
+   * Names of variables to copy from **Cronsole's own environment** into the
+   * child's. Opt-in per job and by name, never a blanket inherit — the backend's
+   * environment holds `ENCRYPTION_KEY`, so `PROTECTED_ENV` names are refused.
+   * Values are redacted from the run log like secrets.
+   */
+  passEnv?: string[];
   timeoutMs?: number;
 }
 
@@ -293,6 +307,56 @@ const ENV_ALLOWLIST = [
   'HOME', 'LANG', 'LC_ALL', 'TZ', 'TMPDIR', 'SHELL', 'USER', 'LOGNAME'
 ];
 
+/**
+ * Variables a job may never copy out of Cronsole's environment with `passEnv`:
+ * Cronsole's own configuration. Every key in `backend/.env.example` is here (a
+ * test holds that), plus what the code reads that the example does not list,
+ * plus every `CRONSOLE_*` name by prefix. A job that needs a credential gets
+ * its own, through `${secret.NAME}` or a variable the user set for it.
+ */
+export const PROTECTED_ENV = new Set([
+  'ENCRYPTION_KEY', 'JWT_SECRET', 'JWT_EXPIRES_IN', 'DATABASE_URL', 'AGENT_PAIRING_SECRET',
+  'CLAUDE_OAUTH_TOKEN', 'CLAUDE_CONFIG_DIR', 'ANTHROPIC_BASE_URL', 'ALLOWED_ORIGINS', 'TRUST_PROXY',
+  'PORT', 'NODE_ENV', 'DISABLE_AUTH_RATE_LIMIT', 'TEMPLATE_REGISTRY_URL',
+  'TEMPLATE_REGISTRY_SYNC_INTERVAL_MS', 'CRONSOLE_FAILURE_WEBHOOK_URL',
+  'CRONSOLE_FAILURE_WEBHOOK_TYPE', 'CRONSOLE_FAILURE_WEBHOOK_HEADERS_JSON'
+]);
+const isProtectedEnv = (name: string) =>
+  PROTECTED_ENV.has(name.toUpperCase()) || name.toUpperCase().startsWith('CRONSOLE_');
+export const MAX_PASS_ENV = 20;
+const ENV_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+/** The `passEnv` list, checked. Shared by EXEC and SCRIPT. */
+function validatePassEnv(passEnv: unknown): string | null {
+  if (passEnv === undefined) return null;
+  if (!Array.isArray(passEnv) || passEnv.some(n => typeof n !== 'string' || !ENV_NAME_RE.test(n))) {
+    return 'Job passEnv must be a list of variable names (letters, digits and underscores)';
+  }
+  if (passEnv.length > MAX_PASS_ENV) return `Job passEnv can name at most ${MAX_PASS_ENV} variables`;
+  const blocked = (passEnv as string[]).filter(isProtectedEnv);
+  if (blocked.length) {
+    return `Job passEnv cannot pass ${blocked.join(', ')}: ${blocked.length === 1 ? 'it is' : 'they are'} Cronsole's own configuration`;
+  }
+  return null;
+}
+
+/**
+ * The values `passEnv` names, read from Cronsole's environment at run time.
+ * `missing` lists names that are not set, so the run can refuse by name rather
+ * than start a job without the variable it was told it would have.
+ */
+export function passedEnv(job: NativeJob): { values: Record<string, string>; missing: string[] } {
+  const names = job.jobType === 'EXEC' || job.jobType === 'SCRIPT' ? job.passEnv ?? [] : [];
+  const values: Record<string, string> = {};
+  const missing: string[] = [];
+  for (const name of names) {
+    const value = process.env[name];
+    if (value === undefined) missing.push(name);
+    else values[name] = value;
+  }
+  return { values, missing };
+}
+
 /** Build the child's environment: allowlisted OS basics + the job's own vars. */
 export function childEnv(jobEnv?: Record<string, string>): NodeJS.ProcessEnv {
   const allow = new Set(ENV_ALLOWLIST.map(k => k.toLowerCase()));
@@ -361,7 +425,7 @@ export function validateJob(job: unknown): string | null {
     if (j.workingDirectory !== undefined && typeof j.workingDirectory !== 'string') {
       return 'Job workingDirectory must be a string';
     }
-    const execEnvError = validateEnv(j.env);
+    const execEnvError = validateEnv(j.env) ?? validatePassEnv(j.passEnv);
     if (execEnvError) return execEnvError;
     if (j.timeoutMs !== undefined) {
       const t = Number(j.timeoutMs);
@@ -388,7 +452,7 @@ export function validateJob(job: unknown): string | null {
     if (j.workingDirectory !== undefined && typeof j.workingDirectory !== 'string') {
       return 'Job workingDirectory must be a string';
     }
-    const envError = validateEnv(j.env);
+    const envError = validateEnv(j.env) ?? validatePassEnv(j.passEnv);
     if (envError) return envError;
     if (j.timeoutMs !== undefined) {
       const t = Number(j.timeoutMs);
@@ -568,7 +632,25 @@ export async function executeJob(
     };
   }
 
-  const resolved = resolveJobSecrets(job, secrets);
+  const passed = passedEnv(job);
+  if (passed.missing.length) {
+    return {
+      success: false,
+      durationMs: 0,
+      ran: false,
+      log:
+        `This job passes through ${passed.missing.join(', ')} from Cronsole's environment, but ` +
+        `${passed.missing.length === 1 ? 'it is' : 'they are'} not set there. Set ${passed.missing.length === 1 ? 'it' : 'them'} ` +
+        'where the backend runs and restart it, or remove the name from the job.'
+    };
+  }
+
+  let resolved = resolveJobSecrets(job, secrets);
+  if (Object.keys(passed.values).length && (resolved.jobType === 'EXEC' || resolved.jobType === 'SCRIPT')) {
+    // The job's own `env` wins over a passed-through value of the same name: it
+    // is the more specific instruction.
+    resolved = { ...resolved, env: { ...passed.values, ...(resolved.env ?? {}) } };
+  }
 
   // Re-validated **after** substitution, which is where the shape checks a
   // reference was allowed to skip actually get made — a secret whose value is
@@ -588,7 +670,8 @@ export async function executeJob(
   // Everything past validation executes, so `ran` is set once here rather than
   // in each of the four executors, where a new job type could forget it.
   const result = await runByJobType(resolved);
-  return { ...result, log: redactSecrets(result.log, secrets), ran: true };
+  const log = redactSecrets(redactSecrets(result.log, secrets), passed.values, 'env');
+  return { ...result, log, ran: true };
 }
 
 function runByJobType(job: NativeJob): Promise<Omit<NativeRunResult, 'ran'>> {

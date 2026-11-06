@@ -354,7 +354,7 @@ export function resolveJobSecrets(job: NativeJob, secrets: Record<string, string
  * Longest value first, so a secret that contains another secret is masked as
  * itself rather than being half-replaced from the inside out.
  */
-export function redactSecrets(text: string, secrets: Record<string, string>): string {
+export function redactSecrets(text: string, secrets: Record<string, string>, label = 'secret'): string {
   if (!text) return text;
   const entries = Object.entries(secrets)
     .filter(([, value]) => value.length >= MIN_SECRET_VALUE_LENGTH)
@@ -362,7 +362,7 @@ export function redactSecrets(text: string, secrets: Record<string, string>): st
 
   let out = text;
   for (const [name, value] of entries) {
-    out = out.split(value).join(`\${secret.${name}}`);
+    out = out.split(value).join(`\${${label}.${name}}`);
   }
   return out;
 }

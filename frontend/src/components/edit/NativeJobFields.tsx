@@ -180,6 +180,25 @@ export const NativeJobFields = ({ value, onChange, storedJobType, executionHost,
             }
           />
 
+          <div className="space-y-2">
+            <label htmlFor="job-pass-env" className={LABEL}>
+              <Variable size={11} /> Pass through from Cronsole
+            </label>
+            <input
+              id="job-pass-env"
+              value={value.passEnv}
+              disabled={disabled}
+              onChange={e => set('passEnv', e.target.value)}
+              spellCheck={false}
+              placeholder="GH_TOKEN, OPENAI_API_KEY"
+              className={FIELD}
+            />
+            <p className="text-[11px] text-subtle-foreground">
+              Variables already set where Cronsole runs, copied by name. Their values are hidden in the run
+              log, and Cronsole&apos;s own settings (such as its encryption key) are refused.
+            </p>
+          </div>
+
           {executionHost && (
             <p className="text-[11px] text-warning-text">
               Runs on <span className="font-semibold">{executionHost}</span>. Paths inside the script resolve
@@ -324,6 +343,25 @@ export const NativeJobFields = ({ value, onChange, storedJobType, executionHost,
               )
             }
           />
+
+          <div className="space-y-2">
+            <label htmlFor="job-pass-env" className={LABEL}>
+              <Variable size={11} /> Pass through from Cronsole
+            </label>
+            <input
+              id="job-pass-env"
+              value={value.passEnv}
+              disabled={disabled}
+              onChange={e => set('passEnv', e.target.value)}
+              spellCheck={false}
+              placeholder="GH_TOKEN, OPENAI_API_KEY"
+              className={FIELD}
+            />
+            <p className="text-[11px] text-subtle-foreground">
+              Variables already set where Cronsole runs, copied by name. Their values are hidden in the run
+              log, and Cronsole&apos;s own settings (such as its encryption key) are refused.
+            </p>
+          </div>
 
           {/*
             Where this runs is not cosmetic. A native job executes wherever the

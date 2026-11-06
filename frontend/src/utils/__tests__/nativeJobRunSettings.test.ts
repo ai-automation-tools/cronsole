@@ -67,6 +67,16 @@ describe('native run settings', () => {
     expect(v).toMatchObject({ runAfterTaskId: 'a1', runAfterWhen: 'always' });
   });
 
+  it('sends pass-through names as a list, only for a program or script, and reads them back', () => {
+    expect(nativeJobPayload(values({ passEnv: 'GH_TOKEN, OPENAI_API_KEY\nGH_TOKEN' })))
+      .toMatchObject({ passEnv: ['GH_TOKEN', 'OPENAI_API_KEY'] });
+    expect(nativeJobPayload(values({ jobType: 'HTTP', url: 'https://x.test', passEnv: 'GH_TOKEN' })))
+      .not.toHaveProperty('passEnv');
+    expect(nativeJobIncomplete(values({ passEnv: 'bad-name' }))).toMatch(/letters, digits/);
+    const v = (runsEdit(nativeTask({ jobType: 'EXEC', executable: 'node', passEnv: ['A', 'B'] })) as { initial: NativeJobValues }).initial;
+    expect(v.passEnv).toBe('A, B');
+  });
+
   it('blocks out-of-range values with a sentence', () => {
     expect(nativeJobIncomplete(values({ timeoutMinutes: '1441' }))).toMatch(/24 hours/);
     expect(nativeJobIncomplete(values({ retries: '6' }))).toMatch(/0 to 5/);

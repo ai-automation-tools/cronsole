@@ -1774,6 +1774,15 @@ describe('create_native_task', () => {
     expect((calls[1].body as any).job).not.toHaveProperty('policy');
   });
 
+  it('sends passEnv on the job, and none when it is empty', async () => {
+    const { client, calls } = stubClient({ 'POST /tasks/native': created });
+    const mcp = await connect(client);
+    await call(mcp, 'create_native_program_task', { name: 'n', command: 'gh pr list', schedule: '0 9 * * *', passEnv: ['GH_TOKEN'] });
+    await call(mcp, 'create_native_program_task', { name: 'n', command: 'gh pr list', schedule: '0 9 * * *', passEnv: [] });
+    expect((calls[0].body as any).job.passEnv).toEqual(['GH_TOKEN']);
+    expect((calls[1].body as any).job).not.toHaveProperty('passEnv');
+  });
+
   it('sends runAfter, defaulting to success, and no schedule when none is given', async () => {
     const { client, calls } = stubClient({ 'POST /tasks/native': created });
     const mcp = await connect(client);

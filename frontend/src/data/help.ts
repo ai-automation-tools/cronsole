@@ -979,6 +979,13 @@ const jobEnv: HelpTopic = {
         'so a block pasted out of a .env file works.'
     },
     {
+      label: 'Pass a variable through by name',
+      body:
+        "Pass through from Cronsole copies variables that are already set where Cronsole runs, such as " +
+        "GH_TOKEN, without storing their values. Cronsole's own settings are refused, the values are " +
+        'hidden in the run log, and a name that is not set stops the run before it starts.'
+    },
+    {
       label: 'It survives a switch between program and script',
       body:
         'Those two kinds mean the same thing by it, so converting between them keeps it. Every ' +

@@ -1,21 +1,11 @@
-import { useState, useEffect } from 'react';
-import { Sparkles, X } from 'lucide-react';
-import { CloneTaskModal } from './components/CloneTaskModal';
+import { useState, useEffect, lazy, Suspense } from 'react';
+import { Loader2, Sparkles, X } from 'lucide-react';
 import { HelpModal } from './components/HelpModal';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from './api';
 import type { Task } from './types';
 import { TopBar } from './components/TopBar';
-import { TaskModal } from './components/TaskModal';
-import { ImportFileModal } from './components/ImportFileModal';
-import { SyncSourcesModal } from './components/SyncSourcesModal';
-import { CreateTaskModal } from './components/CreateTaskModal';
-import { SettingsScreen } from './components/SettingsScreen';
-import { QuickLinksScreen } from './screens/QuickLinksScreen';
-import { SourcesScreen } from './screens/SourcesScreen';
-import { TemplatesScreen } from './screens/TemplatesScreen';
 import { DashboardScreen } from './screens/DashboardScreen';
-import { ToolsScreen } from './screens/ToolsScreen';
 import { useSettings } from './hooks/useSettings';
 import { useToast } from './hooks/useToast';
 import { useConfirm } from './hooks/useConfirm';
@@ -24,6 +14,20 @@ import { useLiveTaskUpdates } from './hooks/useLiveTaskUpdates';
 import { describeUntracked, describeCoverage, type SyncResponse } from './utils/syncSummary';
 import { stageRestore } from './utils/restoreHandoff';
 import { taskDetailRoute, taskDetailReturn } from './utils/taskRoute';
+
+// Everything below is off the first paint (another tab, or a modal that opens on
+// a click), so each loads as its own chunk instead of riding in the one bundle
+// the dashboard waits on. Named exports, hence the `.then`.
+const CloneTaskModal = lazy(() => import('./components/CloneTaskModal').then(m => ({ default: m.CloneTaskModal })));
+const TaskModal = lazy(() => import('./components/TaskModal').then(m => ({ default: m.TaskModal })));
+const ImportFileModal = lazy(() => import('./components/ImportFileModal').then(m => ({ default: m.ImportFileModal })));
+const SyncSourcesModal = lazy(() => import('./components/SyncSourcesModal').then(m => ({ default: m.SyncSourcesModal })));
+const CreateTaskModal = lazy(() => import('./components/CreateTaskModal').then(m => ({ default: m.CreateTaskModal })));
+const SettingsScreen = lazy(() => import('./components/SettingsScreen').then(m => ({ default: m.SettingsScreen })));
+const QuickLinksScreen = lazy(() => import('./screens/QuickLinksScreen').then(m => ({ default: m.QuickLinksScreen })));
+const SourcesScreen = lazy(() => import('./screens/SourcesScreen').then(m => ({ default: m.SourcesScreen })));
+const TemplatesScreen = lazy(() => import('./screens/TemplatesScreen').then(m => ({ default: m.TemplatesScreen })));
+const ToolsScreen = lazy(() => import('./screens/ToolsScreen').then(m => ({ default: m.ToolsScreen })));
 import { needsTypedConfirmation } from './utils/massActions';
 
 
@@ -101,6 +105,7 @@ const Dashboard = () => {
       return response.data;
     }
   });
+  const routeTask = routeTaskId ? (tasks || []).find(t => t.id === routeTaskId) ?? null : null;
 
   const runMutation = useMutation({
     mutationFn: async (task: Task) => {
@@ -450,11 +455,13 @@ const Dashboard = () => {
         )}
         {activeTab !== 'dashboard' && (
           <div className="px-4 py-5 md:px-8 md:py-7">
+            <Suspense fallback={<div className="flex justify-center py-16 text-muted-foreground"><Loader2 className="animate-spin" size={24} /></div>}>
             {activeTab === 'templates' && <TemplatesScreen />}
             {activeTab === 'sources' && <SourcesScreen />}
             {activeTab === 'links' && settings.showQuickLinksNav && <QuickLinksScreen />}
             {activeTab === 'tools' && <ToolsScreen />}
             {activeTab === 'settings' && <SettingsScreen tasks={tasks} />}
+            </Suspense>
           </div>
         )}
       </main>
@@ -463,12 +470,15 @@ const Dashboard = () => {
         you were reading, or the Tools card that linked here — never on a bare
         dashboard you never chose.
       */}
-      <TaskModal
-        task={routeTaskId ? (tasks || []).find(t => t.id === routeTaskId) ?? null : null}
-        onClose={() => navigate(taskDetailReturn(location))}
-        onRun={runMutation.mutate}
-        onToggleFavorite={favoriteMutation.mutate}
-      />
+      <Suspense fallback={null}>
+      {routeTask && (
+        <TaskModal
+          task={routeTask}
+          onClose={() => navigate(taskDetailReturn(location))}
+          onRun={runMutation.mutate}
+          onToggleFavorite={favoriteMutation.mutate}
+        />
+      )}
       {cloningTask && (
         <CloneTaskModal 
           task={cloningTask} 
@@ -497,6 +507,7 @@ const Dashboard = () => {
           onClose={() => setShowCreateNative(false)}
         />
       )}
+      </Suspense>
     </div>
   );
 };

@@ -38,7 +38,16 @@
     </script>
   </head>
   <body>
-    <div id="root"></div>
+    <!-- Painted before the JS bundle arrives (~1s); React replaces it on mount.
+         Neutral grey on purpose: index.css's theme tokens are not loaded yet, and
+         the same mid-grey reads on every palette. -->
+    <style>
+      #boot{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+      #boot i{width:24px;height:24px;border-radius:50%;border:2px solid rgba(128,128,128,.3);border-top-color:rgba(128,128,128,.9);animation:boot .8s linear infinite}
+      @keyframes boot{to{transform:rotate(360deg)}}
+      @media (prefers-reduced-motion:reduce){#boot i{animation-duration:3s}}
+    </style>
+    <div id="root"><div id="boot" aria-label="Loading Cronsole" role="status"><i></i></div></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
       // Consent gate, for the hosted demo only. The same bundle IS the local-first

@@ -467,7 +467,18 @@ export interface PlatformConnector {
   runTask(
     externalId: string,
     config: any
-  ): Promise<{ success: boolean; ran?: boolean; platformRunId?: string; message?: string }>;
+  ): Promise<{
+    success: boolean;
+    ran?: boolean;
+    platformRunId?: string;
+    message?: string;
+    /**
+     * The task is already running, so nothing was started (ADR 0004). Not a
+     * run and not a failure of the verb: the route answers 409 and writes no
+     * history, health evidence or notification for it.
+     */
+    busy?: boolean;
+  }>;
 
   /**
    * Enable/Disable a task. `message` carries a platform failure reason (e.g. an

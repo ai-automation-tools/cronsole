@@ -29,7 +29,7 @@ describe('denormalizeTemplate', () => {
     }
   });
 
-  it('maps execution.timeoutSec onto a script job and back, clamped to 60 minutes', () => {
+  it('maps execution.timeoutSec onto a script job and back, clamped to 24 hours', () => {
     const script = {
       schemaVersion: '1.0' as const,
       id: 'agent-digest',
@@ -46,7 +46,7 @@ describe('denormalizeTemplate', () => {
     expect(normalizeTemplate(back)).toEqual(norm);
 
     expect(normalizeTemplate({ ...script, execution: { timeoutSec: 99_999 } }).nativeJob)
-      .toMatchObject({ timeoutMs: 3_600_000 });
+      .toMatchObject({ timeoutMs: 86_400_000 });
     for (const timeoutSec of [null, undefined, 0]) {
       const job = normalizeTemplate({ ...script, execution: { timeoutSec } }).nativeJob as Record<string, unknown>;
       expect(job).not.toHaveProperty('timeoutMs');

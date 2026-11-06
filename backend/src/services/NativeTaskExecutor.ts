@@ -31,7 +31,25 @@ import {
  *   system, which is what the failure notifications, health tiers and the
  *   *Failures* view were all built to carry.
  */
-export type NativeJob = HttpJob | ExecJob | ScriptJob | CheckJob;
+export type NativeJob = (HttpJob | ExecJob | ScriptJob | CheckJob) & { policy?: RunPolicy };
+
+/**
+ * How the scheduler treats a task's runs (ADR 0004), as opposed to what a run does.
+ * Optional and omitted when every field is its default, so a job that sets
+ * nothing is stored exactly as it was before the field existed.
+ */
+export interface RunPolicy {
+  /** A run that comes due while the last is still going: skip it (default) or hold one. */
+  overlap?: 'skip' | 'queue';
+  /** Extra attempts after a scheduled run that ran and failed. Never on a CHECK. */
+  retries?: number;
+  retryDelayMinutes?: number;
+  /** Run once when Cronsole is back, if a due time passed while it was down. */
+  catchUp?: boolean;
+}
+
+export const MAX_RETRIES = 5;
+export const MAX_RETRY_DELAY_MINUTES = 60;
 
 export interface HttpJob {
   jobType: 'HTTP';
@@ -62,7 +80,7 @@ export interface ExecJob {
    * Cronsole's own environment** — see `childEnv`.
    */
   env?: Record<string, string>;
-  /** Hard kill after this long. Defaults to 5 min, capped at 60. */
+  /** Hard kill after this long. Defaults to 5 min, capped at 24 h (ADR 0004). */
   timeoutMs?: number;
 }
 
@@ -192,7 +210,7 @@ const EXEC_LOG_LENGTH = 2000;
 const EXEC_CAPTURE_BYTES = 64 * 1024;
 
 export const DEFAULT_EXEC_TIMEOUT_MS = 5 * 60_000;
-export const MAX_EXEC_TIMEOUT_MS = 60 * 60_000;
+export const MAX_EXEC_TIMEOUT_MS = 24 * 60 * 60_000;
 
 /** A probe measures something; it should not sit on a socket for minutes doing it. */
 export const CHECK_TIMEOUT_MS = 15_000;
@@ -309,6 +327,9 @@ export function validateJob(job: unknown): string | null {
   const illegalRef = illegalSecretRef(j);
   if (illegalRef) return illegalRef;
 
+  const policyError = validatePolicy(j.policy, j.jobType);
+  if (policyError) return policyError;
+
   if (j.jobType === 'HTTP') {
     if (typeof j.url !== 'string' || !isUrlOrSecretRef(j.url)) {
       return 'Job url must start with http:// or https://';
@@ -374,6 +395,39 @@ export function validateJob(job: unknown): string | null {
   }
 
   return `Unsupported jobType: ${j.jobType}`;
+}
+
+/**
+ * The run policy (ADR 0004). A CHECK refuses retries by name: its failure is a
+ * measurement, and retrying a measurement until it passes is how a real outage
+ * reads as green.
+ */
+function validatePolicy(policy: unknown, jobType: unknown): string | null {
+  if (policy === undefined) return null;
+  if (!policy || typeof policy !== 'object' || Array.isArray(policy)) return 'Job policy must be an object';
+  const p = policy as Record<string, unknown>;
+  if (p.overlap !== undefined && p.overlap !== 'skip' && p.overlap !== 'queue') {
+    return 'Job policy.overlap must be "skip" or "queue"';
+  }
+  if (p.retries !== undefined) {
+    const n = Number(p.retries);
+    if (!Number.isInteger(n) || n < 0 || n > MAX_RETRIES) {
+      return `Job policy.retries must be a whole number from 0 to ${MAX_RETRIES}`;
+    }
+    if (n > 0 && jobType === 'CHECK') {
+      return "A check can't retry: its failure is a measurement, and retrying it until it passes would hide a real problem";
+    }
+  }
+  if (p.retryDelayMinutes !== undefined) {
+    const d = Number(p.retryDelayMinutes);
+    if (!Number.isFinite(d) || d < 1 || d > MAX_RETRY_DELAY_MINUTES) {
+      return `Job policy.retryDelayMinutes must be from 1 to ${MAX_RETRY_DELAY_MINUTES}`;
+    }
+  }
+  if (p.catchUp !== undefined && typeof p.catchUp !== 'boolean') {
+    return 'Job policy.catchUp must be true or false';
+  }
+  return null;
 }
 
 /** Shared by EXEC and SCRIPT, which carry the same `env` contract. */

@@ -98,7 +98,18 @@ export interface NativeJobValues {
   checkPath: string;
   maxAgeMinutes: string;
   minFreeMb: string;
+  // Run settings (ADR 0004). Unlike the fields above they belong to no one job
+  // type, so they survive a type switch — except retries, which a check refuses.
+  /** EXEC and SCRIPT only. Blank means the server default, 5 minutes. */
+  timeoutMinutes: string;
+  retries: string;
+  retryDelayMinutes: string;
+  overlap: 'skip' | 'queue';
+  catchUp: boolean;
 }
+
+/** The longest time limit a program or script may have, in minutes (24 hours). */
+export const MAX_TIMEOUT_MINUTES = 24 * 60;
 
 /** Empty form state, so every caller starts from the same shape. */
 export const emptyNativeJobValues = (): NativeJobValues => ({
@@ -124,7 +135,12 @@ export const emptyNativeJobValues = (): NativeJobValues => ({
   checkPort: '',
   checkPath: '',
   maxAgeMinutes: '60',
-  minFreeMb: '1024'
+  minFreeMb: '1024',
+  timeoutMinutes: '',
+  retries: '0',
+  retryDelayMinutes: '1',
+  overlap: 'skip',
+  catchUp: false
 });
 
 /**
@@ -306,6 +322,7 @@ function nativeJobEdit(task: Task): RunsEdit {
     ? [quoteIfSpaced(exe), ...args.map(quoteIfSpaced)].join(' ')
     : '';
 
+  const policy = (job.policy ?? {}) as Meta;
   const probe = (job.probe ?? {}) as Meta;
   const probeKind = asText(probe.kind);
   const range = (probe.expectStatus ?? {}) as Meta;
@@ -360,7 +377,19 @@ function nativeJobEdit(task: Task): RunsEdit {
       // three orders of magnitude.
       minFreeMb: Number.isFinite(minFreeBytes) && minFreeBytes > 0
         ? String(Math.round(minFreeBytes / (1024 * 1024)))
-        : '1024'
+        : '1024',
+
+      // Read so an edit sends them back. Before 2026-11-06 the form had no
+      // timeout field, so saving any change silently reset an MCP-set limit to
+      // 5 minutes.
+      timeoutMinutes:
+        (jobType === 'EXEC' || jobType === 'SCRIPT') && Number(job.timeoutMs) > 0
+          ? String(Math.round(Number(job.timeoutMs) / 60_000))
+          : '',
+      retries: asText(policy.retries) ?? '0',
+      retryDelayMinutes: asText(policy.retryDelayMinutes) ?? '1',
+      overlap: policy.overlap === 'queue' ? 'queue' : 'skip',
+      catchUp: policy.catchUp === true
     }
   };
 }
@@ -505,6 +534,35 @@ export function nativeJobUnreadable(v: NativeJobValues): string | null {
  *  and the request compare the same thing — a section that reports itself
  *  unchanged must be unchanged *on the wire*, not merely in the fields. */
 export function nativeJobPayload(v: NativeJobValues): Record<string, unknown> | null {
+  const job = jobPayload(v);
+  return job && withRunSettings(job, v);
+}
+
+/**
+ * Add the time limit and run policy to a job payload (ADR 0004). Only values
+ * that differ from the default are sent — the same rule the server's
+ * `buildPolicy` applies — so a job that sets none sends exactly what it always
+ * did, and the edit form's dirty check does not see a change that is not there.
+ */
+function withRunSettings(job: Record<string, unknown>, v: NativeJobValues): Record<string, unknown> {
+  const out = { ...job };
+  const minutes = Number(v.timeoutMinutes);
+  if ((v.jobType === 'EXEC' || v.jobType === 'SCRIPT') && v.timeoutMinutes.trim() && minutes > 0) {
+    out.timeoutMs = Math.round(minutes * 60_000);
+  }
+  const policy: Record<string, unknown> = {};
+  if (v.overlap === 'queue') policy.overlap = 'queue';
+  if (v.catchUp) policy.catchUp = true;
+  const retries = Number(v.retries);
+  if (v.jobType !== 'CHECK' && retries > 0) {
+    policy.retries = retries;
+    if (Number(v.retryDelayMinutes) !== 1) policy.retryDelayMinutes = Number(v.retryDelayMinutes);
+  }
+  if (Object.keys(policy).length) out.policy = policy;
+  return out;
+}
+
+function jobPayload(v: NativeJobValues): Record<string, unknown> | null {
   // The one gate, so `null` and the sentence explaining it can never disagree.
   if (nativeJobUnreadable(v)) return null;
 
@@ -617,6 +675,23 @@ const isUrlOrSecretRef = (value: string): boolean =>
  * had a local copy that knew two job types and blocked a script edit on a
  * missing `command`.
  */
+/** The run settings' ranges, mirroring the server's `validatePolicy`. */
+function runSettingsIncomplete(v: NativeJobValues): string | null {
+  if ((v.jobType === 'EXEC' || v.jobType === 'SCRIPT') && v.timeoutMinutes.trim()) {
+    const m = Number(v.timeoutMinutes);
+    if (!(m > 0 && m <= MAX_TIMEOUT_MINUTES)) {
+      return `The time limit must be from 1 to ${MAX_TIMEOUT_MINUTES} minutes (24 hours)`;
+    }
+  }
+  if (v.jobType !== 'CHECK') {
+    const r = Number(v.retries);
+    if (!(Number.isInteger(r) && r >= 0 && r <= 5)) return 'Retries must be a whole number from 0 to 5';
+    const d = Number(v.retryDelayMinutes);
+    if (r > 0 && !(d >= 1 && d <= 60)) return 'The wait between retries must be from 1 to 60 minutes';
+  }
+  return null;
+}
+
 export function nativeJobIncomplete(v: NativeJobValues): string | null {
   // Unreadable first. A form whose headers or environment cannot be parsed has
   // no payload at all, so letting it past this gate posted a literal `job: null`
@@ -624,6 +699,8 @@ export function nativeJobIncomplete(v: NativeJobValues): string | null {
   // field's name.
   const unreadable = nativeJobUnreadable(v);
   if (unreadable) return unreadable;
+  const runSettings = runSettingsIncomplete(v);
+  if (runSettings) return runSettings;
 
   if (v.jobType === 'HTTP') {
     return isUrlOrSecretRef(v.url.trim()) ? null : 'Enter a URL starting with http:// or https://';

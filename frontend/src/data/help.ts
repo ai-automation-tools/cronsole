@@ -901,6 +901,50 @@ const nativeJobType: HelpTopic = {
   ]
 };
 
+const jobRunSettings: HelpTopic = {
+  id: 'job-run-settings',
+  title: 'Run settings',
+  summary:
+    'How Cronsole runs this task: how long a run may take, whether a failed run is retried, what ' +
+    'happens if it is still running when it comes due again, and whether a run missed while ' +
+    'Cronsole was down happens later.',
+  points: [
+    {
+      label: 'Time limit',
+      body:
+        'Programs and scripts are stopped after this long. Blank means 5 minutes; the most is 24 hours.'
+    },
+    {
+      label: 'Retries are for runs that ran and failed',
+      body:
+        'A scheduled run that exits with an error is tried again, up to 5 more times. A run that could ' +
+        'not start (a missing secret, say) is not, because it would fail the same way. Run now is never ' +
+        'retried, and you only get one notification, for the last attempt.'
+    },
+    {
+      label: 'A check never retries',
+      body:
+        "A check's failure is a measurement. Retrying it until it passes would make a real problem look fine."
+    },
+    {
+      label: 'Still running when it comes due',
+      body:
+        'Skip leaves the new run out. Queue holds one run and starts it when the current one ends, never ' +
+        'more than one. Run now on a running task is refused either way.'
+    },
+    {
+      label: 'Catch up',
+      body:
+        'If Cronsole was down at a due time, the task runs once when it is back, however many due times ' +
+        'it missed. Without it, a run more than 5 minutes late is skipped.'
+    }
+  ],
+  doc: { label: 'Cronsole-native › Run settings', url: sourceDoc('TASKHUB_NATIVE', '-run-settings') },
+  more: [
+    { label: 'ADR 0004 — How a native task runs', url: docLink('docs/adr/0004-native-run-policy.md') }
+  ]
+};
+
 const jobEnv: HelpTopic = {
   id: 'job-env',
   title: 'Environment',
@@ -1814,6 +1858,7 @@ const TOPIC_LIST: HelpTopic[] = [
   sourceN8n,
   schedule,
   nativeJobType,
+  jobRunSettings,
   jobEnv,
   taskSecrets,
   command,

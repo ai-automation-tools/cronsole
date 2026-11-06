@@ -1759,6 +1759,21 @@ describe('export_task', () => {
 describe('create_native_task', () => {
   const created = { message: 'Native task created', task: task({ id: 'n1', platform: 'TASKHUB_NATIVE' }) };
 
+  it('folds the run policy into job.policy, and sends none when none is given (ADR 0004)', async () => {
+    const { client, calls } = stubClient({ 'POST /tasks/native': created });
+    const mcp = await connect(client);
+    await call(mcp, 'create_native_program_task', {
+      name: 'n', command: 'node -v', schedule: '0 9 * * *',
+      timeoutMs: 7_200_000, retries: 2, retryDelayMinutes: 5, overlap: 'queue', catchUp: true
+    });
+    await call(mcp, 'create_native_task', { name: 'n', url: 'https://x.test', schedule: '0 9 * * *' });
+    expect((calls[0].body as any).job).toEqual({
+      jobType: 'EXEC', command: 'node -v', timeoutMs: 7_200_000,
+      policy: { overlap: 'queue', catchUp: true, retries: 2, retryDelayMinutes: 5 }
+    });
+    expect((calls[1].body as any).job).not.toHaveProperty('policy');
+  });
+
   it('sends the jobType discriminator the route requires', async () => {
     // This test previously asserted a payload with NO `jobType` and was named
     // "nests the HTTP job the way the route expects" — a claim it could not

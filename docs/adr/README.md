@@ -21,6 +21,7 @@ is the reasoning, not the outcome.
 | [**ADR 0001 — Template registry**](0001-template-registry-schema.md) | Templates are target-agnostic JSON compiled at apply time, served from a registry decoupled from the app. Freezes the registry base URL, which is why there is no second move. | Accepted · 2026-07-13 |
 | [**ADR 0002 — Native job types**](0002-native-job-types.md) | Four types, not a growing list: HTTP, Programs, Scripts and Checks. The bar for a fifth is "a different *kind* of thing", not "useful". | Shipped · 2026-08-15 |
 | [**ADR 0003 — Per-job secrets**](0003-per-job-secrets.md) | A job stores a *reference* to a credential, never the credential. `TaskSecret` is a relation rather than a column, so a secret cannot ride into an export or an archive. | Shipped · 2026-08-21 |
+| [**ADR 0004 — How a native task runs**](0004-native-run-policy.md) | Runs no longer queue behind each other, a time limit can be up to 24 hours, a failed run can retry, and a run missed while Cronsole was down can run once when it is back. Checks never retry. | Accepted · 2026-11-06 |
 
 > [!NOTE]
 > ADRs record a decision, not the current state of the code. When one disagrees with the repo, the

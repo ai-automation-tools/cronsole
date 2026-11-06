@@ -10,6 +10,7 @@ import agentSetupGuide from '../../../../docs/user-guides/guides/Agent_Setup_Gui
 import templatesDoc from '../../../../docs/reports/templates/Templates.md?raw';
 import troubleshooting from '../../../../docs/troubleshooting/README.md?raw';
 import adrPerJobSecrets from '../../../../docs/adr/0003-per-job-secrets.md?raw';
+import adrNativeRunPolicy from '../../../../docs/adr/0004-native-run-policy.md?raw';
 import remoteAccessGuide from '../../../../docs/user-guides/guides/Remote_Access_Guide.md?raw';
 import phoneShortcutsGuide from '../../../../docs/user-guides/guides/Phone_Shortcuts_Guide.md?raw';
 import addingASource from '../../../../docs/contributing/Adding_A_Source.md?raw';
@@ -54,6 +55,7 @@ const DOC_SOURCES: Record<string, string> = {
   'docs/reports/templates/Templates.md': templatesDoc,
   'docs/troubleshooting/README.md': troubleshooting,
   'docs/adr/0003-per-job-secrets.md': adrPerJobSecrets,
+  'docs/adr/0004-native-run-policy.md': adrNativeRunPolicy,
   'docs/user-guides/guides/Remote_Access_Guide.md': remoteAccessGuide,
   'docs/user-guides/guides/Phone_Shortcuts_Guide.md': phoneShortcutsGuide,
   'docs/contributing/Adding_A_Source.md': addingASource,

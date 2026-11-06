@@ -5,6 +5,7 @@ import { PlatformConnector, TaskInfo, ConnectorHealth, CreateTaskOptions } from 
 import { executeJob, validateJob, NativeJob } from '../services/NativeTaskExecutor.js';
 import { buildNativeJob, nativeJobFromCommand, isUrlCommand } from '../services/nativeJob.js';
 import { readTaskSecrets, TaskSecretDecryptError } from '../services/taskSecrets.js';
+import { nativeScheduler } from '../services/NativeScheduler.js';
 import { computeNextRun } from '../utils/cron-next.js';
 
 /**
@@ -25,7 +26,7 @@ export class CronsoleNativeConnector implements PlatformConnector {
   async runTask(
     externalId: string,
     _config: any
-  ): Promise<{ success: boolean; ran?: boolean; platformRunId?: string; message?: string }> {
+  ): Promise<{ success: boolean; ran?: boolean; platformRunId?: string; message?: string; busy?: boolean }> {
     const task = await prisma.task.findUnique({
       where: { platform_externalId: { platform: this.platform, externalId } }
     });
@@ -55,11 +56,26 @@ export class CronsoleNativeConnector implements PlatformConnector {
       throw err;
     }
 
-    // `ran` comes from the executor, not from "we got this far": a spec that
-    // fails validateJob never executes, and reporting that as a verdict would
-    // hand the user a "check failed" for a task that never ran.
-    const result = await executeJob(job, secrets);
-    return { success: result.success, ran: result.ran, message: result.log };
+    // Run now joins the scheduler's overlap rule (ADR 0004): a second copy of a
+    // job that is already running is refused, whatever the task's policy says —
+    // someone clicking wants a run now, not one queued for later.
+    if (!nativeScheduler.claim(task.id)) {
+      return {
+        success: false,
+        ran: false,
+        busy: true,
+        message: `"${task.name}" is already running. Wait for that run to finish, then try again.`
+      };
+    }
+    try {
+      // `ran` comes from the executor, not from "we got this far": a spec that
+      // fails validateJob never executes, and reporting that as a verdict would
+      // hand the user a "check failed" for a task that never ran.
+      const result = await executeJob(job, secrets);
+      return { success: result.success, ran: result.ran, message: result.log };
+    } finally {
+      await nativeScheduler.release(task.id);
+    }
   }
 
   async setTaskStatus(externalId: string, enabled: boolean, _config: any): Promise<{ success: boolean }> {

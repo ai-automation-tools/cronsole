@@ -460,6 +460,50 @@ function ok(text: string, structuredContent: Record<string, unknown>) {
  * 3am. The tool cannot fix it either: no MCP tool sets a secret value, and the
  * sentence says where to.
  */
+/**
+ * The run policy every native create/update tool offers (ADR 0004). Spread into
+ * an inputSchema; `withPolicy` folds the flat arguments back into `job.policy`.
+ * The backend drops defaults and validates the ranges, so this only decides what
+ * is offered.
+ */
+const OVERLAP_CATCHUP_SHAPE = {
+  overlap: z
+    .enum(['skip', 'queue'])
+    .optional()
+    .describe("If a run comes due while the last one is still going: 'skip' it (default) or 'queue' one run behind it."),
+  catchUp: z
+    .boolean()
+    .optional()
+    .describe('If Cronsole was down at a due time, run once when it is back. Default false: a run over 5 minutes late is skipped.')
+};
+const RUN_POLICY_SHAPE = {
+  ...OVERLAP_CATCHUP_SHAPE,
+  retries: z
+    .number()
+    .int()
+    .min(0)
+    .max(5)
+    .optional()
+    .describe('Retry a scheduled run that ran and failed, up to this many extra times (0-5). Run now is never retried.'),
+  retryDelayMinutes: z
+    .number()
+    .int()
+    .min(1)
+    .max(60)
+    .optional()
+    .describe('Minutes between retries (1-60, default 1).')
+};
+function withPolicy(
+  job: Record<string, unknown>,
+  a: { overlap?: string; catchUp?: boolean; retries?: number; retryDelayMinutes?: number }
+): Record<string, unknown> {
+  const policy: Record<string, unknown> = {};
+  for (const k of ['overlap', 'catchUp', 'retries', 'retryDelayMinutes'] as const) {
+    if (a[k] !== undefined) policy[k] = a[k];
+  }
+  return Object.keys(policy).length ? { ...job, policy } : job;
+}
+
 function missingSecretsNote(missing: unknown): string {
   const names = Array.isArray(missing) ? missing.filter(n => typeof n === 'string') : [];
   if (!names.length) return '';
@@ -1166,10 +1210,11 @@ export function registerTools(
           .string()
           .optional()
           .describe('Request body as a string. For JSON, pass the serialized JSON and set a Content-Type header.'),
+        ...(RUN_POLICY_SHAPE),
         category: z.string().optional().describe('Cronsole category for grouping. Defaults to "Cronsole".')
       }
     },
-    async ({ name, url, schedule, method, headers, body, category }) => {
+    async ({ name, url, schedule, method, headers, body, category, ...policy }) => {
       try {
         // The route takes the job as a nested spec and validates it with the same
         // validateJob the executor uses — so the shape is the backend's, not ours.
@@ -1184,7 +1229,7 @@ export function registerTools(
         if (headers) job.headers = headers;
         if (body) job.body = body;
 
-        const payload: Record<string, unknown> = { name, schedule, job };
+        const payload: Record<string, unknown> = { name, schedule, job: withPolicy(job, policy) };
         if (category) payload.category = category;
 
         const result = await client.post<{ message?: string; task?: TaskRow; missingSecrets?: string[] }>('/tasks/native', payload);
@@ -1256,17 +1301,18 @@ export function registerTools(
           .int()
           .positive()
           .optional()
-          .describe('Kill the job after this long. Defaults to 5 minutes; 60 minutes is the maximum.'),
+          .describe('Kill the job after this long, in ms. Defaults to 5 minutes; 24 hours is the maximum.'),
+        ...(RUN_POLICY_SHAPE),
         category: z.string().optional().describe('Cronsole category for grouping. Defaults to "Cronsole".')
       }
     },
-    async ({ name, command, schedule, workingDirectory, timeoutMs, category }) => {
+    async ({ name, command, schedule, workingDirectory, timeoutMs, category, ...policy }) => {
       try {
         const job: Record<string, unknown> = { jobType: 'EXEC', command };
         if (workingDirectory) job.workingDirectory = workingDirectory;
         if (timeoutMs !== undefined) job.timeoutMs = timeoutMs;
 
-        const payload: Record<string, unknown> = { name, schedule, job };
+        const payload: Record<string, unknown> = { name, schedule, job: withPolicy(job, policy) };
         if (category) payload.category = category;
 
         const result = await client.post<{ message?: string; task?: TaskRow; missingSecrets?: string[] }>('/tasks/native', payload);
@@ -1342,17 +1388,18 @@ Next run: ${task.nextRunTime}` : '')
           .int()
           .positive()
           .optional()
-          .describe('Kill the job after this long. Defaults to 5 minutes; 60 minutes is the maximum.'),
+          .describe('Kill the job after this long, in ms. Defaults to 5 minutes; 24 hours is the maximum.'),
+        ...(RUN_POLICY_SHAPE),
         category: z.string().optional().describe('Cronsole category for grouping. Defaults to "Cronsole".')
       }
     },
-    async ({ name, interpreter, body, schedule, workingDirectory, timeoutMs, category }) => {
+    async ({ name, interpreter, body, schedule, workingDirectory, timeoutMs, category, ...policy }) => {
       try {
         const job: Record<string, unknown> = { jobType: 'SCRIPT', interpreter, body };
         if (workingDirectory) job.workingDirectory = workingDirectory;
         if (timeoutMs !== undefined) job.timeoutMs = timeoutMs;
 
-        const payload: Record<string, unknown> = { name, schedule, job };
+        const payload: Record<string, unknown> = { name, schedule, job: withPolicy(job, policy) };
         if (category) payload.category = category;
 
         const result = await client.post<{ message?: string; task?: TaskRow; missingSecrets?: string[] }>('/tasks/native', payload);
@@ -1438,6 +1485,7 @@ Next run: ${task.nextRunTime}` : '')
           .number()
           .optional()
           .describe('diskFree only: fail below this many free bytes. 10 GB is 10737418240.'),
+        ...(OVERLAP_CATCHUP_SHAPE),
         category: z.string().optional().describe('Cronsole category for grouping. Defaults to "Cronsole".')
       }
     },
@@ -1470,7 +1518,7 @@ Next run: ${task.nextRunTime}` : '')
         const payload: Record<string, unknown> = {
           name: args.name,
           schedule: args.schedule,
-          job: { jobType: 'CHECK', probe }
+          job: withPolicy({ jobType: 'CHECK', probe }, args)
         };
         if (args.category) payload.category = args.category;
 
@@ -2183,7 +2231,8 @@ Next run: ${task.nextRunTime}` : '')
         'Change the job spec of a Cronsole-**native** task — the URL/method/headers/body of an HTTP job, or the ' +
         'command and working directory of a script job. Only for TASKHUB_NATIVE tasks; use update_task_action ' +
         'for Windows. ' +
-        'NOTE: this REPLACES the job rather than patching it. The two job types share no fields, so send the ' +
+        'NOTE: this REPLACES the job rather than patching it, run policy (retries, overlap, catchUp) included. ' +
+        'The two job types share no fields, so send the ' +
         'whole spec — read the current one first (list_tasks / export_task) rather than guessing. Passing a ' +
         'different `jobType` deliberately converts the task and discards the other type\'s fields; the schedule, ' +
         'name, category and run history are kept either way. ' +
@@ -2220,10 +2269,19 @@ Next run: ${task.nextRunTime}` : '')
         workingDirectory: z
           .string()
           .optional()
-          .describe('EXEC only. Directory to run in, resolved on the backend host. Omit to clear it.')
+          .describe('EXEC only. Directory to run in, resolved on the backend host. Omit to clear it.'),
+        timeoutMs: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .describe('EXEC only. Kill the job after this long, in ms (max 24 hours). Omit to reset to 5 minutes.'),
+        // Like every field here, the run policy is replaced, not merged: omit a
+        // field and it returns to its default.
+        ...RUN_POLICY_SHAPE
       }
     },
-    async ({ taskId, jobType, url, method, headers, body, command, workingDirectory }) => {
+    async ({ taskId, jobType, url, method, headers, body, command, workingDirectory, timeoutMs, ...policy }) => {
       try {
         // Built here rather than forwarded wholesale so a field belonging to the
         // other job type cannot ride along into the stored spec.
@@ -2234,13 +2292,14 @@ Next run: ${task.nextRunTime}` : '')
         if (jobType === 'HTTP') {
           if (headers && Object.keys(headers).length) job.headers = headers;
           if (body !== undefined) job.body = body;
-        } else if (workingDirectory !== undefined) {
-          job.workingDirectory = workingDirectory;
+        } else {
+          if (workingDirectory !== undefined) job.workingDirectory = workingDirectory;
+          if (timeoutMs !== undefined) job.timeoutMs = timeoutMs;
         }
 
         const task = await client.patch<TaskRow & { missingSecrets?: string[] }>(
           `/tasks/${encodeURIComponent(taskId)}/job`,
-          { job }
+          { job: withPolicy(job, policy) }
         );
         const what = jobType === 'HTTP' ? `${method ?? 'GET'} ${url}` : command;
         return ok(

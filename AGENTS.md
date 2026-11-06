@@ -372,6 +372,18 @@ Non-negotiable rules. **Every one has a reason recorded in
   A type is a permanent rail row, so the test is "a different *kind* of thing", not "useful".
   `SCRIPT` carries its body and uses a fixed interpreter allowlist; `CHECK` is the only type whose
   failure is a fact about the system rather than a bug in your script.
+- **A native tick decides; it never waits for a run** ([ADR 0004](docs/adr/0004-native-run-policy.md)).
+  `NativeScheduler.tick` finds what is due, advances `nextRunTime` from *now* and starts each run
+  on its own — awaiting them made one slow job hold up every native task. What a task does when it
+  comes due while still running, and whether it retries or catches up, is **`job.policy`**
+  (`overlap` skip|queue, `retries` 0–5, `retryDelayMinutes`, `catchUp`), normalized by
+  `buildNativeJob` with defaults dropped. **Retry only `ran && !success`**: never a run that could
+  not start, never Run now, and **never a `CHECK`** — `validateJob` refuses it, because retrying a
+  measurement until it passes hides a real outage. Every attempt is an `ExecutionLog` row; only the
+  last notifies. Run now joins the overlap set (`claim`/`release`) and is refused while running —
+  `busy: true` from the connector, a **409 that records nothing** (no history, no health
+  evidence, no notification), since a refused click is not a run.
+  `timeoutMs` goes to 24 h, default still 5 min.
 - **A native job stores a *reference* to a credential, never the credential**
   ([ADR 0003](docs/adr/0003-per-job-secrets.md)). `${secret.NAME}` in a url · header value · body ·
   arg · env value — refused in an `executable`, an `interpreter` or a check assertion, by name. The

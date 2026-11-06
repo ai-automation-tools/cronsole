@@ -14,7 +14,7 @@
     Both halves were no-ops, for two independent reasons:
 
       * STOP had nothing to stop. That task launched through run-hidden.vbs, which
-        is fire-and-forget (`WScript.Shell.Run(cmd, 0, False)`), so wscript.exe
+        was then fire-and-forget (`WScript.Shell.Run(cmd, 0, False)`), so wscript.exe
         exited within a second and the task instance was long gone while the agent
         it had started ran on as an unrelated process. The task sat at `Ready`
         while the agent held a pid - so `Stop-ScheduledTask` returned success
@@ -116,7 +116,7 @@ RESTARTS THE WHOLE LOCAL CRONSOLE STACK. Runs scripts\cronsole.ps1 restart - sto
 ON DEMAND ONLY - THIS TASK HAS NO TRIGGER. It never fires on logon, on a schedule, or on idle. Start it by hand (no elevation needed to START it):
     Start-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleRestart'
 
-THIS IS THE CORRECT WAY TO BOUNCE THE AGENT. Stop-ScheduledTask / Start-ScheduledTask on a task in this folder stops and starts NOTHING: every one of them launches fire-and-forget through run-hidden.vbs, so there is no instance left to stop, and 'up' is idempotent so it will not replace an agent that is already running. That pair returned success while changing nothing for months - see troubleshooting #86.
+THIS IS THE CORRECT WAY TO BOUNCE THE AGENT. Stop-ScheduledTask / Start-ScheduledTask on a task in this folder does not bounce anything: the services are launched with Start-Process and outlive the task instance, so Stop at most ends a script in progress, and 'up' is idempotent so it will not replace an agent that is already running. That pair returned success while changing nothing for months - see troubleshooting #86.
 
 Runs elevated (RunLevel Highest) because the agent itself runs elevated, so an unelevated Stop-Process against it is refused.
 

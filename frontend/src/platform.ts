@@ -141,7 +141,7 @@ export const sourceSubtypeLabel = (key: string) =>
  * never used and most needs a sentence for.
  *
  * **This is a summary, never the documentation.** It is one line; the `?` beside
- * it opens the matching `HelpTopic`, which links to the Sources Guide. Same rule
+ * it opens the matching `HelpTopic`, which links to the source's own guide. Same rule
  * `help.ts` holds itself to — a control may summarise a doc, but must never
  * quietly become the only place a rule is written down.
  *

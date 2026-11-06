@@ -1,6 +1,14 @@
-# Cronsole Logo Proposals
+<h1 align="center">🔷 Cronsole Logos</h1>
 
-Landscape Cronsole logo proposals for GitHub README art, website headers, and social preview-style placements.
+<p align="center">
+  <em>Landscape logos for README art, website headers and social previews.</em>
+</p>
+
+<p align="center">
+  <a href="../../README.md"><img src="https://img.shields.io/badge/↩-images-6B7280?style=for-the-badge" alt="Images"></a>
+</p>
+
+---
 
 Open [`../preview.html`](../preview.html) to compare these logos alongside the square icon proposals.
 
@@ -18,6 +26,13 @@ Open [`../preview.html`](../preview.html) to compare these logos alongside the s
 
 ## Notes
 
-- All links are relative to this README, so they keep working if the entire `logo-proposals/` folder is moved.
+- All links are relative to this README, so they keep working if the `Cronsole-Images/` folder is moved.
 - Landscape assets use a `1200 x 360` viewBox for GitHub/website placement.
 - SVG format keeps the marks crisp for README banners, website headers, and documentation art.
+
+---
+
+<p align="center">
+  <a href="../../README.md">← Images</a> ·
+  <a href="../../../README.md">Repository root</a>
+</p>

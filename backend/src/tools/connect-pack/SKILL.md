@@ -5,7 +5,7 @@ description: Create, run, and manage scheduled tasks through a running Cronsole 
 
 # Cronsole
 
-> Cronsole Connect Pack **v1.12** · canonical copy: <https://cronsole.ai-automation-tools.dev>
+> Cronsole Connect Pack **v1.14** · canonical copy: <https://cronsole.ai-automation-tools.dev>
 > If this file is older than your Cronsole install, the install wins — re-download the pack.
 
 Cronsole is a single pane of glass for scheduled tasks. It runs **locally** on the user's own
@@ -50,6 +50,8 @@ leaves it running), or the dashboard. Do not route around a gate.
 | Schedule an **existing program** | `create_native_program_task` | `POST /api/tasks/native` with `job.jobType: 'EXEC'`. The program must already exist on the machine the **Cronsole backend** is on — not necessarily the user's desktop. Prefer a Windows task for anything that must run as the user or survive Cronsole being down |
 | Schedule a **script you write** | `create_native_script_task` | `POST /api/tasks/native` with `job.jobType: 'SCRIPT'`. The body is stored and run under a named interpreter (`powershell`, `pwsh`, `bash`, `sh`, `python`, `node`), so nothing has to exist on disk first. `node` is present wherever the backend runs |
 | Schedule a **check** | `create_native_check_task` | `POST /api/tasks/native` with `job.jobType: 'CHECK'`. Asserts on an endpoint, a TCP port, a file's age, or free disk space — a failure here is a fact about the system, unlike a failing script |
+| Create a **Gemini trigger** (a scheduled prompt on Google's agent) | `create_gemini_trigger` | `POST /api/tasks` with `platform: 'GEMINI_TRIGGERS'`. The unit of work is a prompt plus the tools it may reach, not a command. A trigger's schedule and prompt are fixed once created. |
+| Create a **Claude Code routine** | `create_claude_routine` | `POST /api/tasks` with `platform: 'CLAUDE_CODE'`. Needs `list_claude_routines` to report `session.mode: "oauth"`; otherwise 400. |
 | Create from a template | `create_task_from_template` | `POST /api/templates/:id/apply` |
 | Browse templates | `list_templates` | `GET /api/templates` |
 | Validate a schedule | `convert_schedule` | `POST /api/tasks/preview` |
@@ -59,23 +61,33 @@ leaves it running), or the dashboard. Do not route around a gate.
 | Remove **many** from Cronsole, keep them running | — | `POST /api/tools/tasks/untrack` (`{taskIds}`) |
 | Re-schedule | `update_task_schedule` | `PATCH /api/tasks/:id/schedule` |
 | Edit the command | `update_task_action` | `PATCH /api/tasks/:id/actions` |
+| Change what a **native** job runs | `update_native_job` | `PATCH /api/tasks/:id/job` — URL, method, headers, body, or a script's command and working directory. No agent involved. |
+| Rename (Cronsole's label only) | `rename_task` | `PATCH /api/tasks/:id` — nothing is renamed on the platform. **Refused** where the platform owns the name (GitHub Actions, Vercel, n8n, Gemini, a Claude routine read through the session). |
 | Run history | `get_task_history` | `GET /api/tasks/:id/executions` |
+| Runs **the platform** recorded (incl. every scheduled run Cronsole never started) | `list_platform_runs` | `GET /api/tasks/:id/platform-runs` — where a hosted source's runs actually are. `get_task_history` holds only runs Cronsole performed. |
+| What one run produced: text, the **steps it took**, counts | `get_run_output` | `GET /api/tasks/:id/platform-runs/:runId/output` — read the steps, not only the status. |
 | Export one task | `export_task` | `GET /api/tasks/:id/export` — the platform's own definition: Task Scheduler **XML** for Windows (UTF-16 LE + BOM; write it as raw bytes), Cronsole **JSON** for a native task. Restores that exact task onto that platform |
 | Export a task so it can be recreated **elsewhere** | `export_task` with `format: 'template'` | `GET /api/tasks/:id/export?format=template` — a portable Registry v1 template, importable with `POST /api/templates/import` and then applied to any compatible target. **Not a backup**: it drops platform-specific settings (the account the task runs as, run level, extra actions), so say so if you offer it as one. It is the only export that works with the **agent offline**, or for a **Claude routine**, whose definition lives at claude.ai. Writes nothing — unlike save-as-template |
 | Remove from Cronsole, keep it running | `untrack_task` | `POST /api/tasks/:id/untrack` |
 | Import an exported task file | `import_task` | `POST /api/tasks/import` — the body **is** the file (the whole `cronsoleTaskVersion` object). Cronsole-native only: a native task's row *is* the task, so it round-trips, while a Windows definition is Task Scheduler XML on the machine and goes through Restore below. Creates a **new** task each time, `ACTIVE`, on the file's UTC schedule — report the returned `nextRunTime` |
+| Which secrets a native job needs, and which are set (names only) | `list_task_secrets` | `GET /api/tasks/:id/secrets` — no route returns a value, and no MCP tool writes one; set values in the dashboard. |
 | What was deleted, and can it come back | `list_task_archives` | `GET /api/tools/task-archives` — each row carries `restorable` **with its reason** |
 | Bring back a deleted task | `restore_task_archive` | `POST /api/tools/task-archives/:id/restore` — rebuilds a deleted Cronsole-native task as a **new** task. The archived run history is **not** reattached, and the archive is kept, so calling twice makes two tasks |
-| Delete | `delete_task` (gated) | `DELETE /api/tasks/:id` |
+| Delete (Cronsole-native only) | `delete_task` (gated) | `DELETE /api/tasks/:id/native` — archives first; refuses every other platform with a 400 |
 | Delete a template the user imported or saved | `delete_template` (gated) | `DELETE /api/templates/:id` — only an imported / saved-as-template entry. One synced from the built-in catalog is refused **409** (the next sync would restore it). Tasks made from the template are untouched; nothing is archived |
 | Bulk export / backup | — | `POST /api/tools/export/tasks` (`scope: 'all' \| 'folder' \| 'selection'`; `selection` takes `taskIds`) |
 | Restore from a backup | — | `POST /api/tools/restore/tasks` (send `dryRun: true` first) |
-| Run history across all tasks | — | `GET /api/tools/history` (`?format=csv`) |
-| What needs attention | — | `GET /api/tools/task-health` |
+| Run history across all tasks | `list_run_history` | `GET /api/tools/history` (`?format=csv`) |
+| What needs attention | `get_task_health` | `GET /api/tools/task-health` |
 | **Is Cronsole itself working?** | `get_diagnostics` | `GET /api/tools/diagnostics` — the agent connection, database, native scheduler, template catalog, API-token expiry and allowed origins, **each with the evidence behind it**. Ask this **before** `get_task_health` when something is wrong: health asks *"are the user's tasks failing"*, which is meaningless while the agent is wedged — then **every** Windows task reads unhealthy and the fix is in none of them. `unknown` is **not** `pass` (the check could not be measured). `measuredOn` says which machine the facts describe. Read-only; it repairs nothing, and it cannot report on a backend that is down because that backend serves it |
-| **What Cronsole can actually do with a platform** | — | `GET /api/tools/platforms` — each verb reads **`verified`** (has worked on this machine), **`declared`** (Cronsole will try; never observed to work here) or **`unsupported`** (would be refused). **Check this before promising the user a capability.** `declared` is not a yes |
+| **What Cronsole can actually do with a platform** | `list_platforms` | `GET /api/tools/platforms` — each verb reads **`verified`** (has worked on this machine), **`declared`** (Cronsole will try; never observed to work here) or **`unsupported`** (would be refused). **Check this before promising the user a capability.** `declared` is not a yes |
 | Star / un-star a task | — | `POST` / `DELETE /api/tasks/:id/favorite` (`isFavorite` comes back on `GET /api/tasks`) |
-| Template import/export, sync, pairing | — | REST / dashboard only |
+| Refresh tasks from a platform | `sync_tasks` | `POST /api/tasks/sync` |
+| Which Claude door this install has, and the declared routines | `list_claude_routines` | `GET /api/tools/platforms/claude/routines` — tokens are never returned (`hasToken` only). |
+| Connect an **existing** Claude routine by id and token | `connect_claude_routine` | `POST /api/tools/platforms/claude/routines`, then a sync. Connects; does not create. |
+| Fix a connected routine's id or name, **keeping its token** | `edit_claude_routine` | `PATCH /api/tools/platforms/claude/routines/:id` — claude.ai shows a token once, so disconnect-and-reconnect would lose it. |
+| Forget a connected Claude routine | `disconnect_claude_routine` | `DELETE /api/tools/platforms/claude/routines/:id` — **not a delete**: it keeps running at claude.ai. Removes the declaration and the row together. |
+| Template import/export, pairing | — | REST / dashboard only |
 
 ---
 

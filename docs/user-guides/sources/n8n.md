@@ -28,7 +28,8 @@ workflow through its own Schedule Trigger — see [Run now](#run-now) below.
 1. **Create an API key** in n8n: *Settings › n8n API*. A scoped key needs `workflow:read` and
    `execution:read`.
 2. Sources tab → **n8n** → **Connect**. Paste the address you open n8n at (a pasted `/api/v1` or
-   `/home/workflows` is trimmed off) and the key. Cronsole verifies both before storing them.
+   `/home/workflows` is trimmed off) and the key. Cronsole verifies both before storing them, so a
+   bad paste fails at the click. The key is stored encrypted and never shown again.
 3. **Set the instance time zone** — see below. The panel offers your browser's zone as a one-click
    fill, but a cloud instance often runs in a zone that is not yours.
 4. **Sync.**
@@ -36,7 +37,8 @@ workflow through its own Schedule Trigger — see [Run now](#run-now) below.
    [Run now](#run-now).
 
 Self-hosted and n8n Cloud both work. One key reaches one instance, so there is nothing to pick:
-every scheduled workflow lands under a single **n8n** category.
+every workflow lands under **n8n**, nested by how it starts or by its real folder (see
+[Folders](#folders)).
 
 > [!TIP]
 > **A `401` on connect almost always means the key was not copied in full.** n8n keys are long and
@@ -82,7 +84,7 @@ To turn it on:
 Without a token, Run now refuses and names these three steps. The token is a credential: stored
 encrypted beside the API key, never shown again, removable with **Remove token**.
 
-Three things to know:
+Four things to know:
 
 - **It is the scheduled run.** Same published graph, same trigger node — not a webhook lookalike.
   n8n lists it as a *trigger* run, so it scores like one.
@@ -109,6 +111,12 @@ draft/publish model, so it is not a safe edit to make from outside.
 
 > Until 2026-10-05 Run now was the third refusal, on the grounds above about the REST API. The REST
 > half is still true; the MCP server is what changed.
+
+## 🎛️ What Cronsole can do here
+
+**Sync**, **health**, **Run now** (with an MCP access token), **Run History** (the platform's own
+executions, with each run's steps and a link to its page in n8n), and **Remove from Cronsole** on a
+single workflow.
 
 ## 📋 What becomes a task
 
@@ -193,7 +201,8 @@ The URL is encrypted like the API key and never shown again — the panel shows 
   id, history and favorites stay put.
 - **A failed folder read never fails the sync.** The tasks still arrive, without their folders,
   and the sync says why.
-- **Not on n8n Cloud** — its database is not reachable. An instance with `DB_TABLE_PREFIX` set is
+- **Not on n8n Cloud** — its database is not reachable. Recategorize in Cronsole instead; sync
+  never overwrites a category. An instance with `DB_TABLE_PREFIX` set is
   not supported yet.
 
 ## 📈 Health and run history
@@ -224,4 +233,4 @@ old executions, so an old run can age out of the list while the workflow is perf
 
 ---
 
-<p align="center"><a href="#n8n-top">↑ Back to top</a> · <a href="README.md">Source guides</a> · <a href="../guides/Sources_Guide.md#n8n">Sources Guide › n8n</a></p>
+<p align="center"><a href="#n8n-top">↑ Back to top</a> · <a href="README.md">Source guides</a></p>

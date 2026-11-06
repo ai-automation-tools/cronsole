@@ -1,6 +1,14 @@
-# Cronsole Icon Proposals
+<h1 align="center">🔹 Cronsole Icons</h1>
 
-Square Cronsole icon proposals for favicons, app icons, and clickable buttons.
+<p align="center">
+  <em>Square icons for favicons, app icons and clickable buttons.</em>
+</p>
+
+<p align="center">
+  <a href="../../README.md"><img src="https://img.shields.io/badge/↩-images-6B7280?style=for-the-badge" alt="Images"></a>
+</p>
+
+---
 
 Open [`../preview.html`](../preview.html) to compare these icons alongside the landscape logo proposals.
 
@@ -18,6 +26,13 @@ Open [`../preview.html`](../preview.html) to compare these icons alongside the l
 
 ## Notes
 
-- All links are relative to this README, so they keep working if the entire `logo-proposals/` folder is moved.
+- All links are relative to this README, so they keep working if the `Cronsole-Images/` folder is moved.
 - Icon assets use a `256 x 256` viewBox and are safe for square favicon export.
 - SVG format keeps the marks crisp for browser favicons, toolbar buttons, app tiles, and README badges.
+
+---
+
+<p align="center">
+  <a href="../../README.md">← Images</a> ·
+  <a href="../../../README.md">Repository root</a>
+</p>

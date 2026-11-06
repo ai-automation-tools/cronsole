@@ -160,14 +160,14 @@ pwsh .\scripts\cronsole.ps1 up
 11. **No platform-specific logic outside the connector layer.**
 12. **Write the source's own guide**, `docs/user-guides/sources/<Source>.md`, and register it in
     `SOURCE_DOCS` (`frontend/src/data/docs.ts`) so its card carries a **Read: using X** link. Add it
-    to that folder's `README.md` too — a document nothing links to is an orphan however good it is.
-    `docsLinks.test.ts` asserts the set is **exactly the number of sources on the tab**, so a seventh
-    source cannot ship without a guide; it is the one item on this list that fails loudly. The Sources
-    Guide *compares* sources and this *is* one, and the split exists because a reader who has already
-    chosen lands two-thirds down a long page about five others otherwise.
+    as a row in that folder's `README.md` table, which is the one overview of every source (it
+    replaced `guides/Sources_Guide.md` on 2026-11-06, so there is no second comparison to update).
+    `docsLinks.test.ts` asserts the set is **exactly the number of sources on the tab** and that the
+    README links each guide, so an eighth source cannot ship without one; it is the one item on this
+    list that fails loudly.
 13. **Then the rest of the mirror surfaces, in the same change** (AGENTS.md §11a): a `HelpTopic` in
-    `frontend/src/data/help.ts` pointing at a **new section in the Sources Guide** (`docsLinks.test.ts`
-    checks the anchor resolves), the `ALL_PLATFORMS` enum and the platform sentences in
+    `frontend/src/data/help.ts` pointing at **the source's own guide** via `sourceDoc(platform, anchor?)`
+    (`docsLinks.test.ts` checks the file and anchor resolve), the `ALL_PLATFORMS` enum and the platform sentences in
     `mcp-server/src/tools.ts`, the `list_tasks` / `list_platforms` rows in **both** MCP tool tables,
     the platform line in AGENTS.md §2, and CHANGELOG + ROADMAP.
 

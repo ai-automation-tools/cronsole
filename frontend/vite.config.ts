@@ -52,5 +52,11 @@ export default defineConfig(({ mode }) => ({
     watch: {
       usePolling: true,
     },
+    // Pre-transform the whole import graph when the dev server starts, so the
+    // first page load after a `cronsole restart` is not the one paying for ~160
+    // cold module transforms (that load sat on a blank screen for seconds).
+    warmup: {
+      clientFiles: ['./src/main.tsx'],
+    },
   },
 }))

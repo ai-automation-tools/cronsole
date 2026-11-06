@@ -37,7 +37,9 @@ A project past the first page, or one under a team the token cannot list, can st
 > so a project owned by a team is genuinely not there. Paste the dashboard URL instead — it carries
 > the team — and Cronsole's error says so rather than sending you to check spelling.
 
-The token is stored encrypted and never shown again; Vercel cannot re-display one either.
+The token is stored encrypted and never shown again; Vercel cannot re-display one either, so there is
+no reveal button and rotating means pasting a new one. Because it is verified before saving, a bad
+paste fails at the click rather than inside a sync days later.
 
 ## 🚨 The one thing this source cannot tell you
 
@@ -45,7 +47,9 @@ The token is stored encrypted and never shown again; Vercel cannot re-display on
 behind no stable API. Cronsole has nothing to score with, so **every Vercel task sits at `unknown`
 health, permanently** — however well it is actually running.
 
-That is worth stating plainly rather than papering over. Cronsole could report "enabled, therefore
+That is worth stating plainly rather than papering over, because it is the one place this source
+gives *less* than GitHub Actions, which reports a real `success` / `failure` / `timed_out` per run.
+Cronsole could report "enabled, therefore
 healthy" and it would be a lie: **configured** and **working** are different claims, and only the
 first is knowable here. Absence of evidence is `unknown`, never `ok`.
 
@@ -66,13 +70,16 @@ whatever the job itself writes — not on this dashboard.
 
 ## 🎛️ What Cronsole can do here
 
-**Sync** and **health**, plus **Remove from Cronsole** on an individual cron job.
+**Sync** and **health**, plus **Remove from Cronsole** on an individual cron job. Adding, editing,
+running and pausing a cron all happen on Vercel; on the Sources tab those show as *Unsupported* —
+the tab stating a boundary, not waiting for evidence.
 
 ## 📦 Watching, and un-watching
 
 **You watch a project, not a cron job.** The project name is the category, so adding one brings in
 every cron it declares and *Stop watching* takes them all back out. To drop a single cron while
-keeping the rest, use **Remove from Cronsole** on that task.
+keeping the rest, use **Remove from Cronsole** on that task — the ordinary untrack path works here,
+and the next sync will not bring it back.
 
 > [!NOTE]
 > **Renaming a project on Vercel re-keys its rows.** The project name is the category *and* part of
@@ -101,7 +108,9 @@ one identity.
 - **There is no next-run time, on purpose.** Vercel queues cron invocations best-effort — on Hobby,
   documented as within the hour of the scheduled time. A computed time would disagree with reality
   with nothing on screen to say which was right.
-- **Health comes from your syncs, not from a probe** — the rule every source follows.
+- **Health comes from your syncs, not from a probe** — the rule every source follows. `getHealth`
+  runs every 45 seconds per open tab, so probing would spend your rate limit on a question sync
+  already answers.
 
 ---
 

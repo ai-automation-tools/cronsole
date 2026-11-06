@@ -53,7 +53,8 @@ exposure.
 
 - The dashboard has a real **single-user** login (one owner, created at first run). What it
   does *not* have is the rest of a multi-user system: no password reset, no refresh tokens
-  (a 24h access token, then log in again), and no per-user agent pairing. **Do not expose
+  (a browser session lasts 24h, then you log in again; named API tokens for tools such as the MCP
+  server are separate and revocable), and no per-user agent pairing. **Do not expose
   Cronsole directly to the public internet.** If you access it from another device, put it
   behind a private network layer (e.g. Tailscale) or an access-gated tunnel — see the
   [Remote Access Guide](docs/user-guides/guides/Remote_Access_Guide.md).

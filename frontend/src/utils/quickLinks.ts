@@ -12,7 +12,7 @@ import defaults from '../data/quickLinks/defaults.json';
  * sitting *among* connectors reads as a broken connector.
  *
  * **Nothing here is read or written.** That sentence ships beside them in the
- * UI and in the Sources Guide, and it is the whole reason the section is
+ * UI and in the sources overview, and it is the whole reason the section is
  * separate rather than a fourth kind of row in the matrix.
  */
 

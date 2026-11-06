@@ -241,8 +241,13 @@ for (const file of markdown) {
 // arbitrary `*.md` mentioned in prose does not become a finding. The point is
 // to catch the deliberate, machine-consumed ones — the sets a UI turns into
 // links — not to grade every comment.
+//
+// The optional prefix after the quote covers the two other ways source writes
+// a repo doc: a template literal opening on a base constant (`${REPO}/docs/…`)
+// and a full GitHub blob URL. Without it the anchor-on-a-quote rule skipped
+// both silently, which is how templateResources.ts held three unchecked links.
 const DOC_LITERAL =
-  /['"`]((?:docs|registry-site|scripts|skills|backend|frontend|agent|mcp-server|proxy)\/[^'"`\s)]*\.md(?:#[^'"`\s)]*)?)['"`]/g;
+  /['"`](?:\$\{[A-Z_]+\}\/|https:\/\/github\.com\/ai-automation-tools\/cronsole\/blob\/main\/)?((?:docs|registry-site|scripts|skills|backend|frontend|agent|mcp-server|proxy)\/[^'"`\s)]*\.(?:md|json)(?:#[^'"`\s)]*)?)['"`]/g;
 
 const sources = files.filter(
   (f) => /\.(ts|tsx|mjs|cjs|js|jsx)$/.test(f) && !f.includes('node_modules') && !f.includes('/dist/')

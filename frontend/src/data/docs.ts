@@ -33,11 +33,22 @@ export const GUIDES = 'docs/user-guides/guides';
 export const docLink = (path: string, anchor?: string) =>
   `${DOCS_BASE}/${path}${anchor ? `#${anchor}` : ''}`;
 
+/** Where the per-source guides live, relative to the repo root. */
+export const SOURCE_GUIDES = 'docs/user-guides/sources';
+
 /** The UI guide, which most topics point into. */
 export const uiGuide = (anchor?: string) => docLink(`${GUIDES}/UI_User_Guide.md`, anchor);
 
-/** The per-source guide — the target for every source-type help topic. */
-export const sourcesGuide = (anchor?: string) => docLink(`${GUIDES}/Sources_Guide.md`, anchor);
+/**
+ * The sources overview: every source in one table, plus what is true of all of
+ * them (what a source is, choosing which you see, quick links, adding one).
+ *
+ * Until 2026-11-06 this was `guides/Sources_Guide.md`, a second document that
+ * repeated every per-source guide in shorter form, so each fact had two copies
+ * to keep in step. It now points at the per-source folder's own index, and a
+ * help topic about one source links to that source's document via `sourceDoc`.
+ */
+export const sourcesGuide = (anchor?: string) => docLink(`${SOURCE_GUIDES}/README.md`, anchor);
 
 /**
  * The contributor doc for writing a new connector.
@@ -53,19 +64,17 @@ export const addingASourceDoc = () => docLink('docs/contributing/Adding_A_Source
 /**
  * The per-source deep dive, one document per platform.
  *
- * **Separate from `sourcesGuide`, which is the comparison.** That guide is one
- * page covering all six side by side — the right thing to read when you are
- * choosing between them, and the wrong thing to land on when you have already
- * chosen and want to know how to connect *this one*. Anchoring into it put a
- * reader two-thirds of the way down a long page about five other sources, which
- * is the same failure that moved `addingASourceDoc` off it.
+ * **Separate from `sourcesGuide`, which is the overview.** That page compares
+ * every source in one table — the right thing to read when you are choosing
+ * between them, and the wrong thing to land on when you have already chosen and
+ * want to know how to connect *this one*.
  *
  * Keyed by `PlatformType` so a card can ask for its own document without
  * knowing the filename. **A platform with no entry gets `null`** and the card
  * renders no link — quick links have no connector and therefore nothing to
  * document, and a dead button is worse than an absent one.
  */
-const SOURCE_DOCS: Record<string, string> = {
+const SOURCE_DOCS = {
   WINDOWS_TASK_SCHEDULER: 'Windows_Task_Scheduler.md',
   TASKHUB_NATIVE: 'Cronsole_Native.md',
   CLAUDE_CODE: 'Claude_Code_Routines.md',
@@ -73,19 +82,18 @@ const SOURCE_DOCS: Record<string, string> = {
   GITHUB_ACTIONS: 'GitHub_Actions.md',
   VERCEL_CRON: 'Vercel_Cron.md',
   N8N: 'n8n.md'
-};
+} as const;
+
+/** A platform that has a guide. Help topics name one of these, so their link can never be null. */
+export type ShippedSource = keyof typeof SOURCE_DOCS;
 
 /** Every source Cronsole ships, as `PlatformType` keys: the one list `docsLinks.test.ts` pins. */
 export const SHIPPED_SOURCES = Object.keys(SOURCE_DOCS);
 
-/** Where the per-source guides live, relative to the repo root. */
-export const SOURCE_GUIDES = 'docs/user-guides/sources';
-
 /** The deep-dive document for one platform, or `null` if it has none. */
-export const sourceDoc = (platform: string): string | null => {
-  const file = SOURCE_DOCS[platform];
-  return file ? docLink(`${SOURCE_GUIDES}/${file}`) : null;
-};
-
-/** The index of the per-source guides — every source, in one place. */
-export const sourceDocsIndex = () => docLink(`${SOURCE_GUIDES}/README.md`);
+export function sourceDoc(platform: ShippedSource, anchor?: string): string;
+export function sourceDoc(platform: string, anchor?: string): string | null;
+export function sourceDoc(platform: string, anchor?: string): string | null {
+  const file = (SOURCE_DOCS as Record<string, string>)[platform];
+  return file ? docLink(`${SOURCE_GUIDES}/${file}`, anchor) : null;
+}

@@ -31,12 +31,10 @@ docker compose --profile docker up --build
 #   → backend   http://localhost:3000   (GET /api/health to verify)
 ```
 
-> [!IMPORTANT]
-> The `--profile docker` is not optional. Backend and frontend sit behind
-> `profiles: ["docker"]`, so a plain `docker compose up` starts **Postgres and Redis only**
-> and nothing ever answers on `:7373`.
-
-Database migrations apply themselves on boot, so there is no schema step.
+Keep `--profile docker` — without it only Postgres and Redis start
+([why](../../setup/README.md#-docker-vs-manual)). Database migrations apply themselves on boot,
+so there is no schema step. Rather run each piece without Docker? See
+[**Run it manually**](../../setup/README.md#run-it-manually-no-docker).
 
 ## 2. What you can do without the agent
 

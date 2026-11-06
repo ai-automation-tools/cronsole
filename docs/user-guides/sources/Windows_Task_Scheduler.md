@@ -123,14 +123,20 @@ groups those leftovers as **one** partial run rather than inventing three.
   that path is how every command addresses the task. Once the two differ, the task modal keeps
   showing the real path underneath.
 - **"It ran successfully" from a manual run means "the agent accepted the start".** Whether the work
-  *worked* is in `lastTaskResult` and the platform run history, not in that toast.
+  *worked* is in `lastTaskResult` and the platform run history, not in that toast. The task's
+  **Task health** panel reads `lastTaskResult`, so use it, not *Runs Cronsole performed*, to answer
+  *did it actually work?*
 - **Cronsole creates a folder only when you ask for one.** Two carve-outs exist — restore's
   `createFolders` and create's `createFolder` — both off by default, both signed, both naming every
   folder they made. In the dashboard the opt-in is the **New folder…** row at the top of the
   *Task Scheduler folder* box on **New Task** and on **Apply Template**; type a path and Cronsole
   makes the chain as it creates the task. It will not remove them again — only its own `\Cronsole`
   is pruned when empty — and a folder the elevated agent creates carries an administrator ACE, so
-  *you* will need admin rights to delete it. `\Microsoft\` is refused outright, in the backend and independently in the agent.
+  *you* will need admin rights to delete it. A folder you create in Task Scheduler yourself appears
+  in the picker with no opt-in. `\Microsoft\` is refused outright, in the backend and independently
+  in the agent — a name collision there would silently overwrite a real system task.
+- **Windows' own tasks are hidden by default.** There are usually a few hundred under `\Microsoft\`,
+  roughly 3:1 against yours. Every count that hides them says so.
 - **Untracking is not deleting.** *Remove from Cronsole* takes the row off your dashboard and writes
   an exclusion so the next sync does not bring it back. The task keeps running. **Delete from
   Windows** is the irreversible one and it is styled red.

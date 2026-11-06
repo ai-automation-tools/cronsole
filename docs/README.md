@@ -27,7 +27,7 @@ New to Cronsole? Follow this path in order:
 
 1. [**⬇️ Install**](install/README.md) — get the stack running (Windows, macOS, or clone-the-repo).
 2. [**⚙️ Configure**](setup/README.md) — environment variables, backend connection, agent pairing.
-3. [**🖥️ Use the dashboard**](user-guides/guides/UI_User_Guide.md) — views, categories, templates, Run Now. Per-source detail lives in the [**🧭 Sources Guide**](user-guides/guides/Sources_Guide.md).
+3. [**🖥️ Use the dashboard**](user-guides/guides/UI_User_Guide.md) — views, categories, templates, Run Now. Per-source detail lives in [**🔌 Sources**](user-guides/sources/README.md).
 4. [**🤖 Run the Windows agent**](user-guides/guides/Agent_Setup_Guide.md) — install, register, verify, troubleshoot.
 
 ## 🚀 Guides
@@ -36,6 +36,7 @@ New to Cronsole? Follow this path in order:
 |:---|:---|
 | [**⬇️ install/**](install/README.md) | Install Cronsole — Windows, macOS, and clone-the-repo paths. |
 | [**⚙️ setup/**](setup/README.md) | Configure it — environment variables, Docker vs. manual, agent pairing. |
+| [**🔌 Sources**](user-guides/sources/README.md) | Every source Cronsole supports in one table, each linking to its own guide. |
 | [**🖥️ user-guides/**](user-guides/README.md) | Use it — dashboard walkthrough, the Windows agent guide, the [MCP server](user-guides/guides/MCP_Server_Guide.md) (drive Cronsole from Claude/Codex/Cursor), [remote access](user-guides/guides/Remote_Access_Guide.md) so you can reach your own instance from your phone, and [phone shortcuts](user-guides/guides/Phone_Shortcuts_Guide.md) that run one task from your home screen. |
 | [**💬 prompts/**](../prompts/README.md) | Talk to it — copy-paste prompts for driving Cronsole in natural language, grouped by what you're doing: [scheduled scripts](../prompts/mcp-server/windows-tasks.md), [headless coding-agent runs](../prompts/mcp-server/ai-agent-jobs.md), [HTTP and script jobs](../prompts/mcp-server/native-tasks.md), [Claude routines](../prompts/mcp-server/claude-routines.md), audits, cleanup — plus the `cronsole` skill and the REST API. |
 | [**🧯 troubleshooting/**](troubleshooting/README.md) | Fix it — symptom → cause → fix for problems we've actually hit. |
@@ -46,8 +47,7 @@ New to Cronsole? Follow this path in order:
 
 | Folder | What's inside |
 |:---|:---|
-| [**📄 reports/**](reports/README.md) | Task templates (the two-tier catalog) and worked API examples. |
-| [**🧩 Template registry**](reports/templates/Registry_Schema_v1.md) | The target-agnostic Registry v1 JSON schema for templates (the catalog is a decoupled, hosted registry). |
+| [**📄 reports/**](reports/README.md) | Task templates (the two-tier catalog and the Registry v1 schema) and worked API examples. |
 | [**🧭 diagrams/**](diagrams/README.md) | The source data-flow diagram the [homepage](https://cronsole.ai-automation-tools.dev/#sec-flow) shows: platforms → connectors → sync → PostgreSQL → dashboard, plus the native scheduler. Interactive, every node linked to its code, and drift-checked in CI. |
 | [**🔌 mcp-server.md**](mcp-server.md) | The MCP server on one page: entry file, stdio transport, install line, env vars, and every tool with a one-line purpose (the two gated delete tools marked). |
 | [**🧠 adr/**](adr/README.md) | Architecture decision records — the template registry, the four native job types, and per-job secrets. Each dated, and kept as written once it ships. |
@@ -64,6 +64,7 @@ New to Cronsole? Follow this path in order:
 | [**🛡️ TRUST.md**](TRUST.md) | What the elevated agent can and cannot do, stated as the complete verb list rather than a summary — plus a removal sequence, including the part `docker compose down -v` does not do. |
 | [**🔒 PRIVACY.md**](PRIVACY.md) | Which outbound connections exist, when, and to where. A default install initiates none; this is how to check that. |
 | [**🗺️ ROADMAP.md**](ROADMAP.md) | The living plan — what's shipped and what's next (P0 → P3), plus open decisions. |
+| [**🔗 UPSTREAMS.md**](UPSTREAMS.md) | Every external platform, library and host Cronsole depends on, what the code assumes about each, and when that was last checked. |
 | [**🧠 DESIGN_NOTES.md**](DESIGN_NOTES.md) | The reasoning archive — the long-form arguments, failures and wrong turns behind every invariant listed in [`AGENTS.md`](../AGENTS.md) §9. Read it before arguing with a rule, or removing one. |
 
 > [!NOTE]

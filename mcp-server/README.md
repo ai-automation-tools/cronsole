@@ -17,6 +17,11 @@ server-side where they're already tested. See [`docs/ROADMAP.md`](../docs/ROADMA
 It speaks MCP over **stdio** and authenticates to the backend as **one user** via a JWT you
 supply — its tasks are the tasks it can see, run, and create.
 
+This README is the **developer reference for the package**. To set up a host (token, environment,
+Claude Code, Codex, opencode, Antigravity and others), read the
+[**MCP Server Guide**](../docs/user-guides/guides/MCP_Server_Guide.md). For a one-page summary
+with every tool name, see [`docs/mcp-server.md`](../docs/mcp-server.md).
+
 ## Tools
 
 | Tool | Maps to | What it does |
@@ -77,7 +82,7 @@ package would be a *client-side* check the REST API still ignores, so the guaran
 for callers who came through the wrapper. That is not a guarantee — it is a convention. Same reason
 `mcp-server/` owns no other logic.
 
-### Why `delete_task` is gated and the rest are not
+### Why the two deletes are gated and the rest are not
 
 The verbs that *mutate* real Task Scheduler entries do so under an **elevated** agent, and an MCP
 host may call a tool with far less deliberation than a user clicking through the UI's confirm
@@ -85,8 +90,9 @@ dialog — so "the route already exists" is not on its own an argument for expos
 therefore **tiered**, not blanket:
 
 - **Read-only** (`list_*`, `get_task_history`, `list_platform_runs`, `get_run_output`, `export_task`, `convert_schedule`) — always on.
-- **Creates** (`create_task`, `create_native_*`, `create_gemini_trigger`, `create_claude_routine`, `create_task_from_template`) — ungated, and reversible by deleting what they made. `create_gemini_trigger` is the one that makes an **autonomous agent**, so its description carries the prompt rules rather than assuming the caller knows them.
-- **Creating** (`create_*`, `import_task`, `restore_task_archive`) — always on. `restore_task_archive`
+- **Creating** (`create_*`, `import_task`, `restore_task_archive`) — always on.
+  `create_gemini_trigger` is the one that makes an **autonomous agent**, so its description carries
+  the prompt rules rather than assuming the caller knows them. `restore_task_archive`
   is the sharp case and the asymmetry is deliberate: `delete_task` is gated, undoing one is not.
   Gating recovery behind the same flag as destruction would mean the flag that protects a user
   from a bad delete also stops them fixing it.
@@ -97,8 +103,9 @@ therefore **tiered**, not blanket:
   `untrack_task` is the same argument applied to *removal*: gating deletion is only honest if a
   safe way to remove a task from the dashboard exists without the gate, or an agent asked to
   "clean this up" has exactly one tool for the job and it is the irreversible one.
-- **Irreversible** (`delete_task`) — off unless you opt in, *and* narrowed to native tasks with a
-  mandatory pre-delete archive (above). The gate stayed shut by default even after that narrowing:
+- **Irreversible** (`delete_task`, `delete_template`) — off unless you opt in. `delete_task` is
+  also narrowed to native tasks with a mandatory pre-delete archive (above); `delete_template`
+  keeps no archive and refuses catalog-synced rows. The gate stayed shut by default even after that narrowing:
   loosening two safety dimensions in one change means a later failure cannot be attributed to
   either.
 
@@ -117,43 +124,9 @@ Set via environment (see [`.env.example`](.env.example)):
 | `CRONSOLE_TIMEOUT_MS` |  | `15000` | Per-request timeout. |
 | `CRONSOLE_MCP_ALLOW_DESTRUCTIVE` |  | `false` | Register `delete_task` (**Cronsole-native tasks only**, archived before deletion) and `delete_template` (imported / saved templates only). Only an exact `true`/`1` opens it — a typo, an empty value, or an unexpanded `${…}` literal all fail **closed**, because a false negative costs one missing tool while a false positive hands an agent a deletion verb you never granted. When off, both are **absent** from `tools/list`. |
 
-> [!IMPORTANT]
-> The server reads its **process environment only** — it does not load a `.env` file, so
-> copying `.env.example` to `.env.local` accomplishes nothing on its own. Export
-> `CRONSOLE_TOKEN` in the environment your MCP host is **launched from**:
->
-> ```powershell
-> [Environment]::SetEnvironmentVariable('CRONSOLE_TOKEN', '<jwt>', 'User')   # Windows, persistent
-> ```
-> ```bash
-> export CRONSOLE_TOKEN='<jwt>'                                              # POSIX
-> ```
->
-> On Windows a process inherits its environment from its parent, so a **already-open terminal
-> won't see a newly set variable** — close it and open a fresh one, then relaunch the host.
-> Restarting the host alone is not enough.
-
-**Getting a token** — issue one from the dashboard: **Settings -> Account -> API tokens -> New API
-token**. Name it, pick a lifetime (**30 / 60 / 90 days, or never**), confirm with your password, and
-copy it. It is shown once; nothing stores it, only its `jti`, which is what makes revocation
-possible.
-
-Export it as `CRONSOLE_TOKEN` in the environment your MCP host launches from.
-
-> Prefer **never expires** for a machine you control. An expired token makes this server *refuse to
-> start*, so its tools go **missing** rather than erroring — a never-expiring token removes that
-> failure mode, and is only safe to offer because **Revoke** in the same panel kills it immediately
-> without touching any other client.
-
-> ⚠️ The token is a real credential — keep it in your environment, never in a committed file.
-> `.mcp.json` references it as `${CRONSOLE_TOKEN}` precisely so the literal secret never lands
-> in the repo. The list shows a last-used date, so an unfamiliar token that is being used is worth
-> revoking.
-
-> **Note:** API tokens are separate from your browser session, which stays at 24h. Until 2026-08-15
-> this section told you to hand-mint with `jsonwebtoken.sign` and the backend's `JWT_SECRET`; such
-> tokens carry no `jti` and cannot be revoked individually — see the
-> [MCP Server Guide](../docs/user-guides/guides/MCP_Server_Guide.md#getting-a-token).
+The server reads its **process environment only** and loads no `.env` file. Getting a token,
+exporting it, and the Windows fresh-terminal rule are user setup, covered in the
+[MCP Server Guide](../docs/user-guides/guides/MCP_Server_Guide.md#getting-a-token).
 
 ## Build & run
 
@@ -166,8 +139,8 @@ npm run inspect    # open the MCP Inspector against the server
 ```
 
 > [!IMPORTANT]
-> **`npm start` runs `dist/`, not `src/`** — so an unbuilt change is invisible. This is the
-> **third thing that runs stale**, alongside the Dockerized backend and the published agent.
+> **`npm start` runs `dist/`, not `src/`** — so an unbuilt change is invisible. This is one of the
+> **things that run stale**, alongside the backend and the published agent.
 > Build before you conclude a change didn't work.
 
 ### What the tests cover — and what they can't
@@ -185,64 +158,14 @@ the real tool breaks. That's the [#9](../docs/troubleshooting/README.md#9-agent-
 failure mode one layer up: *both sides green while disagreeing about the wire.* **After
 changing a wrapped route, drive the tool against a running backend by hand.**
 
-## Wiring into an MCP host
+## Set up a host
 
-The backend must be running and reachable at `CRONSOLE_API_URL`.
-
-**Claude Code**
-
-```bash
-claude mcp add cronsole \
-  --env CRONSOLE_TOKEN=<your-jwt> \
-  --env CRONSOLE_API_URL=http://localhost:3000/api \
-  -- node /absolute/path/to/cronsole/mcp-server/dist/index.js
-```
-
-**Claude Desktop / any JSON-config host** (`claude_desktop_config.json`):
-
-```json
-{
-  "mcpServers": {
-    "cronsole": {
-      "command": "node",
-      "args": ["/absolute/path/to/cronsole/mcp-server/dist/index.js"],
-      "env": {
-        "CRONSOLE_TOKEN": "<your-jwt>",
-        "CRONSOLE_API_URL": "http://localhost:3000/api"
-      }
-    }
-  }
-}
-```
-
-**This repo (dogfooding)**
-
-The root [`.mcp.json`](../.mcp.json) — seeded from
-[`.mcp.json.example`](../.mcp.json.example) — carries a `cronsole` entry alongside the dev
-tooling (context7, playwright, …), so a Claude Code session in this repo can drive a running
-Cronsole while building it:
-
-```json
-"cronsole": {
-  "type": "stdio",
-  "command": "node",
-  "args": ["./mcp-server/dist/index.js"],
-  "env": {
-    "CRONSOLE_TOKEN": "${CRONSOLE_TOKEN}",
-    "CRONSOLE_API_URL": "http://localhost:3000/api"
-  }
-}
-```
-
-The `${CRONSOLE_TOKEN}` reference is deliberate: the config is committed, the secret is not.
-It also means the entry is **inert until you export the variable** — see the Configuration
-note above, and [troubleshooting #8](../docs/troubleshooting/README.md#8-every-mcp-tool-returns-403-invalid-or-expired-token)
-for what an unset variable looks like from the outside.
-
-> [!NOTE]
-> Two different MCP surfaces share that one file. The other servers are **dev tooling** for
-> *building* Cronsole; `cronsole` is a **product component** for *using* it. Only the latter
-> needs a backend and a token, which is why it's the only entry that can fail to start.
+Host wiring (Claude Code, Claude Desktop, Codex, opencode, Antigravity, and this repo's own
+`.mcp.json`) lives in one place:
+[MCP Server Guide › Wire it into your assistant](../docs/user-guides/guides/MCP_Server_Guide.md#wire-it-into-your-assistant).
+The `cronsole` entry in the root `.mcp.json` is a **product component** beside the dev tooling, and
+the only one that needs a backend and a token, so it is the only one that can fail to start
+([troubleshooting #8](../docs/troubleshooting/README.md#8-every-mcp-tool-returns-403-invalid-or-expired-token)).
 
 ## Design notes
 
@@ -286,4 +209,4 @@ mcp-server/
 |:---|:---|
 | [**💬 MCP prompt library**](../prompts/mcp-server/README.md) | What to say to an assistant once this is connected, grouped by task — Windows jobs, headless agent runs, native HTTP and script jobs, Claude routines, audits, cleanup. |
 | [**🧩 MCP Server Guide**](../docs/user-guides/guides/MCP_Server_Guide.md) | Setup, token minting, host wiring, troubleshooting. |
-| [**✍️ Task authoring**](../skills/cronsole/references/task-authoring.md) | The invariants every create tool here is bound by. |
+| [**✍️ Task authoring**](../backend/src/tools/connect-pack/references/task-authoring.md) | The invariants every create tool here is bound by. |

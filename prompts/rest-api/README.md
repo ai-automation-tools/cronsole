@@ -245,7 +245,7 @@ report the result.
 | [**🧩 MCP Server Guide**](../../docs/user-guides/guides/MCP_Server_Guide.md) | How the JWT these prompts need is minted. |
 | [**🧩 MCP prompts**](../mcp-server/README.md) | The same operations in natural language, when you have an MCP host. |
 | [**🧹 Cleanup & removal**](../mcp-server/cleanup-and-removal.md) | Which removal verb you actually want, before you POST one in bulk. |
-| [**✍️ Task authoring & management**](../../skills/cronsole/references/task-authoring.md) | The rules the API enforces — UTC cron, no-shell, folder refusals. |
+| [**✍️ Task authoring & management**](../../backend/src/tools/connect-pack/references/task-authoring.md) | The rules the API enforces — UTC cron, no-shell, folder refusals. |
 
 ---
 

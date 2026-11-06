@@ -160,7 +160,7 @@ never ran, and a good assistant will say so.
 | [**🖥️ Cronsole-native tasks**](native-tasks.md) | When you'd rather the backend ran it and gave you a real exit code. |
 | [**🔎 Inspect & audit**](inspect-and-audit.md) | Checking what actually ran, and what's quietly failing. |
 | [**🤖 Windows Agent Setup**](../../docs/user-guides/guides/Agent_Setup_Guide.md) | Getting the agent online, which every prompt here depends on. |
-| [**✍️ Task authoring**](../../skills/cronsole/references/task-authoring.md) | The invariants behind all of this, written for an agent. |
+| [**✍️ Task authoring**](../../backend/src/tools/connect-pack/references/task-authoring.md) | The invariants behind all of this, written for an agent. |
 
 ---
 

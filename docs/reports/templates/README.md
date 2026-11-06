@@ -31,6 +31,7 @@ converting the cron to the platform's native trigger for you.
 | Document | What's inside |
 |:---|:---|
 | [**Templates.md**](Templates.md) | The full catalog specification — tiers, parameter schema, `{{placeholder}}` handling, and validation rules. |
+| [**Registry_Schema_v1.md**](Registry_Schema_v1.md) | The target-agnostic Registry v1 JSON schema the hosted catalog is published in. |
 
 ## 🔗 Related
 

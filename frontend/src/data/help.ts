@@ -1,4 +1,4 @@
-import { docLink, uiGuide, sourcesGuide, GUIDES } from './docs';
+import { docLink, uiGuide, sourcesGuide, sourceDoc, GUIDES } from './docs';
 import { sourcePlatform } from '../platform';
 
 /**
@@ -87,7 +87,7 @@ const dashboard: HelpTopic = {
   ],
   doc: { label: 'UI User Guide › The Dashboard', url: uiGuide('1-the-dashboard') },
   more: [
-    { label: 'Sources Guide', url: sourcesGuide() },
+    { label: 'Sources', url: sourcesGuide() },
     { label: 'UI User Guide › System Status & Connections', url: uiGuide('7-system-status--connections') }
   ]
 };
@@ -171,9 +171,9 @@ const sources: HelpTopic = {
         'reshuffles a sidebar you arranged. Folders inside a source stay alphabetical.'
     }
   ],
-  doc: { label: 'Sources Guide › What a source is', url: sourcesGuide('what-a-source-is') },
+  doc: { label: 'Sources › What a source is', url: sourcesGuide('-what-a-source-is') },
   more: [
-    { label: 'Sources Guide › Choosing which sources you see', url: sourcesGuide('choosing-which-sources-you-see') },
+    { label: 'Sources › Choosing which sources you see', url: sourcesGuide('-choosing-which-sources-you-see') },
     { label: 'UI User Guide › The source rail', url: uiGuide('source--where-a-task-comes-from') },
     { label: 'UI User Guide › Reordering the sidebar', url: uiGuide('reordering-the-sidebar') }
   ]
@@ -233,7 +233,7 @@ const sourceWindows: HelpTopic = {
         'the picker. \\Microsoft\\ is refused outright.'
     }
   ],
-  doc: { label: 'Sources Guide › Windows Task Scheduler', url: sourcesGuide('windows-task-scheduler') },
+  doc: { label: 'Windows Task Scheduler › What Cronsole can do here', url: sourceDoc('WINDOWS_TASK_SCHEDULER', '-what-cronsole-can-do-here') },
   more: [
     { label: 'Windows Agent Setup Guide', url: docLink(`${GUIDES}/Agent_Setup_Guide.md`) },
     { label: 'What the agent can do on your machine', url: docLink('docs/TRUST.md') }
@@ -272,7 +272,7 @@ const sourceNativeHttp: HelpTopic = {
         'clock time instead — the two genuinely differ, and the app says so where you edit.'
     }
   ],
-  doc: { label: 'Sources Guide › Cronsole (HTTP)', url: sourcesGuide('cronsole-http') },
+  doc: { label: 'Cronsole-native › HTTP', url: sourceDoc('TASKHUB_NATIVE', '-http--call-a-url') },
   more: [{ label: 'UI User Guide › Creating a native task', url: uiGuide('creating-a-cronsole-native-task') }]
 };
 
@@ -308,7 +308,7 @@ const sourceNativeExec: HelpTopic = {
         'The agent is the thing that unambiguously means "your machine". The backend is not.'
     }
   ],
-  doc: { label: 'Sources Guide › Cronsole (Scripts)', url: sourcesGuide('cronsole-scripts') },
+  doc: { label: 'Cronsole-native › Scripts', url: sourceDoc('TASKHUB_NATIVE', '-scripts--write-the-body-in-cronsole') },
   more: [{ label: 'UI User Guide › Creating a native task', url: uiGuide('creating-a-cronsole-native-task') }]
 };
 
@@ -345,7 +345,7 @@ const sourceNativeScript: HelpTopic = {
         'variables, which include the key encrypting your stored platform credentials.'
     }
   ],
-  doc: { label: 'Sources Guide › Cronsole (Scripts)', url: sourcesGuide('cronsole-scripts') },
+  doc: { label: 'Cronsole-native › Scripts', url: sourceDoc('TASKHUB_NATIVE', '-scripts--write-the-body-in-cronsole') },
   more: [{ label: 'UI User Guide › Creating a native task', url: uiGuide('creating-a-cronsole-native-task') }]
 };
 
@@ -384,7 +384,7 @@ const sourceNativeCheck: HelpTopic = {
         'backup that was never written is the same problem in its worst form.'
     }
   ],
-  doc: { label: 'Sources Guide › Cronsole (Checks)', url: sourcesGuide('cronsole-checks') },
+  doc: { label: 'Cronsole-native › Checks', url: sourceDoc('TASKHUB_NATIVE', '-checks--measure-something-and-compare-it') },
   more: [{ label: 'UI User Guide › Creating a native task', url: uiGuide('creating-a-cronsole-native-task') }]
 };
 
@@ -405,10 +405,10 @@ const sourceNative: HelpTopic = {
     'Scheduled and executed by Cronsole itself — nothing in Windows Task Scheduler, no agent ' +
     'involved. Four kinds: call a URL, run a program, run a script you write here, or check ' +
     'that something is as it should be.',
-  doc: { label: 'Sources Guide › Cronsole (HTTP)', url: sourcesGuide('cronsole-http') },
+  doc: { label: 'Cronsole-native › HTTP', url: sourceDoc('TASKHUB_NATIVE', '-http--call-a-url') },
   more: [
-    { label: 'Sources Guide › Cronsole (Scripts)', url: sourcesGuide('cronsole-scripts') },
-    { label: 'Sources Guide › Cronsole (Checks)', url: sourcesGuide('cronsole-checks') }
+    { label: 'Cronsole-native › Scripts', url: sourceDoc('TASKHUB_NATIVE', '-scripts--write-the-body-in-cronsole') },
+    { label: 'Cronsole-native › Checks', url: sourceDoc('TASKHUB_NATIVE', '-checks--measure-something-and-compare-it') }
   ]
 };
 
@@ -471,7 +471,7 @@ const sourceGitHub: HelpTopic = {
         'to say which was right — so Cronsole shows the cron and no prediction.'
     }
   ],
-  doc: { label: 'Sources Guide › GitHub Actions', url: sourcesGuide('github-actions') }
+  doc: { label: 'Using GitHub Actions', url: sourceDoc('GITHUB_ACTIONS') }
 };
 
 const sourceVercel: HelpTopic = {
@@ -541,7 +541,7 @@ const sourceVercel: HelpTopic = {
         'with nothing on screen to say which was right.'
     }
   ],
-  doc: { label: 'Sources Guide \u203a Vercel Cron', url: sourcesGuide('vercel-cron') }
+  doc: { label: 'Using Vercel Cron', url: sourceDoc('VERCEL_CRON') }
 };
 
 const sourceN8n: HelpTopic = {
@@ -608,7 +608,7 @@ const sourceN8n: HelpTopic = {
         'The data each node produced stays in n8n — the run links straight to its page there.'
     }
   ],
-  doc: { label: 'Sources Guide › n8n', url: sourcesGuide('n8n') }
+  doc: { label: 'Using n8n', url: sourceDoc('N8N') }
 };
 
 const sourceGemini: HelpTopic = {
@@ -743,7 +743,7 @@ const sourceGemini: HelpTopic = {
         'all work from here.'
     }
   ],
-  doc: { label: 'Sources Guide › Gemini API Triggers', url: sourcesGuide('gemini-api-triggers') }
+  doc: { label: 'Using Gemini API Triggers', url: sourceDoc('GEMINI_TRIGGERS') }
 };
 
 const sourceClaude: HelpTopic = {
@@ -792,7 +792,7 @@ const sourceClaude: HelpTopic = {
         'knows rather than a guess. Run now works regardless. Pausing also stays at claude.ai.'
     }
   ],
-  doc: { label: 'Sources Guide › Claude Code routines', url: sourcesGuide('claude-code-routines') },
+  doc: { label: 'Using Claude Code routines', url: sourceDoc('CLAUDE_CODE') },
   more: [
     {
       label: 'Troubleshooting #47 — a Claude task keeps coming back',
@@ -895,8 +895,8 @@ const nativeJobType: HelpTopic = {
   ],
   doc: { label: 'UI User Guide › Creating a native task', url: uiGuide('creating-a-cronsole-native-task') },
   more: [
-    { label: 'Sources Guide › Cronsole (Scripts)', url: sourcesGuide('cronsole-scripts') },
-    { label: 'Sources Guide › Cronsole (Checks)', url: sourcesGuide('cronsole-checks') }
+    { label: 'Cronsole-native › Scripts', url: sourceDoc('TASKHUB_NATIVE', '-scripts--write-the-body-in-cronsole') },
+    { label: 'Cronsole-native › Checks', url: sourceDoc('TASKHUB_NATIVE', '-checks--measure-something-and-compare-it') }
   ]
 };
 
@@ -1022,7 +1022,7 @@ const command: HelpTopic = {
     }
   ],
   doc: { label: 'UI User Guide › Creating a native task', url: uiGuide('creating-a-cronsole-native-task') },
-  more: [{ label: 'Sources Guide › Cronsole (Scripts)', url: sourcesGuide('cronsole-scripts') }]
+  more: [{ label: 'Cronsole-native › Scripts', url: sourceDoc('TASKHUB_NATIVE', '-scripts--write-the-body-in-cronsole') }]
 };
 
 /* ── Managing a task ─────────────────────────────────────────────────────── */
@@ -1567,8 +1567,8 @@ const platforms: HelpTopic = {
   ],
   doc: { label: 'UI User Guide › Sources', url: uiGuide('6-sources--what-cronsole-can-actually-do') },
   more: [
-    { label: 'Sources Guide', url: sourcesGuide() },
-    { label: 'Sources Guide › Adding a source', url: sourcesGuide('adding-a-source') }
+    { label: 'Sources', url: sourcesGuide() },
+    { label: 'Sources › Adding a source', url: sourcesGuide('-adding-a-source') }
   ]
 };
 

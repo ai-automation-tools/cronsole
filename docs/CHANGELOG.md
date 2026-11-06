@@ -21,6 +21,41 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Changed
 
+- **An n8n prompt set** (2026-11-06). [`prompts/mcp-server/n8n.md`](../prompts/mcp-server/n8n.md) covers listing scheduled and on-demand workflows, why a schedule is blank, Run now and the MCP access token it needs, reading a failed run's nodes, and what n8n refuses. Both prompt indexes link it.
+- **Connect Pack v1.14 names every MCP tool** (2026-11-06). Its `SKILL.md` surface table was missing eleven of the 38 tools, among them Gemini and Claude routine create, the Claude routine verbs, `rename_task`, `update_native_job` and the run-output tools. The task-authoring management table gained rename, native-job edit, template delete and the routine verbs.
+- **MCP tool descriptions no longer contradict the platforms** (2026-11-06). These are the text an assistant reads:
+  - **`list_tasks`:** it called n8n read-only, said Gemini triggers can be rescheduled, and called Gemini the only hosted controller. It now says n8n's one write verb is Run now, and that a Gemini schedule has to be recreated. It also tells an on-demand n8n workflow apart from a schedule Cronsole could not read.
+  - **`sync_tasks`:** it pointed at a `list_untracked_categories` tool that does not exist.
+  - **Prompts and the n8n guide:** the observer prompts said sync never overwrites a GitHub workflow's name. It does, because GitHub owns the name. The n8n guide no longer says every workflow lands in one flat category.
+- **Sources are reachable from the front page** (2026-11-06). Every source in the root README's *What it connects to* table now links to its own guide, the table gained its missing n8n row, and the root and docs-hub tables link the sources overview. The root README also gained a *What's in the repo* table that links every top-level folder.
+- **New and rewritten folder indexes** (2026-11-06). `backend/`, `agent/` and `images/` gained a README; `frontend/README.md` replaces the Vite template boilerplate; `docs/testing/reports/` gained an index for its four dated reports; the logo and icon READMEs got the house header and a way back up. `CODE_OF_CONDUCT.md`, `SECURITY.md` and `docs/UPSTREAMS.md` are linked from an index for the first time.
+- **Duplicated docs folded into one copy each** (2026-11-06). The cases were found by an audit of every tracked markdown file:
+  - **Task authoring:** the connect pack's guide is now the only task-authoring guide. The skill's 374-line fork, which had drifted, became a 50-line pointer. The pack is now v1.13 with the merged content, including the hosted-agent prompt section.
+  - **Testing:** `docs/testing/README.md` is the only testing reference, and the skill keeps only the traps it doesn't cover.
+  - **MCP:** `docs/mcp-server.md` is a one-page card, the MCP Server Guide owns host setup (now including Codex, opencode and Antigravity), and the package README owns the reference.
+  - **Manual setup:** `docs/setup/README.md` owns the manual setup path. Every other copy links to it.
+  - **UI guide:** it links to the sources overview and the per-source guides instead of restating them.
+  - **Agent tasks:** `scripts/startup-task/README.md` is the only full account of why the agent is no longer its own scheduled task.
+  - **Runbooks:** the runbook table appears once, in `manual-testing/README.md`.
+- **Docs that contradicted the code, fixed** (2026-11-06):
+  - **Rate limit:** the login rate limit had been called a known gap. It ships at 10 attempts per 15 minutes, and the security runbook now expects the `429`.
+  - **Gated tools:** several docs said `delete_task` was the only gated MCP tool. `delete_template` is gated too, so the count is 38 tools, 36 visible by default.
+  - **Periodic sync:** it is on by default every 30 minutes, not off.
+  - **Gemini:** a trigger's schedule cannot be changed in place, so the README no longer says it can be rescheduled.
+  - **n8n:** it is a controller in `AGENTS.md` §2.
+  - **Fresh-clone start:** a fresh clone now runs `npm run dev`. `npm start` needs a build that hadn't happened yet.
+  - **Registry docs:** the Registry v1 and template docs no longer list shipped work as still to do.
+  - **Sources tab:** it is no longer called the Platforms tab.
+- **`check-doc-links.mjs` now checks template-literal and full GitHub URLs** (2026-11-06). A doc path written as `${REPO}/docs/...` or `https://github.com/.../blob/main/docs/...` in source used to be skipped, which left three in-app template links unchecked. It now covers 50 doc paths in source, up from 39.
+- **One sources document instead of two** (2026-11-06). `guides/Sources_Guide.md` repeated every per-source guide in shorter form, so each fact had two copies. It is gone. [`sources/README.md`](user-guides/sources/README.md) is now the single overview: every source in one table with a link to its own guide, plus what is true of all of them (what a source is, choosing which you see, reading a failed run, quick links, adding a source). Anything the old guide said that a per-source guide did not was moved into that guide first. Every **?** link in the app now opens the source's own guide, at the relevant section for Windows and the four Cronsole-native job types. n8n is now listed as a controller (it gained *Run now* on 2026-10-05), and its guide is checked by `docsLinks.test.ts`, which had been missing it.
+- **No more blank screen while the dashboard loads** (2026-11-06). `index.html` now draws a spinner before the JS bundle arrives, which takes about a second (~160 dev modules, or one 1MB built bundle). React replaces it when it mounts. The Vite dev server also pre-transforms the import graph at startup (`server.warmup`), so the first load after a restart no longer pays for cold transforms. The other tabs (Sources, Templates, Tools, Settings, Links) and the task, create, clone, import and sync modals now load as separate chunks when first opened. The bundle the dashboard waits on dropped from 1,055KB to 570KB (306KB to 173KB gzipped).
+- **Re-registering the self-heal no longer switches it off** (2026-11-06). `CronsoleStack`'s 5-minute repetition hung off its logon trigger, which starts repeating only at a logon. So re-running `Register-CronsoleStack.ps1` mid-session left the self-heal off until the next logon, with nothing reporting it (troubleshooting #102). The repetition now sits on its own time trigger and runs from the moment the task is registered. Re-run `Register-CronsoleStack.ps1` elevated once to get it.
+- **The self-heal launcher waits for its script** (2026-11-03). `scripts/startup-task/run-hidden.vbs`
+  ran PowerShell fire-and-forget, so each `\Cronsole-Stack\` task ended within a second: `IgnoreNew`
+  never stopped a hung `cronsole.ps1 up` from getting a new copy every 5 minutes (the 2026-09-22
+  `docker.exe` pile-up), and Last Result was always 0. It now waits and returns the script's exit
+  code, still with no window. `Register-CronsoleStack.ps1` gives the tasks a 10-minute limit instead
+  of none, so a hung run is ended rather than blocking every later one.
 - **The MCP server runs on MCP TypeScript SDK v2** (2026-10-30). `mcp-server/` moved from
   `@modelcontextprotocol/sdk` 1.x to `@modelcontextprotocol/server` 2.4 (the test client is a dev
   dependency), ahead of 1.x going bug-fix-only around 2027-01-27. Tools, schemas and output are
@@ -1669,9 +1704,9 @@ not a package, and **no binary is attached to it**.
 
   **The badge is declared by the connector, not counted from its cells** — deliberately, because a finished read-only source and a controller whose write verbs are merely unbuilt produce exactly the same row of refusals, and only one of them is worth waiting for. `list_platforms` reports it too, so an AI assistant reading the matrix stops planning around an observer growing write verbs.
 
-  Of GitHub's three refusals only **Enable/disable** is a candidate to unlock later: it is the one whose GitHub API does exactly what the Cronsole verb claims, with no second meaning. It would arrive with its own token scope and its own confirmation naming the repository — not a flag. That is now written down in the [Sources Guide](user-guides/guides/Sources_Guide.md#github-actions) rather than being a thing you could only learn by reading the connector.
+  Of GitHub's three refusals only **Enable/disable** is a candidate to unlock later: it is the one whose GitHub API does exactly what the Cronsole verb claims, with no second meaning. It would arrive with its own token scope and its own confirmation naming the repository — not a flag. That is now written down in the [Sources Guide](user-guides/sources/GitHub_Actions.md) rather than being a thing you could only learn by reading the connector.
 
-- **The Sources Guide explains how to add a source** (2026-08-24). New section: [Adding a source](user-guides/guides/Sources_Guide.md#adding-a-source). A source is a connector compiled into the backend rather than a plugin you can drop in — a connector holds credentials, issues commands to your machine and decides what a sync may retire — so adding one is a pull request, and the guide says so plainly along with what will not be accepted. It covers the three shapes a source can take (**controller**, **observer**, **quick link**), the six things a connector has to answer, where each piece of code goes, and what to put in the PR. The **Add a custom source** panel on the Sources tab links straight to it. Also new: [Choosing which sources you see](user-guides/guides/Sources_Guide.md#choosing-which-sources-you-see).
+- **The Sources Guide explains how to add a source** (2026-08-24). New section: [Adding a source](user-guides/sources/README.md#-adding-a-source). A source is a connector compiled into the backend rather than a plugin you can drop in — a connector holds credentials, issues commands to your machine and decides what a sync may retire — so adding one is a pull request, and the guide says so plainly along with what will not be accepted. It covers the three shapes a source can take (**controller**, **observer**, **quick link**), the six things a connector has to answer, where each piece of code goes, and what to put in the PR. The **Add a custom source** panel on the Sources tab links straight to it. Also new: [Choosing which sources you see](user-guides/sources/README.md#-choosing-which-sources-you-see).
 
 - **GitHub Actions is a source now — read-only, on purpose** (2026-08-23). Connect on the **Platforms** tab with a GitHub personal access token, add the repositories you care about by URL or `owner/name`, and sync. Every workflow in them with an `on: schedule` trigger arrives on the dashboard beside your Windows tasks, your Cronsole jobs and your Claude routines: its cron, whether GitHub still has it enabled, and **how its last scheduled runs actually went**.
 
@@ -1685,7 +1720,7 @@ not a package, and **no binary is attached to it**.
 
   Details worth knowing: you watch a **repository**, not a workflow, and the repository is the category — dropping a single workflow is *Remove from Cronsole* on that task. There is deliberately **no next-run time**, because GitHub queues scheduled runs best-effort and delays them under load, so a time computed from the cron would disagree with reality with nothing on screen to say which was right. A workflow whose file Cronsole cannot read keeps its row and **says why**, rather than rendering as unscheduled. A private repository that 404s is usually a token missing the `repo` scope rather than a typo — GitHub answers 404, not 403, for anything a token cannot see — and the error says so. The token is verified against GitHub before it is stored, so a bad paste fails at the click; it is then encrypted at rest and never shown again, because GitHub cannot re-display a PAT either.
 
-  Full section in the [Sources Guide](user-guides/guides/Sources_Guide.md#github-actions).
+  Full section in the [Sources Guide](user-guides/sources/GitHub_Actions.md).
 
 - **CI refuses to let a committed `.env*` file grow a secret** (2026-08-23). `.gitignore` already denied `.env*` and re-included only three `.env.example` files plus `frontend/.env.remote` — a build input for the single-origin proxy build holding one public routing value, `VITE_API_URL=same-origin`. A cross-repo security audit flagged that last one, and it was right to, though not for the reason it gave: the value is not a secret and never could be (a `VITE_*` variable is compiled into the bundle and served to every visitor anyway). The problem is the **shape**. A file named `.env.remote` looks like a secret store, sits beside the ignored ones, and is already tracked — so putting a token in it is a one-line diff to a file git has carried for months, with no test to redden and nothing for a reviewer to notice.
 
@@ -2194,7 +2229,7 @@ not a package, and **no binary is attached to it**.
 
   **A topic must link to a doc.** `HelpTopic.doc` is required, and a topic with nothing to point at is one explaining something undocumented — the fix for which is a doc, not a longer popover that quietly becomes the only place a rule is written down.
 
-- **A new [Sources Guide](user-guides/guides/Sources_Guide.md)** (2026-08-12): one section per source — Windows Task Scheduler, Cronsole (HTTP), Cronsole (Scripts), Claude Code routines, plus quick links and what's next — covering what Cronsole can and cannot do with each, and the things that catch people out. Written because the UI guide is organised by *screen* and the question "what is this system, and what can Cronsole do with it?" is organised by *source*; it is also the deep-link target for every source help topic.
+- **A new [Sources Guide](user-guides/sources/README.md)** (2026-08-12): one section per source — Windows Task Scheduler, Cronsole (HTTP), Cronsole (Scripts), Claude Code routines, plus quick links and what's next — covering what Cronsole can and cannot do with each, and the things that catch people out. Written because the UI guide is organised by *screen* and the question "what is this system, and what can Cronsole do with it?" is organised by *source*; it is also the deep-link target for every source help topic.
 
 - **Edit what a Cronsole-native task runs** (2026-08-12): an Edit pencil on the task modal's Action section, `PATCH /api/tasks/:id/job`, and an `update_native_job` MCP tool (25 tools). Change an HTTP job's URL, method, headers or body; change a script job's command or working directory; or convert between the two. **A native HTTP task's URL previously could not be changed at all** — the only route to a different URL was delete and recreate, losing the run history.
 
@@ -4752,7 +4787,7 @@ New correctness work lands here as it is found. Everything logged before 2026-08
       Source help **follows the source you are on** — the Source bar, each Platforms row and the
       New Task platform selector all resolve to that source's topic, degrading to the platform
       and then to the overview so a connector landing before its help copy still opens something
-      true. New [`Sources_Guide.md`](user-guides/guides/Sources_Guide.md) is the deep-link target.
+      true. New [`Sources_Guide.md`](user-guides/sources/README.md) is the deep-link target.
       **`HelpTopic.doc` is required**: a topic with nowhere to point is one explaining something
       undocumented, and the fix is a doc, not a popover that becomes the only place a rule is
       written down.

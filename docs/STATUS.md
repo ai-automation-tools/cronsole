@@ -14,7 +14,7 @@
 
 Cronsole is **pre-1.0** and honest about it. Per-source capability is in
 [**What it connects to**](../README.md#-what-it-connects-to) — that table is the same declaration
-the app's own **Platforms** tab renders (`backend/src/services/platformCapabilities.ts`), so if it
+the app's own **Sources** tab renders (`backend/src/services/platformCapabilities.ts`), so if it
 and the app ever disagree, the app is right and the table is the bug. What that table does *not*
 answer is the two questions a new reader actually has.
 

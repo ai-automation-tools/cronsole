@@ -36,11 +36,27 @@ poked nightly, or a health endpoint you want exercised.
 
 Success is the HTTP status. A 500 is a failed run; a 200 is a successful one.
 
+Created with **New Task › Cronsole › HTTP request**, or from a **Cronsole Native** template
+(*Uptime Check* ships built in; *Monitor Heartbeat* is in the gallery). A template applied here
+always makes a `GET` — a job that needs a method, headers or a body is a full spec, so use New Task.
+
+**You can change the URL later.** *Edit* on the Action panel of the task modal rewrites the whole
+job: URL, method, headers and body. Headers can be pasted as `Name: value` lines straight out of an
+API's docs, or as JSON.
+
 ### 🖥️ Programs (EXEC) — run something already on the host
 
 Structured `{executable, args[]}`, **no shell**. Pipes, redirection and `&&` are not implied — invoke
-a shell explicitly (`cmd.exe /c "..."`) if you need them. That is a deliberate opt-in, not an
-oversight: a shell that appears by accident is how an argument becomes a command.
+a shell explicitly (`cmd.exe /c "..."` or `/bin/sh -c "..."`) if you need them. That is a deliberate
+opt-in, not an oversight: a shell that appears by accident is how an argument becomes a command.
+
+Its exit code, duration and output are recorded. Created with **New Task › Cronsole › Run a
+program**, or from a **Cronsole Native** template — *Run a Program* ships built in, with Node, Python
+and `git pull` starters in the gallery.
+
+**Use a Windows task instead** for anything that must run as your logged-in user, needs your user's
+privileges, or has to keep running while Cronsole is down. The agent is the thing that unambiguously
+means *your machine*; the backend is not.
 
 > [!IMPORTANT]
 > **A native job runs where the *backend* runs.** On a Dockerized stack that is inside the container —
@@ -54,6 +70,24 @@ The script itself lives in the task, so there is no file to keep in sync and not
 of. A fixed interpreter allowlist decides what can run it. This is the type to reach for when the
 work is five lines and inventing a file on disk is the annoying part.
 
+Created with **New Task › Cronsole › Write a script**. The interpreters are a fixed list:
+PowerShell, PowerShell 7, Bash, sh, Python and Node.
+
+- **This is the one job type where a shell is expected.** You picked the interpreter and wrote the
+  body, so `|`, `&&` and redirection all behave normally. That is not a hole in the no-shell rule —
+  that rule bans an *implicit* shell wrapped around a command you typed. Here nothing is re-parsed,
+  and **the interpreter is a fixed list, never a path you type**.
+- **The interpreter has to exist where the backend runs.** `node` always does — Cronsole itself runs
+  on it — which makes it the safe choice inside a container. PowerShell and Python may not be there,
+  and the run log says so by name rather than reporting a missing file.
+- **The script travels with the task.** You can read and edit it in the app, it is included in an
+  export and in the pre-delete archive, and a template carrying one works on a fresh install. None of
+  that is true of a program job pointing at a path.
+- **Whitespace is preserved exactly.** The body is not trimmed the way a form field is — leading
+  indentation matters in Python, and a trailing newline is what makes a shell script's last line run.
+- **The temporary file is deleted afterwards**, including when the script times out and is killed,
+  and it is written so only the account running the backend can read it.
+
 ### ✅ Checks — measure something and compare it
 
 The only type whose **failure is a fact about your system rather than a bug in your script**. A check
@@ -62,7 +96,40 @@ expect.
 
 That distinction is load-bearing. A check that correctly finds a problem is the check **working**:
 it returns HTTP 200 with `success: false`, not a 502, and it does not mark the platform broken. Only
-"could not start at all" is a failure of the verb.
+"could not start at all" is a failure of the verb. It is also why these are the runs worth pointing
+failure notifications at, and the ones whose history is worth reading.
+
+Created with **New Task › Cronsole › Check something**. Four kinds:
+
+| Check | What it measures | Fails when |
+|:---|:---|:---|
+| **Endpoint** | An HTTP request | Status outside the range you set, or the body missing text / a JSON field you require |
+| **Port** | A TCP connection | Nothing accepts a connection within 15s |
+| **File freshness** | A file's last-modified time | Older than your limit — **or missing** |
+| **Disk space** | Free space on a volume | Below your floor |
+
+- **A 200 is not the same as healthy**, which is why an endpoint check is not just an HTTP job. It
+  can require the response body to contain a string, or a dotted JSON path (`status.db`) to equal a
+  value. An HTTP *job* only asks whether the request was accepted — the right test for firing a
+  webhook, the wrong one for monitoring.
+- **A missing field and a changed field are reported differently.** `status.db is "up", expected
+  "down"` and `status.cache is not present` are different facts about an API, and the run log says
+  which.
+- **File and disk checks measure the *backend's* filesystem** — the container's, on a Dockerized
+  stack, not yours. The form names the execution host before you save, because a check that passes
+  against the wrong disk is worse than no check at all.
+- **A missing file fails the freshness check** rather than being skipped. The check exists to notice
+  that a backup stopped being written; a backup that was never written is the same problem in its
+  worst form.
+- **The log always states the measurement**, not just a verdict: `D:\backups\nightly.zip last
+  modified 3.0h ago (limit 60m)`. The number is the reason you ran the check.
+
+## 🎛️ What Cronsole can do here
+
+The same list for all four job types: **Run now · Create · Enable/disable · Edit schedule · Edit what
+it runs · Export · Delete.** No agent, no round trip, nothing that can refuse — the write *is* the
+change. That is also why the Sources tab shows native as one card while the Source rail splits it into
+four rows: they are different things to look at with identical capabilities.
 
 ## 🔐 Secrets — store a reference, never the value
 
@@ -118,14 +185,20 @@ native task shifts by an hour** while a Windows task keeps its local clock time.
 ## 🕐 Run history
 
 Native is the source where `ExecutionLog` is complete: Cronsole performs every run, so every run is
-recorded — scheduled ones included. Output is stored, and `${secret.NAME}` values are **redacted out
+recorded — scheduled ones included. Because Cronsole makes the call itself, the status and duration
+describe the actual run, unlike a Windows manual run. Output is stored, and `${secret.NAME}` values are **redacted out
 of the log** at the single point every job type funnels through.
 
 ## ⚠️ Things that surprise people
 
 - **The row used to be called Scripts and now says Programs.** It never took a script — it runs a
   program that must already exist on the host. The type that actually carries a script is Scripts.
-  Presentation only: no stored job changed.
+  Presentation only (renamed 2026-08-15): no stored job changed.
+- **Changing a job's type replaces the job, it does not patch it.** Switching an HTTP job to a script
+  discards the URL, method, headers and body — the two kinds share no fields, and a leftover `url`
+  inside a script job is something nothing reads and nobody can explain later. The form says exactly
+  what will be discarded *before* you click. The task keeps its name, schedule, category and run
+  history either way.
 - **A check that fails is not an outage.** See above. If the Sources tab ever blames the platform for
   your own missing file, that is [#77](../../troubleshooting/README.md#77-the-sources-tab-says-a-verb-failed-and-names-your-own-broken-file).
 - **Delete really deletes.** There is no machine to leave it running on, so the task modal's button

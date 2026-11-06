@@ -32,9 +32,12 @@ is scoped to one Google Cloud project and sees every trigger in it.
 
 Cronsole verifies the key by listing triggers before storing it, so a bad paste fails at that click
 rather than inside a sync days later. It reports the trigger count too — a working key over an empty
-project reads as suspicious otherwise.
+project reads as suspicious otherwise. The key is then stored encrypted and never shown again;
+rotating it means pasting a new one.
 
-Everything arrives under a single **Gemini** category. There is nothing to break it down by.
+Everything arrives under a single **Gemini** category. There is nothing to break it down by — a
+trigger has no repository, project or folder, and grouping by agent id instead would put a dated
+preview string into your sidebar and into any saved view keyed on it.
 
 > [!TIP]
 > **The agent id is a setting with a date in it.** `antigravity-preview-05-2026` is what Google's docs
@@ -89,7 +92,8 @@ Open **Tools and network access** to grant reach. It starts empty and stays empt
 > **A tool the list offers is not always one your agent accepts.** The checkboxes come from the API's
 > own supported list, but the managed agent behind your triggers can refuse some of them —
 > `filesystem` is the known case. Such a trigger is created happily and then **fails in about five
-> seconds** with *"Tool 'filesystem' is not allowed when interacting with this agent"*. A run that
+> seconds** with *"Tool 'filesystem' is not allowed when interacting with this agent"*. Cronsole shows
+> that refusal as the run's output, marked **Failed before the agent started**. A run that
 > fails faster than the work could possibly take is a rejected configuration, not a failed attempt:
 > look at the tools, not the prompt.
 
@@ -138,10 +142,13 @@ different tool list — whichever you touch. Fields you leave alone are copied f
 stands on Gemini right now**, so rotating a token cannot revert a prompt changed in Google's console.
 The replacement is created *before* the original is removed, so a failure leaves the working trigger
 alone. A paused trigger stays paused. The task keeps its run history, favourite and collections even
-though Gemini assigns a new id.
+though Gemini assigns a new id. Any hand-typed token has to be retyped, because Cronsole never read
+the old one; a saved server needs nothing retyped. If the replacement is created but the original
+cannot be deleted, that is reported as a **failure**, not a note: the schedule now fires twice.
 
 **Duplicate** opens the create form filled in from this trigger, for when you want a *second* one and
-the original stays. Saved servers cross as references, so nothing secret is typed twice. A hand-typed
+the original stays. The schedule comes back in **your** timezone, so a duplicate of an 08:00 local
+trigger is not created at 08:00 UTC. Saved servers cross as references, so nothing secret is typed twice. A hand-typed
 server is dropped rather than copied hollow — Cronsole never read its token, and a server the new
 trigger could not authenticate to fails later, on a schedule.
 
@@ -154,6 +161,15 @@ instead — not this button, task by task.
 plus real run outcomes feeding task health.
 
 *Edit action* and *Edit schedule* are the two it cannot do, both for the reason above.
+
+**Why *Run now* works here when GitHub Actions and Vercel Cron refuse it.** Both of those have an
+endpoint that could be called, but what comes back is a lookalike: a `workflow_dispatch` run is a
+different event from the scheduled one, and calling a Vercel cron path yourself is an ordinary HTTP
+request the scheduler never records. Gemini's is not a lookalike. Running a trigger runs **its own
+agent, with its own prompt, in its own sandbox**, and the run appears on the same execution list the
+scheduled runs appear on. Google's own documentation notes that pausing a trigger stops its
+*scheduled* executions while leaving manual ones alone — the platform stating that the two are one
+mechanism with two doors.
 
 ## 🕐 Run history — read the steps, not the status
 
@@ -175,16 +191,33 @@ is a different product. Cronsole is where you see them.
 ## ⚠️ Things that surprise people
 
 - **Google pauses a failing trigger for you.** After a number of consecutive failures — five by
-  default — Gemini disables it. Cronsole shows that as its own health warning rather than the
-  ordinary "disabled" note, because nobody chose it. Resuming clears the pause, not the cause.
+  default — Gemini disables it. Cronsole shows that as its own health warning, with the failure
+  count attached, rather than the ordinary "disabled" note, because nobody chose it: a task somebody
+  deliberately parked and an agent that has been dead for a week look identical on a dashboard, and
+  only one of them is something you need to know. Resuming clears the pause, not the cause — a
+  trigger that resumes and fails five more times is back where it started.
 - **Gemini stores a timezone; Cronsole stores UTC.** Anything Cronsole writes is UTC, so the round
   trip is exact. A trigger made elsewhere in a real zone is converted on the way in with the
   platform's original pair kept beside it — and where the conversion has no honest answer, the
-  schedule reads as unavailable **with the reason**, never as a guess.
+  schedule reads as unavailable **with the reason**, never as a guess. The usual case is one that
+  pins a day of the month and crosses midnight in the shift, which no single UTC cron can say without
+  firing on the wrong day. The sync warns, and the original is on the task.
+- **Zones that observe DST are converted at today's offset.** A 09:00 New York trigger is 13:00 UTC
+  in summer and 14:00 in winter, and no single cron says both. Cronsole stores the current one — the
+  same bargain it already makes when you type a schedule in your own zone.
+- **Deleting is real, and disconnecting is not.** *Delete* on a task removes the trigger from Gemini.
+  *Disconnect* on the source forgets the key and the tracked rows, and leaves every trigger running
+  exactly as before.
 - **A dispatch timeout is not a failed dispatch.** Gemini's run endpoint holds the connection while
   the agent works, well past any sane client timeout. Cronsole answers that by asking the platform
   whether a run started since the request went out, rather than reporting a failure for a run that is
   going fine.
+- **Health comes from your syncs, not from a probe.** `getHealth` runs every 45 seconds per open tab,
+  so probing would spend a metered quota on a question sync already answers. Sync is the probe, on
+  every source.
+- **This API is a preview.** Triggers are part of the Gemini API's Managed Agents preview, and the
+  row is marked *Experimental* for that reason. That is a statement about the API underneath, not
+  about how much of the connector is finished.
 
 ## 🧯 When something looks wrong
 

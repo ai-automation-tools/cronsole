@@ -40,6 +40,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 98 | **`sync_tasks` over MCP fails with `ECONNABORTED` — "Could not reach the Cronsole backend"** while `/api/health` is fine | The MCP client timed out on a sync of **every** source (426 Windows tasks + 89 n8n workflows); the backend kept going and finished. Check the result rather than re-running | [→](#98-sync_tasks-over-mcp-says-the-backend-is-unreachable-and-the-sync-finished-anyway) |
 | 99 | **Run now on an n8n workflow says the API has no execute endpoint** — a `400`, while n8n's own button runs it | The refusal was true of the REST API, not of n8n: its instance MCP server can run the published workflow. Add an MCP access token on the n8n card | [→](#99-run-now-on-an-n8n-workflow-says-the-api-has-no-execute-endpoint) |
 | 100 | **`docker restart taskhub-backend-1` fails with `No such container`, or nothing changes** — or a republished agent reads *"Agent not connected"* | The default stack runs the backend as a **host** process, so the docker command restarts nothing; restart with the elevated `CronsoleRestart` task. A republish stops the agent before it builds — wait for `DONE` | [→](#100-docker-restart-fixes-a-stale-backend-and-nothing-changes) |
+| 102 | **The 5-minute self-heal stopped after re-registering `CronsoleStack`** — `NextRunTime` is empty, State reads `Ready`, nothing errors, and a service that dies stays down | The repetition hung off the **logon** trigger, and a logon trigger's repetition starts only at a logon, so re-registering mid-session disarmed it until the next one | [→](#102-the-5-minute-self-heal-stops-after-re-registering-cronsolestack) |
 | 93 | **A restored backup succeeds and every platform connection is unreadable** — `pg_restore` exits 0, every row count matches, your tasks are all there, and every source is broken | **The credentials in the dump are ciphertext and the key is not in the dump.** `PlatformConnection.config` and `TaskSecret` are AES-256-GCM encrypted with `ENCRYPTION_KEY`, which lives in `.env`. A restore onto a stack with a different key genuinely succeeds and leaves every value permanently unreadable, discovered one failing sync at a time | [→](#93-a-restore-succeeds-and-every-platform-connection-is-unreadable) |
 | 92 | **A restore verification says the data does not match, and the restore was perfect** — the *restored* copy reports more rows than the original it came from | **The check is reading an estimate, not a count.** `pg_stat_user_tables.n_live_tup` is a planner input maintained by autovacuum: stale (often zero) on a database not analysed recently, accurate on a freshly-restored one. It can be wrong in **both** directions, so it can also report a match over a restore that dropped rows. Generate real `count(*)` queries | [→](#92-a-restored-database-reports-different-row-counts-and-the-restore-was-perfect) |
 | 91 | **A second clone of the repo is not a second install** — `docker compose up` from a fresh checkout adopts the first one's database, or fails with `port is already allocated`. Shifting the ports in a `docker-compose.override.yml` does not help | **The Compose project name is pinned in the file, not derived from the folder** (`name: taskhub`, deliberately — it is what stops a renamed checkout orphaning the Postgres volume). Every clone on the machine is therefore the *same* project. And a plain override **appends** to `ports:` rather than replacing it, so both bindings are attempted and the old one still collides. Use `docker compose -p <name>` **and** the `!override` tag on every port list | [→](#91-a-second-clone-of-the-repo-shares-the-first-ones-database-and-ports) |
@@ -6478,3 +6479,30 @@ only the box. **Never bind a text input's `value` to the URL** — keep it local
   <a href="../setup/README.md">Setup</a> ·
   <a href="../install/README.md">Install</a>
 </p>
+
+## 102. The 5-minute self-heal stops after re-registering CronsoleStack
+
+**Symptom.** `\Cronsole-Stack\CronsoleStack` stops running on its own. Its Last Run Time stops at
+about when you last re-registered it, `NextRunTime` is empty, State reads `Ready`, Last Result is
+`0x0`, and nothing anywhere reports an error. A service that dies in the meantime stays down. Found
+2026-11-06: the task had not run for three days, since it was re-registered on 2026-11-03 to pick up
+the launcher's new 10-minute limit. The last logon was 2026-10-26.
+
+**Cause.** The 5-minute repetition was attached to the task's only trigger, `AtLogOn`. A logon
+trigger's repetition starts only **at a logon**. Re-running `Register-CronsoleStack.ps1`
+mid-session (which every fix to these tasks asks for) replaces the trigger, and the new one waits for
+a logon that may be days away. `Start-ScheduledTask` runs it once and does not arm the repetition.
+Before the shim started waiting for its script, nobody watched these tasks' run history, so a
+disarmed self-heal looked exactly like a healthy one.
+
+**Fix.** `Register-CronsoleStack.ps1` now registers two triggers. A `-Once` trigger with an
+indefinite repetition fires every 5 minutes from the moment it is registered, and a bare `AtLogOn`
+trigger makes a fresh session start the stack straight away. Re-run it elevated:
+
+```powershell
+.\scripts\startup-task\Register-CronsoleStack.ps1
+(Get-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName CronsoleStack | Get-ScheduledTaskInfo).NextRunTime
+```
+
+An empty `NextRunTime` means the self-heal is disarmed. The rule is in §9: a repetition hangs off a
+time trigger, never the logon trigger.

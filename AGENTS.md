@@ -44,8 +44,8 @@ template catalog with an Apply modal, and a shipped MCP server.
 
 **Platforms:** Windows Task Scheduler (functional) · Cronsole-native jobs (functional) · Claude Code
 routines (two modes — see Connectors) · Gemini API Triggers (the **first hosted controller**;
-`v1beta` preview) · GitHub Actions, Vercel Cron and n8n (**read-only observers**; n8n reports run
-outcomes) ·
+`v1beta` preview) · n8n (a **controller** whose one write verb is *Run now*, through n8n's MCP
+server; reports run outcomes) · GitHub Actions and Vercel Cron (**read-only observers**) ·
 ChatGPT / Grok / Jules / Open Claw / Hermes = quick links only.
 
 ---
@@ -116,7 +116,8 @@ skill**.
 `web-performance-optimization` · `senior-devops` · `release-engineering` (installers, signing,
 versioning, go-public) · `claude-api` / `agent-tool-builder` (MCP work) · `github-readme` ·
 `update-docs`.
-Only `cronsole`, `release-engineering`, and `api-architect` are in this repo. The rest moved to
+Only four are in this repo: `cronsole` and `source-doctor` (tracked in `skills/`, linked into
+`.claude/skills/`), and `release-engineering` and `api-architect` (in `.claude/skills/`). The rest moved to
 **user scope** (`~/.claude/skills/`, `~/.claude/commands/`) on 2026-08-23 and are available in every
 repo — don't re-add copies here.
 Two more are an **overlay installed from outside** and may or may not be present on a given clone:
@@ -135,8 +136,9 @@ general-purpose set — `api-designer` · `backend-designer` · `frontend-design
 scope** (`~/.claude/agents/`) since 2026-08-23. `Explore` and `Plan` are built in.
 
 **MCP — two different surfaces share `.mcp.json`** (gitignored; seeded from `.mcp.json.example`):
-- **Dev tooling** that helps you *build* Cronsole: `context7` (check library docs before writing
-  code), `github`, `playwright`, `serper`, `notion`, `mermaid-chart`, `ide`, `windows`.
+- **Dev tooling** that helps you *build* Cronsole: whatever `.mcp.json.example` seeds. **The file is
+  the list**, so it is not repeated here; read it rather than a copy that drifts. `context7` is the
+  one with a rule attached: check library docs with it before writing code.
 - **`cronsole`** — Cronsole's *own* server, which lets an agent *use* a running Cronsole. Needs a
   built `dist/`, a running backend, and `CRONSOLE_TOKEN` exported in the environment the host was
   launched from (Windows: a *fresh* terminal). Unset → the literal `${CRONSOLE_TOKEN}` is forwarded,
@@ -488,9 +490,14 @@ Non-negotiable rules. **Every one has a reason recorded in
 - **`\Cronsole-Stack\` is deliberately untracked** — it is the thing that runs Cronsole, not work
   Cronsole runs. Nothing enforces this; it is a standing choice.
 - **A launcher task is not the process it launched, and exactly one script may own a task name.**
-  Every `\Cronsole-Stack\` task runs `wscript.exe` → `run-hidden.vbs`, which is fire-and-forget, so
-  the instance ends in under a second while what it started runs on unparented: `Stop-ScheduledTask`
-  stops **nothing** and `LastTaskResult: 0` is a statement about the shim, never about the stack.
+  Every `\Cronsole-Stack\` task runs `wscript.exe` → `run-hidden.vbs`, which waits for its script
+  (since 2026-11-03, so `IgnoreNew` really prevents overlap and a 10-minute limit ends a hung run),
+  but the services the script starts are `Start-Process`ed and outlive it: `Stop-ScheduledTask`
+  at most ends a script in progress, and **`LastTaskResult` is about one script run, never about
+  the stack** — `cronsole.ps1 up` returns 0 even when something stayed down. **A repetition must
+  hang off a time trigger, never the logon trigger**: a logon trigger's repetition starts only at a
+  logon, so re-registering mid-session silently disarmed the self-heal for days
+  ([#102](docs/troubleshooting/README.md#102-the-5-minute-self-heal-stops-after-re-registering-cronsolestack)).
   Restarting is therefore a property of the *script* (`cronsole.ps1 restart`, on-demand elevated as
   `CronsoleRestart`), and **`up` may never be used as a restart** — it is idempotent by design, which
   is the same property that lets the 5-minute self-heal run at all. The name and description are

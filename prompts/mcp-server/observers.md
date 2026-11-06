@@ -162,7 +162,7 @@ happen anyway.
 | A Vercel cron shows `unknown` forever | Correct and permanent — Vercel publishes no run history. Not a bug, not a broken cron. |
 | A schedule reads as null with a reason attached | Cronsole could not read that expression and refuses to guess a cron. The reason says why. |
 | "Run now" is missing or refused | Both platforms refuse `run`, by design. See the table above. |
-| A workflow's Cronsole name doesn't match GitHub | `name` and `category` are **Cronsole labels** — sync never overwrites them, and the real identifier stays on screen once they diverge. |
+| Renaming a workflow in Cronsole is refused | The name belongs to the platform: a GitHub workflow's name is the `name:` line of its file, and sync writes it back on every pass. Change it there. `category` is still a Cronsole label that sync never overwrites. |
 
 ## 🔗 Related
 

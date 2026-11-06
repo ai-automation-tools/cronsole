@@ -21,9 +21,9 @@ Every screen in **Cronsole**, in the order you meet them: the dashboard and its 
 > people. Each one explains that control in place and links back here. See
 > [In-app help](#8-in-app-help) for the full list.
 >
-> **Looking for one particular system?** The [Sources Guide](Sources_Guide.md) covers Windows
-> Task Scheduler, Cronsole (HTTP), Cronsole (Scripts) and Claude Code one at a time — what
-> Cronsole can and can't do with each.
+> **Looking for one particular system?** [Sources](../sources/README.md) lists every source
+> Cronsole supports in one table, each linking to its own guide: what Cronsole can and can't do
+> with it, and the things that catch people out.
 
 ---
 
@@ -221,14 +221,14 @@ capped — that would hide the row you typed for — and neither is the **System
 whole job is telling you what is being held back.
 
 **A fresh install lists two sources** — Windows Task Scheduler and Cronsole-native. Claude Code,
-GitHub Actions, Vercel Cron and Gemini API Triggers are shown once you add them from *Explore*, which
-is why the button is there rather than a first run listing six platforms of which two are real. Two rules make hiding safe: **a
-source holding tasks is never hidden**, and **connecting one shows it**.
+Gemini API Triggers, n8n, GitHub Actions and Vercel Cron are shown once you add them from *Explore*;
+the rules for what is shown are in
+[Sources › Choosing which sources you see](../sources/README.md#-choosing-which-sources-you-see).
 
 The **?** beside the *Sources* heading opens the same breakdown in the app, for the source you are
 on. For what each source can actually do — and the things that catch people out on each one — see
-the [Sources Guide](Sources_Guide.md), whose
-[Adding a source](Sources_Guide.md#adding-a-source) section covers writing a connector for a
+[Sources](../sources/README.md) and the guide it links for each one.
+[Adding a source](../../contributing/Adding_A_Source.md) covers writing a connector for a
 platform Cronsole does not have yet.
 
 ### Saved views
@@ -691,8 +691,9 @@ when you simply don't want to look at a task any more.
   number before you commit, and the toast afterwards tells you how many returned.
 - Not offered for Cronsole-native tasks — those exist only inside Cronsole, so there's nothing
   left to keep.
-- **Not offered for Claude routines either** — see *Disconnecting a Claude routine* below.
-  Clicking it there is refused with the reason, rather than appearing to work.
+- **Not offered for declared Claude routines either** — see
+  [Disconnecting a Claude routine](#disconnecting-a-claude-routine) below. Clicking it there is
+  refused with the reason, rather than appearing to work.
 
 **Delete from Windows** *(the irreversible one, styled red)* — deletes the real Task Scheduler
 entry. The task stops existing and will never run again.
@@ -711,57 +712,19 @@ entry. The task stops existing and will never run again.
 
 ### Disconnecting a Claude routine
 
-A Claude routine gets a third button instead: **Disconnect routine**. It is the only way to
-take one off the dashboard, and *"Remove from Cronsole"* is refused for these on purpose.
-
-The reason is that a routine is on your dashboard because **you declared it**. Anthropic
-exposes no endpoint to list routines, so Cronsole's list is your own connection config — there
-is no machine to be re-imported from, and no "don't re-import this" to remember. Removing the
-row alone left the declaration in place, so the next sync brought the task straight back while
-Cronsole's list of removed tasks read empty. *(If you hit that loop before 12 August 2026, that
-was it — [troubleshooting #47](../../troubleshooting/README.md#47-a-claude-task-keeps-coming-back-after-remove-from-cronsole).)*
-
-**Disconnect routine** removes the declaration and the tracked task together, from either the
-task modal or **Sources › Claude**. Two things it also does, both stated in its confirmation:
-
-- **It forgets the stored API token**, which claude.ai shows exactly once and will not show
-  again. Reconnecting means generating a new token there. This is precisely why it isn't folded
-  into "Remove from Cronsole" — a button may not spend something its label doesn't mention.
-- **It changes nothing at claude.ai.** The routine still exists and still runs on its own
-  schedule. You are disconnecting Cronsole from it, not deleting it.
+A Claude routine you connected by hand gets a third button instead: **Disconnect routine**, in the
+task modal or on **Sources › Claude**. It removes the declaration and the tracked task together,
+forgets the stored API token, and changes nothing at claude.ai. Why *Remove from Cronsole* is
+refused there, and what the confirmation warns you about, is in
+[Claude Code Routines › Removing one](../sources/Claude_Code_Routines.md#-removing-one--disconnect-not-remove).
 
 ### Changing a Gemini trigger — Recreate with changes, and Duplicate
 
-A Gemini trigger is **immutable once it exists**. Google's update endpoint takes a status and a
-display name and rejects everything else, so *Edit schedule* and *Edit action* both read
-**Unsupported** — a boundary of the preview API, not a missing feature. Two buttons exist because of
-it, and both say **recreate** rather than *save*. They answer different questions: *Recreate with
-changes* changes **this** trigger; *Duplicate* makes **another** one.
-
-**Duplicate** opens the New Task form filled in from this trigger — name, schedule, prompt, tools and
-allowlist. Use it when you want a second, similar trigger and the original stays. The schedule comes
-back in **your** timezone on the way in, so a duplicate of an 08:00 local trigger is not created at
-08:00 UTC.
-
-- A **saved MCP server** carries across as a reference, so nothing secret is typed twice.
-- A **hand-typed** MCP server is dropped rather than copied. Cronsole never read its token, and a
-  server the new trigger could not authenticate to would fail later, on a schedule, as somebody
-  else's 401 — so the row is left out and you add it deliberately.
-
-**Recreate with changes** rebuilds **one** trigger with a new prompt, a new schedule, new tokens or a
-different tool list — whichever of those you touch. It is the only way to edit a Gemini trigger, and
-the fields it leaves alone are copied from the trigger **as it stands on Gemini right now**, not from
-Cronsole's last sync: rotating a token cannot revert a prompt somebody changed in Google's console.
-The replacement is created *before* the original is removed, so a failure leaves the working trigger
-alone; a paused trigger stays paused; and the task keeps its run history, favourite and collections
-even though Gemini assigns a new trigger id. If the replacement is created and the original cannot be
-deleted, that is reported as a **failure**, not a note — that schedule now fires twice.
-
-> [!TIP]
-> To rotate one token across **every** trigger that uses it, don't use this button task by task. Save
-> the server once under **Sources › Gemini API Triggers › Saved MCP servers**, then edit it there and
-> press **Push this credential to N triggers**. Each is rebuilt and the result is reported per task.
-> See the [Sources Guide](Sources_Guide.md#gemini-api-triggers).
+A Gemini trigger cannot be edited in place, so its task modal offers two buttons instead of
+*Edit schedule* and *Edit action*: **Recreate with changes** rebuilds *this* trigger, and
+**Duplicate** opens the New Task form filled in from it to make *another* one. What each copies, what
+it drops, and how to rotate one token across every trigger are in
+[Gemini API Triggers › Changing one](../sources/Gemini_API_Triggers.md#-changing-one--recreate-with-changes-and-duplicate).
 
 > **Note on schedule times:** every clock time in the app — the Schedule panel, the cron fields you type into, the preset chips, and absolute next/last-run timestamps — follows **Settings → Behavior → Schedule timezone**. It defaults to **Pacific**; you can pick another zone, your machine's, or UTC.
 >
@@ -1139,8 +1102,8 @@ schedule, Edit action, Export, Restore, Delete) and a table giving each verb's s
 succeeded, and when it last failed and why. The toggle says how many verbs are verified and how
 many are unproven before you open it.
 
-**Sync automatically** (inside the details, every source except Cronsole-native) is off until you
-pick an interval from 5 minutes to a day. It does what the dashboard's plain **Sync** does — refreshes
+**Sync automatically** (inside the details, every source except Cronsole-native) is on by default,
+every 30 minutes, for each connection; pick another interval from 5 minutes to a day, or **Off**. It does what the dashboard's plain **Sync** does — refreshes
 the folders you already track — and nothing more: it never adds a new folder or brings back a task you
 removed. The card shows when it last ran and, if the last run failed, why.
 
@@ -1167,44 +1130,19 @@ switch says so rather than going missing.
 
 ### Available
 
-Everything Cronsole can connect to that is **not connected**, in two groups.
-
-**Added to your sidebar** comes first, because it is the group with something to do: sources you
-asked for that have nothing behind them yet. Each also collapses to just its header — glyph, name,
-"Not connected" pill — with a **Show details** toggle that reveals what would actually connect it.
-The answer takes one of two shapes:
-
-- **Something to fill in** — Claude Code, GitHub Actions, Vercel Cron and Gemini API Triggers are
-  registered by hand, so **Set up** opens that panel in place.
-- **Nothing to fill in** — Windows connects when the Cronsole agent is running; Cronsole-native
-  connects whenever the backend is up. These get the sentence and no button, because nothing you
-  could type would connect them.
-
-**Not added** holds the rest — today Claude Code, GitHub Actions, Vercel Cron and Gemini API
-Triggers on a fresh install. Each card says what the source *is* and whether it is a **controller**
-(Cronsole can change things there) or an **observer** (it can only read). Being hosted does not
-decide which: GitHub Actions and Vercel Cron are observers, and Gemini API Triggers is a controller. Adding one lists it in the sidebar and moves it into the group
-above; **it connects nothing on its own.** This view is what makes hiding a source safe: nothing
-you turn off becomes unfindable.
-
-The view ends with **Add a custom source**. A source is a **connector** compiled into the backend,
-not a plugin you can drop in — so adding one means a pull request against the repository, and the
-answer may be that a bookmark is the honest shape for it. It links to
-[Sources Guide › Adding a source](Sources_Guide.md#adding-a-source), which covers the three shapes
-a source can take, what a connector must answer, and what will not be accepted.
+Everything not connected, in two groups: **Added to your sidebar** (sources you asked for with
+nothing behind them yet, each with a **Show details** toggle and, where there is something to fill
+in, a **Set up** button that opens that source's panel in place) and **Not added** (the rest; adding
+one lists it in the sidebar and connects nothing). The view ends with **Add a custom source**, a link
+to [Adding a source](../../contributing/Adding_A_Source.md). Which sources sit in which group, and
+why, is in [Sources › The three views](../sources/README.md#the-three-views).
 
 ### Quick links
 
-Bookmarks to schedulers Cronsole has no connector for — ChatGPT, Gemini, and any you add — and to
-the web console of every source that has one. A default added in a later version appears once; one
-you deleted stays deleted.
-**Nothing is read or written through them** and no task from one appears on your dashboard, which
-is why they get their own view instead of a place among the real sources. Each tile shows the
-link's host, and its remove button is always there rather than appearing on hover, so it works on
-a phone. They follow your account rather than this browser.
-
-They live on the top bar as **Quick Links** by default. **Settings › Behavior › Quick Links in the
-top bar** turns that off, and the links return here as the Sources tab's third view.
+Bookmarks to schedulers Cronsole has no connector for, and to the web console of each source that
+has one. Nothing is read or written through them. They sit on the top bar by default;
+**Settings › Behavior › Quick Links in the top bar** moves them back here as the third view. See
+[Sources › Quick links](../sources/README.md#-quick-links--schedulers-with-no-connector).
 
 ## 7. System Status & Connections
 
@@ -1285,7 +1223,7 @@ Where the **?** buttons are, and what each one answers:
 
 | Where | Answers |
 |:--|:--|
-| Dashboard › **Source** bar | What a source is, and how each one differs → [Sources Guide](Sources_Guide.md) |
+| Dashboard › **Source** bar | What a source is, and how each one differs → [Sources](../sources/README.md) |
 | Dashboard › **Views** row | Saved views, what a view is, why changing a filter drops you to *Custom* |
 | Dashboard › **Filters** row | Status, ownership and category — and what the defaults are hiding |
 | **New Task** › Platform | The selected platform, in place — the help changes as you switch between Cronsole, Windows and Claude |
@@ -1314,6 +1252,6 @@ because a stale help link fails silently.
 <p align="center">
   <a href="../README.md">← User Guides</a> ·
   <a href="../../README.md">Docs home</a> ·
-  <a href="Sources_Guide.md">Sources Guide →</a>
+  <a href="../sources/README.md">Sources →</a>
 </p>
 

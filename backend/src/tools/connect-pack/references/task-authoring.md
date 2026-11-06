@@ -1,6 +1,6 @@
 # Task authoring & management
 
-> Cronsole Connect Pack **v1.12** · canonical copy: <https://cronsole.ai-automation-tools.dev>
+> Cronsole Connect Pack **v1.14** · canonical copy: <https://cronsole.ai-automation-tools.dev>
 
 Every way to **create** a scheduled task through Cronsole, and how to **manage** it afterwards.
 Read this before creating a task on a user's real machine — a scheduled task is durable, runs
@@ -30,6 +30,17 @@ the other two **by name** — read the refusal, it points at the right one.
 **Both import paths make a NEW task**, `ACTIVE`, on the file's **UTC** schedule — report the
 returned `nextRunTime`. Nothing is overwritten and no archived run history is reattached, so
 importing the same file twice leaves two tasks.
+
+**A credential never goes in a native job spec.** Write `${secret.NAME}` instead — legal in a
+url, a header value, a body, an arg and an env value; refused by name in an executable, an
+interpreter and a check assertion. `${secret.NAME?}` (trailing `?`) is **optional**: unset, it
+becomes an empty string and never blocks a run — for a key that only *enables* something. The
+value is stored encrypted on the task and redacted out of the run log. `POST /api/tasks/native`
+takes an optional `secrets` map so a create is one gesture; after that it is one secret at a time
+(`PUT` / `DELETE /api/tasks/:id/secrets/:name`). **No MCP tool writes a value** —
+`list_task_secrets` reports names only, and the person enters the value in the dashboard. A
+reference with nothing behind it fails at **run** time, never at create time, so every create,
+import and restore reports `missingSecrets` — tell the person which ones to set.
 
 ---
 
@@ -78,6 +89,69 @@ every parameter into arbitrary code.
 
 ---
 
+## 2a. Compose the prompt (hosted agents — Gemini, Claude routines)
+
+On a hosted source the unit of work is **a sentence for an agent**, not a command line, and
+nothing in §2 applies: there is no executable, no tokenizer, no quoting problem. There is a
+different problem, and it is worse, because **it fails silently**.
+
+> Each rule below was paid for by a real failed run, and all of them were catchable before the
+> task existed — which is why Cronsole preflights the prompt and returns `promptWarnings` on the
+> create (shown live in the dashboard's form; `create_gemini_trigger` forwards them). They are
+> **notes, never refusals**: not one is certainly wrong, so read them rather than expecting a
+> create to fail.
+
+### Never let the prompt offer a choice
+
+Nobody answers a question at 03:00. A prompt that asks *"which repositories should I include?"*
+or says *"let me know if you'd prefer the short form"* does not fail — it **stalls**, and the
+run is over before anything happened.
+
+**Give the parameter, or tell the agent to pick and say which it picked.** The second is often
+better: it is honest about the ambiguity, and the report says what was chosen.
+
+```
+BAD   Summarize the news. Which topics should I cover?
+GOOD  Summarize the news about Postgres releases and CVEs. If a story is ambiguous,
+      include it and say why you were unsure.
+```
+
+### Always instruct it to report failure explicitly
+
+An agent that cannot finish a step **narrates success instead**. It will describe the digest it
+would have sent. The run's status is `completed`, because `completed` means *the agent finished
+its turn* — it is not a claim that the job was done.
+
+End every prompt with a sentence like: *"If any step fails, say so explicitly in your final
+message and name the step that failed, rather than summarizing what you would have produced."*
+
+### Read the step list, not the status
+
+This one is for **you**, checking afterwards. Use `list_platform_runs` → `get_run_output` and
+read `steps`. An agent asked to research and email a report can finish `completed` having called
+only `write_file`; no status anywhere shows that, and the step list is the only place it is
+visible.
+
+### The two invisible ones
+
+- **Pasted gutter characters.** `▎`, `│`, box-drawing rules, zero-width spaces — they arrive by
+  copying a prompt out of a terminal, a diff, or a chat bubble. The agent reads them as part of
+  the instruction and chops it into fragments it ignores, and **you cannot see them in a
+  textarea**. Retype rather than paste, or read the preflight warnings.
+- **Mail with no recipient.** *"Email the digest"* with no address: the agent writes a file
+  instead and reports success. Name the address — and remember that **reach is a separate
+  grant**: a trigger with no `mcp_server` cannot send mail however clearly the prompt says to,
+  and one with no network allowlist reaches nothing outside its own sandbox.
+
+### Reach is half the task
+
+On Gemini the prompt and the **tool grant** are one decision, not two. State what you are
+granting before you create it — the agent keeps that reach for as long as the trigger exists —
+and grant only what the task needs. `create_gemini_trigger` takes built-in tools by name and MCP
+servers **by saved preset name**, so no bearer token ever enters a tool call.
+
+---
+
 ## 3. Get the schedule right
 
 **All schedules are 5-field cron in UTC.** Not local time.
@@ -111,8 +185,12 @@ convert_schedule '0 9 * * 1-5'
 **To create a task that shouldn't fire yet:** use a recognized schedule and **disable** it, or
 create it and delete it when done.
 
-Recognized shapes: daily (`0 9 * * *`), weekly (`0 9 * * 1-5`), monthly (`0 3 1 * *`),
-minute step (`*/15 * * * *`), hour step (`0 */4 * * *`). Everything else hits the fallback.
+Recognized shapes: daily (`0 9 * * *`), weekly (`0 9 * * 1-5`), monthly (`0 3 1 * *`, or a
+list or range of days — `0 3 1,15 * *`), minute step (`*/15 * * * *`), hour step
+(`0 */4 * * *`). Everything else hits the fallback — including a **specific month**
+(`0 4 1 1 *`). Monthly has one refusal the others don't: a time whose UTC form lands on a
+**different local calendar date** on the user's machine is refused by name at create time,
+because a fixed day of the month cannot be rolled across that boundary the way a weekday can.
 
 ---
 
@@ -146,26 +224,32 @@ you:
 | List / inspect | `list_tasks` | `GET /api/tasks` |
 | Find a folder | `list_folders` | `GET /api/tasks/folders` |
 | Run now | `run_task` | `POST /api/tasks/:id/run` |
-| Create | `create_task`, `create_native_task`, `create_task_from_template` | `POST /api/tasks`, `/native`, `/api/templates/:id/apply` |
+| Create | `create_task`, `create_native_task` (and `create_native_program_task` / `_script_task` / `_check_task`), `create_task_from_template`, `create_gemini_trigger`, `create_claude_routine` | `POST /api/tasks`, `/native`, `/api/templates/:id/apply` |
 | Validate a schedule | `convert_schedule` | `POST /api/tasks/preview` |
 | **Enable / disable** | `set_task_status` | `PATCH /api/tasks/:id/status` |
 | **Re-schedule** | `update_task_schedule` | `PATCH /api/tasks/:id/schedule` |
 | **Edit the command** | `update_task_action` | `PATCH /api/tasks/:id/actions` |
+| **Edit a native job** (URL, method, headers, body, script command) | `update_native_job` | `PATCH /api/tasks/:id/job` |
+| **Rename** (Cronsole's label only) | `rename_task` | `PATCH /api/tasks/:id` — refused where the platform owns the name (GitHub Actions, Vercel, n8n, Gemini, a session-read Claude routine) |
 | Run history | `get_task_history` | `GET /api/tasks/:id/executions` |
 | Export one task | `export_task` | `GET /api/tasks/:id/export` — the platform's own definition: Task Scheduler **XML** for Windows (UTF-16 LE + BOM; write it as raw bytes), Cronsole **JSON** for a native task. Restores that exact task onto that platform |
 | Export a task so it can be recreated **elsewhere** | `export_task` with `format: 'template'` | `GET /api/tasks/:id/export?format=template` — a portable Registry v1 template, importable with `POST /api/templates/import` and then applied to any compatible target. **Not a backup**: it drops platform-specific settings (the account the task runs as, run level, extra actions), so say so if you offer it as one. It is the only export that works with the **agent offline**, or for a **Claude routine**, whose definition lives at claude.ai. Writes nothing — unlike save-as-template |
 | Bulk export / backup | — | `POST /api/tools/export/tasks` |
 | Restore from a backup | — | `POST /api/tools/restore/tasks` |
-| Run history, all tasks | — | `GET /api/tools/history` (`?format=csv`) |
-| What needs attention | — | `GET /api/tools/task-health` |
+| Run history, all tasks | `list_run_history` | `GET /api/tools/history` (`?format=csv`) |
+| What needs attention | `get_task_health` | `GET /api/tools/task-health` |
+| What Cronsole can do with each platform | `list_platforms` | `GET /api/tools/platforms` — per verb `verified` / `declared` / `unsupported`; `declared` is not `yes` |
+| Refresh from a platform | `sync_tasks` | `POST /api/tasks/sync` |
 | **Is Cronsole itself working?** | `get_diagnostics` | `GET /api/tools/diagnostics` — read-only, with the evidence behind each verdict. Ask before `task-health`: a wedged agent makes every Windows task look unhealthy. `unknown` ≠ `pass` |
 | **Star / un-star** | — | `POST` / `DELETE /api/tasks/:id/favorite` |
 | **Untrack** (remove from Cronsole, keep it running) | `untrack_task` | `POST /api/tasks/:id/untrack` |
 | **Delete** (Cronsole-native only) | `delete_task` — **only** when the human set `CRONSOLE_MCP_ALLOW_DESTRUCTIVE=true`, else absent | `DELETE /api/tasks/:id/native` (archives first; refuses non-native) |
+| **Delete a template** the user imported or saved | `delete_template` — gated the same way as `delete_task` | `DELETE /api/templates/:id` — a catalog-synced template is refused (`409`) |
 | **Delete a Windows task** | — *(deliberately not available to an assistant)* | `DELETE /api/tasks/:id`, or the Cronsole dashboard |
 | List / read deleted-task backups | `list_task_archives` | `GET /api/tools/task-archives[/:id]` — each row's `restorable` carries **its reason** |
 | **Rebuild a deleted task** | `restore_task_archive` | `POST /api/tools/task-archives/:id/restore` — a **new** task; the archived runs are not reattached and the archive is kept |
 | **Import an exported task file** | `import_task` | `POST /api/tasks/import` — the body **is** the file. Cronsole-native only |
+| **Claude routines**: which door, connect, fix, forget | `list_claude_routines`, `connect_claude_routine`, `edit_claude_routine`, `disconnect_claude_routine` | `/api/tools/platforms/claude/routines[/:id]`. Disconnect forgets a routine; it keeps running at claude.ai |
 
 **Disable is how you park a task** — not a weird cron (§3 explains why that backfires). It is
 reversible and ungated precisely so the safe move is the easy one.
@@ -298,3 +382,8 @@ Before you call `create_task` on a real machine:
 7. The command **terminates**. An unattended run has no console.
 8. After creating: **run it and verify from outside Cronsole**.
 9. If it was a test: **delete it**.
+
+On a **hosted agent** (Gemini, a Claude routine) items 3–6 do not apply and three others take
+their place (§2a): the prompt **offers no choice**, it **demands explicit failure reporting**,
+and the **grant** covers what it is told to do. Then verify by reading the run's **step list**,
+never its status.

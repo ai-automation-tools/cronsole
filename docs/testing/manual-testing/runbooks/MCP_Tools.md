@@ -45,7 +45,7 @@ This is the mechanical tripwire, and it is the reason no count is written into t
 catalogs: a number in prose is a number nobody re-reads.
 
 ```powershell
-(Select-String -Path mcp-server\src\tools.ts -Pattern 'server\.registerTool' -AllMatches).Count
+(Select-String -Path mcp-server\src\tools.ts -Pattern '^\s+server\.registerTool\(' -AllMatches).Count
 ```
 
 Then ask your host to list its tools and compare **by name**, not by count:
@@ -54,12 +54,14 @@ Then ask your host to list its tools and compare **by name**, not by count:
 List every Cronsole MCP tool you can see, one per line, sorted.
 ```
 
-**Expect:** the source count, minus `delete_task` unless `CRONSOLE_MCP_ALLOW_DESTRUCTIVE=true`.
-As of 2026-08-17 that is **33 in source, 32 visible** by default.
+**Expect:** the source count, minus the two gated tools (`delete_task`, `delete_template`) unless
+`CRONSOLE_MCP_ALLOW_DESTRUCTIVE=true`. As of 2026-11-06 that is **38 in source, 36 visible** by
+default. The pattern is anchored because the header comment in `tools.ts` quotes
+`server.registerTool(` itself, so an unanchored match counts one too many.
 
 **Also compare against the two tool tables** — [`mcp-server/README.md`](../../../../mcp-server/README.md)
-and [`MCP_Server_Guide.md`](../../../user-guides/guides/MCP_Server_Guide.md). A tool present in one
-and missing from the other is the §11a drift this whole exercise exists to catch; `/sync-surfaces`
+and [`MCP_Server_Guide.md`](../../../user-guides/guides/MCP_Server_Guide.md) — and the name list in
+[`docs/mcp-server.md`](../../../mcp-server.md). A tool present in one and missing from another is the §11a drift this whole exercise exists to catch; `/sync-surfaces`
 diffs them by name.
 
 ## 2. Read-only sweep
@@ -161,15 +163,17 @@ claude.ai.
 
 ## 6. The gate
 
-With `CRONSOLE_MCP_ALLOW_DESTRUCTIVE` unset, ask the host to delete a task.
+With `CRONSOLE_MCP_ALLOW_DESTRUCTIVE` unset, ask the host to delete a task, then an imported template.
 
 **Expect:** it reports that no such tool exists and offers `set_task_status` or `untrack_task`.
-`delete_task` must be **absent from `tools/list`**, not present-and-erroring — a capability that
+`delete_task` and `delete_template` must both be **absent from `tools/list`**, not present-and-erroring — a capability that
 announces itself then refuses is worse than one never offered.
 
 Then set the flag, restart the host, and confirm:
 
-- `delete_task` appears, and **only** it changed.
+- `delete_task` and `delete_template` appear, and **only** they changed.
+- `delete_template` **refuses a catalog-synced template** (`409`, `TEMPLATE_MANAGED`) and deletes
+  an imported or saved one.
 - It **refuses a Windows task** with a `400`, and the refusal reads as a boundary rather than a
   missing feature. No MCP verb may destroy an artifact on the machine.
 - Deleting a native task reports the archive id — and `restore_task_archive` can spend it.
@@ -187,7 +191,7 @@ Then set the flag, restart the host, and confirm:
 - [ ] A failing check is a result, not a tool error (3)
 - [ ] Import / restore produce a new task and report it as new (4)
 - [ ] Every refusal names the reason and the right alternative (4, 5)
-- [ ] `delete_task` absent without the flag; Windows refused with it (6)
+- [ ] `delete_task` and `delete_template` absent without the flag; Windows and catalog templates refused with it (6)
 
 ## 🧹 Cleanup
 

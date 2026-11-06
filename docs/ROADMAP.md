@@ -12,11 +12,11 @@
 
 ---
 
-The Cronsole roadmap routine (`Cronsole Weekly Roadmap`, Friday 23:00) works this file: it takes the first open item under `## After public release` that isn't `🔒 Needs Mike` and isn't under **Open decisions**, builds it, ticks it, and opens a PR. **Every item above `## After public release` is a go-live gate**, and all of them closed when the repo went public on 2026-09-13; the phases up there are the record of what shipped before and around the flip. Below the line the groups run in priority order: **Next up, P0, P1, P2, Sources, P3, Post-launch**, then Open decisions (questions, not work) and two reference groups.
+The Cronsole roadmap routine (`Cronsole Weekly Roadmap`, Friday 23:00) works this file: it takes the first open item under `## After public release` that isn't `🔒 Needs owner` and isn't under **Open decisions**, builds it, ticks it, and opens a PR. **Every item above `## After public release` is a go-live gate**, and all of them closed when the repo went public on 2026-09-13; the phases up there are the record of what shipped before and around the flip. Below the line the groups run in priority order: **Next up, P0, P1, P2, Sources, P3, Post-launch**, then Open decisions (questions, not work) and two reference groups.
 
 Ticking an item appends ` — done YYYY-MM-DD: <what landed>` (older items carry their date in italics instead) and, **in the same commit**, adds the matching line to [`CHANGELOG.md`](CHANGELOG.md) and updates any doc the change made stale (AGENTS.md §11a lists them). Keep the lines short: a shipped item's design record, verification notes and post-mortem belong in the CHANGELOG under its date, the rationale behind an invariant in [`DESIGN_NOTES.md`](DESIGN_NOTES.md), and a symptom→fix write-up in [`troubleshooting/README.md`](troubleshooting/README.md). When a material decision changes scope, edit the item here *first*, then implement. Done items stay where they are, ticked; nothing moves between sections.
 
-Markers: `- [ ]` open, `- [-]` claimed by a run in progress, `- [x]` done, `- [!]` blocked (the reason follows on the line). An open item that begins *Partly shipped:* names its remainder in the text; one that begins *Moved:* points at where it lives now. `` `small` `` marks an item a check verifies; `🔒 Needs Mike` marks one only Mike can do.
+Markers: `- [ ]` open, `- [-]` claimed by a run in progress, `- [x]` done, `- [!]` blocked (the reason follows on the line). An open item that begins *Partly shipped:* names its remainder in the text; one that begins *Moved:* points at where it lives now. `` `small` `` marks an item a check verifies; `🔒 Needs owner` marks one only the owner can do.
 
 > **Note on names.** The product was called **TaskHub** until 2026-07-31. This file is
 > current-tense, so it says Cronsole throughout; historical CHANGELOG entries keep the old name on
@@ -335,7 +335,7 @@ under that date.
       [#43](troubleshooting/README.md#43-a-visual-regression-baseline-fails-on-one-pixel-or-on-a-layout-that-moved-by-itself))*.
 - [x] **In-app help, per control** — a `?` beside fourteen controls, one modal shared with the Help
       Center, `HelpTopic.doc` required, links pinned by `docsLinks.test.ts`, and the new
-      [`Sources_Guide.md`](user-guides/guides/Sources_Guide.md) *(2026-08-12)*.
+      `Sources_Guide.md` *(2026-08-12; folded into [`sources/README.md`](user-guides/sources/README.md) and the per-source guides on 2026-11-06)*.
 - [x] **Source-first dashboard** — the source bar as the first-level axis, an outer lens that
       survives clicking a view and scopes every view count *(2026-08-12)*.
 - [x] **Mass Actions console on the Tools tab — now the only bulk surface** — action-first, plan
@@ -2154,7 +2154,7 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
 > **Finding the next source is now scheduled** *(2026-10-13)*. The **Cronsole Source Scout**
 > routine runs every other week: it ranks the AI tools people use most *at the time* from public
 > signals, judges each against the source rules above, and adds buildable ones here as
-> `🔒 Needs Mike` items. Tools that schedule work but have no API go on a dated **👀 Watching**
+> `🔒 Needs owner` items. Tools that schedule work but have no API go on a dated **👀 Watching**
 > list in this section, re-checked every run, so "it has no API" is a finding with a date rather
 > than a reason to stop looking. First finding while setting it up: **OpenClaw and Hermes both
 > ship a built-in `cron` command** (list, create, pause, run), so their jobs live inside the
@@ -2473,7 +2473,7 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
       `edit_claude_routine` already re-points properly. **Is there a case for it that is not one of
       those two?**
 
-- [ ] 🔒 Needs Mike — **OpenClaw cron — controller over a local CLI** *(found by the Source Scout
+- [ ] 🔒 Needs owner — **OpenClaw cron — controller over a local CLI** *(found by the Source Scout
       2026-10-13)*. **What:** OpenClaw's built-in scheduler (`openclaw automations`, alias
       `openclaw cron`) keeps jobs inside the harness, where no current source can see them.
       **Why it is an honest door:** the docs list a real management surface — `list [--all]`,

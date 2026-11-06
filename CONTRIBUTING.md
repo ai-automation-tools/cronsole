@@ -57,48 +57,14 @@ Unless told otherwise, branch from the current working branch and keep `main` st
 
 ## Local setup
 
-### Docker Compose
+Get a running stack first, then come back for the checks below:
 
-```bash
-docker compose --profile docker up --build
-```
+- **Install** (Docker Compose, plus the Windows agent): [`docs/install/README.md`](docs/install/README.md)
+- **Run each piece yourself** (backend and frontend as host processes, `backend/.env` secrets,
+  migrations): [`docs/setup/README.md` › Run it manually](docs/setup/README.md#run-it-manually-no-docker)
 
-> [!IMPORTANT]
-> The `--profile docker` is not optional. Backend and frontend sit behind
-> `profiles: ["docker"]`, so a plain `docker compose up` starts **Postgres and Redis only**
-> and nothing ever answers on `:7373`.
-
-Services:
-
-- frontend: `http://localhost:7373`
-- backend: `http://localhost:3000`
-- postgres: `localhost:5432`
-- redis: `localhost:6379`
-
-### Manual setup
-
-Backend:
-
-```bash
-cd backend
-npm install          # postinstall runs `prisma generate`
-npm run dev          # predev applies migrations (`prisma migrate deploy`)
-```
-
-Frontend:
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Windows agent:
-
-```bash
-cd agent/Cronsole.Agent
-dotnet run
-```
+Services: frontend `http://localhost:7373`, backend `http://localhost:3000`, Postgres
+`localhost:5432`, Redis `localhost:6379`.
 
 ## Required checks before opening a PR
 

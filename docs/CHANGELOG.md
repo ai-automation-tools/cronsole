@@ -21,6 +21,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Changed
 
+- **No more blank screen while the dashboard loads** (2026-11-06). `index.html` now draws a spinner before the JS bundle arrives, which takes about a second (~160 dev modules, or one 1MB built bundle). React replaces it when it mounts. The Vite dev server also pre-transforms the import graph at startup (`server.warmup`), so the first load after a restart no longer pays for cold transforms. The other tabs (Sources, Templates, Tools, Settings, Links) and the task, create, clone, import and sync modals now load as separate chunks when first opened. The bundle the dashboard waits on dropped from 1,055KB to 570KB (306KB to 173KB gzipped).
 - **The MCP server runs on MCP TypeScript SDK v2** (2026-10-30). `mcp-server/` moved from
   `@modelcontextprotocol/sdk` 1.x to `@modelcontextprotocol/server` 2.4 (the test client is a dev
   dependency), ahead of 1.x going bug-fix-only around 2027-01-27. Tools, schemas and output are

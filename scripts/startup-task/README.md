@@ -9,7 +9,7 @@ two are on-demand chores that need elevation:
 
 | Task | Trigger | Runs | Purpose |
 |---|---|---|---|
-| **`CronsoleStack`** | logon + **every 5 min** | `cronsole.ps1 up` | The keeper. Idempotent, so it starts only what is down. |
+| **`CronsoleStack`** | logon + **every 5 min** (its own time trigger, armed at registration, #102) | `cronsole.ps1 up` | The keeper. Idempotent, so it starts only what is down. |
 | **`CronsoleRepublish`** | none (on-demand) | `Republish-Agent.ps1` | Rebuild + republish the agent, then relaunch. |
 | **`CronsoleRestart`** | none (on-demand) | `cronsole.ps1 restart` | Stop the stack (agent included) and bring it back. |
 
@@ -20,7 +20,7 @@ at **RunLevel Highest** in the interactive user's session.
 
 | File | Purpose |
 |---|---|
-| `run-hidden.vbs` | **No-flash launcher.** Runs a PowerShell script hidden from creation via `WScript.Shell.Run(cmd, 0, False)`, so no console/conhost window flashes on recurring triggers. All three tasks launch through it. |
+| `run-hidden.vbs` | **No-flash launcher.** Runs a PowerShell script hidden from creation via `WScript.Shell.Run(cmd, 0, True)`, so no console/conhost window flashes on recurring triggers. It waits for the script and returns its exit code (since 2026-11-03; it was fire-and-forget before), so `IgnoreNew` stops overlapping runs. `cronsole.ps1 up` returns 0 even when something stayed down, so Last Result is not a health check: use `cronsole.ps1 status`. All three tasks launch through it. |
 | `Register-CronsoleStack.ps1` | Registers **`CronsoleStack`**, the recurring self-heal. Also removes the obsolete `CronsoleAgent` (see below). Run once, **as Administrator**. |
 | `Register-RepublishTask.ps1` | Registers **`CronsoleRepublish`**, the on-demand elevated agent rebuild. Run once, **as Administrator**. |
 | `Register-RestartTask.ps1` | Registers **`CronsoleRestart`**, the on-demand elevated stack restart. Run once, **as Administrator**. |
@@ -87,7 +87,7 @@ nothing appears on screen.
 
 The same shim is used by the two on-demand tasks, for consistency rather than for flashing:
 they fire rarely, but a republish or a restart has no console to attach to either, which is
-why both write their own log instead of relying on an exit code.
+why both write their own log. Since 2026-11-03 the shim waits, so the exit code reaches Task Scheduler too; `CronsoleStack` has a 10-minute limit so a hung `up` can't block every later run.
 
 ## The `\Cronsole-Stack\` tasks are deliberately NOT tracked in the dashboard
 
@@ -230,7 +230,7 @@ unelevated `Stop-Process` is refused. `Invoke-Down` checks and says so rather th
 |---|---|
 | Dashboard empty / red "Can't reach backend" banner | Is `:3000` listening? See `logs\backend.err.log`. |
 | Backend up but **Sync tasks now** fails | Is the agent running & connected? `curl http://localhost:3000/api/tasks/health` should show `WINDOWS_TASK_SCHEDULER: HEALTHY`. |
-| Nothing starts at logon | `Get-ScheduledTaskInfo -TaskName CronsoleStack -TaskPath '\Cronsole-Stack\'` → check `LastTaskResult` (`0x0` = success). |
+| Nothing starts at logon | `Get-ScheduledTaskInfo -TaskName CronsoleStack -TaskPath '\Cronsole-Stack\'` → check `LastRunTime` and `NextRunTime`. An empty `NextRunTime` means the 5-minute repetition is disarmed (#102): re-run `Register-CronsoleStack.ps1` elevated. `LastTaskResult` `0x0` only means `up` finished; `cronsole.ps1 status` says what is up. |
 | `db + redis` never come up | Docker Desktop not installed at the expected path — `up` says so by name rather than retrying silently. |
 | Dozens of Windows tasks flip to MISSING | The agent is running **unelevated**. `Start-ScheduledTask … CronsoleRestart`, then Sync. See [troubleshooting #74](../../docs/troubleshooting/README.md#74-dozens-of-windows-tasks-go-missing-in-one-sync-and-the-agent-is-healthy). |
 | Agent changes have no effect | The agent never hot-reloads. `Start-ScheduledTask … CronsoleRepublish`. |

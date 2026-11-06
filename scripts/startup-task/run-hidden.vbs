@@ -40,5 +40,10 @@ End If
 
 cmd = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File """ & scriptPath & """" & psArgs
 
-' 0 = hidden window (created hidden, no flash); False = fire-and-forget.
-shell.Run cmd, 0, False
+' 0 = hidden window (created hidden, no flash); True = wait for the script and hand its
+' exit code to Task Scheduler. Until 2026-11-03 this was False (fire-and-forget), so the
+' task ended with wscript.exe in about a second: IgnoreNew guarded nothing (a hung
+' `cronsole.ps1 up` got a fresh copy every 5 minutes, the 2026-09-22 docker.exe pile-up)
+' and Last Result was always 0. The backend, frontend and agent are started with
+' Start-Process, so they outlive the script and the wait ends when `up` does.
+WScript.Quit shell.Run(cmd, 0, True)

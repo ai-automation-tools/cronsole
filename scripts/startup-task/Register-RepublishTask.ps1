@@ -115,7 +115,7 @@ USE IT AFTER ANY CHANGE UNDER agent\. The .NET agent is a published exe and NEVE
 ON DEMAND ONLY - THIS TASK HAS NO TRIGGER. It never fires on logon, on a schedule, or on idle. Start it by hand (no elevation needed to START it):
     Start-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleRepublish'
 
-READ THE LOG, NOT THE EXIT CODE. This task has no console attached, and it launches fire-and-forget through run-hidden.vbs, so its State and LastTaskResult describe the launcher shim rather than the build. Everything it did is here:
+READ THE LOG, NOT THE EXIT CODE. This task has no console attached. run-hidden.vbs waits for the script and passes its exit code on, but a run past 10 minutes is ended, and the log is the only place that says which step failed and whether the dll was actually swapped. Everything it did is here:
     Get-Content "`$env:TEMP\cronsole-republish.log" -Tail 20
 It proves the swap by comparing the published DLL timestamp before and after, and refuses to relaunch if the publish failed - a half-swapped agent is worse than a stopped one.
 

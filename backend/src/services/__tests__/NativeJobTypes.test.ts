@@ -428,3 +428,12 @@ describe('run policy (ADR 0004)', () => {
     expect(validateJob({ ...exec, timeoutMs: 24 * 3_600_000 + 1 })).toMatch(/timeoutMs/);
   });
 });
+
+describe('secret references in a URL that is only a reference', () => {
+  it('are reported after validation has looked at the URL', async () => {
+    const { missingSecretRefs, hasSecretRef } = await import('../jobSecrets.js');
+    const job = { jobType: 'HTTP', url: '${secret.DISCORD_WEBHOOK_URL}', method: 'POST' };
+    expect(hasSecretRef(job.url)).toBe(true); // what validateJob does first
+    expect(missingSecretRefs(job, [])).toEqual(['DISCORD_WEBHOOK_URL']);
+  });
+});

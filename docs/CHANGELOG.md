@@ -79,6 +79,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **Send a message from a native task** (2026-11-06). An empty HTTP job offers **Send a message to: Discord · Slack · ntfy · Other webhook**, which fills in the POST, headers and a sample body, with the webhook address as a `${secret.…}` because for those services the address is the password. ADR 0002's deferred `NOTIFY`, delivered as the preset it proposed rather than a fifth job type. [Cronsole-native › Sending a message](user-guides/sources/Cronsole_Native.md#-sending-a-message).
 - **Chain native tasks** (2026-11-06, [ADR 0004 §5](adr/0004-native-run-policy.md)). A native task can start when another native task finishes: when it succeeds, fails, or either way. Pick it under **Run settings › Also run after**; a chained task can have no schedule of its own. The final attempt decides (after retries), Run now counts, and a loop is refused when you save. The MCP create tools take `runAfterTaskId` and `runAfterWhen`, and `schedule` becomes optional for a chained task. [Cronsole-native › Chaining tasks](user-guides/sources/Cronsole_Native.md#-chaining-tasks).
 - **Native tasks run side by side, retry, and catch up** (2026-11-06, [ADR 0004](adr/0004-native-run-policy.md)). Each due native task now starts on its own, so a long job no longer holds up every other one. Every native task gains **Run settings**: a time limit up to 24 hours (default still 5 minutes), retries for a scheduled run that ran and failed (0–5, 1–60 minutes apart; only the last attempt notifies), what to do if it is still running when it comes due (skip, or queue one run), and an option to run once after Cronsole was down. A check never retries. Run now on a running task is refused. The MCP create tools and `update_native_job` take the same settings. Fixes on the way: saving the edit form no longer resets a time limit set over MCP.
 - **Three extended templates** (2026-11-05): `dev-cargo-audit-check` (cargo-audit on a Cargo.lock), `dev-go-test-run` (go test over a module) and `ntf-telegram-message` (Telegram Bot API message). They join the Developer and System Utilities packs.
@@ -298,6 +299,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Fixed
 
+- **A native task whose URL is only a secret now asks for it** (2026-11-06, [#103](troubleshooting/README.md#103-a-native-task-whose-url-is-only-a-secret-never-asks-for-the-secret)). An HTTP job with a URL of exactly `${secret.NAME}` reported no missing secret, the Secrets section never asked for it, and a run sent the literal text. A shared regex was carrying state between two helpers.
 - **GitHub Actions no longer imports GitHub's own workflows** (2026-10-23). Dependabot Updates,
   Dependency Graph and pages-build-deployment have no workflow file, so they arrived as
   "schedule unknown" rows in every repository. They are skipped now, and the sync note counts them.

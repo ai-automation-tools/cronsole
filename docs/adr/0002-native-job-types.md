@@ -1,7 +1,9 @@
 # ADR 0002 — Widening the Cronsole-native job-type set
 
 - **Status:** **Accepted and implemented (2026-08-15)** — `SCRIPT` and `CHECK` shipped the same day.
-  `NOTIFY` and `SEQUENCE` remain deferred as written below; `SQL` remains rejected.
+  `NOTIFY` and `SEQUENCE` remain deferred **as job types**, and both needs are now met another way:
+  `NOTIFY` as the *Send a message* preset over an `HTTP` job (2026-11-06, exactly as §3 proposed), and
+  `SEQUENCE` by chaining tasks ([ADR 0004 §5](0004-native-run-policy.md)). `SQL` remains rejected.
   Open questions 1 and 3 were settled before implementation — see *Decisions taken* at the end.
 - **Deciders:** Mike
 - **Related:** [ROADMAP › Native job types](../ROADMAP.md#native-job-types) · [AGENTS.md §9 › Connector pattern](../../AGENTS.md) · frozen spec [`archive/specs/Native_Tasks.md`](../archive/specs/Native_Tasks.md) (local-only)

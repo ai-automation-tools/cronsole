@@ -41,6 +41,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 99 | **Run now on an n8n workflow says the API has no execute endpoint** — a `400`, while n8n's own button runs it | The refusal was true of the REST API, not of n8n: its instance MCP server can run the published workflow. Add an MCP access token on the n8n card | [→](#99-run-now-on-an-n8n-workflow-says-the-api-has-no-execute-endpoint) |
 | 100 | **`docker restart taskhub-backend-1` fails with `No such container`, or nothing changes** — or a republished agent reads *"Agent not connected"* | The default stack runs the backend as a **host** process, so the docker command restarts nothing; restart with the elevated `CronsoleRestart` task. A republish stops the agent before it builds — wait for `DONE` | [→](#100-docker-restart-fixes-a-stale-backend-and-nothing-changes) |
 | 102 | **The 5-minute self-heal stopped after re-registering `CronsoleStack`** — `NextRunTime` is empty, State reads `Ready`, nothing errors, and a service that dies stays down | The repetition hung off the **logon** trigger, and a logon trigger's repetition starts only at a logon, so re-registering mid-session disarmed it until the next one | [→](#102-the-5-minute-self-heal-stops-after-re-registering-cronsolestack) |
+| 103 | **A native task whose URL is only `${secret.NAME}` never asks for the secret** — the Secrets section lists nothing, `missingSecrets` is empty, and a run posts to the literal text instead of refusing | `hasSecretRef` called `.test` on the shared global `SECRET_REF`, leaving `lastIndex` at the end of the match, and `matchAll` starts from the `lastIndex` it copies | [→](#103-a-native-task-whose-url-is-only-a-secret-never-asks-for-the-secret) |
 | 93 | **A restored backup succeeds and every platform connection is unreadable** — `pg_restore` exits 0, every row count matches, your tasks are all there, and every source is broken | **The credentials in the dump are ciphertext and the key is not in the dump.** `PlatformConnection.config` and `TaskSecret` are AES-256-GCM encrypted with `ENCRYPTION_KEY`, which lives in `.env`. A restore onto a stack with a different key genuinely succeeds and leaves every value permanently unreadable, discovered one failing sync at a time | [→](#93-a-restore-succeeds-and-every-platform-connection-is-unreadable) |
 | 92 | **A restore verification says the data does not match, and the restore was perfect** — the *restored* copy reports more rows than the original it came from | **The check is reading an estimate, not a count.** `pg_stat_user_tables.n_live_tup` is a planner input maintained by autovacuum: stale (often zero) on a database not analysed recently, accurate on a freshly-restored one. It can be wrong in **both** directions, so it can also report a match over a restore that dropped rows. Generate real `count(*)` queries | [→](#92-a-restored-database-reports-different-row-counts-and-the-restore-was-perfect) |
 | 91 | **A second clone of the repo is not a second install** — `docker compose up` from a fresh checkout adopts the first one's database, or fails with `port is already allocated`. Shifting the ports in a `docker-compose.override.yml` does not help | **The Compose project name is pinned in the file, not derived from the folder** (`name: taskhub`, deliberately — it is what stops a renamed checkout orphaning the Postgres volume). Every clone on the machine is therefore the *same* project. And a plain override **appends** to `ports:` rather than replacing it, so both bindings are attempted and the old one still collides. Use `docker compose -p <name>` **and** the `!override` tag on every port list | [→](#91-a-second-clone-of-the-repo-shares-the-first-ones-database-and-ports) |
@@ -6506,3 +6507,24 @@ trigger makes a fresh session start the stack straight away. Re-run it elevated:
 
 An empty `NextRunTime` means the self-heal is disarmed. The rule is in §9: a repetition hangs off a
 time trigger, never the logon trigger.
+
+## 103. A native task whose URL is only a secret never asks for the secret
+
+**Symptom.** An HTTP job whose URL is exactly `${secret.DISCORD_WEBHOOK_URL}` (the shape every
+*Send a message* preset writes) saves with `missingSecrets: []` although no secret is set, the
+Secrets section lists nothing to fill in, and a run sends the request to the literal text
+`${secret.DISCORD_WEBHOOK_URL}` instead of refusing with *"refers to a secret that is not set"*. The
+same job with `https://ntfy.sh/${secret.NTFY_TOPIC}` reports its secret correctly. Found 2026-11-06
+by creating one task per preset and reading the responses.
+
+**Cause.** `SECRET_REF` is a module-level regex with the `g` flag, shared by every helper in
+`services/jobSecrets.ts`. `hasSecretRef` reset `lastIndex` to 0, then called `.test`, which on a match
+leaves `lastIndex` at the end of it. `refsInString` then called `value.matchAll(SECRET_REF)`, and
+`matchAll` **copies the regex's current `lastIndex`**, so it started searching after the only
+reference and found none. `validateJob` reaches `hasSecretRef` only when the URL does not start with
+`http`, which is why a URL with a prefix escaped it.
+
+**Fix.** `hasSecretRef` tests a local copy (`new RegExp(SECRET_REF.source)`) and never touches the
+shared one. The rule worth keeping: **never call `.test` or `.exec` on a shared global regex**;
+`replace` and `matchAll` look stateless and are not, because one of them reads the state the other
+left behind. Regression test in `NativeJobTypes.test.ts`.

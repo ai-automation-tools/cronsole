@@ -42,11 +42,15 @@ import { readFolderPaths, type FolderPaths } from '../services/n8nFolders.js';
  * gets the platform's own list, where `ExecutionLog` — runs Cronsole performed —
  * is empty by design.
  *
- * **A task is a workflow with an enabled schedule node.** n8n workflows start
- * from forms, webhooks, chat, other workflows and the editor's own button;
- * only the schedule ones are what Cronsole manages. The rest are counted in the
- * sync's note rather than dropped in silence, because a sync that finds 90
- * workflows and keeps 20 must say so or it reads as having found 20.
+ * **A task is a workflow with an enabled trigger.** n8n workflows start from
+ * schedules, forms, webhooks, chat, other workflows and the editor's own
+ * button. A schedule node gives the task a cron; by default (`includeOnDemand`,
+ * on unless explicitly `false`) the others become on-demand tasks with a null
+ * schedule and a `scheduleReason`. Turn the setting off and only scheduled
+ * workflows are kept. Either way, what is not kept (and workflows with no
+ * trigger at all) is counted in the sync's note rather than dropped in silence,
+ * because a sync that finds 90 workflows and keeps 20 must say so or it reads
+ * as having found 20.
  *
  * ## What is refused, and why
  *

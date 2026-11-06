@@ -1,6 +1,6 @@
 # Task authoring & management
 
-> Cronsole Connect Pack **v1.13** · canonical copy: <https://cronsole.ai-automation-tools.dev>
+> Cronsole Connect Pack **v1.14** · canonical copy: <https://cronsole.ai-automation-tools.dev>
 
 Every way to **create** a scheduled task through Cronsole, and how to **manage** it afterwards.
 Read this before creating a task on a user's real machine — a scheduled task is durable, runs
@@ -229,6 +229,8 @@ you:
 | **Enable / disable** | `set_task_status` | `PATCH /api/tasks/:id/status` |
 | **Re-schedule** | `update_task_schedule` | `PATCH /api/tasks/:id/schedule` |
 | **Edit the command** | `update_task_action` | `PATCH /api/tasks/:id/actions` |
+| **Edit a native job** (URL, method, headers, body, script command) | `update_native_job` | `PATCH /api/tasks/:id/job` |
+| **Rename** (Cronsole's label only) | `rename_task` | `PATCH /api/tasks/:id` — refused where the platform owns the name (GitHub Actions, Vercel, n8n, Gemini, a session-read Claude routine) |
 | Run history | `get_task_history` | `GET /api/tasks/:id/executions` |
 | Export one task | `export_task` | `GET /api/tasks/:id/export` — the platform's own definition: Task Scheduler **XML** for Windows (UTF-16 LE + BOM; write it as raw bytes), Cronsole **JSON** for a native task. Restores that exact task onto that platform |
 | Export a task so it can be recreated **elsewhere** | `export_task` with `format: 'template'` | `GET /api/tasks/:id/export?format=template` — a portable Registry v1 template, importable with `POST /api/templates/import` and then applied to any compatible target. **Not a backup**: it drops platform-specific settings (the account the task runs as, run level, extra actions), so say so if you offer it as one. It is the only export that works with the **agent offline**, or for a **Claude routine**, whose definition lives at claude.ai. Writes nothing — unlike save-as-template |
@@ -242,10 +244,12 @@ you:
 | **Star / un-star** | — | `POST` / `DELETE /api/tasks/:id/favorite` |
 | **Untrack** (remove from Cronsole, keep it running) | `untrack_task` | `POST /api/tasks/:id/untrack` |
 | **Delete** (Cronsole-native only) | `delete_task` — **only** when the human set `CRONSOLE_MCP_ALLOW_DESTRUCTIVE=true`, else absent | `DELETE /api/tasks/:id/native` (archives first; refuses non-native) |
+| **Delete a template** the user imported or saved | `delete_template` — gated the same way as `delete_task` | `DELETE /api/templates/:id` — a catalog-synced template is refused (`409`) |
 | **Delete a Windows task** | — *(deliberately not available to an assistant)* | `DELETE /api/tasks/:id`, or the Cronsole dashboard |
 | List / read deleted-task backups | `list_task_archives` | `GET /api/tools/task-archives[/:id]` — each row's `restorable` carries **its reason** |
 | **Rebuild a deleted task** | `restore_task_archive` | `POST /api/tools/task-archives/:id/restore` — a **new** task; the archived runs are not reattached and the archive is kept |
 | **Import an exported task file** | `import_task` | `POST /api/tasks/import` — the body **is** the file. Cronsole-native only |
+| **Claude routines**: which door, connect, fix, forget | `list_claude_routines`, `connect_claude_routine`, `edit_claude_routine`, `disconnect_claude_routine` | `/api/tools/platforms/claude/routines[/:id]`. Disconnect forgets a routine; it keeps running at claude.ai |
 
 **Disable is how you park a task** — not a weird cron (§3 explains why that backfires). It is
 reversible and ungated precisely so the safe move is the easy one.

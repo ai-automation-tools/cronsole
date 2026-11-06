@@ -113,7 +113,12 @@ import { CONNECT_PACK_FILES } from './connectPackBundled.js';
 //   this file so there is one copy. Fills the MCP cells that read "—" although a
 //   tool exists (`list_run_history`, `get_task_health`, `list_platforms`,
 //   `sync_tasks`) in both task-authoring and SKILL.md, and points `delete_task` at `DELETE /api/tasks/:id/native`.
-export const CONNECT_PACK_VERSION = '1.13';
+// 1.14 (2026-11-06): the SKILL.md surface table gains the eleven tools it was
+//   missing (Gemini and Claude routine create, the four Claude routine verbs,
+//   `update_native_job`, `rename_task`, `list_platform_runs`, `get_run_output`,
+//   `list_task_secrets`), so it now names all 38. task-authoring's management
+//   table gains rename, native-job edit, template delete and the routine verbs.
+export const CONNECT_PACK_VERSION = '1.14';
 
 /** Where a reader should look for a newer copy than the one in their hand. */
 export const CONNECT_PACK_HOME = 'https://cronsole.ai-automation-tools.dev';

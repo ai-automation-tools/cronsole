@@ -21,6 +21,12 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Changed
 
+- **An n8n prompt set** (2026-11-06). [`prompts/mcp-server/n8n.md`](../prompts/mcp-server/n8n.md) covers listing scheduled and on-demand workflows, why a schedule is blank, Run now and the MCP access token it needs, reading a failed run's nodes, and what n8n refuses. Both prompt indexes link it.
+- **Connect Pack v1.14 names every MCP tool** (2026-11-06). Its `SKILL.md` surface table was missing eleven of the 38 tools, among them Gemini and Claude routine create, the Claude routine verbs, `rename_task`, `update_native_job` and the run-output tools. The task-authoring management table gained rename, native-job edit, template delete and the routine verbs.
+- **MCP tool descriptions no longer contradict the platforms** (2026-11-06). These are the text an assistant reads:
+  - **`list_tasks`:** it called n8n read-only, said Gemini triggers can be rescheduled, and called Gemini the only hosted controller. It now says n8n's one write verb is Run now, and that a Gemini schedule has to be recreated. It also tells an on-demand n8n workflow apart from a schedule Cronsole could not read.
+  - **`sync_tasks`:** it pointed at a `list_untracked_categories` tool that does not exist.
+  - **Prompts and the n8n guide:** the observer prompts said sync never overwrites a GitHub workflow's name. It does, because GitHub owns the name. The n8n guide no longer says every workflow lands in one flat category.
 - **Sources are reachable from the front page** (2026-11-06). Every source in the root README's *What it connects to* table now links to its own guide, the table gained its missing n8n row, and the root and docs-hub tables link the sources overview. The root README also gained a *What's in the repo* table that links every top-level folder.
 - **New and rewritten folder indexes** (2026-11-06). `backend/`, `agent/` and `images/` gained a README; `frontend/README.md` replaces the Vite template boilerplate; `docs/testing/reports/` gained an index for its four dated reports; the logo and icon READMEs got the house header and a way back up. `CODE_OF_CONDUCT.md`, `SECURITY.md` and `docs/UPSTREAMS.md` are linked from an index for the first time.
 - **Duplicated docs folded into one copy each** (2026-11-06). The cases were found by an audit of every tracked markdown file:

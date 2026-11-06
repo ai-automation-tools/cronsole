@@ -48,6 +48,7 @@ an assistant that has the matching surface available.
 | [**Schedule a Claude agent in the cloud**](mcp-server/claude-routines.md) | Claude routines — runs whether or not my machine is on |
 | [**Schedule a prompt on Google's agent**](mcp-server/gemini-triggers.md) | Gemini triggers — hosted, sandboxed, and immutable once created |
 | [**Watch schedules I manage elsewhere**](mcp-server/observers.md) | GitHub Actions and Vercel Cron — read-only, on the same dashboard |
+| [**Check and start my n8n workflows**](mcp-server/n8n.md) | n8n: scheduled and on-demand workflows, their real run outcomes, and Run now |
 | [**See why a scheduled job failed**](mcp-server/inspect-and-audit.md#the-other-half-runs-the-platform-recorded-itself) | The platform's own run history — where the runs actually are |
 | [**Use a recipe instead of writing a command**](mcp-server/templates.md) | Templates — the two-tier catalog, grouped into packs |
 | [**Find out what's failing**](mcp-server/inspect-and-audit.md) | Inspect & audit — health, run history, idle reports |

@@ -36,6 +36,7 @@ scheduler, or a routine on your Claude account.
 | [**🖥️ Cronsole-native tasks**](native-tasks.md) | HTTP calls and script jobs run by the backend itself — no agent, exact cron, and a real exit code. |
 | [**🧠 Claude routines**](claude-routines.md) | Scheduled agent runs in Anthropic's cloud: create, connect, pause, disconnect — and which of the two API modes your install has. |
 | [**✨ Gemini triggers**](gemini-triggers.md) | A prompt Google runs on a schedule on its own agent — granting tools and domains, why a trigger is immutable, and reading the step list rather than the status. |
+| [**🔀 n8n**](n8n.md) | Workflows on your n8n instance: scheduled versus on demand, why a schedule is blank, Run now and its second credential, reading a failed run's nodes. |
 | [**📡 Observer sources**](observers.md) | GitHub Actions and Vercel Cron — what read-only can answer, which verbs they refuse, and why refusing is correct. |
 | [**📄 Templates**](templates.md) | Finding a catalog recipe and applying it, when you know the use case but not the command. |
 | [**🔎 Inspect & audit**](inspect-and-audit.md) | What you have, what's failing, what hasn't run in months — and how much of that Cronsole can prove. |

@@ -138,7 +138,8 @@ const ALL_PLATFORMS = [
   // filter enum, and what an agent may *do* with a platform is `list_platforms`'
   // answer rather than this list's.
   'GEMINI_TRIGGERS',
-  // Read-only again, like GitHub and Vercel, but with real run outcomes.
+  // A controller with one write verb, Run now (through n8n's MCP server), and
+  // real run outcomes. Same filter-enum reasoning as the two above.
   'N8N'
 ] as const;
 
@@ -521,18 +522,24 @@ export function registerTools(
       title: 'List scheduled tasks',
       description:
         'List the scheduled tasks Cronsole tracks for the current user — Windows Task Scheduler, Cronsole-native, ' +
-        'Claude Code routines, GitHub Actions workflows, Vercel cron jobs, Gemini API triggers and scheduled n8n ' +
+        'Claude Code routines, GitHub Actions workflows, Vercel cron jobs, Gemini API triggers and n8n ' +
         'workflows — with each ' +
         'task\'s schedule, status, next run time and last run result. Optional filters narrow the list. ' +
         'GITHUB_ACTIONS and VERCEL_CRON are READ-ONLY sources: their tasks list and report health, and every ' +
         'verb that would change one is refused. VERCEL_CRON additionally never reports a last run result — ' +
         'Vercel publishes no run history for a cron, so its tasks are permanently `unknown` health rather than ' +
-        'unhealthy. GEMINI_TRIGGERS is the opposite case and the only hosted source that is NOT read-only: ' +
-        'run, pause, reschedule, create and delete all reach real endpoints there, and it reports real run ' +
-        'outcomes. A GEMINI_TRIGGERS task that is DISABLED may have been paused by Gemini itself after ' +
-        'repeated failures rather than by a person — get_task_health says which. ' +
-        'N8N is read-only like GITHUB_ACTIONS (it reports real run outcomes); an N8N task with a null schedule ' +
-        'usually means the instance time zone is not set on the connection, or the rule has no cron equivalent. ' +
+        'unhealthy. GEMINI_TRIGGERS is a hosted source Cronsole controls: run, pause, create and delete reach ' +
+        'real endpoints, and it reports real run outcomes. Its schedule and prompt cannot be edited in place ' +
+        '(update_task_schedule is refused); changing either means recreating the trigger. A GEMINI_TRIGGERS ' +
+        'task that is DISABLED may have been paused by Gemini itself after repeated failures rather than by a ' +
+        'person — get_task_health says which. ' +
+        'N8N reports real run outcomes and its one write verb is run_task, which needs an n8n MCP access token ' +
+        'on the connection (without one, run_task says what to set up); pausing, creating and editing a ' +
+        'workflow are refused, because n8n can only switch a whole workflow on or off. An N8N task with a null ' +
+        'schedule is one of two things, and metadata says which: an on-demand workflow with no schedule by ' +
+        'design (metadata.onDemand, metadata.scheduleReason), or a schedule Cronsole could not read ' +
+        '(metadata.scheduleUnavailableReason — no instance time zone on the connection, a rule with no cron ' +
+        'equivalent, or unpublished edits hiding the live version). ' +
         'Call list_platforms before planning work on a platform you are unsure about.',
       inputSchema: {
         platform: z
@@ -2895,8 +2902,10 @@ Next run: ${task.nextRunTime}` : '')
         '`partial` (it saw less than the whole platform, so nothing was retired). **Read `notes` before ' +
         'calling a zero result a failure**: a source whose work is all push-triggered correctly imports ' +
         'nothing, and that is indistinguishable from a broken sync without them. ' +
-        'Call list_untracked_categories… (or, in the UI, Sync › Add tasks from this machine) to see what is available — on a real machine ' +
-        'there can be hundreds of Windows folders, most of them Windows\' own. ' +
+        'No MCP tool lists the categories not yet tracked: use list_folders for Windows, or the UI ' +
+        '(Sync › Add tasks from this machine). On a real machine there can be hundreds of Windows folders, ' +
+        'most of them Windows\' own. Sources whose tracked set is declared (n8n, Gemini, watched GitHub repositories and Vercel projects) ' +
+        'need no categories — a plain refresh already reads everything the connection covers. ' +
         'An explicit `categories` import also forgets any prior untracks inside those categories, because naming ' +
         'a category is the same gesture that started tracking it; a plain refresh deliberately does not, so a ' +
         'routine refresh can never undo a deliberate removal.',

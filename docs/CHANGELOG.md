@@ -76,6 +76,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **Three extended templates** (2026-11-05): `dev-cargo-audit-check` (cargo-audit on a Cargo.lock), `dev-go-test-run` (go test over a module) and `ntf-telegram-message` (Telegram Bot API message). They join the Developer and System Utilities packs.
 - **Four extended templates** (2026-10-29): `dev-pytest-run` (scheduled pytest with a JUnit report), `bkp-mongodump`, `bkp-redis-bgsave` and `cln-pip-cache-purge`. They join the Developer and Backup & Cleanup packs; none is core. The catalog is now 129 templates.
 - **GitHub Actions can watch a whole account or organization** (2026-10-23). In the Sources tab's
   repository box, type an owner (`acme`, `github.com/acme`) instead of `owner/repo`, and every

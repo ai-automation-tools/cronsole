@@ -523,6 +523,77 @@
     },
     {
       "schemaVersion": "1.0",
+      "id": "dev-cargo-audit-check",
+      "name": "Dependency Security Audit (Cargo)",
+      "description": "Scan a Rust project’s Cargo.lock for crates with known security advisories using cargo-audit on a schedule, the Rust counterpart to the npm and pip audit templates.",
+      "runtime": "executable",
+      "os": "cross-platform",
+      "category": "dev-workflow",
+      "tags": [
+        "dev",
+        "rust",
+        "cargo",
+        "security",
+        "dependencies"
+      ],
+      "icon": "ShieldAlert",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 7 * * 2"
+      },
+      "commandTemplate": "cargo audit --file \"{{lockfilePath}}\"",
+      "parameters": [
+        {
+          "key": "lockfilePath",
+          "label": "Cargo.lock path",
+          "type": "path",
+          "default": "",
+          "required": true,
+          "help": "Absolute path to the Cargo.lock file to audit. The cargo-audit tool must be installed, for example with cargo install cargo-audit. It exits non-zero when it finds a vulnerable crate, so the run shows as failed exactly when there is something to fix."
+        }
+      ],
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "dev-go-test-run",
+      "name": "Scheduled Test Run (Go)",
+      "description": "Run every test in a Go module on a schedule with go test, the Go counterpart to the npm test and pytest templates. A failing test makes the run fail.",
+      "runtime": "executable",
+      "os": "cross-platform",
+      "category": "dev-workflow",
+      "tags": [
+        "dev",
+        "go",
+        "test",
+        "ci"
+      ],
+      "icon": "FlaskConical",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "30 5 * * *"
+      },
+      "commandTemplate": "go test -C \"{{modulePath}}\" ./...",
+      "parameters": [
+        {
+          "key": "modulePath",
+          "label": "Module folder",
+          "type": "path",
+          "default": "",
+          "required": true,
+          "help": "Absolute path to the folder containing go.mod, with no spaces in it. Go 1.21 or newer must be installed and on the PATH, because the -C flag changes into this folder before testing."
+        }
+      ],
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
       "id": "tpl_github_pr_triage",
       "name": "GitHub PR Triage",
       "description": "Triage new pull requests in a repo and label them by content.",

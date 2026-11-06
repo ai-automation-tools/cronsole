@@ -91,6 +91,8 @@ export const bundledPacks: BundledPack[] = [
       'dev-npm-audit-check',
       'dev-pip-audit-check',
       'dev-pytest-run',
+      'dev-cargo-audit-check',
+      'dev-go-test-run',
       'tpl_github_pr_triage',
       'tpl_starter_git_sync'
     ]
@@ -281,6 +283,7 @@ export const bundledPacks: BundledPack[] = [
       'ntf-email-alert',
       'ntf-sms-twilio-alert',
       'ntf-ntfy-push',
+      'ntf-telegram-message',
       'sys-certbot-renew',
       'sys-process-watchdog',
       'sys-macos-update-check',

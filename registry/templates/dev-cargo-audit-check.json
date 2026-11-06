@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "1.0",
+  "id": "dev-cargo-audit-check",
+  "name": "Dependency Security Audit (Cargo)",
+  "description": "Scan a Rust project’s Cargo.lock for crates with known security advisories using cargo-audit on a schedule, the Rust counterpart to the npm and pip audit templates.",
+  "runtime": "executable",
+  "os": "cross-platform",
+  "category": "dev-workflow",
+  "tags": [
+    "dev",
+    "rust",
+    "cargo",
+    "security",
+    "dependencies"
+  ],
+  "icon": "ShieldAlert",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 7 * * 2"
+  },
+  "commandTemplate": "cargo audit --file \"{{lockfilePath}}\"",
+  "parameters": [
+    {
+      "key": "lockfilePath",
+      "label": "Cargo.lock path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Absolute path to the Cargo.lock file to audit. The cargo-audit tool must be installed, for example with cargo install cargo-audit. It exits non-zero when it finds a vulnerable crate, so the run shows as failed exactly when there is something to fix."
+    }
+  ],
+  "compatibleTargets": [
+    "windows",
+    "macos"
+  ]
+}

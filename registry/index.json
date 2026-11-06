@@ -1,6 +1,6 @@
 {
   "registryVersion": "1.0",
-  "updatedAt": "2026-10-29T21:03:06.985Z",
+  "updatedAt": "2026-11-06T20:44:06.345Z",
   "templates": [
     {
       "id": "tpl_daily_database_backup",
@@ -1779,6 +1779,67 @@
       "sha256": "e676d1d4faecc3036c98bf1f9366cefe4de45959ddbad623c141a59e0131cb21"
     },
     {
+      "id": "dev-cargo-audit-check",
+      "name": "Dependency Security Audit (Cargo)",
+      "description": "Scan a Rust project’s Cargo.lock for crates with known security advisories using cargo-audit on a schedule, the Rust counterpart to the npm and pip audit templates.",
+      "category": "dev-workflow",
+      "tags": [
+        "dev",
+        "rust",
+        "cargo",
+        "security",
+        "dependencies"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ],
+      "path": "templates/dev-cargo-audit-check.json",
+      "sha256": "b1bc3479c01211121577c99919b05005ce09db46d103f0b61075ef765d8b5a37"
+    },
+    {
+      "id": "dev-go-test-run",
+      "name": "Scheduled Test Run (Go)",
+      "description": "Run every test in a Go module on a schedule with go test, the Go counterpart to the npm test and pytest templates. A failing test makes the run fail.",
+      "category": "dev-workflow",
+      "tags": [
+        "dev",
+        "go",
+        "test",
+        "ci"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ],
+      "path": "templates/dev-go-test-run.json",
+      "sha256": "6ce221adff77d3bd5cc711dedbe1c1162f6831e047b2eb25af8dab248009ccdb"
+    },
+    {
+      "id": "ntf-telegram-message",
+      "name": "Telegram Bot Message",
+      "description": "Send a scheduled message to a Telegram chat through the Bot API with a single HTTPS request, for people who already live in Telegram rather than Slack, Discord or ntfy.",
+      "category": "notification",
+      "tags": [
+        "notification",
+        "telegram",
+        "bot",
+        "mobile"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ],
+      "path": "templates/ntf-telegram-message.json",
+      "sha256": "fc86e8a9673cc53ef7e293aedb737a80c5a47046f69fb24a8dc8dfefa975aeae"
+    },
+    {
       "id": "native-run-program",
       "name": "Run a Program (Cronsole)",
       "description": "Run any executable with arguments on the machine hosting Cronsole — no agent, no Task Scheduler entry. Cronsole schedules and runs it itself.",
@@ -2555,11 +2616,13 @@
         "dev-npm-audit-check",
         "dev-pip-audit-check",
         "dev-pytest-run",
+        "dev-cargo-audit-check",
+        "dev-go-test-run",
         "tpl_github_pr_triage",
         "tpl_starter_git_sync"
       ],
       "path": "packs/developer.json",
-      "sha256": "d82808331dee766774bc264be44aa96f27e7823236cba197f1cd82e5b943575c"
+      "sha256": "516a524836ce04bbcdad6e25bb1acdc1fd71a4560ee0881b6afbaa6b104c1ec3"
     },
     {
       "id": "ai-agents",
@@ -2720,6 +2783,7 @@
         "ntf-email-alert",
         "ntf-sms-twilio-alert",
         "ntf-ntfy-push",
+        "ntf-telegram-message",
         "sys-certbot-renew",
         "sys-process-watchdog",
         "sys-macos-update-check",
@@ -2729,7 +2793,7 @@
         "sys-dism-health-check"
       ],
       "path": "packs/system-utilities.json",
-      "sha256": "59488c5b3b9b9c7d557af4540fc778e7e72ad25eac30209b7003b50b9ed5304f"
+      "sha256": "432d2025d9c4b78d8afc06317032c4ec453e4fe8f12de2b992bf30d6d471cc01"
     }
   ]
 }

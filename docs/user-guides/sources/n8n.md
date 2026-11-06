@@ -37,7 +37,8 @@ workflow through its own Schedule Trigger — see [Run now](#run-now) below.
    [Run now](#run-now).
 
 Self-hosted and n8n Cloud both work. One key reaches one instance, so there is nothing to pick:
-every scheduled workflow lands under a single **n8n** category.
+every workflow lands under **n8n**, nested by how it starts or by its real folder (see
+[Folders](#folders)).
 
 > [!TIP]
 > **A `401` on connect almost always means the key was not copied in full.** n8n keys are long and
@@ -83,7 +84,7 @@ To turn it on:
 Without a token, Run now refuses and names these three steps. The token is a credential: stored
 encrypted beside the API key, never shown again, removable with **Remove token**.
 
-Three things to know:
+Four things to know:
 
 - **It is the scheduled run.** Same published graph, same trigger node — not a webhook lookalike.
   n8n lists it as a *trigger* run, so it scores like one.

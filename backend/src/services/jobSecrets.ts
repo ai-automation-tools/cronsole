@@ -97,8 +97,12 @@ export const SECRET_REF_FIELDS: Readonly<Record<string, readonly string[]>> = {
 /** Does this string carry at least one `${secret.…}`? */
 export function hasSecretRef(value: unknown): boolean {
   if (typeof value !== 'string') return false;
-  SECRET_REF.lastIndex = 0;
-  return SECRET_REF.test(value);
+  // A local copy, never the shared `SECRET_REF`: `.test` on a global regex
+  // leaves `lastIndex` at the end of the match, and `matchAll` starts from the
+  // lastIndex it copies. A URL that was *only* `${secret.X}` therefore went
+  // through `isUrlOrSecretRef` and then reported no references at all, so the
+  // Secrets section never asked for it and a run sent the literal text.
+  return new RegExp(SECRET_REF.source).test(value);
 }
 
 interface SecretRef { name: string; optional: boolean }

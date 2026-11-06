@@ -1488,7 +1488,7 @@ catching up a missed start, and there were no retries. Design in
       (on success, on failure, or either), with or without a schedule of its own. Chaining between
       tasks rather than ADR 0002's `SEQUENCE` steps inside one: each link keeps its own history,
       retries and secrets. Cycles are refused at save.
-- [ ] **Send a message** — a create-form preset that writes an HTTP job for Discord, Slack, ntfy
+- [x] **Send a message** *(shipped 2026-11-06)* — a create-form preset that writes an HTTP job for Discord, Slack, ntfy
       or a generic webhook, with the URL as a `${secret.…}`. ADR 0002's `NOTIFY`, unblocked by
       ADR 0003, as a preset rather than a fifth job type.
 - [ ] **Tell me when this fails** — a per-task switch over the existing notification channels.

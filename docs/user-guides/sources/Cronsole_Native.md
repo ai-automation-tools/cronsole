@@ -40,6 +40,7 @@ not a native job.
 | A job that needs an API key or token | `${secret.NAME}` is stored encrypted and redacted out of the run log. See [Secrets](#-secrets--store-a-reference-never-the-value). |
 | Anything you want a full run history for | Cronsole performs every run, scheduled ones included, so every run is logged with its output. |
 | A job that should try again when it fails | [Retries](#-run-settings) are a setting, and each attempt is in the run history with its output. |
+| A message to Discord, Slack or ntfy | [Send a message](#-sending-a-message) fills in the request; the webhook address is kept as a secret. |
 | One job that should start when another finishes | [Chaining](#-chaining-tasks) is a setting, on success, on failure, or either. Task Scheduler has no clean way to do this. |
 | A backend on Linux or in Docker, where there is no Windows | Native runs wherever the backend runs. |
 
@@ -89,6 +90,22 @@ always makes a `GET` — a job that needs a method, headers or a body is a full 
 **You can change the URL later.** *Edit* on the Action panel of the task modal rewrites the whole
 job: URL, method, headers and body. Headers can be pasted as `Name: value` lines straight out of an
 API's docs, or as JSON.
+
+#### 💬 Sending a message
+
+An empty HTTP job offers **Send a message to: Discord · Slack · ntfy · Other webhook**. Each one
+fills in a `POST` with a sample message in the shape that service expects, so you only edit the text:
+
+| Preset | URL | Body | Secret to set |
+|:---|:---|:---|:---|
+| **Discord** | `${secret.DISCORD_WEBHOOK_URL}` | `{"content": "…"}` | The channel's webhook URL |
+| **Slack** | `${secret.SLACK_WEBHOOK_URL}` | `{"text": "…"}` | The incoming-webhook URL |
+| **ntfy** | `https://ntfy.sh/${secret.NTFY_TOPIC}` | Plain text, with a `Title` header | The topic name |
+| **Other webhook** | `${secret.WEBHOOK_URL}` | `{"message": "…"}` | The URL |
+
+The address goes in a secret because for these services **the address is the password**: anyone
+holding a Discord or Slack webhook URL can post to the channel. Set it under **Secrets** on the same
+form. Pair a message with [chaining](#-chaining-tasks) to say something when another task fails.
 
 ### 🖥️ Programs (EXEC) — run something already on the host
 

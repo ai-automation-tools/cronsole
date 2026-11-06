@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../api';
 import type { Task } from '../../types';
+import { MESSAGE_PRESETS, applyMessagePreset } from '../../utils/messagePresets';
 import { Terminal, FolderOpen, Globe, FileCode, Activity, Variable, Timer } from 'lucide-react';
 import {
   parseEnv,
@@ -190,6 +191,29 @@ export const NativeJobFields = ({ value, onChange, storedJobType, executionHost,
         <CheckFields value={value} set={set} disabled={disabled} executionHost={executionHost} />
       ) : value.jobType === 'HTTP' ? (
         <>
+          {/* Offered only on an empty job, so a preset never overwrites what someone typed. */}
+          {!value.url.trim() && !value.body.trim() && (
+            <div className="space-y-2">
+              <span className={LABEL}>Send a message to</span>
+              <div className="flex flex-wrap gap-2">
+                {MESSAGE_PRESETS.map(p => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => onChange(applyMessagePreset(value, p))}
+                    className="min-h-9 px-3 rounded-xl border border-border bg-background text-xs font-bold text-foreground hover:border-primary transition-colors disabled:opacity-50"
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-subtle-foreground">
+                Fills in a POST with a sample message. The webhook address goes in a secret, because for
+                these services the address is the password; set it under Secrets.
+              </p>
+            </div>
+          )}
           <div className="space-y-2">
             <label htmlFor="job-url" className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider flex items-center gap-1.5">
               <Globe size={11} /> URL <span className="text-danger-text">*</span>

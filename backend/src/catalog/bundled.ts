@@ -1807,7 +1807,7 @@ const extendedPack: RegistryTemplate[] = [
     tags: ['dev', 'go', 'test', 'ci'],
     icon: 'FlaskConical',
     trigger: sched('30 5 * * *'),
-    commandTemplate: 'go test -C {{modulePath}} ./...',
+    commandTemplate: 'go test -C "{{modulePath}}" ./...',
     parameters: [
       { key: 'modulePath', label: 'Module folder', type: 'path', default: '', required: true, help: 'Absolute path to the folder containing go.mod, with no spaces in it. Go 1.21 or newer must be installed and on the PATH, because the -C flag changes into this folder before testing.' }
     ],

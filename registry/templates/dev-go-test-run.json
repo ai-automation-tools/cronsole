@@ -17,7 +17,7 @@
     "kind": "schedule",
     "cron": "30 5 * * *"
   },
-  "commandTemplate": "go test -C {{modulePath}} ./...",
+  "commandTemplate": "go test -C \"{{modulePath}}\" ./...",
   "parameters": [
     {
       "key": "modulePath",

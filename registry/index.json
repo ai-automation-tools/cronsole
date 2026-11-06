@@ -1,6 +1,6 @@
 {
   "registryVersion": "1.0",
-  "updatedAt": "2026-11-05T22:02:31.347Z",
+  "updatedAt": "2026-11-06T20:44:06.345Z",
   "templates": [
     {
       "id": "tpl_daily_database_backup",
@@ -1817,7 +1817,7 @@
         "macos"
       ],
       "path": "templates/dev-go-test-run.json",
-      "sha256": "ebfb4f2a76e54d3f2808eedac10626864b507b39c15dc21ef9f9d154d989c46b"
+      "sha256": "6ce221adff77d3bd5cc711dedbe1c1162f6831e047b2eb25af8dab248009ccdb"
     },
     {
       "id": "ntf-telegram-message",
@@ -2622,7 +2622,7 @@
         "tpl_starter_git_sync"
       ],
       "path": "packs/developer.json",
-      "sha256": "9578e300a40d548ab43577bd8d250757d806ebf46defa75f5d89f98277cf410c"
+      "sha256": "516a524836ce04bbcdad6e25bb1acdc1fd71a4560ee0881b6afbaa6b104c1ec3"
     },
     {
       "id": "ai-agents",

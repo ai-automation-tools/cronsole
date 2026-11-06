@@ -62,13 +62,13 @@ Each source links to its own guide: how to connect it, what Cronsole can do ther
 
 | Source | How it connects | Status |
 |:---|:---|:---|
-| [**🪟 Windows Task Scheduler**](docs/user-guides/sources/Windows_Task_Scheduler.md) | A lightweight local agent on your machine — outbound-only, never accepts incoming connections. | ✅ Functional |
 | [**⚡ Cronsole-native**](docs/user-guides/sources/Cronsole_Native.md) | Four kinds of job that Cronsole schedules and runs itself, with no OS task involved: **HTTP** calls, an **existing program**, a **script you write in Cronsole**, and **checks** that assert something is true. | ✅ Functional |
+| [**🪟 Windows Task Scheduler**](docs/user-guides/sources/Windows_Task_Scheduler.md) | A lightweight local agent on your machine — outbound-only, never accepts incoming connections. | ✅ Functional |
 | [**🤖 Claude Code Routines**](docs/user-guides/sources/Claude_Code_Routines.md) | Natural-language routines through the Anthropic API. With a readable Claude Code session Cronsole lists, creates, reschedules, pauses and fires them; without one it can fire the routines you declared. **Deleting always happens in claude.ai** — no API exposes it. | 🧪 Experimental |
 | [**✨ Gemini API Triggers**](docs/user-guides/sources/Gemini_API_Triggers.md) | Scheduled prompts on Google's managed agents. One API key, and Cronsole can run, pause, create and delete them, and read how their runs actually went. A trigger's schedule and prompt are fixed once it exists, so changing either means **Recreate with changes**. | 🧪 Experimental |
+| [**🔀 n8n**](docs/user-guides/sources/n8n.md) | Workflows on your own n8n instance, through its API key: every one with a Schedule Trigger, and by default the ones started some other way too. Cronsole reads real run outcomes and each run's steps, and can **Run now** through n8n's MCP server. You state the instance's time zone, because its API does not. | ✅ Functional |
 | [**🐙 GitHub Actions**](docs/user-guides/sources/GitHub_Actions.md) | Scheduled workflows in the repositories you watch, read through a PAT. **Read-only by design** — Cronsole shows their crons and real run outcomes, and changes nothing. | 👁️ Observer |
 | [**▲ Vercel Cron**](docs/user-guides/sources/Vercel_Cron.md) | Cron jobs declared by the projects you watch. **Read-only by design**, and Vercel publishes no run history, so their health stays honestly unknown. | 👁️ Observer |
-| [**🔀 n8n**](docs/user-guides/sources/n8n.md) | Workflows on your own n8n instance, through its API key: every one with a Schedule Trigger, and by default the ones started some other way too. Cronsole reads real run outcomes and each run's steps, and can **Run now** through n8n's MCP server. You state the instance's time zone, because its API does not. | ✅ Functional |
 | [**💬 ChatGPT · Grok · Jules · Open Claw · Hermes**](docs/user-guides/sources/README.md#-quick-links--schedulers-with-no-connector) | Quick links straight to their native scheduling screens — none of them exposes a public scheduled-task API to build on. Add your own, too. | 🔗 Quick links |
 
 ## 🎨 Screenshots

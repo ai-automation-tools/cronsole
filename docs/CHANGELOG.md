@@ -21,6 +21,8 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Changed
 
+- **Source guides say what each source is for** (2026-11-06). Every guide in [`docs/user-guides/sources/`](user-guides/sources/README.md) opens with a *When to use it, and when not to* table, and ends with its templates and the vendor's own docs. The native guide names what does not belong in a native task: anything that must run while Cronsole is down, must not miss a run (a run over 5 minutes late is skipped), needs your Windows user, or runs past the 60-minute cap. The sources overview gained a *Which source should a new task go in?* table and a templates column, and lists Cronsole-native first and Windows second, as the root README now does.
+- **Gallery deep links by source** (2026-11-06). `#/browse?target=windows` (or `cronsole-native`, `claude-code`, `gemini`) opens the template gallery filtered to that target. Each source guide links its own.
 - **An n8n prompt set** (2026-11-06). [`prompts/mcp-server/n8n.md`](../prompts/mcp-server/n8n.md) covers listing scheduled and on-demand workflows, why a schedule is blank, Run now and the MCP access token it needs, reading a failed run's nodes, and what n8n refuses. Both prompt indexes link it.
 - **Connect Pack v1.14 names every MCP tool** (2026-11-06). Its `SKILL.md` surface table was missing eleven of the 38 tools, among them Gemini and Claude routine create, the Claude routine verbs, `rename_task`, `update_native_job` and the run-output tools. The task-authoring management table gained rename, native-job edit, template delete and the routine verbs.
 - **MCP tool descriptions no longer contradict the platforms** (2026-11-06). These are the text an assistant reads:

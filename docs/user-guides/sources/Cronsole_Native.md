@@ -19,10 +19,52 @@ there is no agent to install and nothing to go stale — and the flip side is th
 before you use it: **when Cronsole is down, a native task does not run.** For work that must survive
 that, use [Windows Task Scheduler](Windows_Task_Scheduler.md).
 
+---
+
+## 🧭 When to use it, and when not to
+
+Native is the easiest source to start with, which makes it the easiest to over-use. Three facts
+decide almost every case: it runs **only while Cronsole is running**, it runs **on the backend's
+host as the backend's account**, and it fires **on a cron clock and nothing else**.
+
+**The rule of thumb:** if it would matter that the job did not run while Cronsole was stopped, it is
+not a native job.
+
+### ✅ Good fits
+
+| Job | Why native suits it |
+|:---|:---|
+| Calling a URL or firing a webhook on a schedule | An HTTP job needs nothing installed, and the status code is the verdict. |
+| Watching something: an endpoint is up, a port answers, a backup is fresh, a disk has room | That is what [Checks](#-checks--measure-something-and-compare-it) are for. A failure is a fact about your system, and the log records the measurement. |
+| A short script you want kept with the task | The body lives in the task, so it travels with an export, the pre-delete archive and a template. No file on disk to lose. |
+| A job that needs an API key or token | `${secret.NAME}` is stored encrypted and redacted out of the run log. See [Secrets](#-secrets--store-a-reference-never-the-value). |
+| Anything you want a full run history for | Cronsole performs every run, scheduled ones included, so every run is logged with its output. |
+| A backend on Linux or in Docker, where there is no Windows | Native runs wherever the backend runs. |
+
+### 🚫 Use something else
+
+| If the job… | Use instead | Why |
+|:---|:---|:---|
+| Must run while Cronsole is stopped, updating or crashed (backups, nightly cleanup) | [Windows Task Scheduler](Windows_Task_Scheduler.md) | A native task is a database row. Nothing runs it when the backend is down. |
+| Must not miss a run | Windows Task Scheduler | A run more than **5 minutes** overdue (Cronsole was down) is **skipped, not caught up**. |
+| Needs your Windows user: your profile, mapped drives, a desktop app, a window | Windows Task Scheduler | Native runs as whatever account runs the backend, and never in your desktop session. |
+| Reads or writes files on your desktop while the backend runs in Docker | Windows Task Scheduler, or run the backend on the host | Inside a container, `D:\` is not your `D:\`. |
+| Must fire at the same local time across a daylight-saving change | Windows Task Scheduler | Native runs the stored UTC cron, so it shifts by an hour. |
+| Runs for more than an hour, or would hold up other jobs | Windows Task Scheduler | Programs and Scripts stop at 5 minutes by default and 60 at most. Jobs due together run one after another, so a slow one delays the rest. |
+| Is a prompt for an AI agent to work on by itself | [Claude Code Routines](Claude_Code_Routines.md) or [Gemini API Triggers](Gemini_API_Triggers.md) | They run in the vendor's cloud with the model, tools and sandbox, and keep going when your machine is off. |
+| Builds or tests code in a repository | [GitHub Actions](GitHub_Actions.md) | Runners, checkouts and logs are GitHub's job. Cronsole shows the schedule and the outcome. |
+| Strings several services together with stored credentials | [n8n](n8n.md) | A workflow graph belongs in n8n. Cronsole reads it and can start it. |
+
+Timing is to the half minute: Cronsole checks for due native tasks every 30 seconds.
+
+---
+
 ## 🔌 Connecting
 
 Nothing to connect. Native is up whenever the backend is, which is why its card has a sentence and no
 button. It is one of the two sources a fresh install starts with.
+
+---
 
 ## 🧰 The four job types
 
@@ -124,12 +166,16 @@ Created with **New Task › Cronsole › Check something**. Four kinds:
 - **The log always states the measurement**, not just a verdict: `D:\backups\nightly.zip last
   modified 3.0h ago (limit 60m)`. The number is the reason you ran the check.
 
+---
+
 ## 🎛️ What Cronsole can do here
 
 The same list for all four job types: **Run now · Create · Enable/disable · Edit schedule · Edit what
 it runs · Export · Delete.** No agent, no round trip, nothing that can refuse — the write *is* the
 change. That is also why the Sources tab shows native as one card while the Source rail splits it into
 four rows: they are different things to look at with identical capabilities.
+
+---
 
 ## 🔐 Secrets — store a reference, never the value
 
@@ -164,6 +210,8 @@ write reports which secrets are missing rather than refusing the whole thing (te
 > **Save-as-template refuses a secret-bearing job outright.** A template is for sharing; a job that
 > references `${secret.X}` would arrive somewhere with nothing behind the name.
 
+---
+
 ## 🌱 Environment variables
 
 Programs and Scripts both take an **Environment** field — one `NAME=value` per line, or JSON. `#`
@@ -176,11 +224,15 @@ same UI that created the task.
 `${secret.NAME}` is legal in a value and **unrepresentable in a name** — the parser will not let you
 type the illegal case, rather than accepting it and refusing at 3am.
 
+---
+
 ## 📅 Schedules
 
 Stored as 5-field cron in UTC, like every source. Native is the one that runs that expression
 directly, which produces the one asymmetry worth remembering: **across a daylight-saving change a
 native task shifts by an hour** while a Windows task keeps its local clock time.
+
+---
 
 ## 🕐 Run history
 
@@ -188,6 +240,8 @@ Native is the source where `ExecutionLog` is complete: Cronsole performs every r
 recorded — scheduled ones included. Because Cronsole makes the call itself, the status and duration
 describe the actual run, unlike a Windows manual run. Output is stored, and `${secret.NAME}` values are **redacted out
 of the log** at the single point every job type funnels through.
+
+---
 
 ## ⚠️ Things that surprise people
 
@@ -206,6 +260,8 @@ of the log** at the single point every job type funnels through.
 - **Export gives you a portable bundle, not an OS artifact.** Native has no XML equivalent; the
   export is Cronsole's own format, and **Tools → Import a task** is what reads it back.
 
+---
+
 ## 🧯 When something looks wrong
 
 | Symptom | Start here |
@@ -216,10 +272,33 @@ of the log** at the single point every job type funnels through.
 
 ---
 
+## 📦 Templates
+
+Templates for this source are prebuilt HTTP calls, programs, scripts and checks. Applying one makes a
+native task you can edit afterwards.
+
+| Where | What you get |
+|:---|:---|
+| [**🌐 Gallery: Cronsole-native templates**](https://cronsole.ai-automation-tools.dev/#/browse?target=cronsole-native) | The public catalog, already filtered to this source. |
+| **In the app** | **Templates** tab, then **Apply** and pick *Cronsole* as the target. |
+
+---
+
+## 🔗 References
+
+Native has no vendor of its own. These are the documents behind it.
+
+| Resource | What it covers |
+|:---|:---|
+| [**ADR 0002: native job types**](../../adr/0002-native-job-types.md) | Why there are four job types, and what it takes to add a fifth. |
+| [**ADR 0003: per-job secrets**](../../adr/0003-per-job-secrets.md) | How `${secret.NAME}` is stored, substituted and redacted. |
+| [**crontab.guru**](https://crontab.guru/) | Checking what a 5-field cron expression means. Remember Cronsole stores it in UTC. |
+
+---
+
 <p align="center">
   <a href="README.md">← Source guides</a> ·
-  <a href="Windows_Task_Scheduler.md">Windows Task Scheduler</a> ·
-  <a href="Claude_Code_Routines.md">Next: Claude Code Routines →</a>
+  <a href="Windows_Task_Scheduler.md">Next: Windows Task Scheduler →</a>
 </p>
 
 <p align="right">(<a href="#native-top">back to top</a>)</p>

@@ -1554,7 +1554,7 @@
       var path = qi === -1 ? h : h.slice(0, qi);
       var parts = path.split("/").filter(Boolean); // e.g. ["t","dev-git-fetch-prune"]
       if (!parts.length) return { view: "home" };
-      if (parts[0] === "browse") { var q = parseQuery(h); return { view: "browse", tag: q.tag, pack: q.pack }; }
+      if (parts[0] === "browse") { var q = parseQuery(h); return { view: "browse", tag: q.tag, pack: q.pack, target: q.target }; }
       if (parts[0] === "collections") return { view: "collections" };
       if (parts[0] === "collection") return { view: "collection", key: parts[1] };
       if (parts[0] === "t") return { view: "detail", id: decodeURIComponent(parts[1] || "") };
@@ -1583,6 +1583,8 @@
       else if (r.view === "browse") {
         if (r.tag && browseState.tags.indexOf(r.tag) === -1) browseState.tags.push(r.tag);
         if (r.pack && collByKey(r.pack) && browseState.pack.indexOf(r.pack) === -1) browseState.pack.push(r.pack);
+        // ?target= is the deep link each source guide in the repo uses ("templates for this source").
+        if (r.target && TGT[r.target] && browseState.target.indexOf(r.target) === -1) browseState.target.push(r.target);
         $("app").innerHTML = viewBrowse(); wireBrowse();
       } else if (r.view === "detail") {
         var entry = byId(r.id);

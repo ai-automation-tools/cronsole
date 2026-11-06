@@ -34,15 +34,15 @@ it misbehaves. Every card on the Sources tab links straight to its own.
 
 ## 📋 Every source
 
-| Source | Shape | Where the work runs | What a failed run shows in Cronsole |
-|:---|:---|:---|:---|
-| [**🪟 Windows Task Scheduler**](Windows_Task_Scheduler.md) | Controller | Your machine, through the local agent. The only source that keeps running when Cronsole is off | Task Scheduler's own messages, the exit code and the action that produced it |
-| [**⚡ Cronsole-native**](Cronsole_Native.md) | Controller | Inside Cronsole, wherever the backend runs. Four job types: HTTP, Programs, Scripts and Checks | The job's own output, with any `${secret.NAME}` values stripped out |
-| [**🤖 Claude Code Routines**](Claude_Code_Routines.md) | Controller | Anthropic's cloud. What Cronsole can do depends on your install, because there are two doors in | No run history: Cronsole can fire a routine but cannot read its runs |
-| [**✨ Gemini API Triggers**](Gemini_API_Triggers.md) | Controller | Google's cloud, on its own agents | The agent's full output and every tool it used. Google has no page for this, so Cronsole is the only place to read it |
-| [**🔀 n8n**](n8n.md) | Controller (*Run now* only) | Your n8n instance. The one source that needs you to state its time zone, because its API does not | The nodes that ran, where it stopped, n8n's error message and a link to the execution |
-| [**🐙 GitHub Actions**](GitHub_Actions.md) | Observer | GitHub, for every workflow with an `on: schedule` trigger in the repositories you watch | The failing step by name, plus a link to github.com for the raw log |
-| [**▲ Vercel Cron**](Vercel_Cron.md) | Observer | Vercel, for the cron jobs your projects declare | Nothing. Vercel publishes no cron run history, so the section is absent rather than empty |
+| Source | Shape | Where the work runs | What a failed run shows in Cronsole | Templates |
+|:---|:---|:---|:---|:---|
+| [**⚡ Cronsole-native**](Cronsole_Native.md) | Controller | Inside Cronsole, wherever the backend runs. Four job types: HTTP, Programs, Scripts and Checks | The job's own output, with any `${secret.NAME}` values stripped out | [Browse](https://cronsole.ai-automation-tools.dev/#/browse?target=cronsole-native) |
+| [**🪟 Windows Task Scheduler**](Windows_Task_Scheduler.md) | Controller | Your machine, through the local agent. The only source that keeps running when Cronsole is off | Task Scheduler's own messages, the exit code and the action that produced it | [Browse](https://cronsole.ai-automation-tools.dev/#/browse?target=windows) |
+| [**🤖 Claude Code Routines**](Claude_Code_Routines.md) | Controller | Anthropic's cloud. What Cronsole can do depends on your install, because there are two doors in | No run history: Cronsole can fire a routine but cannot read its runs | [Browse](https://cronsole.ai-automation-tools.dev/#/browse?target=claude-code) |
+| [**✨ Gemini API Triggers**](Gemini_API_Triggers.md) | Controller | Google's cloud, on its own agents | The agent's full output and every tool it used. Google has no page for this, so Cronsole is the only place to read it | [Browse](https://cronsole.ai-automation-tools.dev/#/browse?target=gemini) |
+| [**🔀 n8n**](n8n.md) | Controller (*Run now* only) | Your n8n instance. The one source that needs you to state its time zone, because its API does not | The nodes that ran, where it stopped, n8n's error message and a link to the execution | None: Cronsole does not create tasks here |
+| [**🐙 GitHub Actions**](GitHub_Actions.md) | Observer | GitHub, for every workflow with an `on: schedule` trigger in the repositories you watch | The failing step by name, plus a link to github.com for the raw log | None: Cronsole does not create tasks here |
+| [**▲ Vercel Cron**](Vercel_Cron.md) | Observer | Vercel, for the cron jobs your projects declare | Nothing. Vercel publishes no cron run history, so the section is absent rather than empty | None: Cronsole does not create tasks here |
 
 **Controller** means Cronsole can change something there: run, pause, edit or delete, as far as the
 platform allows. **Observer** means Cronsole reads and changes nothing. That is the design in both
@@ -50,6 +50,25 @@ cases, not an unfinished first version: each observer refuses the same three ver
 routes, and its document says which. ChatGPT Tasks, Grok, Jules and the rest are
 [quick links](#-quick-links--schedulers-with-no-connector), not sources.
 
+
+---
+
+## 🧭 Which source should a new task go in?
+
+Most new tasks land in one of the first two, and the deciding question is whether the job has to run
+while Cronsole is down.
+
+| If the job… | Put it in | Because |
+|:---|:---|:---|
+| Calls a URL, checks something, or runs a short script, and only matters while Cronsole is up | [**⚡ Cronsole-native**](Cronsole_Native.md) | Nothing to install, every run logged with its output, secrets redacted. |
+| Must run while Cronsole is off, as your Windows user, or for longer than an hour | [**🪟 Windows Task Scheduler**](Windows_Task_Scheduler.md) | It is Windows' own scheduler. Cronsole only manages the entries. |
+| Is work for an AI agent in a repository | [**🤖 Claude Code Routines**](Claude_Code_Routines.md) | Runs in Anthropic's cloud against a checkout. |
+| Is work for an AI agent with tools, where you want to read every step | [**✨ Gemini API Triggers**](Gemini_API_Triggers.md) | Cronsole shows each run's output and steps. |
+| Joins several services together | [**🔀 n8n**](n8n.md) | Build it in n8n; Cronsole reads it and can start it. |
+
+GitHub Actions and Vercel Cron are for watching work that already lives there; Cronsole creates
+nothing on either. [**Cronsole-native › When to use it**](Cronsole_Native.md#-when-to-use-it-and-when-not-to)
+has the longer list of what does not belong in a native task.
 ---
 
 ## 🧩 What a source is

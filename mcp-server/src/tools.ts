@@ -1313,6 +1313,14 @@ export function registerTools(
           .string()
           .optional()
           .describe('Directory to run in. Must exist on the machine the backend runs on.'),
+        passEnv: z
+          .array(z.string())
+          .optional()
+          .describe(
+            "Names of variables already set in Cronsole's own environment to copy into the job's, e.g. " +
+            '["GH_TOKEN"]. Values are redacted from the run log. Cronsole\'s own settings (ENCRYPTION_KEY, ' +
+            'DATABASE_URL, CRONSOLE_*) are refused; a name that is not set makes the run refuse to start.'
+          ),
         timeoutMs: z
           .number()
           .int()
@@ -1323,11 +1331,12 @@ export function registerTools(
         category: z.string().optional().describe('Cronsole category for grouping. Defaults to "Cronsole".')
       }
     },
-    async ({ name, command, schedule, workingDirectory, timeoutMs, category, ...policy }) => {
+    async ({ name, command, schedule, workingDirectory, timeoutMs, passEnv, category, ...policy }) => {
       try {
         const job: Record<string, unknown> = { jobType: 'EXEC', command };
         if (workingDirectory) job.workingDirectory = workingDirectory;
         if (timeoutMs !== undefined) job.timeoutMs = timeoutMs;
+        if (passEnv?.length) job.passEnv = passEnv;
 
         const payload: Record<string, unknown> = { name, schedule, job: withPolicy(job, policy) };
         if (category) payload.category = category;
@@ -1401,6 +1410,14 @@ Next run: ${task.nextRunTime}` : '')
           .string()
           .optional()
           .describe('Directory to run in. Must exist on the machine the backend runs on.'),
+        passEnv: z
+          .array(z.string())
+          .optional()
+          .describe(
+            "Names of variables already set in Cronsole's own environment to copy into the job's, e.g. " +
+            '["GH_TOKEN"]. Values are redacted from the run log. Cronsole\'s own settings (ENCRYPTION_KEY, ' +
+            'DATABASE_URL, CRONSOLE_*) are refused; a name that is not set makes the run refuse to start.'
+          ),
         timeoutMs: z
           .number()
           .int()
@@ -1411,11 +1428,12 @@ Next run: ${task.nextRunTime}` : '')
         category: z.string().optional().describe('Cronsole category for grouping. Defaults to "Cronsole".')
       }
     },
-    async ({ name, interpreter, body, schedule, workingDirectory, timeoutMs, category, ...policy }) => {
+    async ({ name, interpreter, body, schedule, workingDirectory, timeoutMs, passEnv, category, ...policy }) => {
       try {
         const job: Record<string, unknown> = { jobType: 'SCRIPT', interpreter, body };
         if (workingDirectory) job.workingDirectory = workingDirectory;
         if (timeoutMs !== undefined) job.timeoutMs = timeoutMs;
+        if (passEnv?.length) job.passEnv = passEnv;
 
         const payload: Record<string, unknown> = { name, schedule, job: withPolicy(job, policy) };
         if (category) payload.category = category;
@@ -2295,12 +2313,21 @@ Next run: ${task.nextRunTime}` : '')
           .positive()
           .optional()
           .describe('EXEC only. Kill the job after this long, in ms (max 24 hours). Omit to reset to 5 minutes.'),
+        passEnv: z
+          .array(z.string())
+          .optional()
+          .describe(
+            "Names of variables already set in Cronsole's own environment to copy into the job's, e.g. " +
+            '["GH_TOKEN"]. Values are redacted from the run log. Cronsole\'s own settings (ENCRYPTION_KEY, ' +
+            'DATABASE_URL, CRONSOLE_*) are refused; a name that is not set makes the run refuse to start. ' +
+            'EXEC only; omit to pass none.'
+          ),
         // Like every field here, the run policy is replaced, not merged: omit a
         // field and it returns to its default.
         ...RUN_POLICY_SHAPE
       }
     },
-    async ({ taskId, jobType, url, method, headers, body, command, workingDirectory, timeoutMs, ...policy }) => {
+    async ({ taskId, jobType, url, method, headers, body, command, workingDirectory, timeoutMs, passEnv, ...policy }) => {
       try {
         // Built here rather than forwarded wholesale so a field belonging to the
         // other job type cannot ride along into the stored spec.
@@ -2314,6 +2341,7 @@ Next run: ${task.nextRunTime}` : '')
         } else {
           if (workingDirectory !== undefined) job.workingDirectory = workingDirectory;
           if (timeoutMs !== undefined) job.timeoutMs = timeoutMs;
+          if (passEnv?.length) job.passEnv = passEnv;
         }
 
         const task = await client.patch<TaskRow & { missingSecrets?: string[] }>(

@@ -25,7 +25,8 @@ that, use [Windows Task Scheduler](Windows_Task_Scheduler.md).
 
 Native is the easiest source to start with, which makes it the easiest to over-use. Three facts
 decide almost every case: it runs **only while Cronsole is running**, it runs **on the backend's
-host as the backend's account**, and it fires **on a cron clock and nothing else**.
+host as the backend's account**, and it starts **on a cron clock or when another native task
+finishes**, never on a logon, an idle machine or a system event.
 
 **The rule of thumb:** if it would matter that the job did not run while Cronsole was stopped, it is
 not a native job.
@@ -42,6 +43,7 @@ not a native job.
 | A job that should try again when it fails | [Retries](#-run-settings) are a setting, and each attempt is in the run history with its output. |
 | A message to Discord, Slack or ntfy | [Send a message](#-sending-a-message) fills in the request; the webhook address is kept as a secret. |
 | One job that should start when another finishes | [Chaining](#-chaining-tasks) is a setting, on success, on failure, or either. Task Scheduler has no clean way to do this. |
+| A tool that reads a token already set on the machine, like `gh` and `GH_TOKEN` | [Pass it through](#passing-a-variable-through) by name; its value stays out of the database and the log. |
 | A backend on Linux or in Docker, where there is no Windows | Native runs wherever the backend runs. |
 
 ### 🚫 Use something else
@@ -298,6 +300,25 @@ same UI that created the task.
 
 `${secret.NAME}` is legal in a value and **unrepresentable in a name** — the parser will not let you
 type the illegal case, rather than accepting it and refusing at 3am.
+
+### Passing a variable through
+
+Some tools read a credential that is already set on the machine, such as `GH_TOKEN` for the GitHub
+CLI. Instead of copying its value into a secret, name it under **Pass through from Cronsole**
+(`GH_TOKEN, OPENAI_API_KEY`), and the job gets that variable from the environment Cronsole itself runs
+in.
+
+| Rule | Why |
+|:---|:---|
+| **Only the names you list are passed.** | The rest of Cronsole's environment still never reaches the job. |
+| **Cronsole's own settings are refused by name.** | `ENCRYPTION_KEY`, `DATABASE_URL`, `JWT_SECRET`, anything starting `CRONSOLE_`, and every other setting in `backend/.env.example`. Passing the encryption key would hand over every stored credential. |
+| **The values are hidden in the run log**, shown as `${env.NAME}`. | The same protection secrets get. |
+| **A name that is not set stops the run before it starts**, and the log says which. | A job told it has `GH_TOKEN` should not run without it and fail somewhere confusing. |
+| **The job's own Environment wins** over a passed value with the same name. | It is the more specific instruction. |
+
+The variable has to be set **where the backend runs**. Under the default stack that is your Windows
+user, so a user environment variable works after Cronsole restarts; inside Docker it is the
+container's environment.
 
 ---
 

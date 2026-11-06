@@ -1464,7 +1464,7 @@ which is why it sits first, not because it outranks the larger work below.
 
 <a id="native-run-policy"></a>
 
-#### 🔴🔴 Top priority — requested 2026-11-06: native scheduler reliability — shipped 2026-11-06
+#### 🔴🔴 Top priority — requested 2026-11-06: native scheduler reliability — shipped 2026-11-06, Tier 2 closed the same day
 
 Native tasks should be a real alternative to Windows Task Scheduler, not only for checks. Measured
 against 215 real Windows tasks, the blockers were the scheduler, not the job types: 131 need more
@@ -1491,8 +1491,8 @@ catching up a missed start, and there were no retries. Design in
 - [x] **Send a message** *(shipped 2026-11-06)* — a create-form preset that writes an HTTP job for Discord, Slack, ntfy
       or a generic webhook, with the URL as a `${secret.…}`. ADR 0002's `NOTIFY`, unblocked by
       ADR 0003, as a preset rather than a fifth job type.
-- [ ] **Tell me when this fails** — a per-task switch over the existing notification channels.
-- [ ] **Pass named variables through** — a per-job, explicit list of the backend's own environment
+- [x] ~~**Tell me when this fails**~~ — *covered, not built (2026-11-06).* A user has one notification channel whose empty task list means "every task", so a per-task off switch has nothing to write. Chaining a *Send a message* task **on failure** gives the per-task message directly, with its own history.
+- [x] **Pass named variables through** *(shipped 2026-11-06)* — a per-job, explicit list of the backend's own environment
       variables to hand the child, refusing Cronsole's secrets by name.
 
 <a id="gemini-usability"></a>

@@ -106,6 +106,8 @@ export interface NativeJobValues {
   retryDelayMinutes: string;
   overlap: 'skip' | 'queue';
   catchUp: boolean;
+  /** EXEC and SCRIPT: names to copy from Cronsole's environment, comma- or space-separated. */
+  passEnv: string;
   /** Another native task's id to also run after; '' for none. */
   runAfterTaskId: string;
   runAfterWhen: 'success' | 'failure' | 'always';
@@ -145,7 +147,8 @@ export const emptyNativeJobValues = (): NativeJobValues => ({
   overlap: 'skip',
   catchUp: false,
   runAfterTaskId: '',
-  runAfterWhen: 'success'
+  runAfterWhen: 'success',
+  passEnv: ''
 });
 
 /**
@@ -396,6 +399,9 @@ function nativeJobEdit(task: Task): RunsEdit {
       retryDelayMinutes: asText(policy.retryDelayMinutes) ?? '1',
       overlap: policy.overlap === 'queue' ? 'queue' : 'skip',
       catchUp: policy.catchUp === true,
+      passEnv: (jobType === 'EXEC' || jobType === 'SCRIPT') && Array.isArray(job.passEnv)
+        ? (job.passEnv as unknown[]).map(String).join(', ')
+        : '',
       runAfterTaskId: asText(runAfter.taskId) ?? '',
       runAfterWhen: runAfter.when === 'failure' || runAfter.when === 'always' ? runAfter.when : 'success'
     }
@@ -554,6 +560,8 @@ export function nativeJobPayload(v: NativeJobValues): Record<string, unknown> | 
  */
 function withRunSettings(job: Record<string, unknown>, v: NativeJobValues): Record<string, unknown> {
   const out = { ...job };
+  const passEnv = passEnvNames(v.passEnv);
+  if ((v.jobType === 'EXEC' || v.jobType === 'SCRIPT') && passEnv.length) out.passEnv = passEnv;
   const minutes = Number(v.timeoutMinutes);
   if ((v.jobType === 'EXEC' || v.jobType === 'SCRIPT') && v.timeoutMinutes.trim() && minutes > 0) {
     out.timeoutMs = Math.round(minutes * 60_000);
@@ -684,8 +692,16 @@ const isUrlOrSecretRef = (value: string): boolean =>
  * had a local copy that knew two job types and blocked a script edit on a
  * missing `command`.
  */
+/** The names in the pass-through field, split on commas, spaces or new lines. */
+export const passEnvNames = (text: string): string[] =>
+  [...new Set(text.split(/[\s,]+/).filter(Boolean))];
+
 /** The run settings' ranges, mirroring the server's `validatePolicy`. */
 function runSettingsIncomplete(v: NativeJobValues): string | null {
+  if ((v.jobType === 'EXEC' || v.jobType === 'SCRIPT')
+    && passEnvNames(v.passEnv).some(n => !/^[A-Za-z_][A-Za-z0-9_]*$/.test(n))) {
+    return 'Pass-through names take letters, digits and underscores, separated by commas or spaces';
+  }
   if ((v.jobType === 'EXEC' || v.jobType === 'SCRIPT') && v.timeoutMinutes.trim()) {
     const m = Number(v.timeoutMinutes);
     if (!(m > 0 && m <= MAX_TIMEOUT_MINUTES)) {

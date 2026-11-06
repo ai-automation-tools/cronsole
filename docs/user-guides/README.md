@@ -19,8 +19,7 @@ Windows agent. If you haven't set Cronsole up yet, start with
 | Guide | What it covers |
 |:---|:---|
 | [**🖥️ UI User Guide**](guides/UI_User_Guide.md) | Navigating the dashboard, task cards and views, renaming and editing tasks, categorization and overrides, applying templates, and the in-app **?** help. |
-| [**🧭 Sources Guide**](guides/Sources_Guide.md) | All six sources compared in one place — what Cronsole can and can't do with each, quick links, and how to add a source. Read this when you're choosing between them. |
-| [**🔌 Source Guides**](sources/README.md) | One document per source, in depth: connecting it, what each capability actually does, and the failures worth knowing about first. Read these once you've chosen. |
+| [**🔌 Sources**](sources/README.md) | Every source in one table, what is true of all of them (choosing which you see, quick links, adding one), and a guide per source: connecting it, what each capability actually does, and the failures worth knowing about first. |
 | [**🤖 Windows Agent Setup Guide**](guides/Agent_Setup_Guide.md) | Installing, registering, running, verifying, and troubleshooting the local .NET agent. |
 | [**🧩 MCP Server Guide**](guides/MCP_Server_Guide.md) | Wiring the MCP server into Claude / Codex / Cursor to list, run, and create tasks in natural language. |
 | [**💾 Backup & Restore**](guides/Backup_Restore_Guide.md) | Backing up Cronsole's database, scheduling it as a Cronsole job, restoring it — and testing the restore, which is the part that makes the backup real. Includes the trap: a dump without `ENCRYPTION_KEY` restores cleanly and leaves every stored credential unreadable. |

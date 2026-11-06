@@ -47,5 +47,5 @@ breaking somebody's install.
 <p align="center">
   <a href="../README.md">← Docs home</a> ·
   <a href="../../CONTRIBUTING.md">CONTRIBUTING.md</a> ·
-  <a href="../user-guides/guides/Sources_Guide.md">Sources Guide →</a>
+  <a href="../user-guides/sources/README.md">Sources →</a>
 </p>

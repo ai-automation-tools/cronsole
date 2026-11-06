@@ -335,7 +335,7 @@ under that date.
       [#43](troubleshooting/README.md#43-a-visual-regression-baseline-fails-on-one-pixel-or-on-a-layout-that-moved-by-itself))*.
 - [x] **In-app help, per control** — a `?` beside fourteen controls, one modal shared with the Help
       Center, `HelpTopic.doc` required, links pinned by `docsLinks.test.ts`, and the new
-      [`Sources_Guide.md`](user-guides/guides/Sources_Guide.md) *(2026-08-12)*.
+      `Sources_Guide.md` *(2026-08-12; folded into [`sources/README.md`](user-guides/sources/README.md) and the per-source guides on 2026-11-06)*.
 - [x] **Source-first dashboard** — the source bar as the first-level axis, an outer lens that
       survives clicking a view and scopes every view count *(2026-08-12)*.
 - [x] **Mass Actions console on the Tools tab — now the only bulk surface** — action-first, plan

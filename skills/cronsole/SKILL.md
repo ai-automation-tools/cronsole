@@ -329,7 +329,7 @@ Canonical, with full symptom/cause/fix: [`docs/troubleshooting/README.md`](../..
 | Catalog spec | [`docs/reports/templates/Templates.md`](../../docs/reports/templates/Templates.md) |
 | Env vars / config | [`docs/setup/README.md`](../../docs/setup/README.md) |
 | Using the app / agent | [`docs/user-guides/`](../../docs/user-guides/README.md) |
-| **What a source is, and what Cronsole can do with each** — Windows, Cronsole HTTP, Cronsole scripts, Claude | [`docs/user-guides/guides/Sources_Guide.md`](../../docs/user-guides/guides/Sources_Guide.md) — also the deep-link target for every in-app source help topic |
+| **What a source is, and what Cronsole can do with each** — every shipped source | [`docs/user-guides/sources/README.md`](../../docs/user-guides/sources/README.md) (the overview and table) and one guide per source beside it — `sourcesGuide()` and `sourceDoc(platform, anchor?)` in `frontend/src/data/docs.ts` are the in-app deep links |
 | **The MCP server** — tools, wiring, tokens, its troubleshooting | [`docs/user-guides/guides/MCP_Server_Guide.md`](../../docs/user-guides/guides/MCP_Server_Guide.md) — **the canonical doc** |
 | **MCP package internals** — source layout, design notes, `npm run inspect` | [`mcp-server/README.md`](../../mcp-server/README.md) |
 | **What a user should say to drive Cronsole** — worked prompts per task type | [`prompts/`](../../prompts/README.md); the MCP sets live in [`prompts/mcp-server/`](../../prompts/mcp-server/README.md). Adding or removing an MCP tool obligates these too. |

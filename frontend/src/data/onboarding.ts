@@ -73,9 +73,9 @@ export const HELP_GUIDES: HelpLink[] = [
     url: `${DOCS_BASE}/docs/user-guides/guides/UI_User_Guide.md`
   },
   {
-    label: 'Sources Guide',
-    description: 'One section per source: what Cronsole can do with each, and what it will not',
-    url: `${DOCS_BASE}/docs/user-guides/guides/Sources_Guide.md`
+    label: 'Sources',
+    description: 'Every source in one table, with a guide for each: what Cronsole can do there, and what it will not',
+    url: `${DOCS_BASE}/docs/user-guides/sources/README.md`
   },
   {
     label: 'Windows Agent Setup Guide',

@@ -122,7 +122,7 @@ becomes a real Task Scheduler trigger, and where the conversion can go lossy.
 | Resource | Why you'd go there |
 |:---|:---|
 | [**🧩 MCP Server Guide**](../docs/user-guides/guides/MCP_Server_Guide.md) | Wire the server into your host and mint a token — before any of this works. |
-| [**✍️ Task authoring & management**](../skills/cronsole/references/task-authoring.md) | The invariants behind a good task: UTC cron, no-shell commands, folders, verification. |
+| [**✍️ Task authoring & management**](../backend/src/tools/connect-pack/references/task-authoring.md) | The invariants behind a good task: UTC cron, no-shell commands, folders, verification. |
 | [**🧠 The `cronsole` skill**](../skills/README.md) | What the skill knows and how it's installed. |
 | [**📄 Templates**](../docs/reports/templates/README.md) | The catalog the "from a template" prompts draw on. |
 | [**🖥️ UI User Guide**](../docs/user-guides/guides/UI_User_Guide.md) | The same operations, done by hand in the dashboard. |

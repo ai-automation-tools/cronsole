@@ -21,6 +21,26 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Changed
 
+- **Sources are reachable from the front page** (2026-11-06). Every source in the root README's *What it connects to* table now links to its own guide, the table gained its missing n8n row, and the root and docs-hub tables link the sources overview. The root README also gained a *What's in the repo* table that links every top-level folder.
+- **New and rewritten folder indexes** (2026-11-06). `backend/`, `agent/` and `images/` gained a README; `frontend/README.md` replaces the Vite template boilerplate; `docs/testing/reports/` gained an index for its four dated reports; the logo and icon READMEs got the house header and a way back up. `CODE_OF_CONDUCT.md`, `SECURITY.md` and `docs/UPSTREAMS.md` are linked from an index for the first time.
+- **Duplicated docs folded into one copy each** (2026-11-06). The cases were found by an audit of every tracked markdown file:
+  - **Task authoring:** the connect pack's guide is now the only task-authoring guide. The skill's 374-line fork, which had drifted, became a 50-line pointer. The pack is now v1.13 with the merged content, including the hosted-agent prompt section.
+  - **Testing:** `docs/testing/README.md` is the only testing reference, and the skill keeps only the traps it doesn't cover.
+  - **MCP:** `docs/mcp-server.md` is a one-page card, the MCP Server Guide owns host setup (now including Codex, opencode and Antigravity), and the package README owns the reference.
+  - **Manual setup:** `docs/setup/README.md` owns the manual setup path. Every other copy links to it.
+  - **UI guide:** it links to the sources overview and the per-source guides instead of restating them.
+  - **Agent tasks:** `scripts/startup-task/README.md` is the only full account of why the agent is no longer its own scheduled task.
+  - **Runbooks:** the runbook table appears once, in `manual-testing/README.md`.
+- **Docs that contradicted the code, fixed** (2026-11-06):
+  - **Rate limit:** the login rate limit had been called a known gap. It ships at 10 attempts per 15 minutes, and the security runbook now expects the `429`.
+  - **Gated tools:** several docs said `delete_task` was the only gated MCP tool. `delete_template` is gated too, so the count is 38 tools, 36 visible by default.
+  - **Periodic sync:** it is on by default every 30 minutes, not off.
+  - **Gemini:** a trigger's schedule cannot be changed in place, so the README no longer says it can be rescheduled.
+  - **n8n:** it is a controller in `AGENTS.md` §2.
+  - **Fresh-clone start:** a fresh clone now runs `npm run dev`. `npm start` needs a build that hadn't happened yet.
+  - **Registry docs:** the Registry v1 and template docs no longer list shipped work as still to do.
+  - **Sources tab:** it is no longer called the Platforms tab.
+- **`check-doc-links.mjs` now checks template-literal and full GitHub URLs** (2026-11-06). A doc path written as `${REPO}/docs/...` or `https://github.com/.../blob/main/docs/...` in source used to be skipped, which left three in-app template links unchecked. It now covers 50 doc paths in source, up from 39.
 - **One sources document instead of two** (2026-11-06). `guides/Sources_Guide.md` repeated every per-source guide in shorter form, so each fact had two copies. It is gone. [`sources/README.md`](user-guides/sources/README.md) is now the single overview: every source in one table with a link to its own guide, plus what is true of all of them (what a source is, choosing which you see, reading a failed run, quick links, adding a source). Anything the old guide said that a per-source guide did not was moved into that guide first. Every **?** link in the app now opens the source's own guide, at the relevant section for Windows and the four Cronsole-native job types. n8n is now listed as a controller (it gained *Run now* on 2026-10-05), and its guide is checked by `docsLinks.test.ts`, which had been missing it.
 - **No more blank screen while the dashboard loads** (2026-11-06). `index.html` now draws a spinner before the JS bundle arrives, which takes about a second (~160 dev modules, or one 1MB built bundle). React replaces it when it mounts. The Vite dev server also pre-transforms the import graph at startup (`server.warmup`), so the first load after a restart no longer pays for cold transforms. The other tabs (Sources, Templates, Tools, Settings, Links) and the task, create, clone, import and sync modals now load as separate chunks when first opened. The bundle the dashboard waits on dropped from 1,055KB to 570KB (306KB to 173KB gzipped).
 - **Re-registering the self-heal no longer switches it off** (2026-11-06). `CronsoleStack`'s 5-minute repetition hung off its logon trigger, which starts repeating only at a logon. So re-running `Register-CronsoleStack.ps1` mid-session left the self-heal off until the next logon, with nothing reporting it (troubleshooting #102). The repetition now sits on its own time trigger and runs from the moment the task is registered. Re-run `Register-CronsoleStack.ps1` elevated once to get it.

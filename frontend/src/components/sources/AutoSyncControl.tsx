@@ -14,7 +14,8 @@ const OPTIONS: { value: number; label: string }[] = [
 ];
 
 /**
- * Periodic sync for one source. Off by default. It refreshes the folders you
+ * Periodic sync for one source. On by default, every 30 minutes
+ * (`syncIntervalMin @default(30)`), and switchable off. It refreshes the folders you
  * already track and nothing else — it never adopts a new folder or restores an
  * untracked task — so the control says so, and shows the last attempt and why it
  * failed rather than a bare "on".

@@ -8,11 +8,12 @@ import { CronsoleClient, CronsoleApiError } from './client.js';
  *   read      list_tasks · list_templates · list_folders · get_task_history ·
  *             export_task · convert_schedule · list_platforms · get_task_health ·
  *             get_diagnostics · list_run_history · list_task_archives ·
- *             list_task_secrets · list_claude_routines
+ *             list_task_secrets · list_claude_routines · list_platform_runs ·
+ *             get_run_output
  *   create    create_task · create_native_task · create_native_program_task ·
  *             create_native_script_task · create_native_check_task ·
  *             create_task_from_template · import_task · restore_task_archive ·
- *             create_claude_routine
+ *             create_claude_routine · create_gemini_trigger
  *   act       run_task
  *   modify    set_task_status · update_task_schedule · update_task_action ·
  *             update_native_job · rename_task · untrack_task · sync_tasks ·
@@ -20,11 +21,11 @@ import { CronsoleClient, CronsoleApiError } from './client.js';
  *   destroy   delete_task · delete_template   (only when allowDestructive; delete_task
  *             is native-only, delete_template refuses catalog-synced rows)
  *
- * That is 35 tools, and this list is a mirror surface like any other: it drifts
+ * That is 38 tools (36 visible unless allowDestructive), and this list is a mirror surface like any other: it drifts
  * silently, because nothing imports it. It was last found describing 17 tools —
  * the set as of the first expansion — while the file registered 33. Regenerate it
  * from the file rather than appending to it by hand:
- *   grep -n "server.registerTool(" -A1 src/tools.ts
+ *   grep -n -A1 -E "^\s+server\.registerTool\(" src/tools.ts   (anchored: this comment quotes the call too)
  *
  * One deliberate absence, so it is not read as an oversight: **no tool writes a
  * secret value** (ADR 0003). `list_task_secrets` reports names; the values are

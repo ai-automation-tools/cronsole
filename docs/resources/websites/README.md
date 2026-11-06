@@ -10,7 +10,7 @@
 
 ---
 
-Cronsole's **Platforms** tab is a launchpad to the scheduling screens of the tools you
+Cronsole's **Sources** tab is a launchpad to the scheduling screens of the tools you
 already use. Some of these have public APIs Cronsole can integrate with; others are
 quick-links only until an API appears.
 
@@ -22,7 +22,7 @@ quick-links only until an API appears.
 | [**ChatGPT Schedules**](https://chatgpt.com/schedules) | Quick link — no public automations API today. |
 | [**Gemini Scheduled**](https://gemini.google.com/scheduled) | Quick link. |
 
-You can also add your own custom links (e.g. n8n, Open Claw, Hermes) from the Platforms tab;
+You can also add your own custom links (e.g. n8n, Open Claw, Hermes) from the Sources tab;
 they're saved locally and grouped under a **User Defined** section.
 
 ## 🌍 Reference sites
@@ -38,7 +38,7 @@ they're saved locally and grouped under a **User Defined** section.
 | Resource | Why you'd go there |
 |:---|:---|
 | [**📦 Repos**](../repos/README.md) | Reference repositories and related projects. |
-| [**🖥️ UI User Guide**](../../user-guides/guides/UI_User_Guide.md) | Using the Platforms tab in the dashboard. |
+| [**🖥️ UI User Guide**](../../user-guides/guides/UI_User_Guide.md) | Using the Sources tab in the dashboard. |
 
 ---
 

@@ -49,12 +49,15 @@ authenticate the dashboard, and connect the agent. If you haven't installed yet,
   `prisma migrate deploy`), so a fresh clone needs no schema step
   ([#90](../troubleshooting/README.md#90-a-fresh-clones-docker-quick-start-dies-with-the-table-publicuser-does-not-exist)).
 - **Manual** — run each service yourself when you're developing or debugging a single
-  layer. See below.
+  layer. See [Run it manually](#run-it-manually-no-docker) below. This is the only page that
+  writes the manual path out; the install guides, `CONTRIBUTING.md` and the root README link here.
 
 > [!IMPORTANT]
-> **`--profile docker` is not optional.** Backend and frontend sit behind an opt-in profile, so a
-> plain `docker compose up` starts **Postgres and Redis only** and nothing answers on `:7373`.
-> Omit the profile only when you intend to run the backend and frontend as host processes.
+> **`--profile docker` is not optional.** Backend and frontend sit behind an opt-in profile
+> (`profiles: ["docker"]` in `docker-compose.yml`), so a plain `docker compose up` starts
+> **Postgres and Redis only** and nothing answers on `:7373`. Omit the profile only when you
+> intend to run the backend and frontend as host processes — the manual path below. *(This is
+> the canonical copy of this warning; other docs link here rather than repeat it.)*
 
 > [!IMPORTANT]
 > `docker-compose.yml` bakes in **DEV-ONLY default secrets** (`JWT_SECRET`,
@@ -68,25 +71,64 @@ authenticate the dashboard, and connect the agent. If you haven't installed yet,
 
 ### Run it manually (no Docker)
 
-```bash
-# Backend — needs a PostgreSQL 16 instance + DATABASE_URL in backend/.env
-cd backend
-npm install
-npm start                   # http://localhost:3000 — `prestart` applies migrations first
-                            # (use `npx prisma migrate dev` only to AUTHOR a new migration
-                            #  from a schema.prisma change; `deploy` never generates one.
-                            #  Prisma 7's `migrate dev` no longer regenerates the client:
-                            #  follow it with `npx prisma generate`)
+The backend and frontend run as host Node processes; only the database needs to come from
+somewhere. This is the same shape `scripts/cronsole.ps1 up` runs on Windows
+([below](#-controlling-the-stack-one-command)) — once steps 1–3 are done, that script can
+start and keep everything up for you.
 
-# Frontend — second terminal
+**1. A PostgreSQL 16 database.** Either your own instance, or the one in Compose — without
+the profile, `docker compose up -d` starts just Postgres and Redis:
+
+```bash
+docker compose up -d          # db on localhost:5432 (role + database: taskhub), redis on :6379
+```
+
+**2. Backend secrets.** The backend **refuses to start** without them, so this step is not
+optional:
+
+```bash
+cd backend
+cp .env.example .env
+```
+
+Then fill in `backend/.env` (the [table above](#-key-environment-variables) has every variable):
+
+| Variable | Rule | Generate |
+|:---|:---|:---|
+| `DATABASE_URL` | Already points at the Compose database; change it for your own instance. | — |
+| `JWT_SECRET` | ≥ 16 chars | `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"` |
+| `ENCRYPTION_KEY` | **exactly** 32 chars | `node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"` |
+| `AGENT_PAIRING_SECRET` | ≥ 16 chars; the agent must use the same value | `node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"` |
+
+**3. Run each piece**, one terminal each:
+
+```bash
+# Backend
+cd backend
+npm install                 # postinstall runs `prisma generate`
+npm run dev                 # http://localhost:3000 — `predev` applies migrations first
+
+# Frontend
 cd frontend
 npm install
-npm run dev                 # http://localhost:7373  (uses VITE_API_URL, default :3000)
+npm run dev                 # http://localhost:7373 (calls VITE_API_URL, default :3000)
 
-# Windows agent — third terminal (Windows only)
+# Windows agent (Windows only) — first copy appsettings.example.json to
+# appsettings.json and set pairingSecret to the backend's AGENT_PAIRING_SECRET
 cd agent/Cronsole.Agent
 dotnet run                  # connects out to the backend
 ```
+
+- `npm run dev` is what both `cronsole.ps1` and the Compose backend run. **`npm start` is the
+  compiled build** (`node dist/index.js`, with `prestart` migrating) and needs `npm run build`
+  first — on a fresh clone there is no `dist/` and it fails.
+- `npx prisma migrate dev` is only for **authoring** a new migration from a `schema.prisma`
+  change; `deploy` never generates one. Prisma 7's `migrate dev` no longer regenerates the
+  client, so follow it with `npx prisma generate`.
+- `frontend/.env.local` is optional: copy `frontend/.env.example` only to change
+  `VITE_API_URL`. Leave `VITE_DEV_TOKEN` empty — the first load asks you to create the owner
+  account.
+- Agent configuration (file vs. env vars) is under [Agent connection & pairing](#-agent-connection--pairing).
 
 ### Changing the backend URL from the dashboard
 
@@ -109,7 +151,7 @@ pwsh scripts\cronsole.ps1 down     # stop backend + frontend + agent
 ```
 
 Postgres/Redis carry `restart: unless-stopped`, so they self-heal after a crash
-or reboot; the auto-start scheduled task re-runs `cronsole up` every 10 minutes to
+or reboot; the auto-start scheduled task re-runs `cronsole up` every 5 minutes to
 recover the rest. See [`scripts/README.md`](../../scripts/README.md) for details.
 
 ## 🤝 Agent connection & pairing

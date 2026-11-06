@@ -31,6 +31,11 @@ speaks MCP over **stdio** and authenticates as **one user** via a token you prov
 > assistant instead of the browser. Anything the MCP server can do, your Cronsole user account
 > can do.
 
+This guide is the **user guide**: setup, every host, and what each tool is for. For the package
+itself (each tool's exact behavior, build, tests, design), see the
+[mcp-server README](../../../mcp-server/README.md); for a one-page card with every tool name, see
+[`docs/mcp-server.md`](../../mcp-server.md).
+
 ## The tools
 
 | Tool | What you'd ask for | Backend route |
@@ -133,13 +138,14 @@ Three things about it are worth an assistant knowing before it explains a screen
   `set_task_status` clears the pause and not the cause.
 - **A trigger cannot be changed once it exists.** `update_task_schedule` and `update_task_action`
   are both refused with a 400: the preview API's update endpoint takes a trigger's status and
-  display name and nothing else, so a schedule is fixed at the moment of creation. Do not offer to
-  move one — the only path is `delete_task` plus a fresh `create_task`, and that produces a **new**
-  task rather than the same one rescheduled. Say that plainly rather than quietly recreating.
-- **Creating one takes a prompt, not a command.** `create_task` with `platform: "GEMINI_TRIGGERS"`
-  reads `command` as the instruction the agent runs. The trigger is created with **no network
-  allowlist**, so its agent can reach nothing outside its sandbox — say so rather than letting
-  someone assume it can reach their repository.
+  display name and nothing else, so a schedule is fixed at the moment of creation. Over MCP the
+  only path is a fresh `create_gemini_trigger` plus `delete_task`, which produces a **new** task.
+  In the app, **Recreate with changes** rebuilds the trigger and keeps the task. Say that plainly
+  rather than quietly recreating.
+- **Creating one takes a prompt, not a command**, through `create_gemini_trigger` (not
+  `create_task`). Its sandbox reaches only the domains you pass in `allowlist`; with none, the agent
+  can reach nothing outside it, so say so rather than letting someone assume it can reach their
+  repository.
 
 `list_tasks` and `list_templates` accept optional filters (`platform`, `status`, `category`,
 `search`) and are bounded (default 50 results, with an honest "showing N of M" note). A task's
@@ -177,9 +183,9 @@ writable* rather than hidden, so you get "that one's refused" instead of a confu
 > less. `set_task_status` with `DISABLED` is the honest way, and it's fully reversible.
 
 > [!NOTE]
-> **What you still can't do over MCP.** Importing/exporting *templates*, saving a task as a
-> template, syncing, and pairing an agent are dashboard/REST only. Task **management** —
-> enable/disable, re-schedule, edit, history, export, delete — is now covered by the tools above.
+> **What you still can't do over MCP.** Importing *templates*, saving a task as a template, and
+> pairing an agent are dashboard/REST only. Task **management** — sync, enable/disable,
+> re-schedule, edit, history, export, delete — is covered by the tools above.
 
 > [!IMPORTANT]
 > **`\Microsoft\` and its descendants are refused.** Windows keeps its own scheduled tasks
@@ -225,9 +231,9 @@ writable* rather than hidden, so you get "that one's refused" instead of a confu
 >   its last 20 runs before deleting, and **refuses to delete at all if that backup fails** —
 >   leaving the task untouched. You can list and read those backups later, so a native task deleted
 >   by mistake can be rebuilt.
-> - **`delete_task` is still OFF unless you turn it on.** Set
->   `CRONSOLE_MCP_ALLOW_DESTRUCTIVE=true` in your host's environment to expose it; otherwise your
->   assistant won't even see the tool. That switch is deliberately *yours* — a tool parameter
+> - **`delete_task` and `delete_template` are still OFF unless you turn them on.** Set
+>   `CRONSOLE_MCP_ALLOW_DESTRUCTIVE=true` in your host's environment to expose them; otherwise your
+>   assistant won't even see the tools. That switch is deliberately *yours* — a tool parameter
 >   like "confirm: true" would just be the assistant reassuring itself.
 
 > [!TIP]
@@ -261,7 +267,7 @@ Configuration is via environment variables (see [`mcp-server/.env.example`](../.
 | `CRONSOLE_TOKEN` | ✅ | — | A user JWT sent as `Authorization: Bearer <token>`. |
 | `CRONSOLE_API_URL` |  | `http://localhost:3000/api` | Backend REST base URL (include `/api`). |
 | `CRONSOLE_TIMEOUT_MS` |  | `15000` | Per-request timeout. |
-| `CRONSOLE_MCP_ALLOW_DESTRUCTIVE` |  | `false` | Expose the **`delete_task`** and **`delete_template`** tools (the second deletes only templates you imported or saved, never the built-in catalog). It deletes **Cronsole-native tasks only** and backs each one up first, so it can't reach a Windows task — but it's still off unless you set this to exactly `true` (anything else, including a typo, leaves it off). When off, your assistant doesn't see the tool at all. Prefer disabling a task to deleting it. |
+| `CRONSOLE_MCP_ALLOW_DESTRUCTIVE` |  | `false` | Expose the **`delete_task`** and **`delete_template`** tools (the second deletes only templates you imported or saved, never the built-in catalog). It deletes **Cronsole-native tasks only** and backs each one up first, so it can't reach a Windows task — but both stay off unless you set this to `true` or `1` (anything else, including a typo, leaves them off). When off, your assistant doesn't see either tool at all. Prefer disabling a task to deleting it. |
 
 > [!IMPORTANT]
 > The server reads its **process environment only** — it loads no `.env` file, so copying
@@ -345,23 +351,6 @@ a hand-minted token is rotating `JWT_SECRET`, which signs out every client at on
 
 </details>
 
-<details>
-<summary>Previously: hand-minting with <code>jsonwebtoken.sign</code></summary>
-
-Until 2026-08-15 this guide told you to run:
-
-```bash
-node -e "console.log(require('jsonwebtoken').sign({id:'<userId>',email:'<email>'}, process.env.JWT_SECRET, {expiresIn:'30d'}))"
-```
-
-That required the **signing secret**, a `userId` read out of the database, Node, and a shell — and
-it produced a token the product itself could not issue, since `expiresIn` was hardcoded to `24h`.
-It is recorded here only so anyone still holding such a token knows where it came from. **Replace
-it via the login flow above**; hand-minted tokens keep working until they expire, and nothing
-tracks or revokes them.
-
-</details>
-
 ## Wire it into your assistant
 
 The backend must be running and reachable at `CRONSOLE_API_URL`.
@@ -394,7 +383,42 @@ Add to `claude_desktop_config.json` (or the host's MCP config):
 }
 ```
 
-### Codex / Cursor / other MCP hosts
+### Codex
+
+```bash
+codex mcp add cronsole \
+  --env CRONSOLE_TOKEN=<your-jwt> \
+  --env CRONSOLE_API_URL=http://localhost:3000/api \
+  -- node /absolute/path/to/cronsole/mcp-server/dist/index.js
+```
+
+### opencode
+
+In `opencode.json`:
+
+```json
+{
+  "mcp": {
+    "cronsole": {
+      "type": "local",
+      "command": ["node", "/absolute/path/to/cronsole/mcp-server/dist/index.js"],
+      "environment": {
+        "CRONSOLE_TOKEN": "<your-jwt>",
+        "CRONSOLE_API_URL": "http://localhost:3000/api"
+      }
+    }
+  }
+}
+```
+
+### Antigravity
+
+Open **Manage MCP servers › View raw config** and add the same `mcpServers.cronsole` block shown
+for Claude Desktop (`command`, `args`, `env`). That opens Antigravity's `mcp_config.json` under
+`~/.gemini/`. Go through the menu rather than a path, because Google's own docs name two different
+locations for the file. Then refresh the installed servers (or run `/mcp` in the CLI).
+
+### Cursor and other MCP hosts
 
 Any host that launches a stdio MCP server works — point it at
 `node .../mcp-server/dist/index.js` with the same two env vars. The tools appear under the

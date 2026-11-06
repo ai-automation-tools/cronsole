@@ -143,10 +143,12 @@ stands on Gemini right now**, so rotating a token cannot revert a prompt changed
 The replacement is created *before* the original is removed, so a failure leaves the working trigger
 alone. A paused trigger stays paused. The task keeps its run history, favourite and collections even
 though Gemini assigns a new id. Any hand-typed token has to be retyped, because Cronsole never read
-the old one; a saved server needs nothing retyped.
+the old one; a saved server needs nothing retyped. If the replacement is created but the original
+cannot be deleted, that is reported as a **failure**, not a note: the schedule now fires twice.
 
 **Duplicate** opens the create form filled in from this trigger, for when you want a *second* one and
-the original stays. Saved servers cross as references, so nothing secret is typed twice. A hand-typed
+the original stays. The schedule comes back in **your** timezone, so a duplicate of an 08:00 local
+trigger is not created at 08:00 UTC. Saved servers cross as references, so nothing secret is typed twice. A hand-typed
 server is dropped rather than copied hollow — Cronsole never read its token, and a server the new
 trigger could not authenticate to fails later, on a schedule.
 

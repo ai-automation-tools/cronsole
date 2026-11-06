@@ -8,7 +8,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/layers-functional_·_integration_·_regression_·_UAT-8B5CF6?style=for-the-badge" alt="Layers">
-  <img src="https://img.shields.io/badge/CI-5_jobs-2ea44f?style=for-the-badge" alt="CI">
+  <img src="https://img.shields.io/badge/CI-6_jobs-2ea44f?style=for-the-badge" alt="CI">
   <a href="../README.md"><img src="https://img.shields.io/badge/↩-docs_home-6B7280?style=for-the-badge" alt="Docs Home"></a>
 </p>
 
@@ -45,16 +45,10 @@ four can't automate.
 ## 🖐️ The manual runbooks
 
 Real Task Scheduler COM, a stack booting from a clean checkout, whether a PowerShell window
-flashes — some things need hands. These are written to be followed without thinking:
-
-| Runbook | Verifies | Time |
-|:---|:---|:--|
-| [**🔥 Smoke Test**](manual-testing/runbooks/Smoke_Test.md) | Stack alive, agent talking. **Gateway for the rest** | ~10 min |
-| [**🪟 Windows Task Lifecycle**](manual-testing/runbooks/Windows_Task_Lifecycle.md) | Create → run → edit → delete against **real Task Scheduler** | ~25 min |
-| [**📄 Template Apply**](manual-testing/runbooks/Template_Apply.md) | Params, preview, the 409 duplicate guard, honest lossy conversion | ~20 min |
-| [**🔌 Agent Resilience**](manual-testing/runbooks/Agent_Resilience.md) | Offline detection, reconnect/backoff, the transient-agent trap | ~20 min |
-| [**🔐 Security Checks**](manual-testing/runbooks/Security_Checks.md) | Encryption at rest, tenant isolation, no-shell — **verified in the DB** | ~20 min |
-| [**🔌 MCP Tools**](manual-testing/runbooks/MCP_Tools.md) | Every tool driven through a host against a **real backend** — the only thing that proves the wrapper and the API still agree | ~25 min |
+flashes — some things need hands. The runbooks are written to be followed without thinking. There
+are six, from a 10-minute smoke test that gates the rest to a 25-minute pass over every MCP
+tool against a real backend. [**🖐️ Manual testing**](manual-testing/README.md) lists each one
+with what it verifies and how long it takes.
 
 Start with the [preflight](manual-testing/README.md#-preflight--do-this-once-per-session) — it
 gets you a running stack and an auth token, which every runbook assumes.
@@ -74,18 +68,19 @@ Full sweep before a release (from the repo root):
 
 ```bash
 cd backend  && npm test && npm run test:integration
-cd ../frontend && npm run lint && npm test
+cd ../frontend && npm run lint && npm test && npm run build   # build is the real typecheck (#25)
 cd ../agent  && dotnet test
 cd ../mcp-server && npm test
 ```
 
 ## 🤖 What CI actually enforces
 
-[`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) runs **5 jobs** on every push to
+[`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) runs **6 jobs** on every push to
 `main` / `mike_desktop` and on every PR:
 
 | Job | What it does |
 |:---|:---|
+| `repo-hygiene` | No literal control bytes in text files, pure-ASCII `.ps1`, every doc link resolves (`check-doc-links.mjs`), diagram drift (warning only), tracked `.env*` files allowlisted and secret-free |
 | `backend` | Vitest unit suite + `tsc` build |
 | `backend-integration` | Vitest integration suite against a real `postgres:16-alpine` service container |
 | `frontend` | ESLint + Vitest + Vite build |
@@ -141,7 +136,7 @@ Honest list. These are real holes, not aspirational polish:
 
 | Gap | Impact | Tracked |
 |:---|:---|:---|
-| **E2E not wired into CI** | Regressions in full-stack flows only surface if someone runs it locally — **and it can fail to run at all without failing loudly** (see the preflight below). **This stopped being hypothetical on 2026-08-16**: the suite was found 18/18 broken and had been since the previous day's redesign, while every other suite stayed green. It is also the only layer that renders CSS — jsdom does not evaluate media queries, so the 573 frontend unit tests pass whether a responsive class is right or wrong | [ROADMAP](../ROADMAP.md) › P1 |
+| **E2E not wired into CI** | Regressions in full-stack flows only surface if someone runs it locally — **and it can fail to run at all without failing loudly** (see the E2E preflight above). **This stopped being hypothetical on 2026-08-16**: the suite was found 18/18 broken and had been since the previous day's redesign, while every other suite stayed green. It is also the only layer that renders CSS — jsdom does not evaluate media queries, so the frontend unit tests pass whether a responsive class is right or wrong | [ROADMAP](../ROADMAP.md) › P1 |
 | **MCP tools are never exercised against a real backend** | The suite stubs the HTTP client, so it pins what the wrapper *does* — not that the wrapper and the API still **agree**. If a route's response shape moves (`conversion.warnings`, `task`, `score`), the stub keeps passing while the real tool breaks. This is the [#9](../troubleshooting/README.md#9-agent-payload-arrives-with-every-field-empty) failure mode one layer up: *both sides green while disagreeing about the wire.* Covered only by driving the tools by hand — which had **no procedure** until 2026-08-17, when this row's own pointer turned out to name a runbook that did not exist. It does now: [MCP Tools](manual-testing/runbooks/MCP_Tools.md) | This doc |
 | **The sync route's exclusion wiring has no suite** | `TaskService.excludedExternalIds` / `filterExcluded` / `clearExclusionsForCategories` are unit-tested, and the untrack route is integration-tested — but the **order they run in inside `POST /tasks/sync`** (clear before read, so an import isn't skipped for one more cycle) is proven only by the live round-trip done at ship time. A reordering would pass every suite and make untrack look broken one sync later | This doc |
 | **~~The `<375px` mobile layout is unverified in a browser~~** *(closed 2026-08-12, silently reopened by the IA redesign, re-closed 2026-08-16)* | Rendered and asserted at 375px by `frontend/tests/e2e/layout.spec.ts`: no horizontal overflow (walking every ancestor for a deliberate `overflow-x` scroller), the rail hidden below `md` with its drawer opening from beside the heading and closing on a pick or Escape, all five toolbar sections on one row with their accessible names intact, the native job types as two rows of two, collections reachable, and a 44px FAB. **The blocker was the tool, not the effort** — a browser-driven window resize reports success while `innerWidth` stays 2124; Playwright's `page.setViewportSize` actually applies. **This row was false for a day and read as true**: the 2026-08-15 redesign moved a heading the suite's shared helper waited on, so all 18 tests failed and nothing on this page changed to say so ([#61](../troubleshooting/README.md#61-the-whole-e2e-suite-fails-and-every-other-suite-is-green)) — which is the *concrete* cost of the "E2E not wired into CI" row above, not a hypothetical one. A real *device* check (touch, iOS Safari) is still not done | Closed |
@@ -158,7 +153,7 @@ Honest list. These are real holes, not aspirational polish:
 |:---|:---|
 | [**🗺️ ROADMAP.md**](../ROADMAP.md) | Testing status of record — P1 correctness (the QA suite) and open items. |
 | [**🧯 troubleshooting/**](../troubleshooting/README.md) | Every entry is a bug that escaped. Good source of regression test ideas. |
-| [**📦 reports/**](reports/) | Dated QA evidence: security audit, performance baseline, resilience, notifications. |
+| [**📦 reports/**](reports/README.md) | Dated QA evidence: security audit, performance baseline, resilience, notifications. |
 | `docs/archive/specs/Test_Plan.md` | The original Phase 4 test plan. **Local-only, gitignored, and frozen** — history, not the live spec. |
 
 <p align="right">(<a href="#testing-top">back to top</a>)</p>

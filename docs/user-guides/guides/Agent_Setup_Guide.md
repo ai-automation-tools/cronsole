@@ -23,13 +23,13 @@ The agent runs as a headless (windowless) background process that connects to th
 
 - **Windows 10 or 11**
 - **.NET 10 SDK** (to build the C# project — the agent targets `net10.0`)
-- **Administrator Privileges** (required to register tasks with high privileges in Windows Task Scheduler)
+- **Administrator Privileges** (to stop an agent that is running elevated before it is rebuilt, and to retire the legacy `CronsoleAgent` task)
 
 ---
 
 ## ⚡ Quick Setup (Automated)
 
-The repository provides an automation script, [setup-agent-startup.ps1](../../../agent/setup-agent-startup.ps1), that compiles the agent and registers it in Windows Task Scheduler under a dedicated folder.
+The repository provides an automation script, [setup-agent-startup.ps1](../../../agent/setup-agent-startup.ps1), that compiles the agent and starts it through the Cronsole stack. It registers no scheduled task of its own: the agent is started and kept running by `\Cronsole-Stack\CronsoleStack`, which [`Register-CronsoleStack.ps1`](../../../scripts/startup-task/README.md#registering-the-tasks-fresh-clone) registers.
 
 1. Open **PowerShell** as **Administrator**.
 2. Navigate to the agent directory (inside your clone of the repo):
@@ -49,17 +49,11 @@ The repository provides an automation script, [setup-agent-startup.ps1](../../..
 5. **Starts the Stack**: Runs `cronsole.ps1 up`, which brings up Docker, Postgres, Redis, the backend, the frontend and the agent — whichever of them are not already running.
 
 > [!IMPORTANT]
-> **The agent is not a scheduled task any more** (changed 2026-08-25). It used to be registered
-> here as `\Cronsole-Stack\CronsoleAgent` — but `Register-CronsoleStack.ps1` also registered
-> **that same name** with a completely different action, so the two scripts fought over one task
-> name and whichever ran last won. On the definition that shipped, the documented
-> `Stop-ScheduledTask` / `Start-ScheduledTask` bounce did **nothing at all**, while reporting
-> success. One owner per task name; the agent's owner is `CronsoleStack`. See
-> [troubleshooting #86](../../troubleshooting/README.md#86-stop-scheduledtask-on-a-launcher-task-reports-success-and-stops-nothing).
->
-> To **rebuild** the agent later, use `CronsoleRepublish` rather than re-running this script — it
-> is elevated, so it can stop an agent running at `RunLevel Highest` and overwrite its locked exe.
-> To **restart** it, use `CronsoleRestart`.
+> **The agent is not a scheduled task any more** (changed 2026-08-25); `CronsoleStack` starts it.
+> Why, and why the old `CronsoleAgent` bounce did nothing, is in
+> [`CronsoleAgent` is gone](../../../scripts/startup-task/README.md#cronsoleagent-is-gone-and-why-that-matters).
+> To **rebuild** the agent later use `CronsoleRepublish`; to **restart** it use `CronsoleRestart`
+> ([how to use](../../../scripts/startup-task/README.md#how-to-use)).
 
 ---
 
@@ -72,10 +66,10 @@ Open the Windows **Task Scheduler** (`taskschd.msc`):
 - You should see **`CronsoleStack`**, **`CronsoleRepublish`** and **`CronsoleRestart`** listed inside.
 
 > [!NOTE]
-> **All three will read `Ready`, never `Running` — that is correct and is not a problem.** Each
-> launches through `run-hidden.vbs`, which is fire-and-forget, so the task instance ends within a
-> second while the processes it started run on independently. A task in this folder tells you
-> nothing about whether the stack is up; ask the stack instead:
+> **A task's state and Last Result say nothing about whether the stack is up.** Each one reads
+> `Running` only while its script runs and `Ready` otherwise, and the processes it started run on
+> after it ends ([why](../../../scripts/startup-task/README.md#no-console-flash-why-run-hiddenvbs-exists)).
+> Ask the stack instead:
 >
 > ```powershell
 > pwsh scripts\cronsole.ps1 status

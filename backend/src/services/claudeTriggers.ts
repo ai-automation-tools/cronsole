@@ -144,7 +144,7 @@ function describeError(error: unknown, path: string): TriggerResult<never> {
       message:
         `The Claude Code routines API rejected this call (${status}${apiMessage ? `: ${apiMessage}` : ''}). ` +
         'This API is undocumented and beta-gated, so it may have changed. ' +
-        'Cronsole will fall back to per-routine API tokens.'
+        'Cronsole will fall back to per-task API tokens.'
     };
   }
 
@@ -161,10 +161,10 @@ function describeError(error: unknown, path: string): TriggerResult<never> {
         ok: false,
         status,
         message:
-          'No access (403). Routines need a Pro, Max, Team or Enterprise plan with Claude Code on the web enabled.'
+          'No access (403). Claude scheduled tasks need a Pro, Max, Team or Enterprise plan with Claude Code on the web enabled.'
       };
     case 404:
-      return { ok: false, status, message: 'That routine no longer exists (404). It may have been deleted at claude.ai.' };
+      return { ok: false, status, message: 'That Claude scheduled task no longer exists (404). It may have been deleted at claude.ai.' };
     case 429: {
       const retryAfter = err?.response?.headers?.['retry-after'];
       return {
@@ -173,7 +173,7 @@ function describeError(error: unknown, path: string): TriggerResult<never> {
         message:
           'Rate limited (429)' +
           (retryAfter ? `, retry after ${retryAfter}s` : '') +
-          '. Routine runs draw on a daily cap plus your Claude Code subscription usage.'
+          '. Scheduled task runs draw on a daily cap plus your Claude Code subscription usage.'
       };
     }
     case 500:
@@ -301,7 +301,7 @@ export async function createTrigger(
   if (!trigger?.id) {
     return {
       ok: false,
-      message: 'The routine was created but its id did not come back — check claude.ai/code/routines.'
+      message: 'The Claude scheduled task was created but its id did not come back — check claude.ai/code/routines.'
     };
   }
   return { ok: true, data: trigger };

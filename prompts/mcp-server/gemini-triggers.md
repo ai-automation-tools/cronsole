@@ -300,14 +300,14 @@ happens across a daylight-saving change, then create it.
 | [**📡 Observer sources**](observers.md) | GitHub Actions and Vercel Cron — read-only, and why that's a finished state. |
 | [**🔎 Inspect & audit**](inspect-and-audit.md) | Platform run history across every source, not just this one. |
 | [**🤖 AI agent jobs**](ai-agent-jobs.md) | The *other* Gemini — the CLI, scheduled locally as a Windows task. |
-| [**🧠 Claude routines**](claude-routines.md) | The other hosted agent platform, and how the two differ. |
+| [**🧠 Claude scheduled tasks**](claude-routines.md) | The other hosted agent platform, and how the two differ. |
 | [**📘 Using Gemini API Triggers**](../../docs/user-guides/sources/Gemini_API_Triggers.md) | Setup, the API key, and the source panel. |
 
 ---
 
 <p align="center">
   <a href="README.md">← MCP Prompts</a> ·
-  <a href="claude-routines.md">Claude Routines</a> ·
+  <a href="claude-routines.md">Claude Code Scheduled Tasks</a> ·
   <a href="observers.md">Observers</a>
 </p>
 

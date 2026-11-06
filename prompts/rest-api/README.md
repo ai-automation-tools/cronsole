@@ -202,7 +202,7 @@ Using the Cronsole REST API, plan a restore from my archive
 / skip / refuse decision for every file before anything is written.
 ```
 
-## 🧠 Claude routines
+## 🧠 Claude scheduled tasks
 
 ```text
 Using the Cronsole REST API, GET /api/tools/platforms/claude/routines and tell me
@@ -210,7 +210,7 @@ which API mode this install has. If it's "declared", explain what that limits.
 ```
 
 ```text
-Using the Cronsole REST API, remove the Claude routine declaration <routine-id>
+Using the Cronsole REST API, remove the Claude scheduled task declaration <trig_id>
 (DELETE /api/tools/platforms/claude/routines/:id). Tell me how many tracked tasks
 that removes before you send it.
 ```

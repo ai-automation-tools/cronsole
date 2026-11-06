@@ -1,8 +1,8 @@
 {
   "schemaVersion": "1.0",
   "id": "claude-routine-standup-digest",
-  "name": "Routine: Standup Digest",
-  "description": "A weekday-morning routine that summarizes what actually landed yesterday — merged work, open reviews, and anything that stalled.",
+  "name": "Claude Scheduled Task: Standup Digest",
+  "description": "A weekday-morning Claude scheduled task that summarizes what actually landed yesterday — merged work, open reviews, and anything that stalled.",
   "runtime": "ai-prompt",
   "os": "cross-platform",
   "category": "ai-agent",

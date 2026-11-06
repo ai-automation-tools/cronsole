@@ -860,8 +860,8 @@ const starters: RegistryTemplate[] = [
   {
     schemaVersion: '1.0',
     id: 'tpl_starter_claude_routine',
-    name: 'Claude Code Routine',
-    description: 'Run a natural-language Claude Code routine on a schedule.',
+    name: 'Claude Code Scheduled Task',
+    description: 'Run a natural-language prompt as a Claude Code scheduled task.',
     runtime: 'ai-prompt',
     os: 'cross-platform',
     category: 'ai-agent',
@@ -2939,9 +2939,9 @@ const claudeRoutinesPack: RegistryTemplate[] = [
   {
     schemaVersion: '1.0',
     id: 'claude-routine-issue-triage',
-    name: 'Routine: Issue Triage',
+    name: 'Claude Scheduled Task: Issue Triage',
     description:
-      'A Claude Code routine that reads new issues each morning, labels them by area and severity, and flags anything that looks like a regression.',
+      'A Claude Code scheduled task that reads new issues each morning, labels them by area and severity, and flags anything that looks like a regression.',
     runtime: 'ai-prompt',
     os: 'cross-platform',
     category: 'dev-workflow',
@@ -2951,16 +2951,16 @@ const claudeRoutinesPack: RegistryTemplate[] = [
     commandTemplate:
       'Review issues opened in {{repo}} since your last run. For each one: summarize it in a sentence, label it by area and severity, and say whether it looks like a regression of recent work. Post the triage as a comment on each issue. Do not change code.',
     parameters: [
-      { key: 'repo', label: 'Repository', type: 'text', default: '', required: true, help: 'The owner/name of the repo to triage. Attach the same repository to the routine so it has a checkout.' }
+      { key: 'repo', label: 'Repository', type: 'text', default: '', required: true, help: 'The owner/name of the repo to triage. Attach the same repository to the scheduled task so it has a checkout.' }
     ],
     compatibleTargets: ['claude-code']
   },
   {
     schemaVersion: '1.0',
     id: 'claude-routine-dependency-review',
-    name: 'Routine: Dependency Review',
+    name: 'Claude Scheduled Task: Dependency Review',
     description:
-      'A weekly routine that checks outdated and vulnerable dependencies, and reports which upgrades are safe to take rather than upgrading anything itself.',
+      'A weekly Claude scheduled task that checks outdated and vulnerable dependencies, and reports which upgrades are safe to take rather than upgrading anything itself.',
     runtime: 'ai-prompt',
     os: 'cross-platform',
     category: 'dev-workflow',
@@ -2970,16 +2970,16 @@ const claudeRoutinesPack: RegistryTemplate[] = [
     commandTemplate:
       'Check the dependencies of {{repo}} for outdated and vulnerable packages. Group them into safe patch upgrades, minor upgrades worth taking, and major upgrades with breaking changes. For each group say what would have to be tested. Report only — do not modify the lockfile.',
     parameters: [
-      { key: 'repo', label: 'Repository', type: 'text', default: '', required: true, help: 'The repository to review. Attach it to the routine so the checkout is available.' }
+      { key: 'repo', label: 'Repository', type: 'text', default: '', required: true, help: 'The repository to review. Attach it to the scheduled task so the checkout is available.' }
     ],
     compatibleTargets: ['claude-code']
   },
   {
     schemaVersion: '1.0',
     id: 'claude-routine-ci-failure-digest',
-    name: 'Routine: CI Failure Digest',
+    name: 'Claude Scheduled Task: CI Failure Digest',
     description:
-      'A weekday routine that reads the last day of failing CI runs, groups them by root cause, and separates real breakage from flakes.',
+      'A weekday Claude scheduled task that reads the last day of failing CI runs, groups them by root cause, and separates real breakage from flakes.',
     runtime: 'ai-prompt',
     os: 'cross-platform',
     category: 'monitoring',
@@ -2996,9 +2996,9 @@ const claudeRoutinesPack: RegistryTemplate[] = [
   {
     schemaVersion: '1.0',
     id: 'claude-routine-docs-drift',
-    name: 'Routine: Docs Drift Check',
+    name: 'Claude Scheduled Task: Docs Drift Check',
     description:
-      'A weekly routine that compares the documentation against the code it describes and lists what has quietly stopped being true.',
+      'A weekly Claude scheduled task that compares the documentation against the code it describes and lists what has quietly stopped being true.',
     runtime: 'ai-prompt',
     os: 'cross-platform',
     category: 'dev-workflow',
@@ -3016,9 +3016,9 @@ const claudeRoutinesPack: RegistryTemplate[] = [
   {
     schemaVersion: '1.0',
     id: 'claude-routine-standup-digest',
-    name: 'Routine: Standup Digest',
+    name: 'Claude Scheduled Task: Standup Digest',
     description:
-      'A weekday-morning routine that summarizes what actually landed yesterday — merged work, open reviews, and anything that stalled.',
+      'A weekday-morning Claude scheduled task that summarizes what actually landed yesterday — merged work, open reviews, and anything that stalled.',
     runtime: 'ai-prompt',
     os: 'cross-platform',
     category: 'ai-agent',
@@ -3035,9 +3035,9 @@ const claudeRoutinesPack: RegistryTemplate[] = [
   {
     schemaVersion: '1.0',
     id: 'claude-routine-release-notes',
-    name: 'Routine: Release Notes Draft',
+    name: 'Claude Scheduled Task: Release Notes Draft',
     description:
-      'A weekly routine that turns everything merged since a release tag into a draft set of release notes written for the people who use the software, rather than the people who wrote it.',
+      'A weekly Claude scheduled task that turns everything merged since a release tag into a draft set of release notes written for the people who use the software, rather than the people who wrote it.',
     runtime: 'ai-prompt',
     os: 'cross-platform',
     category: 'dev-workflow',
@@ -3047,7 +3047,7 @@ const claudeRoutinesPack: RegistryTemplate[] = [
     commandTemplate:
       'Read the pull requests and commits merged into {{repo}} since the tag {{sinceTag}}. Draft release notes grouped into new features, fixes, and breaking changes, each entry one sentence describing what changed for someone using the software, with the pull request or commit it came from. Leave out refactors and internal chores that change nothing a user can observe. Write the draft only — do not tag a release, edit the changelog, or push anything.',
     parameters: [
-      { key: 'repo', label: 'Repository', type: 'text', default: '', required: true, help: 'The owner/name of the repository to read. Attach the same repository to the routine so it has a checkout.' },
+      { key: 'repo', label: 'Repository', type: 'text', default: '', required: true, help: 'The owner/name of the repository to read. Attach the same repository to the scheduled task so it has a checkout.' },
       { key: 'sinceTag', label: 'Since tag', type: 'text', default: '', required: true, help: 'The release tag the notes start after, e.g. v1.4.0. Everything merged after it is considered.' }
     ],
     compatibleTargets: ['claude-code']
@@ -3055,9 +3055,9 @@ const claudeRoutinesPack: RegistryTemplate[] = [
   {
     schemaVersion: '1.0',
     id: 'claude-routine-license-compliance',
-    name: 'Routine: License Compliance Check',
+    name: 'Claude Scheduled Task: License Compliance Check',
     description:
-      'A routine that reviews the licenses of dependencies added or changed in a repository and flags anything copyleft, unapproved, or missing a license entirely, so a legal problem is caught before it ships rather than during an audit.',
+      'A Claude scheduled task that reviews the licenses of dependencies added or changed in a repository and flags anything copyleft, unapproved, or missing a license entirely, so a legal problem is caught before it ships rather than during an audit.',
     runtime: 'ai-prompt',
     os: 'cross-platform',
     category: 'dev-workflow',
@@ -3067,7 +3067,7 @@ const claudeRoutinesPack: RegistryTemplate[] = [
     commandTemplate:
       'Review the dependencies added or changed in {{repo}} since your last run. For each one, identify its license. Treat {{approvedLicenses}} as pre-approved and flag anything outside that list, anything copyleft, and anything missing a license entirely. Group the findings into clear, flagged, and needs review. Report only — do not modify the lockfile or remove a dependency.',
     parameters: [
-      { key: 'repo', label: 'Repository', type: 'text', default: '', required: true, help: 'The owner/name of the repository to review. Attach the same repository to the routine so it has a checkout.' },
+      { key: 'repo', label: 'Repository', type: 'text', default: '', required: true, help: 'The owner/name of the repository to review. Attach the same repository to the scheduled task so it has a checkout.' },
       { key: 'approvedLicenses', label: 'Approved licenses', type: 'text', default: 'MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC', required: true, help: 'Comma-separated list of licenses that need no review. Anything outside this list is flagged.' }
     ],
     compatibleTargets: ['claude-code']
@@ -3075,9 +3075,9 @@ const claudeRoutinesPack: RegistryTemplate[] = [
   {
     schemaVersion: '1.0',
     id: 'claude-routine-stale-branch-sweep',
-    name: 'Routine: Stale Branch Sweep',
+    name: 'Claude Scheduled Task: Stale Branch Sweep',
     description:
-      'A weekly routine that lists remote branches with no commits in a configurable window and reports which look safe to delete, so a repository does not accumulate branches nobody remembers opening.',
+      'A weekly Claude scheduled task that lists remote branches with no commits in a configurable window and reports which look safe to delete, so a repository does not accumulate branches nobody remembers opening.',
     runtime: 'ai-prompt',
     os: 'cross-platform',
     category: 'dev-workflow',
@@ -3087,7 +3087,7 @@ const claudeRoutinesPack: RegistryTemplate[] = [
     commandTemplate:
       'List every remote branch in {{repo}} with no commits in the last {{staleDays}} days. For each one say who authored the last commit, how old it is, and whether it has an open pull request. Recommend which look safe to delete and which to keep, with one sentence of reasoning each. Report only — do not delete a branch or push anything.',
     parameters: [
-      { key: 'repo', label: 'Repository', type: 'text', default: '', required: true, help: 'The owner/name of the repository to sweep. Attach the same repository to the routine so it has a checkout.' },
+      { key: 'repo', label: 'Repository', type: 'text', default: '', required: true, help: 'The owner/name of the repository to sweep. Attach the same repository to the scheduled task so it has a checkout.' },
       { key: 'staleDays', label: 'Stale after (days)', type: 'number', default: '90', required: true, help: 'Branches with no commits in this many days are reported as stale.' }
     ],
     compatibleTargets: ['claude-code']
@@ -3095,9 +3095,9 @@ const claudeRoutinesPack: RegistryTemplate[] = [
   {
     schemaVersion: '1.0',
     id: 'claude-routine-flaky-test-report',
-    name: 'Routine: Flaky Test Report',
+    name: 'Claude Scheduled Task: Flaky Test Report',
     description:
-      'A weekly routine that reads recent CI runs, finds tests that failed and then passed on a retry or a later commit with no relevant change, and ranks them by how often they flip, so intermittent failures get fixed instead of re-run.',
+      'A weekly Claude scheduled task that reads recent CI runs, finds tests that failed and then passed on a retry or a later commit with no relevant change, and ranks them by how often they flip, so intermittent failures get fixed instead of re-run.',
     runtime: 'ai-prompt',
     os: 'cross-platform',
     category: 'dev-workflow',
@@ -3108,16 +3108,16 @@ const claudeRoutinesPack: RegistryTemplate[] = [
       'Look at the CI runs on {{repo}} from the last {{windowDays}} days. Identify tests that failed on one run and passed on a retry or a later run without a change that explains it. Rank them by how many times they flipped, and for each give the test name, the flip count, the most recent failing run, and one sentence on the likely cause. Report only — do not edit a test, re-run a job, or push anything.',
     parameters: [
       { key: 'windowDays', label: 'Window (days)', type: 'number', default: '14', required: true, help: 'How far back to read CI runs. A longer window finds rarer flakes but costs more to read.' },
-      { key: 'repo', label: 'Repository', type: 'text', default: '', required: true, help: 'The owner/name of the repository to review. Attach the same repository to the routine so it has a checkout.' }
+      { key: 'repo', label: 'Repository', type: 'text', default: '', required: true, help: 'The owner/name of the repository to review. Attach the same repository to the scheduled task so it has a checkout.' }
     ],
     compatibleTargets: ['claude-code']
   },
   {
     schemaVersion: '1.0',
     id: 'claude-routine-todo-backlog',
-    name: 'Routine: TODO Backlog Digest',
+    name: 'Claude Scheduled Task: TODO Backlog Digest',
     description:
-      'A weekly routine that finds TODO, FIXME and HACK comments added or still open in a repository, groups them by area, and ranks the ones that look risky, so deferred work is a list someone reads instead of comments nobody revisits.',
+      'A weekly Claude scheduled task that finds TODO, FIXME and HACK comments added or still open in a repository, groups them by area, and ranks the ones that look risky, so deferred work is a list someone reads instead of comments nobody revisits.',
     runtime: 'ai-prompt',
     os: 'cross-platform',
     category: 'dev-workflow',
@@ -3127,7 +3127,7 @@ const claudeRoutinesPack: RegistryTemplate[] = [
     commandTemplate:
       'Search {{repo}} for TODO, FIXME, HACK and XXX comments. Group them by directory, note which ones were added since your last run, and rank the ten that look most likely to cause a bug or block a release, with the file, the line and one sentence of reasoning each. Report only — do not edit any file or open an issue.',
     parameters: [
-      { key: 'repo', label: 'Repository', type: 'text', default: '', required: true, help: 'The owner/name of the repository to search. Attach the same repository to the routine so it has a checkout.' }
+      { key: 'repo', label: 'Repository', type: 'text', default: '', required: true, help: 'The owner/name of the repository to search. Attach the same repository to the scheduled task so it has a checkout.' }
     ],
     compatibleTargets: ['claude-code']
   }

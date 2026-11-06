@@ -62,7 +62,7 @@ describe('correcting a routine costs no token', () => {
 
     expect(screen.getByText(/1 tracked task will move with the id/i)).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText('Routine id or fire URL'), {
+    fireEvent.change(screen.getByLabelText('Scheduled task id or fire URL'), {
       target: { value: 'trig_01PDsoqCPPUpFUzJryoeTY6J' }
     });
     fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
@@ -104,11 +104,11 @@ describe('the token is write-only', () => {
 
   it('masks the token field while it is being typed', () => {
     render(<ClaudeRoutinesPanel />);
-    fireEvent.click(screen.getByRole('button', { name: /add a routine/i }));
+    fireEvent.click(screen.getByRole('button', { name: /add a scheduled task/i }));
     expect(screen.getByLabelText('API token')).toHaveAttribute('type', 'password');
     // The id is not a secret and stays readable — masking it would only make a
     // paste impossible to check.
-    expect(screen.getByLabelText('Routine id or fire URL')).toHaveAttribute('type', 'text');
+    expect(screen.getByLabelText('Scheduled task id or fire URL')).toHaveAttribute('type', 'text');
   });
 });
 
@@ -153,17 +153,17 @@ describe('adding a routine', () => {
     // The absence of a Sync button is not self-explanatory on a tab where every
     // other platform has one.
     render(<ClaudeRoutinesPanel />);
-    expect(screen.getByText(/no API to list your routines/i)).toBeInTheDocument();
+    expect(screen.getByText(/no API to list your scheduled tasks/i)).toBeInTheDocument();
   });
 
   it('will not submit without both an id and a token', () => {
     render(<ClaudeRoutinesPanel />);
-    fireEvent.click(screen.getByRole('button', { name: /add a routine/i }));
+    fireEvent.click(screen.getByRole('button', { name: /add a scheduled task/i }));
 
-    const submit = screen.getByRole('button', { name: /add routine/i });
+    const submit = screen.getByRole('button', { name: /add scheduled task/i });
     expect(submit).toBeDisabled();
 
-    fireEvent.change(screen.getByLabelText('Routine id or fire URL'), { target: { value: 'trig_1' } });
+    fireEvent.change(screen.getByLabelText('Scheduled task id or fire URL'), { target: { value: 'trig_1' } });
     expect(submit).toBeDisabled();
 
     fireEvent.change(screen.getByLabelText('API token'), { target: { value: 'sk-ant-oat01-x' } });
@@ -172,10 +172,10 @@ describe('adding a routine', () => {
 
   it('sends what was typed, trimmed, and omits an empty name', async () => {
     render(<ClaudeRoutinesPanel />);
-    fireEvent.click(screen.getByRole('button', { name: /add a routine/i }));
-    fireEvent.change(screen.getByLabelText('Routine id or fire URL'), { target: { value: '  trig_1  ' } });
+    fireEvent.click(screen.getByRole('button', { name: /add a scheduled task/i }));
+    fireEvent.change(screen.getByLabelText('Scheduled task id or fire URL'), { target: { value: '  trig_1  ' } });
     fireEvent.change(screen.getByLabelText('API token'), { target: { value: ' sk-ant-oat01-x ' } });
-    fireEvent.click(screen.getByRole('button', { name: /add routine/i }));
+    fireEvent.click(screen.getByRole('button', { name: /add scheduled task/i }));
 
     await waitFor(() =>
       expect(addMutate).toHaveBeenCalledWith({ id: 'trig_1', token: 'sk-ant-oat01-x' })
@@ -189,10 +189,10 @@ describe('adding a routine', () => {
       warnings: ['"weird" does not look like a routine id']
     });
     render(<ClaudeRoutinesPanel />);
-    fireEvent.click(screen.getByRole('button', { name: /add a routine/i }));
-    fireEvent.change(screen.getByLabelText('Routine id or fire URL'), { target: { value: 'weird' } });
+    fireEvent.click(screen.getByRole('button', { name: /add a scheduled task/i }));
+    fireEvent.change(screen.getByLabelText('Scheduled task id or fire URL'), { target: { value: 'weird' } });
     fireEvent.change(screen.getByLabelText('API token'), { target: { value: 'x' } });
-    fireEvent.click(screen.getByRole('button', { name: /add routine/i }));
+    fireEvent.click(screen.getByRole('button', { name: /add scheduled task/i }));
 
     await waitFor(() => expect(screen.getByText(/does not look like a routine id/i)).toBeInTheDocument());
     expect(screen.getByText(/Saved anyway/i)).toBeInTheDocument();
@@ -201,10 +201,10 @@ describe('adding a routine', () => {
   it('shows the server error and keeps the form open on failure', async () => {
     addMutate.mockRejectedValue({ response: { data: { error: 'Could not read a routine id from that.' } } });
     render(<ClaudeRoutinesPanel />);
-    fireEvent.click(screen.getByRole('button', { name: /add a routine/i }));
-    fireEvent.change(screen.getByLabelText('Routine id or fire URL'), { target: { value: 'https://claude.ai/code/routines' } });
+    fireEvent.click(screen.getByRole('button', { name: /add a scheduled task/i }));
+    fireEvent.change(screen.getByLabelText('Scheduled task id or fire URL'), { target: { value: 'https://claude.ai/code/routines' } });
     fireEvent.change(screen.getByLabelText('API token'), { target: { value: 'x' } });
-    fireEvent.click(screen.getByRole('button', { name: /add routine/i }));
+    fireEvent.click(screen.getByRole('button', { name: /add scheduled task/i }));
 
     await waitFor(() => expect(screen.getByText(/Could not read a routine id/i)).toBeInTheDocument());
     // The typed token must survive the error — retyping a once-shown secret is

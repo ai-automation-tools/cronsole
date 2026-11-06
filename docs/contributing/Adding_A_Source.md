@@ -67,7 +67,7 @@ shipping a read-only source is not an apology and does not read as unfinished wo
 
 ### The test a source has to pass
 
-**Does it do something a bookmark cannot?** Firing a routine does. So does telling you a nightly
+**Does it do something a bookmark cannot?** Firing a Claude scheduled task does. So does telling you a nightly
 workflow GitHub silently disabled two months ago has not run since. Rendering ten struck-through
 cells does not — that says strictly *less* than a link to the platform's own dashboard.
 

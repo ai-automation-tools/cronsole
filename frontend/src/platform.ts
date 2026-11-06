@@ -393,7 +393,7 @@ export const sourceSetupHint = (p: string): { hasPanel: boolean; hint: string } 
     },
     CLAUDE_CODE: {
       hasPanel: true,
-      hint: 'Anthropic issues a token per routine and publishes no way to list them, so each routine is registered here by hand.'
+      hint: 'Anthropic issues a token per scheduled task and publishes no way to list them, so each one is registered here by hand.'
     },
     GITHUB_ACTIONS: {
       hasPanel: true,

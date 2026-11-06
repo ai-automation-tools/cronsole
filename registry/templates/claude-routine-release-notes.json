@@ -1,8 +1,8 @@
 {
   "schemaVersion": "1.0",
   "id": "claude-routine-release-notes",
-  "name": "Routine: Release Notes Draft",
-  "description": "A weekly routine that turns everything merged since a release tag into a draft set of release notes written for the people who use the software, rather than the people who wrote it.",
+  "name": "Claude Scheduled Task: Release Notes Draft",
+  "description": "A weekly Claude scheduled task that turns everything merged since a release tag into a draft set of release notes written for the people who use the software, rather than the people who wrote it.",
   "runtime": "ai-prompt",
   "os": "cross-platform",
   "category": "dev-workflow",
@@ -26,7 +26,7 @@
       "type": "text",
       "default": "",
       "required": true,
-      "help": "The owner/name of the repository to read. Attach the same repository to the routine so it has a checkout."
+      "help": "The owner/name of the repository to read. Attach the same repository to the scheduled task so it has a checkout."
     },
     {
       "key": "sinceTag",

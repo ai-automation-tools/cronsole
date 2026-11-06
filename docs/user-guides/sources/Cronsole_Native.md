@@ -51,7 +51,7 @@ not a native job.
 | Reads or writes files on your desktop while the backend runs in Docker | Windows Task Scheduler, or run the backend on the host | Inside a container, `D:\` is not your `D:\`. |
 | Must fire at the same local time across a daylight-saving change | Windows Task Scheduler | Native runs the stored UTC cron, so it shifts by an hour. |
 | Runs for more than an hour, or would hold up other jobs | Windows Task Scheduler | Programs and Scripts stop at 5 minutes by default and 60 at most. Jobs due together run one after another, so a slow one delays the rest. |
-| Is a prompt for an AI agent to work on by itself | [Claude Code Routines](Claude_Code_Routines.md) or [Gemini API Triggers](Gemini_API_Triggers.md) | They run in the vendor's cloud with the model, tools and sandbox, and keep going when your machine is off. |
+| Is a prompt for an AI agent to work on by itself | [Claude Code Scheduled Tasks](Claude_Code_Routines.md) or [Gemini API Triggers](Gemini_API_Triggers.md) | They run in the vendor's cloud with the model, tools and sandbox, and keep going when your machine is off. |
 | Builds or tests code in a repository | [GitHub Actions](GitHub_Actions.md) | Runners, checkouts and logs are GitHub's job. Cronsole shows the schedule and the outcome. |
 | Strings several services together with stored credentials | [n8n](n8n.md) | A workflow graph belongs in n8n. Cronsole reads it and can start it. |
 

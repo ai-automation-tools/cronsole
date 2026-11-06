@@ -174,7 +174,7 @@ export const PLATFORM_DESCRIPTORS: Record<string, PlatformDescriptor> = {
   },
   [PlatformType.CLAUDE_CODE]: {
     platform: PlatformType.CLAUDE_CODE,
-    label: 'Claude Code Routines',
+    label: 'Claude Code Scheduled Tasks',
     // A controller **in both of its modes**: even the declared-registry install,
     // which can only fire a routine it was handed a token for, changes something
     // on the platform. What varies with the install is *which* verbs, which
@@ -192,7 +192,7 @@ export const PLATFORM_DESCRIPTORS: Record<string, PlatformDescriptor> = {
     // documented API and false of the product — see troubleshooting #50.
     summary:
       'Fire, and — when Cronsole can read your Claude Code session — list, create, reschedule and pause ' +
-      'routines. Deleting one always happens in claude.ai: no API exposes it.',
+      'Claude scheduled tasks. Deleting one always happens in claude.ai: no API exposes it.',
     // Experimental for a reason that got stronger, not weaker: the documented
     // /fire endpoint is a research preview behind a dated beta header, and the
     // fuller triggers API is undocumented and gated behind another. Both may

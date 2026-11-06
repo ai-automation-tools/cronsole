@@ -223,8 +223,8 @@
     },
     {
       "platform": "CLAUDE_CODE",
-      "label": "Claude Code Routines",
-      "summary": "Fire, and — when Cronsole can read your Claude Code session — list, create, reschedule and pause routines. Deleting one always happens in claude.ai: no API exposes it.",
+      "label": "Claude Code Scheduled Tasks",
+      "summary": "Fire, and — when Cronsole can read your Claude Code session — list, create, reschedule and pause scheduled tasks. Deleting one always happens in claude.ai: no API exposes it.",
       "maturity": "experimental",
       "access": "controller",
       "configured": true,

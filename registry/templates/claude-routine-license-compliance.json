@@ -1,8 +1,8 @@
 {
   "schemaVersion": "1.0",
   "id": "claude-routine-license-compliance",
-  "name": "Routine: License Compliance Check",
-  "description": "A routine that reviews the licenses of dependencies added or changed in a repository and flags anything copyleft, unapproved, or missing a license entirely, so a legal problem is caught before it ships rather than during an audit.",
+  "name": "Claude Scheduled Task: License Compliance Check",
+  "description": "A Claude scheduled task that reviews the licenses of dependencies added or changed in a repository and flags anything copyleft, unapproved, or missing a license entirely, so a legal problem is caught before it ships rather than during an audit.",
   "runtime": "ai-prompt",
   "os": "cross-platform",
   "category": "dev-workflow",
@@ -26,7 +26,7 @@
       "type": "text",
       "default": "",
       "required": true,
-      "help": "The owner/name of the repository to review. Attach the same repository to the routine so it has a checkout."
+      "help": "The owner/name of the repository to review. Attach the same repository to the scheduled task so it has a checkout."
     },
     {
       "key": "approvedLicenses",

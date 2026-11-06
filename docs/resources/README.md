@@ -17,7 +17,7 @@ out to, and reference sites and repositories worth knowing about.
 
 | Area | What's inside |
 |:---|:---|
-| [**🔗 Websites**](websites/README.md) | Native scheduler UIs (Claude Routines, ChatGPT / Gemini schedules) and reference sites. |
+| [**🔗 Websites**](websites/README.md) | Native scheduler UIs (Claude scheduled tasks, ChatGPT / Gemini schedules) and reference sites. |
 | [**📦 Repos**](repos/README.md) | Reference repositories and related projects. |
 
 ## 🔗 Related

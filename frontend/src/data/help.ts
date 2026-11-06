@@ -748,28 +748,29 @@ const sourceGemini: HelpTopic = {
 
 const sourceClaude: HelpTopic = {
   id: 'source:CLAUDE_CODE',
-  title: 'Claude Code routines',
+  title: 'Claude Code scheduled tasks',
   summary:
-    'Prompts Anthropic runs on a schedule, in the cloud, against the repositories you attach. ' +
+    'Prompts Anthropic runs on a schedule, in the cloud, against the repositories you attach ' +
+    '(formerly called routines). ' +
     'What Cronsole can do here depends on this install — see below.',
   points: [
     {
       label: 'Signed in to the Claude Code CLI here? Cronsole can do everything',
       body:
         'With a readable Claude Code session on the machine running Cronsole, it lists your real ' +
-        'routines, creates them (including from a template), reschedules, pauses and runs them ' +
-        'with no per-routine token. Without one, it can fire routines you connected by token.'
+        'scheduled tasks, creates them (including from a template), reschedules, pauses and runs them ' +
+        'with no per-task token. Without one, it can fire scheduled tasks you connected by token.'
     },
     {
       label: 'Without a session, your list is your own declaration',
       body:
-        'Nothing is fetched, so "sync" returns the routines you typed in, and one deleted at ' +
+        'Nothing is fetched, so "sync" returns the scheduled tasks you typed in, and one deleted at ' +
         'claude.ai still lists until its next run fails. The registry is the platform.'
     },
     {
-      label: 'Deleting a routine is impossible from here',
+      label: 'Deleting a scheduled task is impossible from here',
       body:
-        'Neither Claude API exposes a delete. Cronsole can pause a routine and forget it; ' +
+        'Neither Claude API exposes a delete. Cronsole can pause a scheduled task and forget it; ' +
         'removing it happens at claude.ai.'
     },
     {
@@ -779,7 +780,7 @@ const sourceClaude: HelpTopic = {
         'because claude.ai cannot re-display it either. Mistyped the id? Edit keeps the token.'
     },
     {
-      label: 'Remove from Cronsole is refused — use Disconnect routine',
+      label: 'Remove from Cronsole is refused — use Disconnect scheduled task',
       body:
         'Removing the row alone left the declaration behind, so the next sync brought the task ' +
         'straight back. Disconnect removes both — and forgets the token, which is why it is a ' +
@@ -792,7 +793,7 @@ const sourceClaude: HelpTopic = {
         'knows rather than a guess. Run now works regardless. Pausing also stays at claude.ai.'
     }
   ],
-  doc: { label: 'Using Claude Code routines', url: sourceDoc('CLAUDE_CODE') },
+  doc: { label: 'Using Claude Code scheduled tasks', url: sourceDoc('CLAUDE_CODE') },
   more: [
     {
       label: 'Troubleshooting #47 — a Claude task keeps coming back',
@@ -1054,7 +1055,7 @@ const taskActions: HelpTopic = {
         'Task Scheduler path, and that path is how every command addresses it — so once the two ' +
         'differ, the modal keeps showing the real one. Changing the category does not move it ' +
         'between Task Scheduler folders either. On GitHub Actions, Vercel, n8n, Gemini and Claude ' +
-        'routines the name comes from the platform and follows it on every sync, so the field is ' +
+        'scheduled tasks the name comes from the platform and follows it on every sync, so the field is ' +
         'locked and says where to rename it.'
     },
     {
@@ -1070,10 +1071,10 @@ const taskActions: HelpTopic = {
         'once Windows confirms. If the agent is offline, the delete is refused rather than faked.'
     },
     {
-      label: 'A Claude routine gets Disconnect instead',
+      label: 'A Claude scheduled task gets Disconnect instead',
       body:
         'It removes the declaration and the tracked task together, and forgets the stored API ' +
-        'token — which claude.ai shows only once. The routine itself keeps running there.'
+        'token — which claude.ai shows only once. The scheduled task itself keeps running there.'
     }
   ],
   doc: {
@@ -1099,7 +1100,7 @@ const collections: HelpTopic = {
       label: 'Declared, not matched',
       body:
         'A view stores conditions and shows whatever matches them now. A collection stores the ' +
-        'tasks themselves, which is the only way to group a Claude routine and two Windows ' +
+        'tasks themselves, which is the only way to group a Claude scheduled task and two Windows ' +
         'tasks that share no property to filter on.'
     },
     {
@@ -1479,14 +1480,14 @@ const templates: HelpTopic = {
       label: 'Filter by target, not by OS',
       body:
         'Target is which system the task gets created on — Windows, Cronsole itself, or a Claude ' +
-        'Code routine. Most templates are "cross-platform", so the OS row cannot answer it.'
+        'Code scheduled task. Most templates are "cross-platform", so the OS row cannot answer it.'
     },
     {
       label: 'A compatible target is not a compiled one',
       body:
         'A template can list a platform Cronsole has no compiler for. That is the honest ' +
         '"copy this and set it up yourself" path, not a silent failure. What is greyed out is ' +
-        'about this install: a Claude routine needs you signed in to the Claude Code CLI here.'
+        'about this install: a Claude scheduled task needs you signed in to the Claude Code CLI here.'
     },
     {
       label: 'You can grow the catalog',
@@ -1773,7 +1774,7 @@ const taskExport: HelpTopic = {
       label: 'Portable works where native cannot',
       body:
         'With the Windows agent offline there is nothing to read the real definition from, and a ' +
-        'Claude routine has none Cronsole can fetch. The template still describes what runs.'
+        'Claude scheduled task has none Cronsole can fetch. The template still describes what runs.'
     },
     {
       label: 'Neither touches your template library',

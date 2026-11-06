@@ -287,7 +287,7 @@ is a different product. Cronsole is where you see them.
 
 <p align="center">
   <a href="README.md">← Source guides</a> ·
-  <a href="Claude_Code_Routines.md">Claude Code Routines</a> ·
+  <a href="Claude_Code_Routines.md">Claude Code Scheduled Tasks</a> ·
   <a href="n8n.md">Next: n8n →</a>
 </p>
 

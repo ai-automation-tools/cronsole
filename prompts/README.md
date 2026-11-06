@@ -45,7 +45,7 @@ an assistant that has the matching surface available.
 | [**Schedule a specific CLI I already use**](mcp-server/ai-agent-jobs.md#-one-prompt-per-cli) | One prompt per CLI — Gemini, opencode, Cursor, Antigravity, Aider |
 | [**Ping a URL or fire a webhook on a schedule**](mcp-server/native-tasks.md#-create-an-http-task) | Cronsole-native HTTP tasks — no agent needed |
 | [**Run a script and get a real exit code**](mcp-server/native-tasks.md#-create-a-script-task) | Cronsole-native script tasks — the backend runs it |
-| [**Schedule a Claude agent in the cloud**](mcp-server/claude-routines.md) | Claude routines — runs whether or not my machine is on |
+| [**Schedule a Claude agent in the cloud**](mcp-server/claude-routines.md) | Claude Code Scheduled Tasks — runs whether or not my machine is on |
 | [**Schedule a prompt on Google's agent**](mcp-server/gemini-triggers.md) | Gemini triggers — hosted, sandboxed, and immutable once created |
 | [**Watch schedules I manage elsewhere**](mcp-server/observers.md) | GitHub Actions and Vercel Cron — read-only, on the same dashboard |
 | [**Check and start my n8n workflows**](mcp-server/n8n.md) | n8n: scheduled and on-demand workflows, their real run outcomes, and Run now |
@@ -112,7 +112,7 @@ becomes a real Task Scheduler trigger, and where the conversion can go lossy.
 - **Be specific about the command.** "Run my script" is a template hunt;
   `powershell.exe -File C:\jobs\x.ps1` is a direct create.
 - **Know which machine you mean.** A Windows task runs on your desktop. A Cronsole-native task
-  runs wherever the backend runs — inside the container on a Dockerized stack. A Claude routine
+  runs wherever the backend runs — inside the container on a Dockerized stack. A Claude scheduled task
   runs in Anthropic's cloud and can't see your disk at all.
 - **Destructive actions are deliberately awkward.** No MCP tool can destroy a task on your
   machine; delete is native-only, gated, and archives first. If an assistant offers to work

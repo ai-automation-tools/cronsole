@@ -2245,7 +2245,7 @@ describe('list_platforms', () => {
     platforms: [
       {
         platform: 'CLAUDE_CODE',
-        label: 'Claude Code Routines',
+        label: 'Claude Code Scheduled Tasks',
         summary: 'Fire a routine from Cronsole.',
         maturity: 'experimental',
         configured: true,

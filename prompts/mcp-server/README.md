@@ -17,7 +17,7 @@
 These prompts are for an assistant — Claude Code, Cursor, Codex, Claude Desktop — that has the
 **Cronsole MCP server** connected. The server is a thin wrapper over the REST API, so asking it
 to make a task makes a real one: a Task Scheduler entry on your machine, a job in Cronsole's own
-scheduler, or a routine on your Claude account.
+scheduler, or a scheduled task on your Claude account.
 
 > [!IMPORTANT]
 > **Prerequisites**, once: the backend running, the MCP server built
@@ -34,7 +34,7 @@ scheduler, or a routine on your Claude account.
 | [**🪟 Windows tasks**](windows-tasks.md) | Real Task Scheduler jobs through the local agent — scripts, backups, maintenance, folders, and what "success" really means on Windows. |
 | [**🤖 AI agent jobs**](ai-agent-jobs.md) | Headless coding-agent runs against a local repo — one prompt per CLI (Claude Code, Codex, Gemini, opencode, Cursor, Antigravity, Aider), the fencing each one offers, and how to update a checkout on a schedule. |
 | [**🖥️ Cronsole-native tasks**](native-tasks.md) | HTTP calls and script jobs run by the backend itself — no agent, exact cron, and a real exit code. |
-| [**🧠 Claude routines**](claude-routines.md) | Scheduled agent runs in Anthropic's cloud: create, connect, pause, disconnect — and which of the two API modes your install has. |
+| [**🧠 Claude Code Scheduled Tasks**](claude-routines.md) | Scheduled agent runs (formerly routines) in Anthropic's cloud: create, connect, pause, disconnect — and which of the two API modes your install has. |
 | [**✨ Gemini triggers**](gemini-triggers.md) | A prompt Google runs on a schedule on its own agent — granting tools and domains, why a trigger is immutable, and reading the step list rather than the status. |
 | [**🔀 n8n**](n8n.md) | Workflows on your n8n instance: scheduled versus on demand, why a schedule is blank, Run now and its second credential, reading a failed run's nodes. |
 | [**📡 Observer sources**](observers.md) | GitHub Actions and Vercel Cron — what read-only can answer, which verbs they refuse, and why refusing is correct. |

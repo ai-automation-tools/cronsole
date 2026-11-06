@@ -1,8 +1,8 @@
 {
   "schemaVersion": "1.0",
   "id": "claude-routine-docs-drift",
-  "name": "Routine: Docs Drift Check",
-  "description": "A weekly routine that compares the documentation against the code it describes and lists what has quietly stopped being true.",
+  "name": "Claude Scheduled Task: Docs Drift Check",
+  "description": "A weekly Claude scheduled task that compares the documentation against the code it describes and lists what has quietly stopped being true.",
   "runtime": "ai-prompt",
   "os": "cross-platform",
   "category": "dev-workflow",

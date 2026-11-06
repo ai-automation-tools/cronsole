@@ -38,7 +38,7 @@ it misbehaves. Every card on the Sources tab links straight to its own.
 |:---|:---|:---|:---|:---|
 | [**⚡ Cronsole-native**](Cronsole_Native.md) | Controller | Inside Cronsole, wherever the backend runs. Four job types: HTTP, Programs, Scripts and Checks | The job's own output, with any `${secret.NAME}` values stripped out | [Browse](https://cronsole.ai-automation-tools.dev/#/browse?target=cronsole-native) |
 | [**🪟 Windows Task Scheduler**](Windows_Task_Scheduler.md) | Controller | Your machine, through the local agent. The only source that keeps running when Cronsole is off | Task Scheduler's own messages, the exit code and the action that produced it | [Browse](https://cronsole.ai-automation-tools.dev/#/browse?target=windows) |
-| [**🤖 Claude Code Routines**](Claude_Code_Routines.md) | Controller | Anthropic's cloud. What Cronsole can do depends on your install, because there are two doors in | No run history: Cronsole can fire a routine but cannot read its runs | [Browse](https://cronsole.ai-automation-tools.dev/#/browse?target=claude-code) |
+| [**🤖 Claude Code Scheduled Tasks**](Claude_Code_Routines.md) (formerly routines) | Controller | Anthropic's cloud. What Cronsole can do depends on your install, because there are two doors in | No run history: Cronsole can fire a scheduled task but cannot read its runs | [Browse](https://cronsole.ai-automation-tools.dev/#/browse?target=claude-code) |
 | [**✨ Gemini API Triggers**](Gemini_API_Triggers.md) | Controller | Google's cloud, on its own agents | The agent's full output and every tool it used. Google has no page for this, so Cronsole is the only place to read it | [Browse](https://cronsole.ai-automation-tools.dev/#/browse?target=gemini) |
 | [**🔀 n8n**](n8n.md) | Controller (*Run now* only) | Your n8n instance. The one source that needs you to state its time zone, because its API does not | The nodes that ran, where it stopped, n8n's error message and a link to the execution | None: Cronsole does not create tasks here |
 | [**🐙 GitHub Actions**](GitHub_Actions.md) | Observer | GitHub, for every workflow with an `on: schedule` trigger in the repositories you watch | The failing step by name, plus a link to github.com for the raw log | None: Cronsole does not create tasks here |
@@ -62,7 +62,7 @@ while Cronsole is down.
 |:---|:---|:---|
 | Calls a URL, checks something, or runs a short script, and only matters while Cronsole is up | [**⚡ Cronsole-native**](Cronsole_Native.md) | Nothing to install, every run logged with its output, secrets redacted. |
 | Must run while Cronsole is off, as your Windows user, or for longer than an hour | [**🪟 Windows Task Scheduler**](Windows_Task_Scheduler.md) | It is Windows' own scheduler. Cronsole only manages the entries. |
-| Is work for an AI agent in a repository | [**🤖 Claude Code Routines**](Claude_Code_Routines.md) | Runs in Anthropic's cloud against a checkout. |
+| Is work for an AI agent in a repository | [**🤖 Claude Code Scheduled Tasks**](Claude_Code_Routines.md) (formerly routines) | Runs in Anthropic's cloud against a checkout. |
 | Is work for an AI agent with tools, where you want to read every step | [**✨ Gemini API Triggers**](Gemini_API_Triggers.md) | Cronsole shows each run's output and steps. |
 | Joins several services together | [**🔀 n8n**](n8n.md) | Build it in n8n; Cronsole reads it and can start it. |
 
@@ -176,7 +176,7 @@ real rather than gaps in the product. Windows run detail needs an agent publishe
 ## 🔖 Quick links — schedulers with no connector
 
 **Quick Links** is its own item on the top bar: bookmarks to ChatGPT, the Gemini app and other AI
-tools Cronsole cannot read, to the web console of **every source that has one** (Claude routines,
+tools Cronsole cannot read, to the web console of **every source that has one** (Claude scheduled tasks,
 Gemini API, GitHub, Vercel), and to any you add yourself. **Nothing is read or written through
 them**, and no task from one appears in your dashboard.
 

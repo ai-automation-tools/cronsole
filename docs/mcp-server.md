@@ -49,7 +49,7 @@ is off they are absent from `tools/list`. Everything else ships ungated.
 | `export_task` | Export a task as native XML/JSON or a portable template |
 | `list_task_secrets` | Which secrets a native task references, holds and is missing (names only) |
 | `list_platforms` | Per platform, which verbs work and the evidence for each |
-| `list_claude_routines` | Which Claude API this install reaches, and declared routines |
+| `list_claude_routines` | Which Claude API this install reaches, and declared scheduled tasks |
 | `get_task_health` | Every task scored, worst first |
 | `get_diagnostics` | Whether Cronsole itself (agent, database, scheduler, catalog) is working |
 | `list_task_archives` | Archived deleted tasks and whether each can be restored |
@@ -61,8 +61,8 @@ is off they are absent from `tools/list`. Everything else ships ungated.
 | `create_native_script_task` | Create a native task from a supplied script |
 | `create_native_check_task` | Create a monitoring check (HTTP, TCP, file freshness, disk free) |
 | `create_gemini_trigger` | Create a scheduled Gemini agent trigger |
-| `create_claude_routine` | Create a Claude Code routine |
-| `connect_claude_routine` | Store an existing routine's id and token |
+| `create_claude_routine` | Create a Claude Code scheduled task |
+| `connect_claude_routine` | Store an existing Claude scheduled task's id and token |
 | `import_task` | Create a native task from an exported file |
 | `restore_task_archive` | Rebuild a deleted native task as a new task |
 | `sync_tasks` | Import or refresh tasks from their platforms |
@@ -71,9 +71,9 @@ is off they are absent from `tools/list`. Everything else ships ungated.
 | `update_task_action` | Replace what a Windows task runs |
 | `update_native_job` | Replace what a native task runs |
 | `rename_task` | Change the Cronsole label (refused where the platform owns the name) |
-| `edit_claude_routine` | Fix a connected routine's id or name, keeping its token |
+| `edit_claude_routine` | Fix a connected scheduled task's id or name, keeping its token |
 | `untrack_task` | Stop tracking a task; it keeps running on its platform |
-| `disconnect_claude_routine` | Forget a declared routine and its token; it keeps running at claude.ai |
+| `disconnect_claude_routine` | Forget a declared scheduled task and its token; it keeps running at claude.ai |
 | `delete_task` **(gated)** | Delete a Cronsole-native task, archived first; refuses every other platform |
 | `delete_template` **(gated)** | Delete an imported or saved template; refuses catalog-synced ones |
 

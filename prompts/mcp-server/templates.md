@@ -36,7 +36,7 @@ schedules and which platform each targets.
 ```text
 Using Cronsole, search the catalog for anything to do with git. For each hit,
 tell me whether it runs on Windows, on the Cronsole backend, or as a Claude
-routine.
+scheduled task.
 ```
 
 ```text
@@ -44,7 +44,7 @@ Using Cronsole, I want to clean up old files on a schedule but I don't know what
 exists. Show me the cleanup templates and recommend one, with your reasoning.
 ```
 
-Templates target three platforms today — Windows, Cronsole-native, and Claude routines — and a
+Templates target three platforms today — Windows, Cronsole-native, and Claude scheduled tasks — and a
 few carry a `macos` or `chatgpt` target that has no compiler yet. Those are the honest
 "copy it and set it up by hand" path rather than a button that silently fails.
 
@@ -91,7 +91,7 @@ one gives you exactly what it lists.
 | **Backup & Cleanup** | Database dumps, folder archives, log pruning |
 | **Monitoring** | Uptime checks, heartbeats, disk and service watches |
 | **Cronsole-native** | HTTP jobs and script jobs run by the backend, no agent |
-| **Claude routines** | Issue triage, dependency review, CI digests, docs drift |
+| **Claude Code Scheduled Tasks** | Issue triage, dependency review, CI digests, docs drift |
 | **System utilities** | Windows housekeeping that doesn't fit elsewhere |
 
 ```text

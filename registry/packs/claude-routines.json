@@ -2,15 +2,15 @@
   "cronsoleCatalogVersion": "1.0",
   "pack": {
     "id": "claude-routines",
-    "name": "Claude Routines",
-    "description": "Scheduled Claude Code routines — cloud-run prompts against your repositories: issue triage, dependency review, CI digests, docs drift, standups."
+    "name": "Claude Scheduled Tasks",
+    "description": "Claude Code scheduled tasks (formerly routines) — cloud-run prompts against your repositories: issue triage, dependency review, CI digests, docs drift, standups."
   },
   "templates": [
     {
       "schemaVersion": "1.0",
       "id": "claude-routine-issue-triage",
-      "name": "Routine: Issue Triage",
-      "description": "A Claude Code routine that reads new issues each morning, labels them by area and severity, and flags anything that looks like a regression.",
+      "name": "Claude Scheduled Task: Issue Triage",
+      "description": "A Claude Code scheduled task that reads new issues each morning, labels them by area and severity, and flags anything that looks like a regression.",
       "runtime": "ai-prompt",
       "os": "cross-platform",
       "category": "dev-workflow",
@@ -34,7 +34,7 @@
           "type": "text",
           "default": "",
           "required": true,
-          "help": "The owner/name of the repo to triage. Attach the same repository to the routine so it has a checkout."
+          "help": "The owner/name of the repo to triage. Attach the same repository to the scheduled task so it has a checkout."
         }
       ],
       "compatibleTargets": [
@@ -44,8 +44,8 @@
     {
       "schemaVersion": "1.0",
       "id": "claude-routine-dependency-review",
-      "name": "Routine: Dependency Review",
-      "description": "A weekly routine that checks outdated and vulnerable dependencies, and reports which upgrades are safe to take rather than upgrading anything itself.",
+      "name": "Claude Scheduled Task: Dependency Review",
+      "description": "A weekly Claude scheduled task that checks outdated and vulnerable dependencies, and reports which upgrades are safe to take rather than upgrading anything itself.",
       "runtime": "ai-prompt",
       "os": "cross-platform",
       "category": "dev-workflow",
@@ -69,7 +69,7 @@
           "type": "text",
           "default": "",
           "required": true,
-          "help": "The repository to review. Attach it to the routine so the checkout is available."
+          "help": "The repository to review. Attach it to the scheduled task so the checkout is available."
         }
       ],
       "compatibleTargets": [
@@ -79,8 +79,8 @@
     {
       "schemaVersion": "1.0",
       "id": "claude-routine-ci-failure-digest",
-      "name": "Routine: CI Failure Digest",
-      "description": "A weekday routine that reads the last day of failing CI runs, groups them by root cause, and separates real breakage from flakes.",
+      "name": "Claude Scheduled Task: CI Failure Digest",
+      "description": "A weekday Claude scheduled task that reads the last day of failing CI runs, groups them by root cause, and separates real breakage from flakes.",
       "runtime": "ai-prompt",
       "os": "cross-platform",
       "category": "monitoring",
@@ -114,8 +114,8 @@
     {
       "schemaVersion": "1.0",
       "id": "claude-routine-docs-drift",
-      "name": "Routine: Docs Drift Check",
-      "description": "A weekly routine that compares the documentation against the code it describes and lists what has quietly stopped being true.",
+      "name": "Claude Scheduled Task: Docs Drift Check",
+      "description": "A weekly Claude scheduled task that compares the documentation against the code it describes and lists what has quietly stopped being true.",
       "runtime": "ai-prompt",
       "os": "cross-platform",
       "category": "dev-workflow",
@@ -156,8 +156,8 @@
     {
       "schemaVersion": "1.0",
       "id": "claude-routine-standup-digest",
-      "name": "Routine: Standup Digest",
-      "description": "A weekday-morning routine that summarizes what actually landed yesterday — merged work, open reviews, and anything that stalled.",
+      "name": "Claude Scheduled Task: Standup Digest",
+      "description": "A weekday-morning Claude scheduled task that summarizes what actually landed yesterday — merged work, open reviews, and anything that stalled.",
       "runtime": "ai-prompt",
       "os": "cross-platform",
       "category": "ai-agent",
@@ -191,8 +191,8 @@
     {
       "schemaVersion": "1.0",
       "id": "claude-routine-release-notes",
-      "name": "Routine: Release Notes Draft",
-      "description": "A weekly routine that turns everything merged since a release tag into a draft set of release notes written for the people who use the software, rather than the people who wrote it.",
+      "name": "Claude Scheduled Task: Release Notes Draft",
+      "description": "A weekly Claude scheduled task that turns everything merged since a release tag into a draft set of release notes written for the people who use the software, rather than the people who wrote it.",
       "runtime": "ai-prompt",
       "os": "cross-platform",
       "category": "dev-workflow",
@@ -216,7 +216,7 @@
           "type": "text",
           "default": "",
           "required": true,
-          "help": "The owner/name of the repository to read. Attach the same repository to the routine so it has a checkout."
+          "help": "The owner/name of the repository to read. Attach the same repository to the scheduled task so it has a checkout."
         },
         {
           "key": "sinceTag",
@@ -234,8 +234,8 @@
     {
       "schemaVersion": "1.0",
       "id": "claude-routine-license-compliance",
-      "name": "Routine: License Compliance Check",
-      "description": "A routine that reviews the licenses of dependencies added or changed in a repository and flags anything copyleft, unapproved, or missing a license entirely, so a legal problem is caught before it ships rather than during an audit.",
+      "name": "Claude Scheduled Task: License Compliance Check",
+      "description": "A Claude scheduled task that reviews the licenses of dependencies added or changed in a repository and flags anything copyleft, unapproved, or missing a license entirely, so a legal problem is caught before it ships rather than during an audit.",
       "runtime": "ai-prompt",
       "os": "cross-platform",
       "category": "dev-workflow",
@@ -259,7 +259,7 @@
           "type": "text",
           "default": "",
           "required": true,
-          "help": "The owner/name of the repository to review. Attach the same repository to the routine so it has a checkout."
+          "help": "The owner/name of the repository to review. Attach the same repository to the scheduled task so it has a checkout."
         },
         {
           "key": "approvedLicenses",
@@ -277,8 +277,8 @@
     {
       "schemaVersion": "1.0",
       "id": "claude-routine-stale-branch-sweep",
-      "name": "Routine: Stale Branch Sweep",
-      "description": "A weekly routine that lists remote branches with no commits in a configurable window and reports which look safe to delete, so a repository does not accumulate branches nobody remembers opening.",
+      "name": "Claude Scheduled Task: Stale Branch Sweep",
+      "description": "A weekly Claude scheduled task that lists remote branches with no commits in a configurable window and reports which look safe to delete, so a repository does not accumulate branches nobody remembers opening.",
       "runtime": "ai-prompt",
       "os": "cross-platform",
       "category": "dev-workflow",
@@ -302,7 +302,7 @@
           "type": "text",
           "default": "",
           "required": true,
-          "help": "The owner/name of the repository to sweep. Attach the same repository to the routine so it has a checkout."
+          "help": "The owner/name of the repository to sweep. Attach the same repository to the scheduled task so it has a checkout."
         },
         {
           "key": "staleDays",
@@ -320,8 +320,8 @@
     {
       "schemaVersion": "1.0",
       "id": "claude-routine-flaky-test-report",
-      "name": "Routine: Flaky Test Report",
-      "description": "A weekly routine that reads recent CI runs, finds tests that failed and then passed on a retry or a later commit with no relevant change, and ranks them by how often they flip, so intermittent failures get fixed instead of re-run.",
+      "name": "Claude Scheduled Task: Flaky Test Report",
+      "description": "A weekly Claude scheduled task that reads recent CI runs, finds tests that failed and then passed on a retry or a later commit with no relevant change, and ranks them by how often they flip, so intermittent failures get fixed instead of re-run.",
       "runtime": "ai-prompt",
       "os": "cross-platform",
       "category": "dev-workflow",
@@ -353,7 +353,7 @@
           "type": "text",
           "default": "",
           "required": true,
-          "help": "The owner/name of the repository to review. Attach the same repository to the routine so it has a checkout."
+          "help": "The owner/name of the repository to review. Attach the same repository to the scheduled task so it has a checkout."
         }
       ],
       "compatibleTargets": [
@@ -363,8 +363,8 @@
     {
       "schemaVersion": "1.0",
       "id": "claude-routine-todo-backlog",
-      "name": "Routine: TODO Backlog Digest",
-      "description": "A weekly routine that finds TODO, FIXME and HACK comments added or still open in a repository, groups them by area, and ranks the ones that look risky, so deferred work is a list someone reads instead of comments nobody revisits.",
+      "name": "Claude Scheduled Task: TODO Backlog Digest",
+      "description": "A weekly Claude scheduled task that finds TODO, FIXME and HACK comments added or still open in a repository, groups them by area, and ranks the ones that look risky, so deferred work is a list someone reads instead of comments nobody revisits.",
       "runtime": "ai-prompt",
       "os": "cross-platform",
       "category": "dev-workflow",
@@ -388,7 +388,7 @@
           "type": "text",
           "default": "",
           "required": true,
-          "help": "The owner/name of the repository to search. Attach the same repository to the routine so it has a checkout."
+          "help": "The owner/name of the repository to search. Attach the same repository to the scheduled task so it has a checkout."
         }
       ],
       "compatibleTargets": [
@@ -398,8 +398,8 @@
     {
       "schemaVersion": "1.0",
       "id": "tpl_starter_claude_routine",
-      "name": "Claude Code Routine",
-      "description": "Run a natural-language Claude Code routine on a schedule.",
+      "name": "Claude Code Scheduled Task",
+      "description": "Run a natural-language prompt as a Claude Code scheduled task.",
       "runtime": "ai-prompt",
       "os": "cross-platform",
       "category": "ai-agent",

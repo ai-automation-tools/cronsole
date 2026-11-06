@@ -94,7 +94,7 @@ The response is the same one **Run Now** gets, as JSON. Its `message` is the lin
 |:---|:---|
 | `200`, a message like *Task run command sent* | Cronsole started the run. |
 | `200`, a failing message | The task ran and reported failure — for example a Cronsole-native **check** that found a problem. The shortcut worked; the news is about your system. |
-| `502` | The platform would not start it: the agent is offline, a routine is paused, and so on. The `error` says which. |
+| `502` | The platform would not start it: the agent is offline, a Claude scheduled task is paused, and so on. The `error` says which. |
 | `403` *This token can only run one task* | The URL names a different task from the one the token was issued for. |
 | `403` *This API token has been revoked* | You revoked it. Create a new one. |
 | `404` *Task not found* | The task was deleted, or untracked and re-imported (which gives it a new ID). Create a new shortcut for the new task. |

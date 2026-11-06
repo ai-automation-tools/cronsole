@@ -64,14 +64,14 @@ itself (each tool's exact behavior, build, tests, design), see the
 | **`update_task_schedule`** | "Move the digest to 7am on weekdays" · "Make the backup on-demand only" (`schedule: null`, native/Windows) | `PATCH /api/tasks/:id/schedule` |
 | **`update_task_action`** | "Point that task at the new script path" | `PATCH /api/tasks/:id/actions` |
 | **`update_native_job`** | "Point that Cronsole-native task at the new URL", "make it run my script instead" — for native tasks; Windows uses `update_task_action` | `PATCH /api/tasks/:id/job` |
-| **`rename_task`** | "Call that one 'Nightly report' instead" — renames it **in Cronsole only**; Task Scheduler still shows the original name. Refused for GitHub Actions, Vercel, n8n, Gemini and Claude routines, whose names come from the platform — the answer says where to rename it | `PATCH /api/tasks/:id` |
-| **`untrack_task`** | "Stop showing all those Microsoft tasks", "I imported that folder by mistake" — removes it from Cronsole, **leaves the scheduled task running**. For a *declared* Claude routine, disconnect that instead — an OAuth-discovered one works here | `POST /api/tasks/:id/untrack` |
+| **`rename_task`** | "Call that one 'Nightly report' instead" — renames it **in Cronsole only**; Task Scheduler still shows the original name. Refused for GitHub Actions, Vercel, n8n, Gemini and Claude scheduled tasks, whose names come from the platform — the answer says where to rename it | `PATCH /api/tasks/:id` |
+| **`untrack_task`** | "Stop showing all those Microsoft tasks", "I imported that folder by mistake" — removes it from Cronsole, **leaves the scheduled task running**. For a *declared* Claude scheduled task, disconnect that instead — an OAuth-discovered one works here | `POST /api/tasks/:id/untrack` |
 | **`list_platforms`** | "What can Cronsole actually do with Windows?" — per platform, whether it is a **controller** or a read-only **observer**, then which actions work here, which are untested, and which are impossible | `GET /api/tools/platforms` |
-| **`list_claude_routines`** | "Can you manage my Claude routines?" — reports whether this install can reach the full routines API, plus any routines connected with their own token | `GET /api/tools/platforms/claude/routines` |
-| **`create_claude_routine`** | "Every weekday at 7am, review yesterday's PRs in my repo and post a summary" — creates a real Claude Code routine. Needs you signed into the Claude Code CLI on the machine running Cronsole | `POST /api/tasks` |
-| **`connect_claude_routine`** | "Add my nightly PR review routine" — stores its id and token so you can trigger it. For routines that already exist, and the only path when Cronsole can't read your Claude Code session | `POST /api/tools/platforms/claude/routines` |
-| **`edit_claude_routine`** | "I pasted the wrong routine id" — fixes it **without asking for the token again** | `PATCH /api/tools/platforms/claude/routines/:id` |
-| **`disconnect_claude_routine`** | "Forget that routine" — removes it and its task from Cronsole; **it keeps running at claude.ai**. The way to take a *declared* Claude task off the dashboard — one discovered via OAuth uses `untrack_task` instead | `DELETE /api/tools/platforms/claude/routines/:id` |
+| **`list_claude_routines`** | "Can you manage my Claude scheduled tasks?" — reports whether this install can reach the full scheduled-tasks API, plus any connected with their own token | `GET /api/tools/platforms/claude/routines` |
+| **`create_claude_routine`** | "Every weekday at 7am, review yesterday's PRs in my repo and post a summary" — creates a real Claude Code scheduled task. Needs you signed into the Claude Code CLI on the machine running Cronsole | `POST /api/tasks` |
+| **`connect_claude_routine`** | "Add my nightly PR review scheduled task" — stores its id and token so you can trigger it. For ones that already exist, and the only path when Cronsole can't read your Claude Code session | `POST /api/tools/platforms/claude/routines` |
+| **`edit_claude_routine`** | "I pasted the wrong scheduled task id" — fixes it **without asking for the token again** | `PATCH /api/tools/platforms/claude/routines/:id` |
+| **`disconnect_claude_routine`** | "Forget that scheduled task" — removes it and its task from Cronsole; **it keeps running at claude.ai**. The way to take a *declared* Claude task off the dashboard — one discovered via OAuth uses `untrack_task` instead | `DELETE /api/tools/platforms/claude/routines/:id` |
 | **`sync_tasks`** | "Import my Backups folder", "refresh everything" — importing needs the category named; a bare refresh adds nothing new. The result says what the sync **covered**, not only what it kept, so "nothing imported" can be told apart from "nothing seen". The *missing* figure is how many rows are `MISSING` now, not only how many this pass newly flagged | `POST /api/tasks/sync` |
 | **`get_diagnostics`** | "Why isn't this working?" — checks Cronsole itself: the agent, the database, the scheduler, the catalog, token expiry. Ask before `get_task_health`, which assumes Cronsole can see your tasks at all | `GET /api/tools/diagnostics` |
 | **`get_task_health`** | "What's broken?" — every task scored and ranked worst-first, with the evidence for each verdict | `GET /api/tools/task-health` |
@@ -84,7 +84,7 @@ Cronsole-native job runs *inside* the request, so if it executes and fails — a
 is down, a script that exits non-zero — that comes back as a **normal result** saying the run
 failed, with the measurement that failed it. That is a finding about your system, and re-running it
 will not change anything. A **tool error** means the run could not be started at all: the agent is
-offline, the routine is paused, the id is wrong. Only the second one is worth retrying, and only the
+offline, the scheduled task is paused, the id is wrong. Only the second one is worth retrying, and only the
 first one means the thing you were monitoring is actually broken. (Windows and Claude tasks can only
 produce the second kind — Cronsole hands the task to them and does not wait, so what it reports is
 whether the handoff worked. Use `get_task_history` for what a Windows task actually did.)
@@ -157,7 +157,7 @@ I lose?".
 you pass. `create_task` is gated to the platforms a **command line** can be scheduled on
 (**Windows Task Scheduler** + **Cronsole-native**); `create_task_from_template` also accepts
 **`CLAUDE_CODE`** and **`GEMINI_TRIGGERS`**, because on both a template's "command" is a
-*prompt*. Applying a Claude one creates a real Claude Code routine, with optional
+*prompt*. Applying a Claude one creates a real Claude Code scheduled task, with optional
 **`repositoryUrls`** for the repositories it may check out. That one needs a Claude Code session
 on the machine running the backend; without one the call returns a `400` saying so, so ask your
 assistant to check `list_claude_routines` → `session.mode` first.

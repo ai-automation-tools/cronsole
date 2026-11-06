@@ -36,7 +36,7 @@ Prisma models, **no `@@map`** — so SQL needs quoted PascalCase: `SELECT * FROM
 | `Template` | see below | indexed on `[isPublic, upvotes]`, `[isStarter, os]` |
 | `TemplateFavorite` | userId, templateId | `@@unique([userId, templateId])` |
 
-**`Task.externalId`** is the platform's native id — a Windows task path, a Claude routine id.
+**`Task.externalId`** is the platform's native id — a Windows task path, a Claude scheduled task id.
 That's what makes `(platform, externalId)` a meaningful uniqueness key.
 
 **`ExecutionLog` is not a complete run history** and reading it as one is wrong at dashboard scale.
@@ -190,17 +190,17 @@ Two other shapes are legitimate, and each has to say which it is:
 
 | Shape | Example | What it means |
 |:---|:---|:---|
-| **Dual-mode** | `ClaudeConnector` | **Two APIs, chosen per call by `services/claudeOAuth.ts`.** *OAuth mode* (a Claude Code session is readable on the backend's host): `/v1/code/triggers` gives a real `syncTasks` (name, 5-field UTC cron, enabled, platform-supplied `next_run_at`), plus `create`, `setStatus`, `updateSchedule` and token-free `run`. *Declared mode* (no session): the documented `POST /v1/claude_code/routines/{id}/fire` with a per-routine token — `run` only, `syncTasks` returns **the routines the user declared in config**, which is not a sync and is documented as not being one, and `create`/`setStatus`/`updateSchedule` are `unsupportedVerbs`. **`unsupportedVerbs` is a getter**, because the answer is a property of the install. **Neither mode can delete** — no DELETE exists on either family (verified). The declared path is kept as the fallback precisely because door 2 is undocumented and beta-gated. |
+| **Dual-mode** | `ClaudeConnector` | **Two APIs, chosen per call by `services/claudeOAuth.ts`.** *OAuth mode* (a Claude Code session is readable on the backend's host): `/v1/code/triggers` gives a real `syncTasks` (name, 5-field UTC cron, enabled, platform-supplied `next_run_at`), plus `create`, `setStatus`, `updateSchedule` and token-free `run`. *Declared mode* (no session): the documented `POST /v1/claude_code/routines/{id}/fire` with a per-task token — `run` only, `syncTasks` returns **the scheduled tasks the user declared in config**, which is not a sync and is documented as not being one, and `create`/`setStatus`/`updateSchedule` are `unsupportedVerbs`. **`unsupportedVerbs` is a getter**, because the answer is a property of the install. **Neither mode can delete** — no DELETE exists on either family (verified). The declared path is kept as the fallback precisely because door 2 is undocumented and beta-gated. |
 | **Read-only (observer)** | `GitHubActionsConnector`, `VercelCronConnector` | Reads everything, mutates nothing. The mirror image; between them they bracket the pattern. Vercel goes one step further than GitHub: it reports **no run outcomes at all**, so its tasks are `unknown` health permanently rather than scored. |
 | **Read, plus one write behind a token** | `N8nConnector` | Reads workflows and real run outcomes over the REST API; `run` goes through n8n's instance MCP server (`services/n8nMcp.ts`) once the user stores an MCP access token, and is refused with the setup named without one — a *declared* verb, never `unsupported`. The one source whose schedule zone the user declares on the connection, because its API does not report it. |
 | **Hosted controller** | `GeminiTriggersConnector` | Reads *and* writes over somebody else's HTTP API — the first source that is neither local nor read-only, and the reason `access` is a declaration rather than a tally of cells. `unsupportedVerbs` is **empty**, the only connector where that is true. Its `run` is the genuine scheduled invocation (same agent, prompt and sandbox, on the platform's own execution list), which is exactly what the two observers' refused `run` is *not* — the three together are why a verb is judged by what it does rather than by whether an endpoint exists. Also the only platform that stores its own time zone, so it is the one caller of `utils/cron.ts`'s server-side `shiftCronToUtc`. **And the only connector that stores a credential for a *third* party** — `GeminiConfig.toolPresets`, an MCP server saved once and referenced by name, resolved into `url` + `headers` by `resolveToolPresets` (one definition, shared by `createTask` and `rotateCredentials`). The task holds the **name**; `redactPreset` is the only shape that leaves the server and has no field that could carry a value. It exists because this platform's task definition is immutable, which turns every prompt edit into a recreate and made "type the token once" false in practice. That recreate is `rotateCredentials` + `RecreateChanges` (a prompt, a schedule) — the **only** edit path here, since `updateAction`/`updateSchedule` mean *change in place* and stay absent. It reads every field it is not changing **off the platform**, and converts an inherited schedule through `shiftCronToUtc` because `createTrigger` writes `time_zone: UTC` unconditionally. |
 
 Both earn a connector over a plain quick link by one test — **does it do something a bookmark
-cannot?** Firing a routine does; that is why Claude keeps a connector while ChatGPT and Jules
+cannot?** Firing a Claude scheduled task does; that is why Claude keeps a connector while ChatGPT and Jules
 stay links.
 
 Write-only has one consequence that generalizes: **a health check may not have a side effect.**
-Claude's only endpoint *fires the routine*, so "check whether this works" and "run the user's
+Claude's only endpoint **fires the scheduled task*, so "check whether this works" and "run the user's
 nightly job" are the same request — a probing `getHealth` would burn their daily run cap on every
 poll. It therefore reads back the `PlatformCapability` evidence the run route already writes.
 Where no read-only probe exists, the record of real runs is the only honest health signal there
@@ -318,7 +318,7 @@ app.use ('/api/tools',     authenticateToken, toolsRoutes)   // cross-task: expo
 | `POST` | `/api/tasks/sync` | Kick the scan chain above |
 | `POST` | `/api/tasks/:id/run` · `/api/tasks/native` | Run Now; create a native task |
 | `PATCH` | `/api/tasks/:id` · `/:id/status` · `/:id/schedule` · `/:id/actions` | Edit |
-| `GET` | `/api/tasks/:id/export[?format=]` · `/:id/executions` | **Two formats.** `native` (default): Windows → XML (UTF-16 LE + BOM), native → JSON. `format=template` → a Registry v1 template from `buildTemplateFromTask`, built from the DB row, so it works with the **agent offline** and for a **Claude routine** (from `metadata.prompt`, since a routine's command is its prompt). Writes nothing — unlike save-as-template. |
+| `GET` | `/api/tasks/:id/export[?format=]` · `/:id/executions` | **Two formats.** `native` (default): Windows → XML (UTF-16 LE + BOM), native → JSON. `format=template` → a Registry v1 template from `buildTemplateFromTask`, built from the DB row, so it works with the **agent offline** and for a **Claude scheduled task** (from `metadata.prompt`, since its command is its prompt). Writes nothing — unlike save-as-template. |
 | `DELETE` | `/api/tasks/:id` · `/:id/native` | DB row only goes **after** platform confirms. Both archive the definition first (`archiveTaskBeforeDelete`) and **refuse the delete if the archive write fails**; `/native` is the MCP path and 400s every platform but `TASKHUB_NATIVE`. |
 | `POST` | `/api/tasks/import` | A `cronsoleTaskVersion` bundle → a **new** native task. Refuses other platforms by name. |
 | `GET`/`POST` | `/api/tools/task-archives[/:id]` · `/:id/restore` | Read a deleted task's archived definition; rebuild it as a **new** task (history not reattached, archive kept) |

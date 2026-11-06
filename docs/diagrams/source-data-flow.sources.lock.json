@@ -1,14 +1,14 @@
 {
-  "revision": "4ee25b1ebd861d74fb95571edc8e0acbb8cca8eb",
+  "revision": "1df7aeb337b612d1b32493f64a863e24beb8ed65",
   "files": {
     "agent/Cronsole.Agent/AgentService.cs": "194525c742cf0589d8d03a8743647b8e9427de2b",
     "backend/prisma/schema.prisma": "1feef7d34d32d0ed96eb7f1d21aaa778df91aaba",
-    "backend/src/connectors/ClaudeConnector.ts": "d69fcd686b63154220c098d8e097fbf4dcf58727",
+    "backend/src/connectors/ClaudeConnector.ts": "426daafc860e0de29e67351b4cbe9194cd3f0c2e",
     "backend/src/connectors/GeminiTriggersConnector.ts": "b8b8af9ee4fb27f67631c0251827f7f3518ace78",
     "backend/src/connectors/GitHubActionsConnector.ts": "8dbffbf56c0b41bcc48db7a9e9ae964885a03251",
-    "backend/src/connectors/N8nConnector.ts": "d905066711025f07e921ec3c8dd6d32dd381da7b",
+    "backend/src/connectors/N8nConnector.ts": "c1c0a6c9c9e37a4785dca7f01b07455cc5623c79",
     "backend/src/connectors/WindowsAgentConnector.ts": "5810a040395231c8994f174495d048062141c437",
-    "backend/src/routes/tasks.ts": "5163b371125ac52d81c1a9a1961053b4abeed889",
+    "backend/src/routes/tasks.ts": "8a2d69dafd0ce8e2122732689e93b82d24f45520",
     "backend/src/services/AutoSync.ts": "675d3ea3aa415d16a232e5a0d8e36d978aacba9f",
     "backend/src/services/NativeScheduler.ts": "edd197487c0e41a6aaeb276bccb7bc9e13904d25",
     "backend/src/services/NativeTaskExecutor.ts": "8b62c25b7ee7d9908c12a38e9763664cf467ed46",

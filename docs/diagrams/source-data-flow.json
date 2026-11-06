@@ -8,7 +8,7 @@
     "output": "source-data-flow.html",
     "repository": {
       "url": "https://github.com/ai-automation-tools/cronsole.git",
-      "revision": "4ee25b1ebd861d74fb95571edc8e0acbb8cca8eb"
+      "revision": "1df7aeb337b612d1b32493f64a863e24beb8ed65"
     }
   },
   "stages": [
@@ -73,7 +73,7 @@
       "id": "claude",
       "type": "cloud",
       "label": "Claude Code",
-      "sublabel": "Hosted routines",
+      "sublabel": "Hosted scheduled tasks",
       "stage": 0,
       "row": 1,
       "sources": [
@@ -380,7 +380,7 @@
       "id": "claude_read",
       "from": "claude",
       "to": "claude_bridge",
-      "label": "Routine metadata",
+      "label": "Scheduled task metadata",
       "variant": "emphasis"
     },
     {
@@ -484,7 +484,7 @@
       "dot": "cyan",
       "title": "What feeds the task list",
       "items": [
-        "Five platforms are read through connectors: Windows Task Scheduler (through the local agent), Claude Code routines, Gemini Triggers, GitHub Actions and n8n. Vercel Cron, also read-only, follows the same connector-to-sync path and is left off the map to keep it readable. Quick links are navigation only and feed nothing.",
+        "Five platforms are read through connectors: Windows Task Scheduler (through the local agent), Claude Code scheduled tasks, Gemini Triggers, GitHub Actions and n8n. Vercel Cron, also read-only, follows the same connector-to-sync path and is left off the map to keep it readable. Quick links are navigation only and feed nothing.",
         "Periodic sync is on by default: each connection refreshes its tracked tasks every 30 minutes (5 minutes to a day, or off). It is refresh-only, so it never adopts a new folder or clears an exclusion; Import and Refresh run the same sync on demand.",
         "The native scheduler checks due jobs every 30 seconds."
       ]
@@ -495,7 +495,7 @@
       "items": [
         "Primary arrows show data returned by source reads. Reverse arrows show representative Run commands dispatched by Cronsole.",
         "Windows: the agent reads Task Scheduler, sends snapshots over Socket.IO, and verifies signed commands before starting a task.",
-        "Claude: session OAuth reads and controls hosted routines. Without it, declared entries and per-routine fire tokens are the fallback; a declared entry is not a live platform read. A start acknowledgement does not prove completion."
+        "Claude: session OAuth reads and controls hosted scheduled tasks. Without it, declared entries and per-task fire tokens are the fallback; a declared entry is not a live platform read. A start acknowledgement does not prove completion."
       ]
     },
     {

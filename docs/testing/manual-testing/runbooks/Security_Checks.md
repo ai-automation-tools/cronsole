@@ -197,10 +197,10 @@ why the `curl` above must set `Origin` explicitly to test anything), and an **em
 `ALLOWED_ORIGINS`** is permissive by design — check the backend's boot log for
 `ALLOWED_ORIGINS is unset` before concluding the restriction is broken.
 
-## 11. Login rate limit — ⬜ known gap
+## 11. Login rate limit
 
 ```powershell
-1..10 | ForEach-Object {
+1..11 | ForEach-Object {
   try {
     Invoke-RestMethod -Method Post http://localhost:3000/api/auth/login `
       -ContentType 'application/json' `
@@ -209,13 +209,14 @@ why the `curl` above must set `Origin` explicitly to test anything), and an **em
 }
 ```
 
-**Expect today:** ten `401`s — **no `429`**.
+**Expect:** ten `401`s, then a `429` on the eleventh. Login and first-run setup share a limiter of
+10 attempts per 15 minutes per client (`backend/src/middleware/authLimiter.ts`, unit-tested in
+`__tests__/authLimiter.test.ts`). Run this last or wait 15 minutes afterwards, because the limit
+applies to your real login too.
 
-> [!WARNING]
-> **This is a documented gap, not a passing test.** The archived Test Plan called for `429`
-> after 10 attempts in 10s; it was never implemented. Tracked in the Go-public checklist in
-> [ROADMAP](../../../ROADMAP.md). When it ships, this step's pass condition becomes a `429` —
-> and it should get an automated test at the same time.
+> [!NOTE]
+> **Ten `401`s and no `429` means the limiter is switched off**, not broken. It is skipped when
+> `NODE_ENV=test` or `DISABLE_AUTH_RATE_LIMIT=true`, so check the backend's environment first.
 
 ## 12. Dependency audit
 

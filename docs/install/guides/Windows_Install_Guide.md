@@ -24,7 +24,7 @@ syncs your Windows Task Scheduler into Cronsole and lets you trigger tasks remot
 - **Windows 10/11**
 - **Docker Desktop** *(recommended)* — or a self-managed PostgreSQL 16 instance
 - **.NET 10 SDK** — compiles the agent
-- **Administrator rights** — required to register the agent's scheduled task
+- **Administrator rights** — required to register the `\Cronsole-Stack\` launcher tasks
 
 ## 1. Bring up the stack
 
@@ -36,12 +36,10 @@ docker compose --profile docker up --build
 #   → backend   http://localhost:3000   (GET /api/health to verify)
 ```
 
-> [!IMPORTANT]
-> The `--profile docker` is not optional. Backend and frontend sit behind
-> `profiles: ["docker"]`, so a plain `docker compose up` starts **Postgres and Redis only**
-> and nothing ever answers on `:7373`.
-
-Database migrations apply themselves on boot, so there is no schema step.
+Keep `--profile docker` — without it only Postgres and Redis start
+([why](../../setup/README.md#-docker-vs-manual)). Database migrations apply themselves on boot,
+so there is no schema step. Rather run each piece without Docker? See
+[**Run it manually**](../../setup/README.md#run-it-manually-no-docker).
 
 ## 2. Install and start the Windows agent
 
@@ -60,10 +58,9 @@ Full details, verification steps, and troubleshooting are in the
 [**🤖 Windows Agent Setup Guide**](../../user-guides/guides/Agent_Setup_Guide.md).
 
 > [!NOTE]
-> **The agent is not its own scheduled task** (changed 2026-08-25). It is started by
-> `\Cronsole-Stack\CronsoleStack`, which runs `cronsole.ps1 up` at logon and every 5 minutes — so
-> starting the agent is one of the things that task does, and step 3 is what registers it. Until
-> you do step 3, nothing starts the agent at logon.
+> **Until you do step 3, nothing starts the agent at logon**: the agent has no scheduled task of its
+> own, and `CronsoleStack` starts it
+> ([why](../../../scripts/startup-task/README.md#cronsoleagent-is-gone-and-why-that-matters)).
 
 ## 3. Auto-start the stack at logon
 

@@ -144,7 +144,7 @@ improvise a substitute. See [**rest-api/**](../rest-api/README.md):
 | Resource | Why |
 |:---|:---|
 | [**🧩 MCP Server Guide**](../../docs/user-guides/guides/MCP_Server_Guide.md) | Setup, token minting, host wiring, its own troubleshooting. |
-| [**✍️ Task authoring & management**](../../skills/cronsole/references/task-authoring.md) | The invariants behind these prompts, written for an agent. |
+| [**✍️ Task authoring & management**](../../backend/src/tools/connect-pack/references/task-authoring.md) | The invariants behind these prompts, written for an agent. |
 | [**🌐 REST API prompts**](../rest-api/README.md) | The operations listed above. |
 | [**📦 mcp-server package**](../../mcp-server/README.md) | The tool source and the MCP Inspector. |
 

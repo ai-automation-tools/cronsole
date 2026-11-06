@@ -141,9 +141,10 @@ can drive it. The boundary there is deliberately **tighter** than the dashboard'
   Cronsole's own native jobs — it refuses every other platform, including Windows. Removing a
   Windows task through an assistant means `untrack_task`, which stops Cronsole watching it and
   **leaves the task itself running**.
-- **`delete_task` is off unless you switch it on** (`CRONSOLE_MCP_ALLOW_DESTRUCTIVE`), and when
-  off it is not merely refused — it is **absent from the tool list**, so an assistant cannot
-  attempt it.
+- **`delete_task` and `delete_template` are off unless you switch them on**
+  (`CRONSOLE_MCP_ALLOW_DESTRUCTIVE`), and when off they are not merely refused — they are **absent
+  from the tool list**, so an assistant cannot attempt them. `delete_template` only reaches
+  templates you imported or saved, never the built-in catalog.
 - **There are no bulk verbs.** Friction should scale with blast radius, and an assistant has no
   equivalent of the dashboard's typed confirmation.
 

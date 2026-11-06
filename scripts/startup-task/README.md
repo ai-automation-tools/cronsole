@@ -73,15 +73,22 @@ Once `up` starts the engine, `CronsoleAgent` is a pure duplicate of `CronsoleSta
 trigger — and a harmful one: both fired at logon, both called `up`, and
 `MultipleInstancesPolicy` is per-**task**, so two `npm run dev` could race for `:3000`.
 
+Both scripts now retire it: `Register-CronsoleStack.ps1`, and `agent\setup-agent-startup.ps1`,
+which unregisters a leftover `CronsoleAgent` at **any** path so a second agent never starts at
+logon. The setup script registers nothing itself; it builds the agent, says whether
+`CronsoleStack` is registered (and the command if not), and runs `up`.
+
 **To restart the agent now, use `CronsoleRestart`** — `cronsole.ps1 restart` force-stops the
-agent (which needs the elevation the task supplies) and brings the stack back.
+agent (which needs the elevation the task supplies) and brings the stack back. **To rebuild it,
+use `CronsoleRepublish`** rather than re-running `setup-agent-startup.ps1`: it is elevated, so it
+can stop an agent running at `RunLevel Highest` and overwrite its locked exe.
 
 ## No console flash (why `run-hidden.vbs` exists)
 
 The recurring task fires every 5 minutes. Running it as `powershell.exe -WindowStyle Hidden`
 **still flashes** a window every time: PowerShell is a console app, so Windows creates a
 `conhost` window and only *then* applies `-WindowStyle Hidden`. `run-hidden.vbs` launches
-PowerShell through `WScript.Shell.Run(cmd, 0, False)`, which creates the process with the
+PowerShell through `WScript.Shell.Run(cmd, 0, True)`, which creates the process with the
 window **hidden from the start** (never shown), and `wscript.exe` is itself windowless — so
 nothing appears on screen.
 

@@ -58,15 +58,18 @@ platform it already runs on.
 
 ## 🔌 What it connects to
 
-| Platform | How it connects | Status |
+Each source links to its own guide: how to connect it, what Cronsole can do there, and what catches people out. [**Sources**](docs/user-guides/sources/README.md) compares all of them in one table.
+
+| Source | How it connects | Status |
 |:---|:---|:---|
-| **🪟 Windows Task Scheduler** | A lightweight local agent on your machine — outbound-only, never accepts incoming connections. | ✅ Functional |
-| **⚡ Cronsole-native** | Four kinds of job that Cronsole schedules and runs itself, with no OS task involved: **HTTP** calls, an **existing program**, a **script you write in Cronsole**, and **checks** that assert something is true. | ✅ Functional |
-| **🤖 Claude Code Routines** | Natural-language routines through the Anthropic API. With a readable Claude Code session Cronsole lists, creates, reschedules, pauses and fires them; without one it can fire the routines you declared. **Deleting always happens in claude.ai** — no API exposes it. | 🧪 Experimental |
-| **✨ Gemini API Triggers** | Scheduled prompts on Google's managed agents. One API key, and Cronsole can run, pause, reschedule, create and delete them — plus read how their runs actually went. | 🧪 Experimental |
-| **🌿 GitHub Actions** | Scheduled workflows in the repositories you watch, read through a PAT. **Read-only by design** — Cronsole shows their crons and real run outcomes, and changes nothing. | 👁️ Observer |
-| **▲ Vercel Cron** | Cron jobs declared by the projects you watch. **Read-only by design**, and Vercel publishes no run history, so their health stays honestly unknown. | 👁️ Observer |
-| **💬 ChatGPT · Grok · Jules · Open Claw · Hermes** | Quick links straight to their native scheduling screens — none of them exposes a public scheduled-task API to build on. Add your own, too. | 🔗 Quick links |
+| [**🪟 Windows Task Scheduler**](docs/user-guides/sources/Windows_Task_Scheduler.md) | A lightweight local agent on your machine — outbound-only, never accepts incoming connections. | ✅ Functional |
+| [**⚡ Cronsole-native**](docs/user-guides/sources/Cronsole_Native.md) | Four kinds of job that Cronsole schedules and runs itself, with no OS task involved: **HTTP** calls, an **existing program**, a **script you write in Cronsole**, and **checks** that assert something is true. | ✅ Functional |
+| [**🤖 Claude Code Routines**](docs/user-guides/sources/Claude_Code_Routines.md) | Natural-language routines through the Anthropic API. With a readable Claude Code session Cronsole lists, creates, reschedules, pauses and fires them; without one it can fire the routines you declared. **Deleting always happens in claude.ai** — no API exposes it. | 🧪 Experimental |
+| [**✨ Gemini API Triggers**](docs/user-guides/sources/Gemini_API_Triggers.md) | Scheduled prompts on Google's managed agents. One API key, and Cronsole can run, pause, create and delete them, and read how their runs actually went. A trigger's schedule and prompt are fixed once it exists, so changing either means **Recreate with changes**. | 🧪 Experimental |
+| [**🐙 GitHub Actions**](docs/user-guides/sources/GitHub_Actions.md) | Scheduled workflows in the repositories you watch, read through a PAT. **Read-only by design** — Cronsole shows their crons and real run outcomes, and changes nothing. | 👁️ Observer |
+| [**▲ Vercel Cron**](docs/user-guides/sources/Vercel_Cron.md) | Cron jobs declared by the projects you watch. **Read-only by design**, and Vercel publishes no run history, so their health stays honestly unknown. | 👁️ Observer |
+| [**🔀 n8n**](docs/user-guides/sources/n8n.md) | Workflows on your own n8n instance, through its API key: every one with a Schedule Trigger, and by default the ones started some other way too. Cronsole reads real run outcomes and each run's steps, and can **Run now** through n8n's MCP server. You state the instance's time zone, because its API does not. | ✅ Functional |
+| [**💬 ChatGPT · Grok · Jules · Open Claw · Hermes**](docs/user-guides/sources/README.md#-quick-links--schedulers-with-no-connector) | Quick links straight to their native scheduling screens — none of them exposes a public scheduled-task API to build on. Add your own, too. | 🔗 Quick links |
 
 ## 🎨 Screenshots
 
@@ -91,8 +94,8 @@ platform it already runs on.
 ## ⚡ Quick Start
 
 > [!TIP]
-> The fastest path is Docker Compose — it brings up the database, backend, and frontend
-> together. The Windows agent runs directly on your machine (see step 3).
+> The fastest path is Docker Compose: it brings up the database, backend, and frontend
+> together. The Windows agent runs directly on your machine (step 3).
 
 1. Clone the repo:
 
@@ -101,24 +104,15 @@ platform it already runs on.
    cd cronsole
    ```
 
-2. Bring up the dev stack (Postgres + Redis + backend + frontend):
+2. Bring up the dev stack (Postgres + Redis + backend + frontend). Keep `--profile docker`;
+   without it only Postgres and Redis start
+   ([why](docs/setup/README.md#-docker-vs-manual)). Migrations apply themselves on boot.
 
    ```bash
    docker compose --profile docker up --build
    #   → frontend  http://localhost:7373
    #   → backend   http://localhost:3000   (GET /api/health to verify)
    ```
-
-   Database migrations apply themselves on boot, so there is no schema step. *(Verified
-   2026-09-11 from a clean clone on a machine that had never run Cronsole — which is the only
-   way this can be checked, and how [#90](docs/troubleshooting/README.md#90-a-fresh-clones-docker-quick-start-dies-with-the-table-publicuser-does-not-exist)
-   was found.)*
-
-   > [!IMPORTANT]
-   > The `--profile docker` is not optional. Backend and frontend are opt-in profiles, so a
-   > plain `docker compose up` starts **Postgres and Redis only** and nothing answers on
-   > `:7373`. Omit the profile when you want to run the backend and frontend as host
-   > processes instead (the manual path below).
 
 3. Start the Windows agent so your real Task Scheduler tasks appear (PowerShell **as Administrator**; must run on the Windows host, not in Docker):
 
@@ -129,34 +123,9 @@ platform it already runs on.
 
 4. Open [localhost:7373](http://localhost:7373). The first load asks you to create the owner account — that is the only account-creation path there is, and it works once. After that, the **Windows Agent** status in the sidebar should read **Online** with your tasks imported.
 
-<details>
-<summary><b>Prefer to run each piece manually (no Docker)?</b></summary>
-
-<br>
-
-```bash
-# Backend — needs a PostgreSQL 16 instance
-cd backend
-cp .env.example .env        # then set DATABASE_URL + secrets (JWT_SECRET,
-                            # ENCRYPTION_KEY, AGENT_PAIRING_SECRET) — the backend
-                            # fail-fasts without them; see docs/setup/README.md
-npm install
-npm start                   # http://localhost:3000 — `prestart` migrates first
-
-# Frontend — in a second terminal
-cd frontend
-cp .env.example .env.local  # set VITE_DEV_TOKEN so the dashboard can reach the backend
-npm install
-npm run dev                 # http://localhost:7373
-
-# Windows agent — in a third terminal (Windows only)
-cd agent/Cronsole.Agent
-dotnet run                  # connects out to the backend, pushes Task Scheduler tasks
-```
-
-See [Setup & configuration](docs/setup/README.md) for every option.
-
-</details>
+Auto-start at logon, macOS, and the per-OS details are in [Installation](docs/install/README.md).
+Running each piece yourself without Docker is in
+[Setup › Run it manually](docs/setup/README.md#run-it-manually-no-docker).
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -185,6 +154,7 @@ Full documentation lives in **[`docs/`](docs/README.md)**. The main sections:
 | [**⬇️ Installation**](docs/install/README.md) | Install Cronsole on Windows or macOS, or clone the repo. |
 | [**⚙️ Setup & Configuration**](docs/setup/README.md) | Environment variables, Docker vs. manual, agent pairing. |
 | [**🖥️ User Guides**](docs/user-guides/README.md) | Day-to-day guides for using Cronsole once it's running. |
+| [**🔌 Sources**](docs/user-guides/sources/README.md) | Every source in one table, with a guide for each: connecting it, what Cronsole can do there, and the traps. |
 | [**💬 Prompt Library**](prompts/README.md) | Copy-paste prompts for driving Cronsole in plain English — scheduled scripts, headless coding-agent runs, HTTP jobs, audits. |
 | [**🧯 Troubleshooting**](docs/troubleshooting/README.md) | Symptom → cause → fix for problems we've actually hit. |
 | [**🧪 Testing**](docs/testing/README.md) | What to test and how to run it — functional, integration, regression, and UAT, plus step-by-step manual runbooks. |
@@ -207,6 +177,24 @@ And the key guides, one click away:
 | [**💬 Prompts to start with**](prompts/mcp-server/README.md) | What to actually say once the MCP server is connected, grouped by what you're trying to do. |
 | [**💾 Backup & Restore**](docs/user-guides/guides/Backup_Restore_Guide.md) | Backing up the database, scheduling it as a Cronsole job, and testing the restore — which is the part that makes it real. |
 | [**🔥 Smoke Test**](docs/testing/manual-testing/runbooks/Smoke_Test.md) | Verifying your stack is actually alive and the agent is talking — in about 10 minutes. |
+
+## 🗂️ What's in the repo
+
+| Folder | What it holds |
+|:---|:---|
+| [**🧩 backend/**](backend/README.md) | The API, every source connector, the agent channel and the native job scheduler. |
+| [**🖥️ frontend/**](frontend/README.md) | The dashboard. |
+| [**🪟 agent/**](agent/README.md) | The .NET Windows agent that reads and changes Task Scheduler. |
+| [**🔌 mcp-server/**](mcp-server/README.md) | A thin MCP wrapper over the REST API, for driving Cronsole from an assistant. |
+| [**📚 docs/**](docs/README.md) | Install, setup, user guides, troubleshooting, testing, the roadmap and the changelog. |
+| [**💬 prompts/**](prompts/README.md) | Copy-paste prompts for the MCP server, the skill and the REST API. |
+| [**🧠 skills/**](skills/README.md) | The `cronsole` skill for agents working on this codebase. |
+| [**📦 registry/**](registry/README.md) | The generated template registry. Built from the catalog; never edited by hand. |
+| [**🌐 registry-site/**](registry-site/README.md) | The homepage and template gallery, published with the registry. |
+| [**🔧 scripts/**](scripts/README.md) | The `cronsole` stack control script, the logon auto-start tasks and the CI checks. |
+| [**🖼️ images/**](images/README.md) | Logos, icons and the screenshots above. |
+
+`proxy/` holds one Caddyfile for the opt-in [remote access](docs/user-guides/guides/Remote_Access_Guide.md) proxy; nothing runs from it by default.
 
 ## 🧠 The Cronsole Skill
 
@@ -247,6 +235,8 @@ a scheduled agent routine needs. Install them over this clone with that repo's i
 Cronsole is an MVP-stage project. If you're working on it, start with
 [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`AGENTS.md`](AGENTS.md), and track work on the
 [Roadmap](docs/ROADMAP.md). Recent changes are logged in [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
+Taking part means following the [Code of Conduct](CODE_OF_CONDUCT.md). Report a vulnerability
+privately, as [`SECURITY.md`](SECURITY.md) describes, never in a public issue.
 
 Before opening a PR, run the suites and — for anything touching the agent, real Task
 Scheduler, or security — the relevant [manual runbook](docs/testing/manual-testing/README.md):

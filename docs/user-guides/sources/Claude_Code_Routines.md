@@ -94,6 +94,10 @@ tracked task together. Two things it also does, both stated in the confirmation:
   from Cronsole* must not quietly spend a credential.
 - **It changes nothing at claude.ai.** The routine still exists and still runs.
 
+This applies to a routine you **connected by hand**. A routine Cronsole found through your signed-in
+CLI session has no declaration behind it, so *Remove from Cronsole* works on it like on any other
+source, and that is how you clear one whose routine was deleted at claude.ai.
+
 ## ⚠️ Things that surprise people
 
 - **Without a session, sync returns what you typed.** Nothing is fetched, so a routine deleted at

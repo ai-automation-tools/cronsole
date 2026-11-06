@@ -328,8 +328,9 @@ Apply modal's footer; over MCP, `delete_template` (gated with `delete_task` behi
    **preset chips** (shared `utils/cronPresets.ts`) and a **human-readable schedule preview**
    (`describeCron`, local/UTC per Settings) sit under the schedule field, and applied Windows
    tasks are upserted immediately so they appear on the dashboard without a sync.
-4. **Card UI** — `scriptType` badge is shown; still to add: `os` badge, `category` filter chips,
-   and grouping starters vs patterns. Reuse the existing dark card style.
+4. ~~**Card UI**~~ ✅ *Done* — cards show the `scriptType` badge; the library groups starters vs
+   patterns and filters by OS, Category and free-form Tags as facets (`TemplatesScreen.tsx`), per
+   the header. OS is a filter facet rather than a per-card badge.
 5. ~~**Cron ↔ Windows trigger conversion** with confidence score~~ ✅ *Done (2026-07-07)* —
    `POST /templates/:id/apply` now converts the cron via `convertCronToWindowsTrigger` and sends a
    structured `trigger` object in the `task:create` payload; the agent's `TriggerBuilder` registers
@@ -341,7 +342,10 @@ Apply modal's footer; over MCP, `delete_template` (gated with `delete_task` behi
    the modal's `schedule` body key (previously only `scheduleExpression`, so user edits to the
    cron were silently ignored) and rejects non-5-field crons.
 6. **macOS agent** — unblocks templates #9–15 as real tasks (currently catalog-only).
-7. **Community submission** — UI to save a configured task back as an `isPublic` Tier B template.
+7. ~~**Community submission**~~ ✅ *Shipped as **Save as template*** — the task modal saves a
+   configured task back as a template (`POST /api/tasks/:id/save-as-template`, a `managed: false`
+   row that prune-on-sync never touches). It is saved to your own library, not shared: nothing
+   sets `isPublic`, and there is no public submission flow.
 
 ### Out of scope for now
 - Two-way edit of a live task back into its template.

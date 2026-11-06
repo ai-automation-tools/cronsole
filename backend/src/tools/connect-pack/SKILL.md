@@ -5,7 +5,7 @@ description: Create, run, and manage scheduled tasks through a running Cronsole 
 
 # Cronsole
 
-> Cronsole Connect Pack **v1.12** · canonical copy: <https://cronsole.ai-automation-tools.dev>
+> Cronsole Connect Pack **v1.13** · canonical copy: <https://cronsole.ai-automation-tools.dev>
 > If this file is older than your Cronsole install, the install wins — re-download the pack.
 
 Cronsole is a single pane of glass for scheduled tasks. It runs **locally** on the user's own
@@ -66,16 +66,17 @@ leaves it running), or the dashboard. Do not route around a gate.
 | Import an exported task file | `import_task` | `POST /api/tasks/import` — the body **is** the file (the whole `cronsoleTaskVersion` object). Cronsole-native only: a native task's row *is* the task, so it round-trips, while a Windows definition is Task Scheduler XML on the machine and goes through Restore below. Creates a **new** task each time, `ACTIVE`, on the file's UTC schedule — report the returned `nextRunTime` |
 | What was deleted, and can it come back | `list_task_archives` | `GET /api/tools/task-archives` — each row carries `restorable` **with its reason** |
 | Bring back a deleted task | `restore_task_archive` | `POST /api/tools/task-archives/:id/restore` — rebuilds a deleted Cronsole-native task as a **new** task. The archived run history is **not** reattached, and the archive is kept, so calling twice makes two tasks |
-| Delete | `delete_task` (gated) | `DELETE /api/tasks/:id` |
+| Delete (Cronsole-native only) | `delete_task` (gated) | `DELETE /api/tasks/:id/native` — archives first; refuses every other platform with a 400 |
 | Delete a template the user imported or saved | `delete_template` (gated) | `DELETE /api/templates/:id` — only an imported / saved-as-template entry. One synced from the built-in catalog is refused **409** (the next sync would restore it). Tasks made from the template are untouched; nothing is archived |
 | Bulk export / backup | — | `POST /api/tools/export/tasks` (`scope: 'all' \| 'folder' \| 'selection'`; `selection` takes `taskIds`) |
 | Restore from a backup | — | `POST /api/tools/restore/tasks` (send `dryRun: true` first) |
-| Run history across all tasks | — | `GET /api/tools/history` (`?format=csv`) |
-| What needs attention | — | `GET /api/tools/task-health` |
+| Run history across all tasks | `list_run_history` | `GET /api/tools/history` (`?format=csv`) |
+| What needs attention | `get_task_health` | `GET /api/tools/task-health` |
 | **Is Cronsole itself working?** | `get_diagnostics` | `GET /api/tools/diagnostics` — the agent connection, database, native scheduler, template catalog, API-token expiry and allowed origins, **each with the evidence behind it**. Ask this **before** `get_task_health` when something is wrong: health asks *"are the user's tasks failing"*, which is meaningless while the agent is wedged — then **every** Windows task reads unhealthy and the fix is in none of them. `unknown` is **not** `pass` (the check could not be measured). `measuredOn` says which machine the facts describe. Read-only; it repairs nothing, and it cannot report on a backend that is down because that backend serves it |
-| **What Cronsole can actually do with a platform** | — | `GET /api/tools/platforms` — each verb reads **`verified`** (has worked on this machine), **`declared`** (Cronsole will try; never observed to work here) or **`unsupported`** (would be refused). **Check this before promising the user a capability.** `declared` is not a yes |
+| **What Cronsole can actually do with a platform** | `list_platforms` | `GET /api/tools/platforms` — each verb reads **`verified`** (has worked on this machine), **`declared`** (Cronsole will try; never observed to work here) or **`unsupported`** (would be refused). **Check this before promising the user a capability.** `declared` is not a yes |
 | Star / un-star a task | — | `POST` / `DELETE /api/tasks/:id/favorite` (`isFavorite` comes back on `GET /api/tasks`) |
-| Template import/export, sync, pairing | — | REST / dashboard only |
+| Refresh tasks from a platform | `sync_tasks` | `POST /api/tasks/sync` |
+| Template import/export, pairing | — | REST / dashboard only |
 
 ---
 

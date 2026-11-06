@@ -1,5 +1,12 @@
 # Cronsole Template Registry — Schema v1 (draft for review)
 
+> [!NOTE]
+> **This is the Registry v1 design record**, kept for the reasoning behind the schema. It is not
+> maintained as a description of current behaviour: for that, read
+> [`skills/cronsole/references/templates.md`](../../../skills/cronsole/references/templates.md)
+> (catalog, core vs extended, prune-on-sync) and the
+> [Registry Publishing Guide](../../install/guides/Registry_Publishing_Guide.md) (hosting and publishing).
+
 > **Status:** Draft for Mike's review. No code has changed. This is step 1 of the
 > [Template registry roadmap item](../../ROADMAP.md#-p2--product-value): the versioned,
 > **target-agnostic JSON schema** every registry template conforms to, plus real examples
@@ -505,13 +512,15 @@ A missing compiler is never a silent failure — it's the declared-but-manual pa
   `RegistryCatalogSource` fetches + integrity-checks + caches, falling back to the bundled
   snapshot on any failure. Wired via `TEMPLATE_REGISTRY_URL` (unset = bundled). A drift test
   keeps the committed artifact in sync with the snapshot.
-- **Step 4 — hosting + runtime refresh** (2026-07-13): ✅ done. The artifact is mirrored to the
-  public repo `michaelschecht/cronsole-registry` (GitHub Pages → `https://mikesailab.com/cronsole-registry`,
-  set as `TEMPLATE_REGISTRY_URL`) via `scripts/publish-registry.ps1`; the backend syncs the catalog
-  into the DB on boot + on an interval (`catalog/catalogSync.ts`), so registry changes land with no
-  reseed. Verified live end-to-end. *(2026-10-23: the registry moved to the org front door,
-  `ai-automation-tools/cronsole-site` → `https://cronsole.ai-automation-tools.dev/`; the old host is an
-  archived frozen snapshot.)*
+- **Step 4 — hosting + runtime refresh** (2026-07-13): ✅ done. The artifact is served from the
+  org repo `ai-automation-tools/cronsole-site` at **`https://cronsole.ai-automation-tools.dev/`**
+  (the frozen registry base since 2026-10-23, and the value for `TEMPLATE_REGISTRY_URL`), published
+  automatically on merge to `main` by `.github/workflows/publish-registry.yml`
+  (`scripts/publish-registry.ps1` is the manual path). The backend syncs the catalog into the DB on
+  boot + on an interval (`catalog/catalogSync.ts`), so registry changes land with no reseed.
+  *(History: this step originally shipped to `michaelschecht/cronsole-registry` →
+  `https://mikesailab.com/cronsole-registry`, which is now an archived, frozen snapshot that nothing
+  publishes to.)*
 - **First content pack — Developer Pack** (2026-07-13): 9 dev-workflow templates added to the
   bundled snapshot + published registry (24 → 33 templates), the first entries using the
   plain-kebab id form (`dev-*`) and the free-form tags. A whole-catalog resolvability test now
@@ -530,6 +539,8 @@ A missing compiler is never a silent failure — it's the declared-but-manual pa
   `--sandbox` (`read-only` by default, `workspace-write` only for the higher-trust autofix
   template), `--ephemeral`, final-message capture via `-o`, and full log capture through a
   PowerShell `-Command` wrapper (single-quoted inner args). Clears the roadmap's Codex slice.
-- **Optional follow-ups** — index signing (beyond per-file checksums) and prune-on-sync (removed
-  templates aren't deleted yet). Exactly one real compiler (Windows) stays real; everything else is
+- **Prune-on-sync**: ✅ done. `catalogSync` marks auto-synced (`core: true`) rows
+  `managed` and deletes managed rows that have left the core set, guarded against an empty core;
+  imported and saved-as-template rows are `managed: false` and never pruned.
+- **Optional follow-up** — index signing (beyond per-file checksums). Exactly one real compiler (Windows) stays real; everything else is
   declared-but-manual.

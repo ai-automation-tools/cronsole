@@ -6,7 +6,6 @@
 // fails the import, so existence is checked by the module graph and only the
 // anchors need asserting.
 import uiUserGuide from '../../../../docs/user-guides/guides/UI_User_Guide.md?raw';
-import sourcesGuideDoc from '../../../../docs/user-guides/guides/Sources_Guide.md?raw';
 import agentSetupGuide from '../../../../docs/user-guides/guides/Agent_Setup_Guide.md?raw';
 import templatesDoc from '../../../../docs/reports/templates/Templates.md?raw';
 import troubleshooting from '../../../../docs/troubleshooting/README.md?raw';
@@ -21,10 +20,11 @@ import sourceClaude from '../../../../docs/user-guides/sources/Claude_Code_Routi
 import sourceGemini from '../../../../docs/user-guides/sources/Gemini_API_Triggers.md?raw';
 import sourceGitHub from '../../../../docs/user-guides/sources/GitHub_Actions.md?raw';
 import sourceVercel from '../../../../docs/user-guides/sources/Vercel_Cron.md?raw';
+import sourceN8n from '../../../../docs/user-guides/sources/n8n.md?raw';
 import trustPage from '../../../../docs/TRUST.md?raw';
 
 import { describe, it, expect } from 'vitest';
-import { DOCS_BASE, addingASourceDoc, sourceDoc, sourceDocsIndex } from '../docs';
+import { DOCS_BASE, addingASourceDoc, sourceDoc, sourcesGuide } from '../docs';
 import { helpTopics } from '../help';
 import { GETTING_STARTED_STEPS, HELP_GUIDES } from '../onboarding';
 
@@ -50,7 +50,6 @@ import { GETTING_STARTED_STEPS, HELP_GUIDES } from '../onboarding';
 /** The docs the app deep-links into, keyed by the repo-relative path in the URL. */
 const DOC_SOURCES: Record<string, string> = {
   'docs/user-guides/guides/UI_User_Guide.md': uiUserGuide,
-  'docs/user-guides/guides/Sources_Guide.md': sourcesGuideDoc,
   'docs/user-guides/guides/Agent_Setup_Guide.md': agentSetupGuide,
   'docs/reports/templates/Templates.md': templatesDoc,
   'docs/troubleshooting/README.md': troubleshooting,
@@ -65,6 +64,7 @@ const DOC_SOURCES: Record<string, string> = {
   'docs/user-guides/sources/Gemini_API_Triggers.md': sourceGemini,
   'docs/user-guides/sources/GitHub_Actions.md': sourceGitHub,
   'docs/user-guides/sources/Vercel_Cron.md': sourceVercel,
+  'docs/user-guides/sources/n8n.md': sourceN8n,
   'docs/TRUST.md': trustPage
 };
 
@@ -83,7 +83,8 @@ const DOCUMENTED_SOURCES = [
   'CLAUDE_CODE',
   'GEMINI_TRIGGERS',
   'GITHUB_ACTIONS',
-  'VERCEL_CRON'
+  'VERCEL_CRON',
+  'N8N'
 ];
 
 /**
@@ -136,7 +137,7 @@ const links: { from: string; label: string; url: string }[] = [
     label: 'Adding a source',
     url: addingASourceDoc()
   },
-  { from: 'source guides index', label: 'Source guides', url: sourceDocsIndex() },
+  { from: 'sources overview', label: 'Sources', url: sourcesGuide() },
   ...DOCUMENTED_SOURCES.map(platform => ({
     from: `SourceDocLink "${platform}"`,
     label: `Using ${platform}`,
@@ -201,10 +202,10 @@ describe('help topics', () => {
  * asserted rather than the loop being allowed to run short.
  */
 describe('per-source guides', () => {
-  it('covers all six sources on the Sources tab', () => {
-    // If a seventh source ships, this fails here rather than shipping a card
+  it('covers all seven sources on the Sources tab', () => {
+    // If an eighth source ships, this fails here rather than shipping a card
     // with no way to read about it.
-    expect(DOCUMENTED_SOURCES).toHaveLength(6);
+    expect(DOCUMENTED_SOURCES).toHaveLength(7);
   });
 
   it.each(DOCUMENTED_SOURCES)('%s has a guide', platform => {
@@ -221,7 +222,7 @@ describe('per-source guides', () => {
   });
 
   it('is linked from the index, so the set is reachable as a set', () => {
-    // The Tier-3 index is the only place all six are listed together; a document
+    // The sources overview is the only place all seven are listed together; a document
     // nothing links to is an orphan however good it is.
     for (const file of [
       'Windows_Task_Scheduler.md',
@@ -229,7 +230,8 @@ describe('per-source guides', () => {
       'Claude_Code_Routines.md',
       'Gemini_API_Triggers.md',
       'GitHub_Actions.md',
-      'Vercel_Cron.md'
+      'Vercel_Cron.md',
+      'n8n.md'
     ]) {
       expect(sourceDocsIndexDoc, `sources/README.md does not link to ${file}`).toContain(`(${file})`);
     }

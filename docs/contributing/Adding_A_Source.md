@@ -18,7 +18,7 @@
 > contract to meet, the files to touch in order, and the reasons a proposal gets declined.
 >
 > Using Cronsole rather than extending it? The
-> [Sources Guide](../user-guides/guides/Sources_Guide.md) is the one you want.
+> [Sources](../user-guides/sources/README.md) page is the one you want.
 
 **A source is a connector compiled into the backend.** There is no plugin folder and nothing to drop
 in at runtime, deliberately: a connector holds third-party credentials, issues commands to your
@@ -180,9 +180,10 @@ skip it.
 it, so **none of them breaks loudly when it drifts.** The suite stays green and the drift surfaces
 weeks later as someone confidently doing the wrong thing.
 
-- A `HelpTopic` in `frontend/src/data/help.ts`, pointing at **a new section in the
-  [Sources Guide](../user-guides/guides/Sources_Guide.md)** — `docsLinks.test.ts` fails if the anchor
-  does not resolve.
+- A `HelpTopic` in `frontend/src/data/help.ts`, pointing at **the source's own guide** in
+  [`docs/user-guides/sources/`](../user-guides/sources/README.md) via `sourceDoc(platform)`, plus a
+  row in that folder's README table. `docsLinks.test.ts` fails if the file or an anchor does not
+  resolve, or if the README does not link the guide.
 - `ALL_PLATFORMS` and the platform sentences in `mcp-server/src/tools.ts`, plus the `list_tasks` and
   `list_platforms` rows in **both** MCP tool tables (`mcp-server/README.md` and
   `docs/user-guides/guides/MCP_Server_Guide.md`).
@@ -266,7 +267,7 @@ review looks at.
 
 ---
 
-*See also: the [Sources Guide](../user-guides/guides/Sources_Guide.md) for what each shipped source
+*See also: [Sources](../user-guides/sources/README.md) for what each shipped source
 does, [`AGENTS.md`](../../AGENTS.md) §9 for the full invariant list, and
 [`DESIGN_NOTES.md`](../DESIGN_NOTES.md) for the argument behind any rule you want to push back on.*
 
@@ -279,5 +280,5 @@ does, [`AGENTS.md`](../../AGENTS.md) §9 for the full invariant list, and
 <p align="center">
   <a href="README.md">← Contributing home</a> ·
   <a href="../../CONTRIBUTING.md">CONTRIBUTING.md</a> ·
-  <a href="../user-guides/guides/Sources_Guide.md">Sources Guide →</a>
+  <a href="../user-guides/sources/README.md">Sources →</a>
 </p>

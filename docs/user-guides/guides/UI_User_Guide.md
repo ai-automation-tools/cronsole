@@ -21,9 +21,9 @@ Every screen in **Cronsole**, in the order you meet them: the dashboard and its 
 > people. Each one explains that control in place and links back here. See
 > [In-app help](#8-in-app-help) for the full list.
 >
-> **Looking for one particular system?** The [Sources Guide](Sources_Guide.md) covers Windows
-> Task Scheduler, Cronsole (HTTP), Cronsole (Scripts) and Claude Code one at a time — what
-> Cronsole can and can't do with each.
+> **Looking for one particular system?** [Sources](../sources/README.md) lists every source
+> Cronsole supports in one table, each linking to its own guide: what Cronsole can and can't do
+> with it, and the things that catch people out.
 
 ---
 
@@ -227,8 +227,8 @@ source holding tasks is never hidden**, and **connecting one shows it**.
 
 The **?** beside the *Sources* heading opens the same breakdown in the app, for the source you are
 on. For what each source can actually do — and the things that catch people out on each one — see
-the [Sources Guide](Sources_Guide.md), whose
-[Adding a source](Sources_Guide.md#adding-a-source) section covers writing a connector for a
+[Sources](../sources/README.md) and the guide it links for each one.
+[Adding a source](../../contributing/Adding_A_Source.md) covers writing a connector for a
 platform Cronsole does not have yet.
 
 ### Saved views
@@ -761,7 +761,7 @@ deleted, that is reported as a **failure**, not a note — that schedule now fir
 > To rotate one token across **every** trigger that uses it, don't use this button task by task. Save
 > the server once under **Sources › Gemini API Triggers › Saved MCP servers**, then edit it there and
 > press **Push this credential to N triggers**. Each is rebuilt and the result is reported per task.
-> See the [Sources Guide](Sources_Guide.md#gemini-api-triggers).
+> See [Gemini API Triggers](../sources/Gemini_API_Triggers.md).
 
 > **Note on schedule times:** every clock time in the app — the Schedule panel, the cron fields you type into, the preset chips, and absolute next/last-run timestamps — follows **Settings → Behavior → Schedule timezone**. It defaults to **Pacific**; you can pick another zone, your machine's, or UTC.
 >
@@ -1190,8 +1190,8 @@ you turn off becomes unfindable.
 The view ends with **Add a custom source**. A source is a **connector** compiled into the backend,
 not a plugin you can drop in — so adding one means a pull request against the repository, and the
 answer may be that a bookmark is the honest shape for it. It links to
-[Sources Guide › Adding a source](Sources_Guide.md#adding-a-source), which covers the three shapes
-a source can take, what a connector must answer, and what will not be accepted.
+[Adding a source](../../contributing/Adding_A_Source.md), which covers the three shapes a source
+can take, what a connector must answer, and what will not be accepted.
 
 ### Quick links
 
@@ -1285,7 +1285,7 @@ Where the **?** buttons are, and what each one answers:
 
 | Where | Answers |
 |:--|:--|
-| Dashboard › **Source** bar | What a source is, and how each one differs → [Sources Guide](Sources_Guide.md) |
+| Dashboard › **Source** bar | What a source is, and how each one differs → [Sources](../sources/README.md) |
 | Dashboard › **Views** row | Saved views, what a view is, why changing a filter drops you to *Custom* |
 | Dashboard › **Filters** row | Status, ownership and category — and what the defaults are hiding |
 | **New Task** › Platform | The selected platform, in place — the help changes as you switch between Cronsole, Windows and Claude |
@@ -1314,6 +1314,6 @@ because a stale help link fails silently.
 <p align="center">
   <a href="../README.md">← User Guides</a> ·
   <a href="../../README.md">Docs home</a> ·
-  <a href="Sources_Guide.md">Sources Guide →</a>
+  <a href="../sources/README.md">Sources →</a>
 </p>
 

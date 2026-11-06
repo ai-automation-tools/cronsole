@@ -4,6 +4,7 @@ import { PlatformType, TaskStatus } from '@prisma/client';
 import { createApp } from '../../src/app.js';
 import { prisma } from '../../src/db.js';
 import { createUser, createNativeTask, createNativeConnection } from './helpers.js';
+import { nativeScheduler } from '../../src/services/NativeScheduler.js';
 
 const app = createApp();
 
@@ -252,6 +253,23 @@ describe('POST /tasks/:id/run — completed-but-failed vs could-not-start', () =
     expect(logs).toHaveLength(1);
     expect(logs[0].status).toBe('FAILURE');
     expect(res.body.executionId).toBe(logs[0].id);
+  });
+
+  it('answers 409 for a task that is already running, and records nothing (ADR 0004)', async () => {
+    // A refused double-click is not a run: logging it as a FAILURE counted it
+    // against the task's health and marked native's Run verb broken.
+    const task = await createNativeTask(owner.user.id, { name: 'Busy' });
+    expect(nativeScheduler.claim(task.id)).toBe(true);
+    try {
+      const res = await request(app)
+        .post(`/api/tasks/${task.id}/run`)
+        .set('Authorization', owner.auth)
+        .expect(409);
+      expect(res.body.error).toMatch(/already running/);
+      expect(await prisma.executionLog.count({ where: { taskId: task.id } })).toBe(0);
+    } finally {
+      await nativeScheduler.release(task.id);
+    }
   });
 
   it('still answers 502 when the job could not be started at all', async () => {

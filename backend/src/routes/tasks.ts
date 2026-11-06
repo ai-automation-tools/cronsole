@@ -2193,6 +2193,13 @@ router.post('/:id/run', async (req: Request, res: Response) => {
   const result = await connector.runTask(task.externalId, config);
   const durationMs = Date.now() - runStartedAt;
 
+  // Already running: nothing started, so nothing is recorded. Logging it as a
+  // FAILURE put a refused double-click in the run history, counted it against
+  // the task's health, and marked the platform's Run verb broken (ADR 0004).
+  if (result.busy) {
+    throw new HttpError(409, result.message || 'This task is already running');
+  }
+
   // For Windows this records that the agent *accepted the start* — the same
   // thing `ExecutionLog.SUCCESS` means here, and no more. The matrix cell says
   // "Cronsole can trigger a run on this platform", which is exactly that claim;

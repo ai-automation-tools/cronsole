@@ -1,4 +1,4 @@
-import { NativeJob, ScriptJob, CheckProbe } from './NativeTaskExecutor.js';
+import { NativeJob, ScriptJob, CheckProbe, RunPolicy } from './NativeTaskExecutor.js';
 import { toStructuredAction } from '../utils/commandParser.js';
 
 /**
@@ -26,6 +26,35 @@ import { toStructuredAction } from '../utils/commandParser.js';
  * would then reject.
  */
 export function buildNativeJob(job: Record<string, unknown>): NativeJob {
+  const built = buildJobBody(job);
+  const policy = buildPolicy(job.policy);
+  return policy ? { ...built, policy } : built;
+}
+
+/**
+ * Normalize the run policy (ADR 0004). Fields at their default are dropped, and
+ * so is the whole object when nothing is left, so a job that sets nothing is
+ * stored byte-for-byte as before and an edit that changes nothing is no change.
+ * Values pass through `Number()` but are not clamped, so `validateJob` rejects an
+ * out-of-range one by name instead of this function quietly fixing it.
+ */
+function buildPolicy(raw: unknown): RunPolicy | undefined {
+  if (raw === undefined || raw === null) return undefined;
+  if (typeof raw !== 'object' || Array.isArray(raw)) return raw as RunPolicy;
+  const p = raw as Record<string, unknown>;
+  const out: RunPolicy = {};
+  if (p.overlap !== undefined && p.overlap !== 'skip') out.overlap = p.overlap as RunPolicy['overlap'];
+  if (p.retries !== undefined && Number(p.retries) !== 0) {
+    out.retries = Number(p.retries);
+    if (p.retryDelayMinutes !== undefined && Number(p.retryDelayMinutes) !== 1) {
+      out.retryDelayMinutes = Number(p.retryDelayMinutes);
+    }
+  }
+  if (p.catchUp !== undefined && p.catchUp !== false) out.catchUp = p.catchUp as boolean;
+  return Object.keys(out).length ? out : undefined;
+}
+
+function buildJobBody(job: Record<string, unknown>): NativeJob {
   if (job.jobType === 'EXEC') {
     const env = job.env as Record<string, string> | undefined;
     // A caller may send either a structured {executable, args[]} — what MCP and

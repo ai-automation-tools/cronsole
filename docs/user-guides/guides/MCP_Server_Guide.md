@@ -47,7 +47,7 @@ itself (each tool's exact behavior, build, tests, design), see the
 | **`create_task`** | "Run `C:\jobs\nightly.ps1` every weekday at 6am" — any command you already know | `POST /api/tasks` |
 | **`create_task_from_template`** | "Create a daily repo digest from the Claude Code template at 7am, in the Dev folder" | `POST /api/templates/:id/apply` |
 | **`create_native_task`** | "Ping my health endpoint every 15 minutes and POST this JSON to the webhook" | `POST /api/tasks/native` |
-| **`create_native_program_task`** | "Run my cleanup script every night at 2am and tell me if it fails" | `POST /api/tasks/native` |
+| **`create_native_program_task`** | "Run my cleanup script every night at 2am, retry twice if it fails, and let it run up to 3 hours" | `POST /api/tasks/native` |
 | **`create_native_script_task`** | "Write me a script that prunes old logs and run it nightly" | `POST /api/tasks/native` |
 | **`create_native_check_task`** | "Check every 5 minutes that my API returns healthy, and alert me if not" | `POST /api/tasks/native` |
 | **`convert_schedule`** | "Will `0 9 * * 1` convert cleanly to a Windows trigger?", "when will this actually run?" | `POST /api/tasks/preview` |

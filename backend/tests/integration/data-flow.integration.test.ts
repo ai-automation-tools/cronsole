@@ -137,7 +137,10 @@ describe('native task creation', () => {
     });
 
     await withNotificationSink(async (_url, requests) => {
-      await new NativeScheduler().tick(dueAt);
+      // A tick starts runs and returns without waiting for them (ADR 0004).
+      const scheduler = new NativeScheduler();
+      await scheduler.tick(dueAt);
+      await scheduler.idle();
       await flushFailureNotifications();
 
       expect(requests).toHaveLength(1);

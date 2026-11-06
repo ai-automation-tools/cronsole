@@ -1462,6 +1462,31 @@ Nothing below blocks go-live.
 The short list. Everything here is small, known, and was found by hand rather than reported —
 which is why it sits first, not because it outranks the larger work below.
 
+<a id="native-run-policy"></a>
+
+#### 🔴🔴 Top priority — requested 2026-11-06: native scheduler reliability — shipped 2026-11-06
+
+Native tasks should be a real alternative to Windows Task Scheduler, not only for checks. Measured
+against 215 real Windows tasks, the blockers were the scheduler, not the job types: 131 need more
+than an hour, `tick()` ran every job in series so one slow job held up all of them, 40 rely on
+catching up a missed start, and there were no retries. Design in
+[ADR 0004](adr/0004-native-run-policy.md).
+
+- [x] **Independent runs, with an overlap rule** — each due task starts on its own; a task still
+      running at its next due time is skipped (default) or has one run queued. Run now on a running
+      task is refused.
+- [x] **Time limit up to 24 hours** — `MAX_EXEC_TIMEOUT_MS` 60 min → 24 h, default unchanged at
+      5 min, and the limit shown and editable on the form (it was MCP-only, and a UI edit dropped it).
+- [x] **Retries** — 0–5, 1–60 minutes apart, for runs that ran and failed. Never for checks, never
+      for a run that could not start, never for Run now. Only the final attempt notifies.
+- [x] **Catch-up** — a run missed while Cronsole was down runs once when it is back, if the task
+      asks for it.
+
+Next, after these: *run after another task* (chaining between tasks, cheaper than ADR 0002's
+`SEQUENCE`), a *send a message* preset over an HTTP job (ADR 0002's `NOTIFY`, now unblocked by
+ADR 0003), a per-task *tell me when this fails* toggle, and an explicit per-job opt-in to inherit
+the user environment.
+
 <a id="gemini-usability"></a>
 
 #### 🔴🔴 Top priority — requested 2026-08-25: Gemini usability

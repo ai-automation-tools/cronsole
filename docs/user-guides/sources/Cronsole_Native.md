@@ -39,6 +39,7 @@ not a native job.
 | A short script you want kept with the task | The body lives in the task, so it travels with an export, the pre-delete archive and a template. No file on disk to lose. |
 | A job that needs an API key or token | `${secret.NAME}` is stored encrypted and redacted out of the run log. See [Secrets](#-secrets--store-a-reference-never-the-value). |
 | Anything you want a full run history for | Cronsole performs every run, scheduled ones included, so every run is logged with its output. |
+| A job that should try again when it fails | [Retries](#-run-settings) are a setting, and each attempt is in the run history with its output. |
 | A backend on Linux or in Docker, where there is no Windows | Native runs wherever the backend runs. |
 
 ### 🚫 Use something else
@@ -46,16 +47,18 @@ not a native job.
 | If the job… | Use instead | Why |
 |:---|:---|:---|
 | Must run while Cronsole is stopped, updating or crashed (backups, nightly cleanup) | [Windows Task Scheduler](Windows_Task_Scheduler.md) | A native task is a database row. Nothing runs it when the backend is down. |
-| Must not miss a run | Windows Task Scheduler | A run more than **5 minutes** overdue (Cronsole was down) is **skipped, not caught up**. |
+| Must run on time even while Cronsole is down | Windows Task Scheduler | [Catch up](#-run-settings) runs a missed job **once Cronsole is back**, which is late. A run that must happen at 3:00 sharp belongs in Windows. |
 | Needs your Windows user: your profile, mapped drives, a desktop app, a window | Windows Task Scheduler | Native runs as whatever account runs the backend, and never in your desktop session. |
 | Reads or writes files on your desktop while the backend runs in Docker | Windows Task Scheduler, or run the backend on the host | Inside a container, `D:\` is not your `D:\`. |
 | Must fire at the same local time across a daylight-saving change | Windows Task Scheduler | Native runs the stored UTC cron, so it shifts by an hour. |
-| Runs for more than an hour, or would hold up other jobs | Windows Task Scheduler | Programs and Scripts stop at 5 minutes by default and 60 at most. Jobs due together run one after another, so a slow one delays the rest. |
+| Runs for more than a day | Windows Task Scheduler | A program or script can run for up to **24 hours** (set on the task; the default is 5 minutes). |
 | Is a prompt for an AI agent to work on by itself | [Claude Code Scheduled Tasks](Claude_Code_Routines.md) or [Gemini API Triggers](Gemini_API_Triggers.md) | They run in the vendor's cloud with the model, tools and sandbox, and keep going when your machine is off. |
 | Builds or tests code in a repository | [GitHub Actions](GitHub_Actions.md) | Runners, checkouts and logs are GitHub's job. Cronsole shows the schedule and the outcome. |
 | Strings several services together with stored credentials | [n8n](n8n.md) | A workflow graph belongs in n8n. Cronsole reads it and can start it. |
 
-Timing is to the half minute: Cronsole checks for due native tasks every 30 seconds.
+Timing is to the half minute: Cronsole checks for due native tasks every 30 seconds. Each run starts
+on its own, so a long job never delays another task. How long a run may take, whether a failed run
+is retried, and what happens to a missed one are [run settings](#-run-settings) on each task.
 
 ---
 
@@ -177,6 +180,36 @@ four rows: they are different things to look at with identical capabilities.
 
 ---
 
+## ⏱️ Run settings
+
+Every native task has these, under **Run settings** on the New Task and Edit forms, or as arguments
+on the MCP create tools. All are optional, and a task that sets none behaves as it always did.
+
+| Setting | What it does | Default |
+|:---|:---|:---|
+| **Time limit** | Stops a program or script that runs longer than this. Up to 24 hours. | 5 minutes |
+| **If still running when due** | *Skip that run*, or *Run it after this one*. Queuing holds one run, never a backlog. | Skip |
+| **Retries after a failure** | Runs a scheduled job again, up to 5 more times, 1 to 60 minutes apart, when it ran and failed. | 0 |
+| **Catch up a missed run** | If Cronsole was down when the task was due, runs it once when Cronsole is back, however many due times were missed. | Off |
+
+Three rules decide when a retry happens, and each one is there to stop a retry from hiding a real
+problem:
+
+- **Only a run that ran and failed is retried.** A run that could not start, such as one with a
+  missing secret, would fail the same way every time.
+- **A check never retries.** Its failure is a measurement, and measuring again until it passes would
+  make a real outage look fine. The form leaves the field out on a check.
+- **Run now is never retried**, and is refused while the task is already running. You are watching
+  it, so you decide what happens next.
+
+Each attempt is its own line in the run history (*attempt 2 of 3*). Only the last one sends a
+notification, so one failure is one alert. A retry that is waiting when the backend restarts is
+dropped; the next scheduled run still happens.
+
+The reasoning is in [ADR 0004](../../adr/0004-native-run-policy.md).
+
+---
+
 ## 🔐 Secrets — store a reference, never the value
 
 A scheduled job usually needs a credential. Native tasks hold a **reference** to one, never the
@@ -291,6 +324,7 @@ Native has no vendor of its own. These are the documents behind it.
 | Resource | What it covers |
 |:---|:---|
 | [**ADR 0002: native job types**](../../adr/0002-native-job-types.md) | Why there are four job types, and what it takes to add a fifth. |
+| [**ADR 0004: how a native task runs**](../../adr/0004-native-run-policy.md) | Time limits, retries, overlap and catch-up, and why checks never retry. |
 | [**ADR 0003: per-job secrets**](../../adr/0003-per-job-secrets.md) | How `${secret.NAME}` is stored, substituted and redacted. |
 | [**crontab.guru**](https://crontab.guru/) | Checking what a 5-field cron expression means. Remember Cronsole stores it in UTC. |
 

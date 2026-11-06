@@ -79,6 +79,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **Native tasks run side by side, retry, and catch up** (2026-11-06, [ADR 0004](adr/0004-native-run-policy.md)). Each due native task now starts on its own, so a long job no longer holds up every other one. Every native task gains **Run settings**: a time limit up to 24 hours (default still 5 minutes), retries for a scheduled run that ran and failed (0–5, 1–60 minutes apart; only the last attempt notifies), what to do if it is still running when it comes due (skip, or queue one run), and an option to run once after Cronsole was down. A check never retries. Run now on a running task is refused. The MCP create tools and `update_native_job` take the same settings. Fixes on the way: saving the edit form no longer resets a time limit set over MCP.
 - **Three extended templates** (2026-11-05): `dev-cargo-audit-check` (cargo-audit on a Cargo.lock), `dev-go-test-run` (go test over a module) and `ntf-telegram-message` (Telegram Bot API message). They join the Developer and System Utilities packs.
 - **Four extended templates** (2026-10-29): `dev-pytest-run` (scheduled pytest with a JUnit report), `bkp-mongodump`, `bkp-redis-bgsave` and `cln-pip-cache-purge`. They join the Developer and Backup & Cleanup packs; none is core. The catalog is now 129 templates.
 - **GitHub Actions can watch a whole account or organization** (2026-10-23). In the Sources tab's

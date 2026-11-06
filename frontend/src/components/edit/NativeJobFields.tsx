@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Terminal, FolderOpen, Globe, FileCode, Activity, Variable } from 'lucide-react';
+import { Terminal, FolderOpen, Globe, FileCode, Activity, Variable, Timer } from 'lucide-react';
 import {
   parseEnv,
   parseHeaders,
   discardedByTypeSwitch,
+  MAX_TIMEOUT_MINUTES,
   SCRIPT_INTERPRETERS,
   type CheckKind,
   type JobType,
@@ -309,7 +310,116 @@ export const NativeJobFields = ({ value, onChange, storedJobType, executionHost,
           )}
         </>
       )}
+
+      <RunSettingsFields value={value} set={set} disabled={disabled} />
     </div>
+  );
+};
+
+/**
+ * How the scheduler treats this task's runs (ADR 0004). Shown for every job
+ * type, with the two fields a type cannot use left out rather than disabled: a
+ * check has no retries (its failure is a measurement), and only a program or a
+ * script has a time limit to set.
+ */
+const RunSettingsFields = ({
+  value,
+  set,
+  disabled
+}: {
+  value: NativeJobValues;
+  set: <K extends keyof NativeJobValues>(key: K, next: NativeJobValues[K]) => void;
+  disabled?: boolean;
+}) => {
+  const hasTimeout = value.jobType === 'EXEC' || value.jobType === 'SCRIPT';
+  const canRetry = value.jobType !== 'CHECK';
+  return (
+    <fieldset className="space-y-3 border-t border-border pt-4">
+      <legend className={LABEL}>
+        <Timer size={11} /> Run settings<HelpButton topic="job-run-settings" />
+      </legend>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {hasTimeout && (
+          <div className="space-y-1.5">
+            <label htmlFor="job-timeout" className={LABEL}>Time limit (minutes)</label>
+            <input
+              id="job-timeout"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={MAX_TIMEOUT_MINUTES}
+              value={value.timeoutMinutes}
+              disabled={disabled}
+              placeholder="5"
+              onChange={e => set('timeoutMinutes', e.target.value)}
+              className={FIELD}
+            />
+          </div>
+        )}
+        <div className="space-y-1.5">
+          <label htmlFor="job-overlap" className={LABEL}>If still running when due</label>
+          <select
+            id="job-overlap"
+            value={value.overlap}
+            disabled={disabled}
+            onChange={e => set('overlap', e.target.value as NativeJobValues['overlap'])}
+            className={FIELD}
+          >
+            <option value="skip">Skip that run</option>
+            <option value="queue">Run it after this one</option>
+          </select>
+        </div>
+        {canRetry && (
+          <>
+            <div className="space-y-1.5">
+              <label htmlFor="job-retries" className={LABEL}>Retries after a failure</label>
+              <input
+                id="job-retries"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={5}
+                value={value.retries}
+                disabled={disabled}
+                onChange={e => set('retries', e.target.value)}
+                className={FIELD}
+              />
+            </div>
+            {Number(value.retries) > 0 && (
+              <div className="space-y-1.5">
+                <label htmlFor="job-retry-delay" className={LABEL}>Minutes between retries</label>
+                <input
+                  id="job-retry-delay"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={60}
+                  value={value.retryDelayMinutes}
+                  disabled={disabled}
+                  onChange={e => set('retryDelayMinutes', e.target.value)}
+                  className={FIELD}
+                />
+              </div>
+            )}
+          </>
+        )}
+      </div>
+      <label className="flex items-start gap-2 text-sm text-foreground min-h-9">
+        <input
+          type="checkbox"
+          checked={value.catchUp}
+          disabled={disabled}
+          onChange={e => set('catchUp', e.target.checked)}
+          className="mt-1"
+        />
+        <span>
+          Catch up a missed run
+          <span className="block text-[11px] text-subtle-foreground">
+            If Cronsole was down when this was due, run it once when Cronsole is back.
+          </span>
+        </span>
+      </label>
+    </fieldset>
   );
 };
 

@@ -60,8 +60,8 @@ while Cronsole is down.
 
 | If the job… | Put it in | Because |
 |:---|:---|:---|
-| Calls a URL, checks something, or runs a short script, and only matters while Cronsole is up | [**⚡ Cronsole-native**](Cronsole_Native.md) | Nothing to install, every run logged with its output, secrets redacted. |
-| Must run while Cronsole is off, as your Windows user, or for longer than an hour | [**🪟 Windows Task Scheduler**](Windows_Task_Scheduler.md) | It is Windows' own scheduler. Cronsole only manages the entries. |
+| Calls a URL, checks something, or runs a program or script, and only matters while Cronsole is up | [**⚡ Cronsole-native**](Cronsole_Native.md) | Nothing to install, every run logged with its output, secrets redacted, failed runs retried if you ask. |
+| Must run while Cronsole is off, as your Windows user, or for longer than a day | [**🪟 Windows Task Scheduler**](Windows_Task_Scheduler.md) | It is Windows' own scheduler. Cronsole only manages the entries. |
 | Is work for an AI agent in a repository | [**🤖 Claude Code Scheduled Tasks**](Claude_Code_Routines.md) (formerly routines) | Runs in Anthropic's cloud against a checkout. |
 | Is work for an AI agent with tools, where you want to read every step | [**✨ Gemini API Triggers**](Gemini_API_Triggers.md) | Cronsole shows each run's output and steps. |
 | Joins several services together | [**🔀 n8n**](n8n.md) | Build it in n8n; Cronsole reads it and can start it. |

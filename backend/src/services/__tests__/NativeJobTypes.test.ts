@@ -398,3 +398,33 @@ describe('executeJob — CHECK tcp', () => {
     expect(result.log).toMatch(/tcp 127\.0\.0\.1:1/);
   });
 });
+
+describe('run policy (ADR 0004)', () => {
+  const exec = { jobType: 'EXEC', executable: 'node' };
+
+  it('drops defaults so a job that sets nothing is stored as before', () => {
+    expect(buildNativeJob({ ...exec, policy: { overlap: 'skip', retries: 0, catchUp: false } })).not.toHaveProperty('policy');
+    expect(buildNativeJob({ ...exec, policy: { retries: 2, retryDelayMinutes: 5, catchUp: true, overlap: 'queue' } }).policy)
+      .toEqual({ retries: 2, retryDelayMinutes: 5, catchUp: true, overlap: 'queue' });
+  });
+
+  it('accepts a valid policy and refuses each out-of-range field by name', () => {
+    expect(validateJob(buildNativeJob({ ...exec, policy: { retries: 5, retryDelayMinutes: 60 } }))).toBeNull();
+    expect(validateJob({ ...exec, policy: { retries: 6 } })).toMatch(/retries/);
+    expect(validateJob({ ...exec, policy: { retries: 1.5 } })).toMatch(/retries/);
+    expect(validateJob({ ...exec, policy: { retries: 1, retryDelayMinutes: 0 } })).toMatch(/retryDelayMinutes/);
+    expect(validateJob({ ...exec, policy: { overlap: 'parallel' } })).toMatch(/overlap/);
+    expect(validateJob({ ...exec, policy: { catchUp: 'yes' } })).toMatch(/catchUp/);
+  });
+
+  it('refuses retries on a check, and allows its other policy fields', () => {
+    const check = { jobType: 'CHECK', probe: { kind: 'tcp', host: 'h', port: 1 } };
+    expect(validateJob({ ...check, policy: { retries: 1 } })).toMatch(/check can't retry/);
+    expect(validateJob({ ...check, policy: { catchUp: true, overlap: 'queue' } })).toBeNull();
+  });
+
+  it('allows a time limit up to 24 hours', () => {
+    expect(validateJob({ ...exec, timeoutMs: 24 * 3_600_000 })).toBeNull();
+    expect(validateJob({ ...exec, timeoutMs: 24 * 3_600_000 + 1 })).toMatch(/timeoutMs/);
+  });
+});

@@ -21,6 +21,21 @@ whether the project has crons switched on.
 [GitHub Actions](GitHub_Actions.md): cheaper to read in one way, and poorer in another that matters
 more than it first sounds.
 
+---
+
+## 🧭 When to use it, and when not to
+
+| ✅ Use it for | Why |
+|:---|:---|
+| Seeing the crons your projects declare, beside everything else | Cronsole reads each project's cron jobs and their schedules. |
+
+| 🚫 Use something else for | Instead |
+|:---|:---|
+| Knowing whether a cron actually worked | Have the job report somewhere Cronsole can read, such as a status endpoint a native [Endpoint check](Cronsole_Native.md#-checks--measure-something-and-compare-it) watches. Vercel publishes no run history. |
+| Creating, pausing or running a cron from Cronsole | Vercel itself. This source is read-only by design. |
+
+---
+
 ## 🔌 Connecting
 
 1. **Create an access token** in Vercel's account settings.
@@ -41,6 +56,8 @@ The token is stored encrypted and never shown again; Vercel cannot re-display on
 no reveal button and rotating means pasting a new one. Because it is verified before saving, a bad
 paste fails at the click rather than inside a sync days later.
 
+---
+
 ## 🚨 The one thing this source cannot tell you
 
 **Vercel publishes no run history for a cron job.** Invocations appear in the project's function logs,
@@ -56,6 +73,8 @@ first is knowable here. Absence of evidence is `unknown`, never `ok`.
 If you need to know whether a cron is working, the answer is in your project's function logs or in
 whatever the job itself writes — not on this dashboard.
 
+---
+
 ## 🚫 The three refusals
 
 - **Create** would mean adding a `crons` entry to your `vercel.json` and deploying it. A code change,
@@ -68,11 +87,15 @@ whatever the job itself writes — not on this dashboard.
   on and off for a whole **project** at once, so a per-task toggle would be inventing a control the
   platform does not have.
 
+---
+
 ## 🎛️ What Cronsole can do here
 
 **Sync** and **health**, plus **Remove from Cronsole** on an individual cron job. Adding, editing,
 running and pausing a cron all happen on Vercel; on the Sources tab those show as *Unsupported* —
 the tab stating a boundary, not waiting for evidence.
+
+---
 
 ## 📦 Watching, and un-watching
 
@@ -86,6 +109,8 @@ and the next sync will not bring it back.
 > each task's identity, so a rename retires the old tasks and brings in new ones under the new name.
 > Cronsole warns on the sync that first sees it; re-add the project to follow the rename.
 
+---
+
 ## 📅 Schedules
 
 Vercel documents cron expressions as **UTC with no timezone support** — exactly how Cronsole stores
@@ -96,6 +121,8 @@ trigger carries.
 different schedules; Cronsole stores one schedule per task, so the row shows the first and carries the
 rest — rather than being quietly wrong about when it runs, or splitting into two rows fighting over
 one identity.
+
+---
 
 ## ⚠️ Things that surprise people
 
@@ -114,10 +141,26 @@ one identity.
 
 ---
 
+## 📦 Templates
+
+There are none for Vercel Cron. Cronsole changes nothing on Vercel, so a template would have nowhere
+to go. Crons are declared in the project's `vercel.json`.
+
+---
+
+## 🔗 Official docs
+
+| Resource | What it covers |
+|:---|:---|
+| [**Cron jobs**](https://vercel.com/docs/cron-jobs) | Declaring crons, the schedule format, and plan limits. |
+| [**Managing cron jobs**](https://vercel.com/docs/cron-jobs/manage-cron-jobs) | `CRON_SECRET`, durations, and securing the cron path. |
+| [**Access tokens**](https://vercel.com/kb/guide/how-do-i-use-a-vercel-api-access-token) | Making the token this source connects with. |
+
+---
+
 <p align="center">
   <a href="README.md">← Source guides</a> ·
-  <a href="GitHub_Actions.md">GitHub Actions</a> ·
-  <a href="Windows_Task_Scheduler.md">Windows Task Scheduler</a>
+  <a href="GitHub_Actions.md">GitHub Actions</a>
 </p>
 
 <p align="right">(<a href="#vercel-top">back to top</a>)</p>

@@ -20,6 +20,21 @@ you what is scheduled, when it claims to run, and **how the last runs actually w
 **Read-only is the design, not a first version.** Every mutating capability on this source's row
 reads *Unsupported*, and two of the three have working APIs behind them.
 
+---
+
+## 🧭 When to use it, and when not to
+
+| ✅ Use it for | Why |
+|:---|:---|
+| Seeing scheduled workflows' health beside everything else | Cronsole reads every `on: schedule` workflow in the repositories you watch, with real outcomes. |
+
+| 🚫 Use something else for | Instead |
+|:---|:---|
+| Creating, pausing or running a workflow from Cronsole | GitHub itself. This source is read-only by design ([why](#-the-three-refusals-and-why-each-is-a-boundary)). |
+| A job that does not need a repository | [Cronsole-native](Cronsole_Native.md) or [Windows Task Scheduler](Windows_Task_Scheduler.md). |
+
+---
+
 ## 🔌 Connecting
 
 1. **Create a personal access token.** Classic: the **`repo`** scope. Fine-grained: **Contents: read**
@@ -40,6 +55,8 @@ reads *Unsupported*, and two of the three have working APIs behind them.
 The token is stored encrypted and never shown again — GitHub cannot re-display a PAT either, so there
 is no reveal button and rotating means pasting a new one.
 
+---
+
 ## 🚫 The three refusals, and why each is a boundary
 
 - **Create** would mean committing a workflow file to your default branch. That is a code change, not
@@ -54,10 +71,14 @@ is no reveal button and rotating means pasting a new one.
 meaning. Unlocking it needs a scope you granted on purpose, a confirmation naming the repository, and
 the capability cell to stop saying *Unsupported* only once both exist.
 
+---
+
 ## 🎛️ What Cronsole can do here
 
 **Sync** and **health**, plus **Remove from Cronsole** on an individual workflow. Everything else is a
 stated boundary rather than a pending feature.
+
+---
 
 ## 📦 Watching, and un-watching
 
@@ -90,6 +111,8 @@ ordinary untrack path works here and the next sync will not bring it back.
 > over nothing**. Fixed 2026-08-24 by letting a connector declare its own tracked set.
 > ([#75](../../troubleshooting/README.md#75-a-github-repository-is-watched-sync-succeeds-and-no-workflows-ever-arrive))
 
+---
+
 ## 📅 Schedules — the one source with no conversion
 
 GitHub documents `on: schedule` as **UTC with no timezone support**, which is exactly how Cronsole
@@ -100,6 +123,8 @@ Windows trigger carries.
 task, so the rest travel with the task and the card says how many there are — rather than the row
 being quietly wrong about when it runs.
 
+---
+
 ## 🕐 Run history and health
 
 **The run outcomes here are real outcomes.** GitHub reports whether a run succeeded, failed, timed out
@@ -109,6 +134,8 @@ or was cancelled — the result of the work. A Windows task can only tell Cronso
 **GitHub disables scheduled workflows after 60 days of repository quiet, silently.** Cronsole surfaces
 that as its own health signal with GitHub's reason attached, which is usually the first anyone hears
 that a "nightly" workflow stopped two months ago.
+
+---
 
 ## ⚠️ Things that surprise people
 
@@ -124,6 +151,8 @@ that a "nightly" workflow stopped two months ago.
   against a 5,000-per-hour rate limit, so probing would spend your budget on a question sync already
   answers.
 
+---
+
 ## 🧯 When something looks wrong
 
 | Symptom | Start here |
@@ -133,9 +162,26 @@ that a "nightly" workflow stopped two months ago.
 
 ---
 
+## 📦 Templates
+
+There are none for GitHub Actions. Cronsole changes nothing on GitHub, so a template would have
+nowhere to go. Write the workflow file in the repository.
+
+---
+
+## 🔗 Official docs
+
+| Resource | What it covers |
+|:---|:---|
+| [**The `schedule` event**](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule) | Cron syntax, UTC, and the delays GitHub warns about. |
+| [**Workflow runs API**](https://docs.github.com/en/rest/actions/workflow-runs) | What Cronsole reads run outcomes from. |
+| [**Personal access tokens**](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens) | Making the token this source connects with. |
+
+---
+
 <p align="center">
   <a href="README.md">← Source guides</a> ·
-  <a href="Gemini_API_Triggers.md">Gemini API Triggers</a> ·
+  <a href="n8n.md">n8n</a> ·
   <a href="Vercel_Cron.md">Next: Vercel Cron →</a>
 </p>
 

@@ -18,8 +18,28 @@ Windows has had a scheduler since NT. Cronsole does not replace it — it reads 
 thing through a small .NET agent running on your machine.
 
 **The tasks are genuine Task Scheduler entries.** They exist without Cronsole, they keep running when
-Cronsole is off, and they run as your Windows user with whatever privileges that account has. Of the
-six sources, this is the one to use for anything that must survive Cronsole being down.
+Cronsole is off, and they run as your Windows user with whatever privileges that account has. Of all the
+sources, this is the one to use for anything that must survive Cronsole being down.
+
+---
+
+## 🧭 When to use it, and when not to
+
+| ✅ Use it for | Why |
+|:---|:---|
+| Anything that must run while Cronsole is off: backups, cleanup, maintenance | It is Windows' own scheduler. Cronsole only reads and writes the entries. |
+| Work that needs your Windows account: your profile, mapped drives, desktop apps | Tasks run as your user, with that account's privileges. |
+| Long jobs | No Cronsole timeout applies. Task Scheduler's own limits do. |
+| A fixed local clock time all year | A Windows trigger keeps its local time across daylight saving. |
+| Tasks you already have | Pick their folders and they appear, unchanged. |
+
+| 🚫 Use something else for | Instead |
+|:---|:---|
+| Work that should run while this PC is off or asleep | A cloud source: [Claude Code Routines](Claude_Code_Routines.md), [Gemini API Triggers](Gemini_API_Triggers.md) or [GitHub Actions](GitHub_Actions.md). |
+| A URL ping or health check whose output you want to read in Cronsole | [Cronsole-native](Cronsole_Native.md). A Windows run gives you an exit code, not the job's output. |
+| A backend on macOS or Linux | [Cronsole-native](Cronsole_Native.md) for now. A POSIX agent is on the [roadmap](../../ROADMAP.md). |
+
+---
 
 ## 🔌 Connecting
 
@@ -37,6 +57,8 @@ There is nothing to paste. Windows connects when the agent dials in, which is wh
 > Cronsole will not retire tasks it cannot see, so nothing breaks — but you are looking at a smaller
 > machine than you have. `\Cronsole-Stack\CronsoleStack` starts it at `RunLevel: Highest`.
 
+---
+
 ## 📥 Getting your tasks in
 
 Windows is the one source with a discovery step, because a machine has hundreds of tasks and almost
@@ -50,6 +72,8 @@ now and later.
 folders, and it will not adopt a folder you never picked. Those are two different requests on
 purpose: naming a folder is the gesture that starts tracking it, and a routine refresh that quietly
 adopted new folders would undo a deliberate removal.
+
+---
 
 ## 🎛️ What Cronsole can do here
 
@@ -68,6 +92,8 @@ Task Scheduler.
 | **Restore** | Plans from read-only reads first, so `dryRun` is a real preview. |
 | **Delete** | Removes the real task, after writing a pre-delete archive. |
 | **Run history** | The Operational event log, grouped into runs, with exit codes. |
+
+---
 
 ## 📅 Schedules, and where they get lossy
 
@@ -94,6 +120,8 @@ some places and poorer in others, so the conversion is where surprises live.
 - Clock times in the app follow **Settings → Behavior → Schedule timezone**. Each cron field prints
   the stored UTC beside it, so you can always see both.
 
+---
+
 ## 🕐 Reading run history
 
 Two lists, never summed:
@@ -113,6 +141,8 @@ Cronsole never triggered. Click one for its events and the action's exit code.
 
 A truncated oldest run is normal — the log is a ring buffer, so its opening event ages out. Cronsole
 groups those leftovers as **one** partial run rather than inventing three.
+
+---
 
 ## ⚠️ Things that surprise people
 
@@ -145,6 +175,8 @@ groups those leftovers as **one** partial run rather than inventing three.
 - **Bulk export reads the machine, not your tracked subset.** `\Microsoft\` is excluded by default and
   **counted out loud**, so you can see what was left behind.
 
+---
+
 ## 🧯 When something looks wrong
 
 | Symptom | Start here |
@@ -160,9 +192,30 @@ failing.
 
 ---
 
+## 📦 Templates
+
+| Where | What you get |
+|:---|:---|
+| [**🌐 Gallery: Windows templates**](https://cronsole.ai-automation-tools.dev/#/browse?target=windows) | The public catalog, already filtered to this source. |
+| **In the app** | **Templates** tab, then **Apply** and pick *Windows* as the target. The agent must be online. |
+
+---
+
+## 🔗 Official docs
+
+| Resource | What it covers |
+|:---|:---|
+| [**Task Scheduler (Microsoft Learn)**](https://learn.microsoft.com/en-us/windows/win32/taskschd/task-scheduler-start-page) | How Task Scheduler works: tasks, folders, security contexts. |
+| [**Task triggers**](https://learn.microsoft.com/en-us/windows/win32/taskschd/task-triggers) | Every trigger type Windows has, several of which cron cannot express. |
+| [**`schtasks` reference**](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/schtasks) | The command-line tool, for checking a task without Cronsole. |
+| [**🤖 Windows Agent Setup Guide**](../guides/Agent_Setup_Guide.md) | Installing the agent this source depends on. |
+
+---
+
 <p align="center">
   <a href="README.md">← Source guides</a> ·
-  <a href="Cronsole_Native.md">Next: Cronsole-native →</a>
+  <a href="Cronsole_Native.md">Cronsole-native</a> ·
+  <a href="Claude_Code_Routines.md">Next: Claude Code Routines →</a>
 </p>
 
 <p align="right">(<a href="#windows-top">back to top</a>)</p>

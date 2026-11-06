@@ -21,6 +21,25 @@ tools and it can search the web, run code, write files and call MCP servers you 
 meant "observer".** It does not. Every verb here reaches a real endpoint, and *Run now* is the
 genuine scheduled invocation rather than something that resembles it.
 
+---
+
+## 🧭 When to use it, and when not to
+
+| ✅ Use it for | Why |
+|:---|:---|
+| An agent task that uses tools: research the web, write a digest, call an MCP server | The trigger runs Google's agent in its own sandbox, with the reach you grant. |
+| Agent work you want to audit run by run | Cronsole shows each run's output and every step, which Google has no page for. |
+
+| 🚫 Use something else for | Instead |
+|:---|:---|
+| A fixed command, URL call or check | [Cronsole-native](Cronsole_Native.md). No model, no token cost, exact behaviour. |
+| Work on your own machine's files | [Windows Task Scheduler](Windows_Task_Scheduler.md). |
+
+A prompt or schedule you expect to change often still works here, but each change is a
+**Recreate**: the definition is fixed once the trigger exists.
+
+---
+
 ## 🔌 Connecting
 
 One API key. That is the whole setup — there are no projects or repositories to name, because a key
@@ -44,6 +63,8 @@ preview string into your sidebar and into any saved view keyed on it.
 > name today, and a preview string with a date is one that will be replaced. It lives in the
 > connection panel rather than in Cronsole's source, so the day creates start failing the fix is a
 > text field. Clear it to go back to the shipped default.
+
+---
 
 ## 🛠️ Saving an MCP server — do this first
 
@@ -73,6 +94,8 @@ that token, so rebuilding would drop it.
 > masked field pretending to be one. Two saved servers may not share a URL: a synced trigger reports
 > only `{type, name, url}`, so two on one endpoint could not be told apart and a rotation would
 > rebuild the wrong ones.
+
+---
 
 ## ✍️ Creating a trigger
 
@@ -108,6 +131,8 @@ lists the ones you have rather than creating a trigger that cannot authenticate.
 lists what the trigger will be able to do **before** you press the button — that list is the part
 worth reading, because the trigger keeps that reach for as long as it exists.
 
+---
+
 ## 📝 Writing a prompt for an unattended agent
 
 Three rules, each paid for by a real failed run.
@@ -129,6 +154,8 @@ They are **notes, not blockers.** Nothing in that panel stops you creating the t
 meant to be overruled: a prompt may legitimately contain a question mark, and a rule you cannot
 ignore by simply not acting on it is one you stop reading. What the panel cannot check is rule 2 —
 only you know whether the prompt says what to do when a step fails.
+
+---
 
 ## 🔁 Changing one — Recreate with changes, and Duplicate
 
@@ -155,6 +182,8 @@ trigger could not authenticate to fails later, on a schedule.
 For rotating one token across *every* trigger, use **Push this credential** on the saved server
 instead — not this button, task by task.
 
+---
+
 ## 🎛️ What Cronsole can do here
 
 **Sync · Run now · Enable / disable · Create (with tools, MCP servers and an allowlist) · Delete**,
@@ -170,6 +199,8 @@ agent, with its own prompt, in its own sandbox**, and the run appears on the sam
 scheduled runs appear on. Google's own documentation notes that pausing a trigger stops its
 *scheduled* executions while leaving manual ones alone — the platform stating that the two are one
 mechanism with two doors.
+
+---
 
 ## 🕐 Run history — read the steps, not the status
 
@@ -187,6 +218,8 @@ Click one for the output, what it cost, and **what it actually did** — the too
 There is **no Google web page for any of this**. Triggers are managed entirely through the API;
 Google's own documentation for them is programmatic only, and the Gemini app's scheduled-actions page
 is a different product. Cronsole is where you see them.
+
+---
 
 ## ⚠️ Things that surprise people
 
@@ -219,6 +252,8 @@ is a different product. Cronsole is where you see them.
   row is marked *Experimental* for that reason. That is a statement about the API underneath, not
   about how much of the connector is finished.
 
+---
+
 ## 🧯 When something looks wrong
 
 | Symptom | Start here |
@@ -230,10 +265,30 @@ is a different product. Cronsole is where you see them.
 
 ---
 
+## 📦 Templates
+
+| Where | What you get |
+|:---|:---|
+| [**🌐 Gallery: Gemini templates**](https://cronsole.ai-automation-tools.dev/#/browse?target=gemini) | The public catalog, already filtered to this source. Each template states the tools it grants. |
+| **In the app** | **Templates** tab, then **Apply** and pick *Gemini*. Needs the API key on the connection. |
+
+---
+
+## 🔗 Official docs
+
+| Resource | What it covers |
+|:---|:---|
+| [**Triggers API reference**](https://aistudio.google.com/api-reference/triggers) | Create, list, run, update and delete, plus executions. The surface this connector uses. |
+| [**Managed agents quickstart**](https://ai.google.dev/gemini-api/docs/managed-agents-quickstart) | The agents a trigger runs. |
+| [**Google AI Studio API keys**](https://aistudio.google.com/app/apikey) | Where the key Cronsole needs comes from. |
+| [**Managed agents announcement**](https://blog.google/innovation-and-ai/technology/developers-tools/expanding-managed-agents-gemini-api-3-6-flash-hooks/) | Google's post introducing scheduled triggers. |
+
+---
+
 <p align="center">
   <a href="README.md">← Source guides</a> ·
   <a href="Claude_Code_Routines.md">Claude Code Routines</a> ·
-  <a href="GitHub_Actions.md">Next: GitHub Actions →</a>
+  <a href="n8n.md">Next: n8n →</a>
 </p>
 
 <p align="right">(<a href="#gemini-top">back to top</a>)</p>

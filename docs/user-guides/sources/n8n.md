@@ -14,14 +14,31 @@
 
 ---
 
-Cronsole reads every workflow on your n8n instance that has a **Schedule Trigger**, converts its
-schedule to UTC, and reads its executions — so you get a real health score and each run's steps on
-the same dashboard as everything else.
+Cronsole reads every workflow on your n8n instance that has an enabled trigger. A **Schedule
+Trigger** gives it a schedule, converted to UTC; a form, webhook, chat or manual trigger makes it an
+**on-demand** task with no schedule. Either way Cronsole reads its executions, so you get a real
+health score and each run's steps on the same dashboard as everything else.
 
 **Reading is the default and running is opt-in.** Like [GitHub Actions](GitHub_Actions.md) and
 [Vercel Cron](Vercel_Cron.md) Cronsole changes nothing in n8n by default; unlike Vercel, n8n
 publishes how every run went. With an MCP access token on the connection, **Run now** starts a
 workflow through its own Schedule Trigger — see [Run now](#run-now) below.
+
+---
+
+## 🧭 When to use it, and when not to
+
+| ✅ Use it for | Why |
+|:---|:---|
+| Multi-step integrations across services, with credentials kept in n8n | That is what n8n is built for. Cronsole adds its health and runs beside everything else. |
+| Workflows you already have in n8n | Connect once and they all appear, with real run outcomes. |
+
+| 🚫 Use something else for | Instead |
+|:---|:---|
+| Pausing, editing or creating a workflow from Cronsole | n8n itself. Cronsole can only **Run now** ([why](#-the-two-refusals)). |
+| A single URL call or a short script | [Cronsole-native](Cronsole_Native.md). A one-node workflow is more to keep running than a native task. |
+
+---
 
 ## 🔌 Connecting
 
@@ -45,6 +62,8 @@ every workflow lands under **n8n**, nested by how it starts or by its real folde
 > shown once; generate a new one and use n8n's copy button. Cronsole's error says whether n8n
 > rejected the key (`unauthorized`) or never received it (`header required` — a proxy in the way).
 
+---
+
 ## 🕒 The time zone, and why Cronsole asks for it
 
 n8n runs a Schedule Trigger in the instance's time zone (`GENERIC_TIMEZONE`, or the workflow's own
@@ -60,6 +79,8 @@ own, scheduled for Friday 9:00, whose executions start at `14:00Z` in October is
 `America/Chicago`. ([Troubleshooting #97](../../troubleshooting/README.md#97-one-n8n-workflow-shows-no-schedule-while-the-others-convert-fine))
 
 <a id="run-now"></a>
+
+---
 
 ## ▶️ Run now
 
@@ -98,6 +119,8 @@ Four things to know:
 - **A form, webhook or chat workflow cannot be started this way.** Its trigger needs input — a form
   submission, a webhook payload, a chat message — and n8n says so. Start it where its input comes from.
 
+---
+
 ## 🚫 The two refusals
 
 - **Enable / disable** — publishing and unpublishing switch a **whole workflow**: its webhooks,
@@ -112,11 +135,15 @@ draft/publish model, so it is not a safe edit to make from outside.
 > Until 2026-10-05 Run now was the third refusal, on the grounds above about the REST API. The REST
 > half is still true; the MCP server is what changed.
 
+---
+
 ## 🎛️ What Cronsole can do here
 
 **Sync**, **health**, **Run now** (with an MCP access token), **Run History** (the platform's own
 executions, with each run's steps and a link to its page in n8n), and **Remove from Cronsole** on a
 single workflow.
+
+---
 
 ## 📋 What becomes a task
 
@@ -162,6 +189,8 @@ in New York is stored as `0 4,10,16,22 * * *` — and the card still reads *Ever
 
 <a id="folders"></a>
 
+---
+
 ## 🗂️ Folders
 
 **By default, workflows nest under n8n by how they start** — *Scheduled*, *Forms*, *Webhooks*,
@@ -205,6 +234,8 @@ The URL is encrypted like the API key and never shown again — the panel shows 
   never overwrites a category. An instance with `DB_TABLE_PREFIX` set is
   not supported yet.
 
+---
+
 ## 📈 Health and run history
 
 Each sync reads the workflow's recent executions. The health score uses n8n's own words: `success`
@@ -221,6 +252,8 @@ outcomes yet. Three failed runs in a row is critical.
 **The data each node produced is not shown** — it stays in n8n, one click away. An instance prunes
 old executions, so an old run can age out of the list while the workflow is perfectly healthy.
 
+---
+
 ## ⚠️ Things that surprise people
 
 - **There is no next-run time.** n8n does not report one, and a time computed from the cron would
@@ -233,4 +266,28 @@ old executions, so an old run can age out of the list while the workflow is perf
 
 ---
 
-<p align="center"><a href="#n8n-top">↑ Back to top</a> · <a href="README.md">Source guides</a></p>
+## 📦 Templates
+
+There are none for n8n. Cronsole does not create n8n workflows, so a template would have nowhere to
+go. Build the workflow in n8n, or start from [n8n's own template library](https://n8n.io/workflows/).
+
+---
+
+## 🔗 Official docs
+
+| Resource | What it covers |
+|:---|:---|
+| [**Schedule Trigger node**](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.scheduletrigger/) | The rules Cronsole converts to cron. |
+| [**n8n public API**](https://docs.n8n.io/api/) and [**API keys**](https://docs.n8n.io/api/authentication/) | The key Cronsole reads workflows and executions with. |
+| [**Instance-level MCP server**](https://docs.n8n.io/advanced-ai/accessing-n8n-mcp-server/) | The token and the per-workflow switch that **Run now** needs. |
+| [**Time zone settings**](https://docs.n8n.io/hosting/configuration/environment-variables/timezone-localization/) | `GENERIC_TIMEZONE`, the value Cronsole asks you for. |
+
+---
+
+<p align="center">
+  <a href="README.md">← Source guides</a> ·
+  <a href="Gemini_API_Triggers.md">Gemini API Triggers</a> ·
+  <a href="GitHub_Actions.md">Next: GitHub Actions →</a>
+</p>
+
+<p align="right">(<a href="#n8n-top">back to top</a>)</p>

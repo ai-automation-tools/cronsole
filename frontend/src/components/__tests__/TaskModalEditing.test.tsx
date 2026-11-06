@@ -112,23 +112,23 @@ describe('a renamed task', () => {
 });
 
 describe('removing a Claude task', () => {
-  it('offers Disconnect routine instead of Remove from Cronsole', () => {
+  it('offers Disconnect scheduled task instead of Remove from Cronsole', () => {
     // Untrack refuses server-side for this platform. Offering the button anyway
     // would be a control whose only outcome is an error message.
     renderModal(claudeTask);
-    expect(screen.getByRole('button', { name: /Disconnect routine/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Disconnect scheduled task/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Remove from Cronsole/i })).not.toBeInTheDocument();
   });
 
   it('still offers Remove from Cronsole for Windows', () => {
     renderModal(windowsTask);
     expect(screen.getByRole('button', { name: /Remove from Cronsole/i })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Disconnect routine/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Disconnect scheduled task/i })).not.toBeInTheDocument();
   });
 
   it('names the token cost before the click, and where the routine keeps running', async () => {
     renderModal(claudeTask);
-    fireEvent.click(screen.getByRole('button', { name: /Disconnect routine/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Disconnect scheduled task/i }));
 
     await waitFor(() => expect(confirmMock).toHaveBeenCalled());
     const opts = confirmMock.mock.calls[0][0] as { message: string };
@@ -141,7 +141,7 @@ describe('removing a Claude task', () => {
     // The routine registry is keyed on the trig_ id; sending task-2 would 404
     // and leave the routine declared.
     renderModal(claudeTask);
-    fireEvent.click(screen.getByRole('button', { name: /Disconnect routine/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Disconnect scheduled task/i }));
 
     await waitFor(() =>
       expect(api.delete).toHaveBeenCalledWith('/tools/platforms/claude/routines/trig_01ABCDEF')
@@ -151,7 +151,7 @@ describe('removing a Claude task', () => {
   it('does nothing when the confirmation is declined', async () => {
     confirmMock.mockResolvedValue(false);
     renderModal(claudeTask);
-    fireEvent.click(screen.getByRole('button', { name: /Disconnect routine/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Disconnect scheduled task/i }));
 
     await waitFor(() => expect(confirmMock).toHaveBeenCalled());
     expect(api.delete).not.toHaveBeenCalled();

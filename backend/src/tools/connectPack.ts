@@ -118,7 +118,9 @@ import { CONNECT_PACK_FILES } from './connectPackBundled.js';
 //   `update_native_job`, `rename_task`, `list_platform_runs`, `get_run_output`,
 //   `list_task_secrets`), so it now names all 38. task-authoring's management
 //   table gains rename, native-job edit, template delete and the routine verbs.
-export const CONNECT_PACK_VERSION = '1.14';
+// 1.15 (2026-11-06): Anthropic renamed Claude Code routines to scheduled tasks;
+//   SKILL.md and task-authoring say "Claude scheduled task" (tool names unchanged).
+export const CONNECT_PACK_VERSION = '1.15';
 
 /** Where a reader should look for a newer copy than the one in their hand. */
 export const CONNECT_PACK_HOME = 'https://cronsole.ai-automation-tools.dev';

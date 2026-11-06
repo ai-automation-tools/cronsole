@@ -837,8 +837,8 @@ router.post(
     if (!id) {
       throw new HttpError(
         400,
-        'Could not read a routine id from that. Paste either the trig_… id or the whole fire URL ' +
-          'shown in the routine\'s API trigger dialog.'
+        'Could not read a Claude scheduled task id from that. Paste either the trig_… id or the whole fire URL ' +
+          'shown in the scheduled task\'s API trigger dialog.'
       );
     }
 
@@ -863,10 +863,10 @@ router.post(
       // read the right value from.
       looksLikeRoutineId(id)
         ? null
-        : `"${id}" does not look like a routine id — claude.ai issues trig_… values, which you can copy from the routine's own page URL or from its API trigger dialog.`,
+        : `"${id}" does not look like a Claude scheduled task id — claude.ai issues trig_… values, which you can copy from the scheduled task's own page URL or from its API trigger dialog.`,
       looksLikeRoutineToken(token)
         ? null
-        : 'That token does not start with sk-ant-oat01-, which is the form claude.ai issues for a routine API trigger.'
+        : 'That token does not start with sk-ant-oat01-, which is the form claude.ai issues for a scheduled task API trigger.'
     ].filter((w): w is string => w !== null);
 
     res.status(replaced ? 200 : 201).json({
@@ -913,7 +913,7 @@ router.patch(
     const { connection, routines } = await loadClaudeRoutines(userId);
     const existing = routines.find(r => r.id === currentId);
     if (!existing) {
-      throw new HttpError(404, `No routine ${currentId} is configured.`);
+      throw new HttpError(404, `No Claude scheduled task ${currentId} is configured.`);
     }
 
     let nextId = currentId;
@@ -922,12 +922,12 @@ router.patch(
       if (!normalized) {
         throw new HttpError(
           400,
-          'Could not read a routine id from that. Paste either the trig_… id or the whole fire URL ' +
-            'shown in the routine\'s API trigger dialog.'
+          'Could not read a Claude scheduled task id from that. Paste either the trig_… id or the whole fire URL ' +
+            'shown in the scheduled task\'s API trigger dialog.'
         );
       }
       if (normalized !== currentId && routines.some(r => r.id === normalized)) {
-        throw new HttpError(409, `A different routine is already connected as ${normalized}.`);
+        throw new HttpError(409, `A different Claude scheduled task is already connected as ${normalized}.`);
       }
       nextId = normalized;
     }
@@ -977,7 +977,7 @@ router.patch(
       // hint and never a refusal.
       warnings: looksLikeRoutineId(nextId)
         ? []
-        : [`"${nextId}" does not look like a routine id — claude.ai issues trig_… values.`]
+        : [`"${nextId}" does not look like a Claude scheduled task id — claude.ai issues trig_… values.`]
     });
   }
 );
@@ -988,7 +988,7 @@ router.delete('/platforms/claude/routines/:id', async (req: Request, res: Respon
 
   const { connection, routines } = await loadClaudeRoutines(userId);
   if (!routines.some(r => r.id === id)) {
-    throw new HttpError(404, `No routine ${id} is configured.`);
+    throw new HttpError(404, `No Claude scheduled task ${id} is configured.`);
   }
 
   const remaining = routines.filter(r => r.id !== id);

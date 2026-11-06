@@ -67,15 +67,15 @@ describe('Claude connects, it does not create', () => {
   it('renames the whole action rather than reusing "New Task"', () => {
     renderModal();
     selectClaude();
-    expect(screen.getByRole('heading', { name: 'Connect a routine' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Connect Routine/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Connect a scheduled task' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Connect scheduled task/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Create .*Task/i })).not.toBeInTheDocument();
   });
 
   it('says plainly what Cronsole cannot do', () => {
     renderModal();
     selectClaude();
-    expect(screen.getByText(/cannot create, schedule or pause a routine/i)).toBeInTheDocument();
+    expect(screen.getByText(/cannot create, schedule or pause one/i)).toBeInTheDocument();
   });
 
   it('offers no schedule field, and explains why instead', () => {
@@ -101,7 +101,7 @@ describe('Claude connects, it does not create', () => {
     selectClaude();
     expect(screen.getByLabelText('API token')).toHaveAttribute('type', 'password');
     // The id is not a secret, and masking it would make a paste impossible to check.
-    expect(screen.getByLabelText('Routine id or fire URL')).not.toHaveAttribute('type', 'password');
+    expect(screen.getByLabelText('Scheduled task id or fire URL')).not.toHaveAttribute('type', 'password');
   });
 });
 
@@ -109,10 +109,10 @@ describe('submitting a Claude routine', () => {
   it('requires the id and token but not a name', () => {
     renderModal();
     selectClaude();
-    const submit = screen.getByRole('button', { name: /Connect Routine/i });
+    const submit = screen.getByRole('button', { name: /Connect scheduled task/i });
     expect(submit).toBeDisabled();
 
-    fireEvent.change(screen.getByLabelText('Routine id or fire URL'), { target: { value: 'trig_1' } });
+    fireEvent.change(screen.getByLabelText('Scheduled task id or fire URL'), { target: { value: 'trig_1' } });
     expect(submit).toBeDisabled();
 
     // No name typed — it falls back to the id server-side.
@@ -127,10 +127,10 @@ describe('submitting a Claude routine', () => {
     // task-creation path no other platform uses.
     renderModal();
     selectClaude();
-    fireEvent.change(screen.getByLabelText('Routine id or fire URL'), { target: { value: ' trig_1 ' } });
+    fireEvent.change(screen.getByLabelText('Scheduled task id or fire URL'), { target: { value: ' trig_1 ' } });
     fireEvent.change(screen.getByLabelText('API token'), { target: { value: ' sk-ant-oat01-x ' } });
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: ' Nightly ' } });
-    fireEvent.click(screen.getByRole('button', { name: /Connect Routine/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Connect scheduled task/i }));
 
     await waitFor(() =>
       expect(api.post).toHaveBeenCalledWith('/tools/platforms/claude/routines', {
@@ -146,9 +146,9 @@ describe('submitting a Claude routine', () => {
   it('tells the user the routine still runs on its own schedule', async () => {
     renderModal();
     selectClaude();
-    fireEvent.change(screen.getByLabelText('Routine id or fire URL'), { target: { value: 'trig_1' } });
+    fireEvent.change(screen.getByLabelText('Scheduled task id or fire URL'), { target: { value: 'trig_1' } });
     fireEvent.change(screen.getByLabelText('API token'), { target: { value: 'sk' } });
-    fireEvent.click(screen.getByRole('button', { name: /Connect Routine/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Connect scheduled task/i }));
 
     await waitFor(() => expect(toastMock).toHaveBeenCalled());
     expect(toastMock.mock.calls[0][0]).toMatch(/still runs on its own schedule at claude\.ai/i);
@@ -160,9 +160,9 @@ describe('submitting a Claude routine', () => {
     vi.mocked(api.post).mockResolvedValueOnce({ data: { warnings: ['"weird" does not look like a routine id'] } });
     renderModal();
     selectClaude();
-    fireEvent.change(screen.getByLabelText('Routine id or fire URL'), { target: { value: 'weird' } });
+    fireEvent.change(screen.getByLabelText('Scheduled task id or fire URL'), { target: { value: 'weird' } });
     fireEvent.change(screen.getByLabelText('API token'), { target: { value: 'sk' } });
-    fireEvent.click(screen.getByRole('button', { name: /Connect Routine/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Connect scheduled task/i }));
 
     await waitFor(() => expect(toastMock).toHaveBeenCalled());
     expect(toastMock.mock.calls[0][0]).toMatch(/does not look like a routine id/i);

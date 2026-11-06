@@ -288,7 +288,7 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
               <p className="text-[11px] text-warning-text bg-warning/5 border border-warning/30 rounded-xl px-3 py-2 flex items-start gap-1.5">
                 <AlertTriangle size={11} className="shrink-0 mt-0.5" />
                 {template.targetPlatforms.includes('CLAUDE_CODE')
-                  ? 'Creating a Claude routine needs a Claude Code session on the machine running Cronsole — sign in with the Claude Code CLI (/login), or create the routine at claude.ai and connect it. Copy the prompt below to set it up manually.'
+                  ? 'Creating a Claude scheduled task needs a Claude Code session on the machine running Cronsole — sign in with the Claude Code CLI (/login), or create the scheduled task at claude.ai and connect it. Copy the prompt below to set it up manually.'
                   : 'This is a compatible pattern — Cronsole can’t create tasks on its target platform(s) here (no agent or API). Copy the command below to set it up manually.'}
               </p>
             )}
@@ -337,10 +337,10 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
                 className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm font-mono text-foreground outline-none focus:border-primary transition-colors"
               />
               <p className="text-[10px] text-subtle-foreground italic">
-                One repository URL per line. The routine runs in a cloud environment Anthropic owns —
-                <span className="not-italic"> a routine with no repository still runs, it just has no checkout</span>, so a
+                One repository URL per line. The Claude scheduled task runs in a cloud environment Anthropic owns —
+                <span className="not-italic"> a scheduled task with no repository still runs, it just has no checkout</span>, so a
                 prompt that reads or edits code needs the repository attached here. Cronsole never guesses one:
-                the routine can commit, and attaching the wrong repo is not a mistake you can see before it happens.
+                the scheduled task can commit, and attaching the wrong repo is not a mistake you can see before it happens.
               </p>
             </div>
           )}

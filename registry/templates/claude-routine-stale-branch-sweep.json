@@ -1,8 +1,8 @@
 {
   "schemaVersion": "1.0",
   "id": "claude-routine-stale-branch-sweep",
-  "name": "Routine: Stale Branch Sweep",
-  "description": "A weekly routine that lists remote branches with no commits in a configurable window and reports which look safe to delete, so a repository does not accumulate branches nobody remembers opening.",
+  "name": "Claude Scheduled Task: Stale Branch Sweep",
+  "description": "A weekly Claude scheduled task that lists remote branches with no commits in a configurable window and reports which look safe to delete, so a repository does not accumulate branches nobody remembers opening.",
   "runtime": "ai-prompt",
   "os": "cross-platform",
   "category": "dev-workflow",
@@ -26,7 +26,7 @@
       "type": "text",
       "default": "",
       "required": true,
-      "help": "The owner/name of the repository to sweep. Attach the same repository to the routine so it has a checkout."
+      "help": "The owner/name of the repository to sweep. Attach the same repository to the scheduled task so it has a checkout."
     },
     {
       "key": "staleDays",

@@ -1,7 +1,7 @@
 # Cronsole
 
 > Agent instructions for **Cronsole** — a single pane of glass for scheduled tasks across Windows
-> Task Scheduler, Cronsole-native jobs, and Claude Code routines. This file is canonical for every
+> Task Scheduler, Cronsole-native jobs, and Claude Code scheduled tasks. This file is canonical for every
 > coding agent (Codex, opencode, Antigravity, Claude Code); [`CLAUDE.md`](CLAUDE.md) imports it and
 > adds only what is specific to Claude Code (slash commands, the project-local `.claude/`).
 > Overrides any parent-workspace or user-scope `AGENTS.md` / `CLAUDE.md` where they conflict.
@@ -43,7 +43,7 @@ access, registry). Functional MVP: real-time agent↔backend sync, selective imp
 template catalog with an Apply modal, and a shipped MCP server.
 
 **Platforms:** Windows Task Scheduler (functional) · Cronsole-native jobs (functional) · Claude Code
-routines (two modes — see Connectors) · Gemini API Triggers (the **first hosted controller**;
+scheduled tasks (formerly routines; two modes — see Connectors) · Gemini API Triggers (the **first hosted controller**;
 `v1beta` preview) · n8n (a **controller** whose one write verb is *Run now*, through n8n's MCP
 server; reports run outcomes) · GitHub Actions and Vercel Cron (**read-only observers**) ·
 ChatGPT / Grok / Jules / Open Claw / Hermes = quick links only.
@@ -209,11 +209,11 @@ Non-negotiable rules. **Every one has a reason recorded in
 - **Export has two formats and they never merge**: `native` (fidelity — Task Scheduler XML or the
   `cronsoleTaskVersion` bundle) and `template` (portability). It reaches no platform, so it records no
   capability.
-- **Untrack 400s for `TASKHUB_NATIVE` always, and for `CLAUDE_CODE` only when the routine is
-  *declared*** in `PlatformConnection.config` — that row *is* the declaration, so removing it alone
+- **Untrack 400s for `TASKHUB_NATIVE` always, and for `CLAUDE_CODE` only when the scheduled task
+  is *declared*** in `PlatformConnection.config` — that row *is* the declaration, so removing it alone
   would have the next sync bring it back; use `disconnect_claude_routine`, which removes both. A
   `CLAUDE_CODE` row discovered through an OAuth session has no declaration to leave behind, so it
-  untracks like any other platform's — before this, such a row (e.g. one whose routine was deleted at
+  untracks like any other platform's — before this, such a row (e.g. one whose scheduled task was deleted at
   claude.ai, leaving it `MISSING`) could not be removed by anything: untrack 400s unconditionally,
   `disconnect_claude_routine` 404s (nothing declared to disconnect), and `delete_task` refuses every
   platform but `TASKHUB_NATIVE`.
@@ -349,7 +349,7 @@ Non-negotiable rules. **Every one has a reason recorded in
   scoring `enabledAt` would report every configured cron healthy. **`configured` and `working` are
   different claims**, and only the first is knowable there.
 - **Health reports evidence, never preconditions**, and never has a side effect (Claude's documented
-  routines endpoint *fires* the routine). `UNKNOWN` is the absence of a verdict and must rank above
+  fire endpoint *fires* the scheduled task). `UNKNOWN` is the absence of a verdict and must rank above
   healthy in any summary; failure evidence ages out (15 min), connection evidence renews itself.
   `lastSync` has exactly one writer. **A surface derives health from `connector.getHealth` when
   asked; it never reads back a cached column** — `PlatformConnection.healthState` is written only by
@@ -359,7 +359,7 @@ Non-negotiable rules. **Every one has a reason recorded in
   [#48](docs/troubleshooting/README.md#48-windows-sits-at-degraded-for-hours-while-the-agent-is-perfectly-healthy),
   [#62](docs/troubleshooting/README.md#62-windows-reports-not-responding-15-seconds-after-every-successful-request),
   [#66](docs/troubleshooting/README.md#66-two-cronsole-surfaces-disagree-about-the-agent-in-the-same-second)).
-- **Claude has two doors and keeps both**: the documented per-routine fire token (declared registry
+- **Claude has two doors and keeps both**: the documented per-task fire token (declared registry
   mode) and the undocumented OAuth `/v1/code/triggers` API (full read/write). `unsupportedVerbs` is
   therefore a **getter** — any test asserting Claude's capabilities must mock the credential. Delete
   is impossible on both, verified by enumeration.

@@ -96,8 +96,8 @@ export function planBulkUntrack(tasks: readonly BulkUntrackTask[]): {
         ...base,
         outcome: 'refused',
         message:
-          'A Claude routine is tracked because you declared it, so removing this row leaves the ' +
-          'declaration behind and the next sync brings it back. Remove the routine itself under ' +
+          'A Claude scheduled task is tracked because you declared it, so removing this row leaves the ' +
+          'declaration behind and the next sync brings it back. Remove the scheduled task itself under ' +
           'Platforms → Claude, which also forgets its API token.'
       });
       continue;

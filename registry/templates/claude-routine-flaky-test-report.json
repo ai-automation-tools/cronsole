@@ -1,8 +1,8 @@
 {
   "schemaVersion": "1.0",
   "id": "claude-routine-flaky-test-report",
-  "name": "Routine: Flaky Test Report",
-  "description": "A weekly routine that reads recent CI runs, finds tests that failed and then passed on a retry or a later commit with no relevant change, and ranks them by how often they flip, so intermittent failures get fixed instead of re-run.",
+  "name": "Claude Scheduled Task: Flaky Test Report",
+  "description": "A weekly Claude scheduled task that reads recent CI runs, finds tests that failed and then passed on a retry or a later commit with no relevant change, and ranks them by how often they flip, so intermittent failures get fixed instead of re-run.",
   "runtime": "ai-prompt",
   "os": "cross-platform",
   "category": "dev-workflow",
@@ -34,7 +34,7 @@
       "type": "text",
       "default": "",
       "required": true,
-      "help": "The owner/name of the repository to review. Attach the same repository to the routine so it has a checkout."
+      "help": "The owner/name of the repository to review. Attach the same repository to the scheduled task so it has a checkout."
     }
   ],
   "compatibleTargets": [

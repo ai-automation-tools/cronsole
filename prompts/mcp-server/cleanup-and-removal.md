@@ -50,15 +50,15 @@ It **refuses** on two platforms, and both refusals are the honest answer rather 
 
 - **Cronsole-native** — the row *is* the task, so there's nothing to leave behind. You want
   delete.
-- **Claude routines** — with no list endpoint, your declaration is the platform. Untracking
+- **Claude scheduled tasks** — with no list endpoint, your declaration is the platform. Untracking
   would fence your own config off from itself and the next import would bring it straight back.
   You want disconnect.
 
-## 🔌 Disconnect — a Claude routine
+## 🔌 Disconnect — a Claude scheduled task
 
 ```text
-Using Cronsole, disconnect the routine "Morning digest" — take it off my
-dashboard. I understand the routine keeps running at claude.ai and that the
+Using Cronsole, disconnect the Claude scheduled task "Morning digest" — take it off my
+dashboard. I understand it keeps running at claude.ai and that the
 stored token is gone for good.
 ```
 
@@ -67,12 +67,12 @@ Using Cronsole, before I disconnect "Issue triage", tell me how many tracked
 tasks point at it and what disconnecting will strand.
 ```
 
-The reason this isn't folded into untrack: claude.ai shows a routine's token **once**. A control
+The reason this isn't folded into untrack: claude.ai shows a scheduled task's token **once**. A control
 labelled "Remove from Cronsole" that silently spent a credential you'd have to regenerate at
 Anthropic would be spending something its label never mentioned. Disconnect says so in its own
 confirmation.
 
-Full detail on [**Claude routines**](claude-routines.md).
+Full detail on [**Claude scheduled tasks**](claude-routines.md).
 
 ## 🗑️ Delete — Cronsole-native only
 
@@ -162,7 +162,7 @@ missing feature.
 | Resource | Why |
 |:---|:---|
 | [**⚙️ Manage tasks**](manage-tasks.md) | Disable — the reversible option you usually want first. |
-| [**🧠 Claude routines**](claude-routines.md) | Disconnect in its own context. |
+| [**🧠 Claude scheduled tasks**](claude-routines.md) | Disconnect in its own context. |
 | [**🖥️ Cronsole-native tasks**](native-tasks.md) | Where delete is allowed, and why nothing is orphaned. |
 | [**🧯 Troubleshooting #47**](../../docs/troubleshooting/README.md) | The Claude task that kept coming back. |
 

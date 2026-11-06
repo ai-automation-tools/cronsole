@@ -1,8 +1,8 @@
 {
   "schemaVersion": "1.0",
   "id": "claude-routine-dependency-review",
-  "name": "Routine: Dependency Review",
-  "description": "A weekly routine that checks outdated and vulnerable dependencies, and reports which upgrades are safe to take rather than upgrading anything itself.",
+  "name": "Claude Scheduled Task: Dependency Review",
+  "description": "A weekly Claude scheduled task that checks outdated and vulnerable dependencies, and reports which upgrades are safe to take rather than upgrading anything itself.",
   "runtime": "ai-prompt",
   "os": "cross-platform",
   "category": "dev-workflow",
@@ -26,7 +26,7 @@
       "type": "text",
       "default": "",
       "required": true,
-      "help": "The repository to review. Attach it to the routine so the checkout is available."
+      "help": "The repository to review. Attach it to the scheduled task so the checkout is available."
     }
   ],
   "compatibleTargets": [

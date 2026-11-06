@@ -1530,10 +1530,10 @@ router.post('/:id/untrack', async (req: Request, res: Response) => {
     if (declared) {
       throw new HttpError(
         400,
-        'A Claude routine is tracked because you declared it, so this row is not the thing to remove — ' +
-        'the routine would still be in the Claude connection and the next sync would bring it back. ' +
-        'Remove the routine itself under Platforms → Claude (or disconnect_claude_routine over MCP), which ' +
-        'also forgets its API token. The routine keeps running at claude.ai either way.'
+        'A Claude scheduled task is tracked because you declared it, so this row is not the thing to remove — ' +
+        'the scheduled task would still be in the Claude connection and the next sync would bring it back. ' +
+        'Remove the scheduled task itself under Platforms → Claude (or disconnect_claude_routine over MCP), which ' +
+        'also forgets its API token. The scheduled task keeps running at claude.ai either way.'
       );
     }
     // Undeclared: discovered via an OAuth session with nothing in config to

@@ -2092,7 +2092,7 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
       multi-instance.
 - [ ] **Template registry — optional follow-up**: index signing, beyond the per-file sha256.
 - [ ] **Cross-platform template targets — follow-up (b)**: real export artifacts (cron line,
-      launchd plist, Claude routine payload). Lands as connectors and the POSIX agent do.
+      launchd plist, Claude scheduled task payload). Lands as connectors and the POSIX agent do.
 - [ ] Partly shipped: **Per-user monitoring/notification channels — webhook shipped 2026-09-04** *(requested
       2026-09-04)*. A user's own opt-in run-outcome notifications, off by default, with a choice of
       which outcomes to hear about — distinct from `CRONSOLE_FAILURE_WEBHOOK_URL`
@@ -2136,7 +2136,7 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
 
 > **The priority once *Next up* is clear** *(scoped 2026-08-12)*. The dashboard's first-level axis
 > is the **source** a task comes from. **Seven ship as of 2026-10-04** — Windows Task Scheduler,
-> Cronsole-native (split into HTTP · Programs · Scripts · Checks), Claude Code routines, GitHub
+> Cronsole-native (split into HTTP · Programs · Scripts · Checks), Claude Code scheduled tasks, GitHub
 > Actions, Vercel Cron, Gemini API Triggers and n8n. This section is the plan for the rest; the built
 > ones are marked `[x]` below or in [Part II](#completed--sources). *(This line said "ships with
 > three" until 2026-08-24, when it had been wrong for a day and a half — a count in prose goes
@@ -2469,7 +2469,7 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
       schedule, action/command, job spec and name are all editable now. A task's **`externalId`**
       is not, and probably should not be: it is the identity the row is keyed on and the address
       every signed agent command uses. For Windows it is the Task Scheduler path, so "editing" it
-      means moving the task on the machine; for Claude it is the routine id, which
+      means moving the task on the machine; for Claude it is the scheduled task id, which
       `edit_claude_routine` already re-points properly. **Is there a case for it that is not one of
       those two?**
 
@@ -2838,7 +2838,7 @@ Scheduled AI Prompt · AI Research Digest · AI Code Review · AI Multi-Agent Wo
 
 Windows Task Scheduler *(real today)* → Cron → systemd Timers → GitHub Actions → Kubernetes
 CronJobs → AWS EventBridge Scheduler → Azure Functions → Google Cloud Scheduler → ChatGPT Tasks →
-Claude Code Routines.
+Claude Code Scheduled Tasks.
 
 <a id="full-template-taxonomy-categories--templates"></a>
 

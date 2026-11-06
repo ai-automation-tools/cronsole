@@ -148,7 +148,7 @@ catalog export too; it should point at the Templates tab. A refusal that cannot 
 Cronsole's three JSON formats you handed it is the defect
 ([#65](../../../troubleshooting/README.md#65-an-exported-task-file-has-nowhere-to-go--and-restore-refuses-it)).
 
-## 5. Claude routines — read `session.mode` first
+## 5. Claude scheduled tasks — read `session.mode` first
 
 `list_claude_routines` reports which of Claude's two APIs this install can reach, and the
 capabilities genuinely differ:

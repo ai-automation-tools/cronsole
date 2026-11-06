@@ -218,9 +218,9 @@ export const bundledPacks: BundledPack[] = [
      * run on your machine (they don't).
      */
     id: 'claude-routines',
-    name: 'Claude Routines',
+    name: 'Claude Scheduled Tasks',
     description:
-      'Scheduled Claude Code routines — cloud-run prompts against your repositories: issue triage, dependency review, CI digests, docs drift, standups.',
+      'Claude Code scheduled tasks (formerly routines) — cloud-run prompts against your repositories: issue triage, dependency review, CI digests, docs drift, standups.',
     templateIds: [
       'claude-routine-issue-triage',
       'claude-routine-dependency-review',

@@ -210,7 +210,7 @@ this morning.
 <p align="center">
   <a href="README.md">← MCP prompts</a> ·
   <a href="windows-tasks.md">Windows tasks</a> ·
-  <a href="claude-routines.md">Next: Claude routines →</a>
+  <a href="claude-routines.md">Next: Claude scheduled tasks →</a>
 </p>
 
 <p align="right">(<a href="#native-top">back to top</a>)</p>

@@ -80,7 +80,7 @@ export const ClaudeRoutinesPanel = () => {
       setWarnings(result.warnings ?? []);
       setEditing(null);
     } catch (e) {
-      setError(errorMessage(e, 'Could not update that routine.'));
+      setError(errorMessage(e, 'Could not update that scheduled task.'));
     }
   };
 
@@ -100,7 +100,7 @@ export const ClaudeRoutinesPanel = () => {
       setWarnings(result.warnings);
       reset();
     } catch (e) {
-      setError(errorMessage(e, 'Could not save that routine.'));
+      setError(errorMessage(e, 'Could not save that scheduled task.'));
     }
   };
 
@@ -114,7 +114,7 @@ export const ClaudeRoutinesPanel = () => {
         : '';
     const ok = window.confirm(
       `Remove "${routine.name || routine.id}" from Cronsole?\n\n` +
-        'The routine itself keeps running at claude.ai on its own schedule — Cronsole has no API to ' +
+        'The Claude scheduled task itself keeps running at claude.ai on its own schedule — Cronsole has no API to ' +
         'stop or delete it. This only forgets the id and token stored here.' +
         stranded
     );
@@ -122,7 +122,7 @@ export const ClaudeRoutinesPanel = () => {
     try {
       await remove.mutateAsync(routine.id);
     } catch (e) {
-      setError(errorMessage(e, 'Could not remove that routine.'));
+      setError(errorMessage(e, 'Could not remove that scheduled task.'));
     }
   };
 
@@ -130,12 +130,12 @@ export const ClaudeRoutinesPanel = () => {
     <div className="border-t border-border px-5 py-4 space-y-3" data-testid="claude-routines-panel">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="min-w-0">
-          <h5 className="text-xs font-black uppercase tracking-widest text-subtle-foreground">Routines</h5>
+          <h5 className="text-xs font-black uppercase tracking-widest text-subtle-foreground">Scheduled tasks</h5>
           <p className="text-[11px] text-muted-foreground mt-1 max-w-prose">
-            Claude Code has no API to list your routines, so Cronsole can't find them — add each one
+            Claude Code has no API to list your scheduled tasks, so Cronsole can't find them — add each one
             here with the id and token from its{' '}
             <span className="font-bold text-foreground">API trigger</span>. Everything else about the
-            routine stays at claude.ai.
+            scheduled task stays at claude.ai.
           </p>
         </div>
         <a
@@ -144,14 +144,14 @@ export const ClaudeRoutinesPanel = () => {
           rel="noreferrer"
           className="shrink-0 flex items-center gap-1.5 text-[11px] font-bold text-claude-text hover:underline"
         >
-          Open routines <ExternalLink size={11} />
+          Open scheduled tasks <ExternalLink size={11} />
         </a>
       </div>
 
       {isLoading ? (
         <p className="text-[11px] text-subtle-foreground">Loading…</p>
       ) : routines.length === 0 ? (
-        <p className="text-[11px] text-subtle-foreground">No routines added yet.</p>
+        <p className="text-[11px] text-subtle-foreground">No scheduled tasks added yet.</p>
       ) : (
         <ul className="flex flex-col gap-2">
           {routines.map(routine => (
@@ -192,7 +192,7 @@ export const ClaudeRoutinesPanel = () => {
                 <button
                   onClick={() => onRemove(routine)}
                   disabled={remove.isPending}
-                  title={`Remove ${routine.name || routine.id} from Cronsole (the routine keeps running at claude.ai)`}
+                  title={`Remove ${routine.name || routine.id} from Cronsole (the scheduled task keeps running at claude.ai)`}
                   aria-label={`Remove ${routine.name || routine.id} from Cronsole`}
                   className="p-1 rounded-lg text-subtle-foreground hover:text-danger-text transition-colors disabled:opacity-40"
                 >
@@ -210,8 +210,8 @@ export const ClaudeRoutinesPanel = () => {
             Fix “{editing.name || editing.id}”
           </p>
           <Field
-            label="Routine id or fire URL"
-            hint="The trig_… value. Pasting the routine's name here is the usual mistake — that is what this fixes."
+            label="Scheduled task id or fire URL"
+            hint="The trig_… value. Pasting the scheduled task's name here is the usual mistake — that is what this fixes."
             value={editId}
             onChange={setEditId}
             placeholder="trig_01…"
@@ -236,7 +236,7 @@ export const ClaudeRoutinesPanel = () => {
                 keeping run history and stars.{' '}
               </>
             )}
-            To replace the token instead, add the routine again with the same id.
+            To replace the token instead, add the scheduled task again with the same id.
           </p>
           <div className="flex justify-end gap-2 pt-1">
             <button
@@ -277,8 +277,8 @@ export const ClaudeRoutinesPanel = () => {
       {open ? (
         <div className="bg-background border border-border rounded-xl p-3 space-y-2">
           <Field
-            label="Routine id or fire URL"
-            hint="From Edit routine → Add another trigger → API. Pasting the whole URL is fine."
+            label="Scheduled task id or fire URL"
+            hint="From Edit → Add another trigger → API. Pasting the whole URL is fine."
             value={id}
             onChange={setId}
             placeholder="trig_01…  or  https://api.anthropic.com/v1/claude_code/routines/trig_01…/fire"
@@ -311,7 +311,7 @@ export const ClaudeRoutinesPanel = () => {
               className="flex items-center gap-1.5 bg-primary hover:bg-primary-hover disabled:opacity-40 px-4 py-1.5 rounded-xl text-[11px] font-bold text-primary-foreground transition-all active:scale-95"
             >
               {add.isPending ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
-              Add routine
+              Add scheduled task
             </button>
           </div>
         </div>
@@ -320,7 +320,7 @@ export const ClaudeRoutinesPanel = () => {
           onClick={() => setOpen(true)}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-surface border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-all active:scale-95"
         >
-          <Plus size={12} /> Add a routine
+          <Plus size={12} /> Add a scheduled task
         </button>
       )}
     </div>

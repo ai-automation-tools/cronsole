@@ -236,10 +236,10 @@ describe('SourcesScreen', () => {
 
     // Rendered, not revealed: on a touch screen a hover-only control does not
     // exist, and mobile is first-class here.
-    const remove = screen.getByRole('button', { name: /remove the Claude Routines link/i });
+    const remove = screen.getByRole('button', { name: /remove the Claude Scheduled Tasks link/i });
     fireEvent.click(remove);
 
-    expect(screen.queryByRole('link', { name: /Claude Routines/i })).toBeNull();
+    expect(screen.queryByRole('link', { name: /Claude Scheduled Tasks/i })).toBeNull();
   });
 
   it('adds a quick link to the preference document, not to a bare storage key', async () => {

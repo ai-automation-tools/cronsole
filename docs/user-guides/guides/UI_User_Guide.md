@@ -289,7 +289,7 @@ the two fold independently.
 **A collection is not a saved filter, and that distinction is the whole feature.** A view stores
 *conditions* (active, failing, due today) and shows whatever matches them right now. A collection
 stores *the tasks themselves*. That is the only way to group four things that have nothing in
-common except that you care about them together — a Claude routine, two Windows tasks in different
+common except that you care about them together — a Claude scheduled task, two Windows tasks in different
 folders, and a Cronsole-native check, one of them disabled. No filter can describe that set, because
 there is no shared property to filter on.
 
@@ -448,7 +448,7 @@ the wrong account, and succeeds, so nothing warns you.
 Two smaller things worth knowing:
 
 - **Portable works where native can't.** With the Windows agent offline there is nothing to read the
-  XML from, and a **Claude routine** has no definition Cronsole can fetch at all — its routine lives
+  XML from, and a **Claude scheduled task** has no definition Cronsole can fetch at all — it lives
   at claude.ai. The portable template still describes what the task runs in both cases.
 - **Neither adds anything to your template library.** Getting a portable file used to mean **Save as
   template** first, which left a template behind that you then had to live with.
@@ -584,7 +584,7 @@ Four things to know about the native side:
 - **A script job says where it will run** — your machine, or inside the container if you run
   the backend in Docker. Same statement as the New Task form, for the same reason.
 
-A **Claude routine's** prompt is defined at claude.ai; Cronsole can schedule and fire it, not
+A **Claude scheduled task's** prompt is defined at claude.ai; Cronsole can schedule and fire it, not
 rewrite it.
 
 #### Environment variables
@@ -691,8 +691,8 @@ when you simply don't want to look at a task any more.
   number before you commit, and the toast afterwards tells you how many returned.
 - Not offered for Cronsole-native tasks — those exist only inside Cronsole, so there's nothing
   left to keep.
-- **Not offered for declared Claude routines either** — see
-  [Disconnecting a Claude routine](#disconnecting-a-claude-routine) below. Clicking it there is
+- **Not offered for declared Claude scheduled tasks either** — see
+  [Disconnecting a Claude scheduled task](#disconnecting-a-claude-scheduled-task) below. Clicking it there is
   refused with the reason, rather than appearing to work.
 
 **Delete from Windows** *(the irreversible one, styled red)* — deletes the real Task Scheduler
@@ -710,13 +710,14 @@ entry. The task stops existing and will never run again.
 > If your goal is a tidier dashboard, you almost always want **Remove from Cronsole**. Deleting
 > to clean up a view destroys automation that may have been running for years.
 
-### Disconnecting a Claude routine
+### Disconnecting a Claude scheduled task
 
-A Claude routine you connected by hand gets a third button instead: **Disconnect routine**, in the
+A Claude scheduled task you connected by hand gets a third button instead: **Disconnect scheduled
+task**, in the
 task modal or on **Sources › Claude**. It removes the declaration and the tracked task together,
 forgets the stored API token, and changes nothing at claude.ai. Why *Remove from Cronsole* is
 refused there, and what the confirmation warns you about, is in
-[Claude Code Routines › Removing one](../sources/Claude_Code_Routines.md#-removing-one--disconnect-not-remove).
+[Claude Code Scheduled Tasks › Removing one](../sources/Claude_Code_Routines.md#-removing-one--disconnect-not-remove).
 
 ### Changing a Gemini trigger — Recreate with changes, and Duplicate
 
@@ -783,7 +784,7 @@ narrow *within* it. Favorites cuts across every category, so it is the one item 
 - **Category (sidebar):** narrows to one category, or to everything you've favorited regardless of category. Counts are over the whole catalog, independent of any other filter.
 - **Search:** Free-text search across name, description, command, category, and script type.
 - **Type toggle:** Show **All**, only **Starters**, or only **Patterns**.
-- **Target filter:** which system a template creates a task on — Windows, Cronsole, Claude Code, macOS. This is the first thing to filter by in the drawer, and it is not the same as the OS row: a Cronsole-native job, a Claude routine and a git command are all *cross-platform*, and only the target says which of them you can actually create. A target Cronsole can't create on here is marked `*`.
+- **Target filter:** which system a template creates a task on — Windows, Cronsole, Claude Code, macOS. This is the first thing to filter by in the drawer, and it is not the same as the OS row: a Cronsole-native job, a Claude scheduled task and a git command are all *cross-platform*, and only the target says which of them you can actually create. A target Cronsole can't create on here is marked `*`.
 - **OS & Tags filters:** Faceted chips (with counts) narrow by operating system and free-form tag. Like the Dashboard chips, they only show combinations that actually have templates, and collapse when a single choice remains. Use **Clear** to reset search/type/OS/tag/target — the sidebar category is navigation, not a filter, so it is unaffected.
 
 > Looking for more ready-made automations? [`ai-automation-recipes`](https://github.com/ai-automation-tools/ai-automation-recipes) publishes scheduled Claude Code recipes as Cronsole templates; its [registry README](https://github.com/ai-automation-tools/ai-automation-recipes/blob/main/registry/README.md) lists the packs.
@@ -798,7 +799,7 @@ narrow *within* it. Favorites cuts across every category, so it is the one item 
   - If the agent is offline the list can't be read; you can still create in `\Cronsole`.
 - **Other platforms** keep Cronsole's own categories — only Windows has a real folder hierarchy to point at.
 - **Cronsole-native templates** (*Run a Program*, *Node Script*, *Uptime Check*, …) need no agent at all: Cronsole schedules and runs them itself. The trade-off is **where** they run — on the machine running the Cronsole backend, which on a Dockerized stack is *inside the container*, against a filesystem that is not your desktop. If a script must run as you, or keep running when Cronsole is stopped, use a Windows template instead.
-- **Claude Code templates** are prompts, not commands. Applying one creates a real **routine** that Anthropic runs in the cloud on your schedule — so the Apply screen shows *Resolved prompt* rather than *Resolved command*, and offers a **Repositories** box for the repos the routine may check out (one URL per line; a routine with no repository still runs, it just has no checkout). This needs you to be signed in to the Claude Code CLI on the machine running Cronsole; if you aren't, the platform button is greyed out and the modal says what to do instead of failing when you click Create.
+- **Claude Code templates** are prompts, not commands. Applying one creates a real **Claude scheduled task** that Anthropic runs in the cloud on your schedule — so the Apply screen shows *Resolved prompt* rather than *Resolved command*, and offers a **Repositories** box for the repos the task may check out (one URL per line; one with no repository still runs, it just has no checkout). This needs you to be signed in to the Claude Code CLI on the machine running Cronsole; if you aren't, the platform button is greyed out and the modal says what to do instead of failing when you click Create.
 - **What's greyed out is about *your* install, not about the template.** The platform buttons and the "Compatible with" badges come from the same capability check the [Sources tab](#6-sources--what-cronsole-can-actually-do) shows, so a target that works here is offered here. While that check is still loading nothing is marked either way — Cronsole would rather say nothing for a moment than tell you a platform is unavailable and be wrong.
 - **Schedule:** the field is labelled with the zone it reads in (`Schedule (cron · PDT)`), quick preset chips fill common crons in that same zone, and a plain-language preview under the field ("Runs daily at 8:00 AM PDT") confirms what the cron means before you create anything. The stored UTC expression is printed underneath. Conversion warnings appear when a cron can't map cleanly onto a native Windows trigger.
 - The created task appears on the Dashboard immediately — no need to wait for a sync.
@@ -827,7 +828,7 @@ The one place Cronsole changes many tasks at once. It works in two steps, in tha
    - **Disable tasks** — stop them running, without deleting anything. Reversible.
    - **Move to a category** — relabel them in Cronsole. Nothing moves on your machine.
    - **Remove from Cronsole** — stop tracking them here; they keep running on their platform.
-     Cronsole-native tasks and Claude routines are **refused individually and named** — for
+     Cronsole-native tasks and Claude scheduled tasks are **refused individually and named** — for
      those two the Cronsole row *is* the task (or the declaration), so there is nothing to
      stop tracking. One refusal never halts the rest of the batch.
 2. **Which tasks?** Opens on **By category** — the way your tasks are already organised, and a
@@ -1150,7 +1151,7 @@ has one. Nothing is read or written through them. They sit on the top bar by def
   - **Online** — the agent is connected and has not failed to answer.
   - **Degraded** — the agent is *connected but not answering*: a request to it timed out recently, and the reason names which one. This is the state that used to read as Online. An agent can be running, with a healthy-looking connection, and still be wedged — so if things that need the agent are failing while the dot is green, look here first, then restart the stack ([troubleshooting #40](../../troubleshooting/README.md#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out)).
   - **Offline** — nothing is connected.
-  - **Not checked** — Cronsole has no *current* evidence either way. **This is not a problem, and not a milder warning.** Two things produce it: a platform that has never been exercised (a Claude routine you have added but not yet run — Claude Code offers no way to check one without firing it), or a failure old enough that nothing since has confirmed or contradicted it.
+  - **Not checked** — Cronsole has no *current* evidence either way. **This is not a problem, and not a milder warning.** Two things produce it: a platform that has never been exercised (a Claude scheduled task you have added but not yet run — Claude Code offers no way to check one without firing it), or a failure old enough that nothing since has confirmed or contradicted it.
 
     That second case is the common one, and it is worth understanding. Cronsole does not poll your agent in the background — deciding it is healthy costs a real request, and doing that on a timer would mean a synthetic request per open browser tab. So if a request timed out last night and you did not use Cronsole afterwards, *nothing has happened since* to tell Cronsole either way. It reports **Degraded** for the first 15 minutes, while that failure still describes the present, and **Not checked** after that.
 

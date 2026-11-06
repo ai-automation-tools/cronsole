@@ -804,21 +804,21 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
             <button
               onClick={async () => {
                 const ok = await confirm({
-                  title: 'Disconnect this routine?',
+                  title: 'Disconnect this Claude scheduled task?',
                   message:
                     `"${task.name}" will disappear from this dashboard along with its Cronsole run history, ` +
-                    'and Cronsole will forget the routine id and its API token.\n\n' +
-                    'The routine itself keeps running at claude.ai on its own schedule — Cronsole has no way ' +
+                    'and Cronsole will forget the scheduled task id and its API token.\n\n' +
+                    'The scheduled task itself keeps running at claude.ai on its own schedule — Cronsole has no way ' +
                     'to pause or delete it there.\n\n' +
                     'Reconnecting later needs the token again, and claude.ai only shows it once, so you would ' +
                     'have to generate a new one.',
-                  confirmText: 'Disconnect routine',
+                  confirmText: 'Disconnect scheduled task',
                   tone: 'default'
                 });
                 if (ok) {
                   disconnectRoutineMutation.mutate(task.externalId, {
                     onSuccess: () => {
-                      toast(`"${task.name}" disconnected. The routine still runs at claude.ai.`, 'success');
+                      toast(`"${task.name}" disconnected. The Claude scheduled task still runs at claude.ai.`, 'success');
                       onClose();
                     },
                     onError: (error: unknown) => {
@@ -830,9 +830,9 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
               }}
               disabled={disconnectRoutineMutation.isPending}
               className="bg-muted hover:bg-muted/80 text-foreground px-4 py-3 rounded-xl font-bold transition-all border border-border active:scale-95 text-sm flex items-center gap-2 disabled:opacity-50"
-              title="Forget this routine's id and token. The routine keeps running at claude.ai."
+              title="Forget this Claude scheduled task's id and token. The scheduled task keeps running at claude.ai."
             >
-              {disconnectRoutineMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <EyeOff size={16} />} Disconnect routine
+              {disconnectRoutineMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <EyeOff size={16} />} Disconnect scheduled task
             </button>
           )}
           {task.platform !== 'TASKHUB_NATIVE' && task.platform !== 'CLAUDE_CODE' && (

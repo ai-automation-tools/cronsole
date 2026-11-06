@@ -687,8 +687,8 @@
   },
   {
     "id": "tpl_starter_claude_routine",
-    "name": "Claude Code Routine",
-    "description": "Run a natural-language Claude Code routine on a schedule.",
+    "name": "Claude Code Scheduled Task",
+    "description": "Run a natural-language prompt as a Claude Code scheduled task.",
     "sourcePlatform": "CLAUDE_CODE",
     "targetPlatforms": [
       "CLAUDE_CODE"
@@ -3247,8 +3247,8 @@
   },
   {
     "id": "claude-routine-ci-failure-digest",
-    "name": "Routine: CI Failure Digest",
-    "description": "A weekday routine that reads the last day of failing CI runs, groups them by root cause, and separates real breakage from flakes.",
+    "name": "Claude Scheduled Task: CI Failure Digest",
+    "description": "A weekday Claude scheduled task that reads the last day of failing CI runs, groups them by root cause, and separates real breakage from flakes.",
     "sourcePlatform": "CLAUDE_CODE",
     "targetPlatforms": [
       "CLAUDE_CODE"
@@ -3290,8 +3290,8 @@
   },
   {
     "id": "claude-routine-dependency-review",
-    "name": "Routine: Dependency Review",
-    "description": "A weekly routine that checks outdated and vulnerable dependencies, and reports which upgrades are safe to take rather than upgrading anything itself.",
+    "name": "Claude Scheduled Task: Dependency Review",
+    "description": "A weekly Claude scheduled task that checks outdated and vulnerable dependencies, and reports which upgrades are safe to take rather than upgrading anything itself.",
     "sourcePlatform": "CLAUDE_CODE",
     "targetPlatforms": [
       "CLAUDE_CODE"
@@ -3306,7 +3306,7 @@
         "type": "text",
         "default": "",
         "required": true,
-        "help": "The repository to review. Attach it to the routine so the checkout is available."
+        "help": "The repository to review. Attach it to the scheduled task so the checkout is available."
       }
     ],
     "nativeJob": {},
@@ -3333,8 +3333,8 @@
   },
   {
     "id": "claude-routine-docs-drift",
-    "name": "Routine: Docs Drift Check",
-    "description": "A weekly routine that compares the documentation against the code it describes and lists what has quietly stopped being true.",
+    "name": "Claude Scheduled Task: Docs Drift Check",
+    "description": "A weekly Claude scheduled task that compares the documentation against the code it describes and lists what has quietly stopped being true.",
     "sourcePlatform": "CLAUDE_CODE",
     "targetPlatforms": [
       "CLAUDE_CODE"
@@ -3383,8 +3383,8 @@
   },
   {
     "id": "claude-routine-issue-triage",
-    "name": "Routine: Issue Triage",
-    "description": "A Claude Code routine that reads new issues each morning, labels them by area and severity, and flags anything that looks like a regression.",
+    "name": "Claude Scheduled Task: Issue Triage",
+    "description": "A Claude Code scheduled task that reads new issues each morning, labels them by area and severity, and flags anything that looks like a regression.",
     "sourcePlatform": "CLAUDE_CODE",
     "targetPlatforms": [
       "CLAUDE_CODE"
@@ -3399,7 +3399,7 @@
         "type": "text",
         "default": "",
         "required": true,
-        "help": "The owner/name of the repo to triage. Attach the same repository to the routine so it has a checkout."
+        "help": "The owner/name of the repo to triage. Attach the same repository to the scheduled task so it has a checkout."
       }
     ],
     "nativeJob": {},
@@ -3426,8 +3426,8 @@
   },
   {
     "id": "claude-routine-release-notes",
-    "name": "Routine: Release Notes Draft",
-    "description": "A weekly routine that turns everything merged since a release tag into a draft set of release notes written for the people who use the software, rather than the people who wrote it.",
+    "name": "Claude Scheduled Task: Release Notes Draft",
+    "description": "A weekly Claude scheduled task that turns everything merged since a release tag into a draft set of release notes written for the people who use the software, rather than the people who wrote it.",
     "sourcePlatform": "CLAUDE_CODE",
     "targetPlatforms": [
       "CLAUDE_CODE"
@@ -3442,7 +3442,7 @@
         "type": "text",
         "default": "",
         "required": true,
-        "help": "The owner/name of the repository to read. Attach the same repository to the routine so it has a checkout."
+        "help": "The owner/name of the repository to read. Attach the same repository to the scheduled task so it has a checkout."
       },
       {
         "key": "sinceTag",
@@ -3477,8 +3477,8 @@
   },
   {
     "id": "claude-routine-standup-digest",
-    "name": "Routine: Standup Digest",
-    "description": "A weekday-morning routine that summarizes what actually landed yesterday — merged work, open reviews, and anything that stalled.",
+    "name": "Claude Scheduled Task: Standup Digest",
+    "description": "A weekday-morning Claude scheduled task that summarizes what actually landed yesterday — merged work, open reviews, and anything that stalled.",
     "sourcePlatform": "CLAUDE_CODE",
     "targetPlatforms": [
       "CLAUDE_CODE"

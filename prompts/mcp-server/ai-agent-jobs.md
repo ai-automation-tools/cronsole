@@ -306,16 +306,16 @@ and writes the result to a report file. Nothing else.
 ## ☁️ The cloud alternative
 
 A headless CLI run happens on **your machine**, with your checkout and your credentials. A
-[**Claude Code routine**](claude-routines.md) is the same idea running in Anthropic's sandbox
+[**Claude Code scheduled task**](claude-routines.md) is the same idea running in Anthropic's sandbox
 against a repository URL — no agent, no local paths, and it keeps running when your machine is
 asleep.
 
-Reach for a routine when the job is about a repo on GitHub and doesn't need anything local.
+Reach for a scheduled task when the job is about a repo on GitHub and doesn't need anything local.
 Reach for a headless CLI task when the work touches a path only your machine has.
 
 ```text
 Using Cronsole, I want a nightly dependency review of https://github.com/me/my-app.
-Tell me whether this install can create a Claude routine, and if it can, create
+Tell me whether this install can create a Claude scheduled task, and if it can, create
 one rather than a local headless task — the repo is on GitHub and nothing about
 this needs my machine.
 ```
@@ -350,7 +350,7 @@ that runs unattended and can commit.
 | Resource | Why |
 |:---|:---|
 | [**🪟 Windows task prompts**](windows-tasks.md) | The general form of what these are — folders, conversion, no-shell. |
-| [**🧠 Claude routines**](claude-routines.md) | The same jobs in Anthropic's cloud, against a repo URL. |
+| [**🧠 Claude scheduled tasks**](claude-routines.md) | The same jobs in Anthropic's cloud, against a repo URL. |
 | [**📄 Templates**](templates.md) | Browsing and applying the catalog these draw on. |
 | [**🔎 Inspect & audit**](inspect-and-audit.md) | Confirming the 3am run did what the log claims. |
 | [**📦 Template catalog spec**](../../docs/reports/templates/README.md) | Where the AI & Agents pack is defined. |
@@ -360,7 +360,7 @@ that runs unattended and can commit.
 <p align="center">
   <a href="README.md">← MCP prompts</a> ·
   <a href="windows-tasks.md">Windows tasks</a> ·
-  <a href="claude-routines.md">Next: Claude routines →</a>
+  <a href="claude-routines.md">Next: Claude scheduled tasks →</a>
 </p>
 
 <p align="right">(<a href="#ai-jobs-top">back to top</a>)</p>

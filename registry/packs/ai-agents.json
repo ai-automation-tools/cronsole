@@ -564,8 +564,8 @@
     {
       "schemaVersion": "1.0",
       "id": "tpl_starter_claude_routine",
-      "name": "Claude Code Routine",
-      "description": "Run a natural-language Claude Code routine on a schedule.",
+      "name": "Claude Code Scheduled Task",
+      "description": "Run a natural-language prompt as a Claude Code scheduled task.",
       "runtime": "ai-prompt",
       "os": "cross-platform",
       "category": "ai-agent",

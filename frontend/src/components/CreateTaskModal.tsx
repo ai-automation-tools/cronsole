@@ -316,10 +316,10 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
         // silence would leave a likely-wrong paste to fail at the first run.
         const warnings = (res as { data?: { warnings?: string[] } })?.data?.warnings ?? [];
         if (warnings.length) {
-          toast(`Routine connected, but: ${warnings.join(' ')}`, 'error');
+          toast(`Claude scheduled task connected, but: ${warnings.join(' ')}`, 'error');
         } else {
           toast(
-            `Routine "${name.trim() || routineId.trim()}" connected. It still runs on its own schedule at claude.ai — Cronsole can trigger it.`,
+            `Claude scheduled task "${name.trim() || routineId.trim()}" connected. It still runs on its own schedule at claude.ai — Cronsole can trigger it.`,
             'success'
           );
         }
@@ -420,7 +420,7 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
           <div>
             <p className={`text-[10px] uppercase font-black tracking-widest mb-1 flex items-center gap-1.5 ${isWindows ? 'text-foreground' : isClaude ? 'text-claude-text' : isGemini ? 'text-gemini-text' : 'text-native-text'}`}>
               {isWindows ? <Monitor size={11} /> : isClaude ? <Bot size={11} /> : isGemini ? <Sparkles size={11} /> : <Zap size={11} />}
-              {isWindows ? 'Windows Task Scheduler' : isClaude ? 'Claude Code routine' : isGemini ? 'Gemini API trigger' : 'Cronsole-native task'}
+              {isWindows ? 'Windows Task Scheduler' : isClaude ? 'Claude Code scheduled task' : isGemini ? 'Gemini API trigger' : 'Cronsole-native task'}
             </p>
             {/*
               The title changes for Claude because the action does. Cronsole
@@ -429,13 +429,13 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
               connector is built to avoid saying.
             */}
             <h2 id="create-task-title" className="text-xl font-bold">
-              {isClaude ? 'Connect a routine' : 'New Task'}
+              {isClaude ? 'Connect a scheduled task' : 'New Task'}
             </h2>
             <p className="text-xs text-subtle-foreground mt-1 leading-relaxed">
               {isWindows
                 ? 'Registered as a real Windows scheduled task via the local agent — survives reboots, runs even when Cronsole is down.'
                 : isClaude
-                  ? 'Adds a routine that already exists at claude.ai so you can trigger it from here. Cronsole cannot create, schedule or pause a routine — Anthropic exposes no API for any of those.'
+                  ? 'Adds a Claude scheduled task that already exists at claude.ai so you can trigger it from here. Cronsole cannot create, schedule or pause one — Anthropic exposes no API for any of those.'
                   : isGemini
                     ? 'Created for real on the Gemini API — a managed agent runs your prompt on this schedule, in the cloud, whether or not Cronsole is up.'
                     : 'Scheduled and executed by Cronsole itself — nothing is created in Windows Task Scheduler.'}
@@ -521,19 +521,19 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
             <div className="space-y-4">
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">
-                  Routine id or fire URL <span className="text-danger-text">*</span>
+                  Scheduled task id or fire URL <span className="text-danger-text">*</span>
                 </label>
                 <input
                   value={routineId}
                   onChange={e => setRoutineId(e.target.value)}
-                  aria-label="Routine id or fire URL"
+                  aria-label="Scheduled task id or fire URL"
                   autoComplete="off"
                   spellCheck={false}
                   placeholder="trig_01…"
                   className={`w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm font-mono text-foreground outline-none transition-colors ${focusAccent}`}
                 />
                 <p className="text-[10px] text-subtle-foreground">
-                  From the routine's page URL, or the whole Fire URL in its API trigger dialog — both carry the same id.
+                  From the scheduled task's page URL, or the whole Fire URL in its API trigger dialog — both carry the same id.
                 </p>
               </div>
 
@@ -556,7 +556,7 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
                   className={`w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm font-mono text-foreground outline-none transition-colors ${focusAccent}`}
                 />
                 <p className="text-[10px] text-subtle-foreground">
-                  claude.ai → routine → Edit → Add another trigger → API → Generate token. Shown once, and generating a new one revokes the previous.
+                  claude.ai → scheduled task → Edit → Add another trigger → API → Generate token. Shown once, and generating a new one revokes the previous.
                 </p>
               </div>
             </div>
@@ -571,7 +571,7 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
                 value={name}
                 onChange={e => setName(e.target.value)}
                 aria-label="Name"
-                placeholder={isWindows ? 'Nightly repo backup' : isClaude ? 'Defaults to the routine id' : 'Ping n8n webhook'}
+                placeholder={isWindows ? 'Nightly repo backup' : isClaude ? 'Defaults to the scheduled task id' : 'Ping n8n webhook'}
                 className={`w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none transition-colors ${focusAccent}`}
               />
             </div>
@@ -786,7 +786,7 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
               {isWindows
                 ? `Created in ${folderChoice.folder.trim() || 'the folder you pick'} in Task Scheduler — the folder also becomes the task's category in Cronsole. Requires the Windows agent to be online.`
                 : isClaude
-                  ? 'The token is stored encrypted and never shown again. Running a routine from here starts a real Claude Code session that can use its repos and connectors — exactly as if it had fired on schedule.'
+                  ? 'The token is stored encrypted and never shown again. Running a Claude scheduled task from here starts a real Claude Code session that can use its repos and connectors — exactly as if it had fired on schedule.'
                   : isGemini
                     ? 'Written to Gemini as UTC, so this schedule round-trips exactly. Gemini pauses a trigger itself after repeated failures — Cronsole shows that as its own warning rather than as an ordinary disabled task.'
                     : 'Runs only while the Cronsole backend is up. Use a Windows task instead for jobs that must survive Cronsole being offline.'}
@@ -817,7 +817,7 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
               : isWindows
                 ? <><Monitor size={16} /> Create Windows Task</>
                 : isClaude
-                  ? <><Bot size={16} /> Connect Routine</>
+                  ? <><Bot size={16} /> Connect scheduled task</>
                   : isGemini
                     ? // "Create", not "Connect" — this one really does write a
                       // trigger that did not exist, which is the whole reason

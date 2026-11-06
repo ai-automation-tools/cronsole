@@ -51,7 +51,7 @@
 
 ## 💡 What it does
 
-Your scheduled jobs are scattered across Windows Task Scheduler, AI assistant routines, GitHub
+Your scheduled jobs are scattered across Windows Task Scheduler, scheduled AI agents, GitHub
 Actions, and cron lines you half remember writing. Cronsole pulls them all into one dashboard —
 see every job, run it, pause it, edit its schedule — without moving a single one off the
 platform it already runs on.
@@ -64,7 +64,7 @@ Each source links to its own guide: how to connect it, what Cronsole can do ther
 |:---|:---|:---|
 | [**⚡ Cronsole-native**](docs/user-guides/sources/Cronsole_Native.md) | Four kinds of job that Cronsole schedules and runs itself, with no OS task involved: **HTTP** calls, an **existing program**, a **script you write in Cronsole**, and **checks** that assert something is true. | ✅ Functional |
 | [**🪟 Windows Task Scheduler**](docs/user-guides/sources/Windows_Task_Scheduler.md) | A lightweight local agent on your machine — outbound-only, never accepts incoming connections. | ✅ Functional |
-| [**🤖 Claude Code Routines**](docs/user-guides/sources/Claude_Code_Routines.md) | Natural-language routines through the Anthropic API. With a readable Claude Code session Cronsole lists, creates, reschedules, pauses and fires them; without one it can fire the routines you declared. **Deleting always happens in claude.ai** — no API exposes it. | 🧪 Experimental |
+| [**🤖 Claude Code Scheduled Tasks**](docs/user-guides/sources/Claude_Code_Routines.md) | Natural-language scheduled tasks (formerly routines) through the Anthropic API. With a readable Claude Code session Cronsole lists, creates, reschedules, pauses and fires them; without one it can fire the ones you declared. **Deleting always happens in claude.ai** — no API exposes it. | 🧪 Experimental |
 | [**✨ Gemini API Triggers**](docs/user-guides/sources/Gemini_API_Triggers.md) | Scheduled prompts on Google's managed agents. One API key, and Cronsole can run, pause, create and delete them, and read how their runs actually went. A trigger's schedule and prompt are fixed once it exists, so changing either means **Recreate with changes**. | 🧪 Experimental |
 | [**🔀 n8n**](docs/user-guides/sources/n8n.md) | Workflows on your own n8n instance, through its API key: every one with a Schedule Trigger, and by default the ones started some other way too. Cronsole reads real run outcomes and each run's steps, and can **Run now** through n8n's MCP server. You state the instance's time zone, because its API does not. | ✅ Functional |
 | [**🐙 GitHub Actions**](docs/user-guides/sources/GitHub_Actions.md) | Scheduled workflows in the repositories you watch, read through a PAT. **Read-only by design** — Cronsole shows their crons and real run outcomes, and changes nothing. | 👁️ Observer |
@@ -223,7 +223,7 @@ Two more Cronsole skills live in the org's skill library —
 [**`agent-skills` › `skills/projects/cronsole/`**](https://github.com/ai-automation-tools/agent-skills/tree/main/skills/projects/cronsole).
 They cover the other half: not how to work on Cronsole, but **how to design the jobs it
 schedules** — the archetypes a Windows Task Scheduler job turns out to be, and the prompt contract
-a scheduled agent routine needs. Install them over this clone with that repo's installer.
+a Claude scheduled task needs. Install them over this clone with that repo's installer.
 
 > [!NOTE]
 > **Skill vs. MCP server** — easy to conflate. The [**skill**](skills/README.md) teaches an

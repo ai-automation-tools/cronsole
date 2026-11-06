@@ -522,7 +522,7 @@ export function registerTools(
       title: 'List scheduled tasks',
       description:
         'List the scheduled tasks Cronsole tracks for the current user — Windows Task Scheduler, Cronsole-native, ' +
-        'Claude Code routines, GitHub Actions workflows, Vercel cron jobs, Gemini API triggers and n8n ' +
+        'Claude Code scheduled tasks, GitHub Actions workflows, Vercel cron jobs, Gemini API triggers and n8n ' +
         'workflows — with each ' +
         'task\'s schedule, status, next run time and last run result. Optional filters narrow the list. ' +
         'GITHUB_ACTIONS and VERCEL_CRON are READ-ONLY sources: their tasks list and report health, and every ' +
@@ -621,7 +621,7 @@ export function registerTools(
         '"ran": true and "success": false — that is a finding about the user\'s system (a failing ' +
         'CHECK is the check working, e.g. the disk is full or an endpoint is serving an error ' +
         'page), and retrying it will not help. A tool ERROR means the run could not be started at ' +
-        'all — an offline agent, a paused routine, a bad id — which is a problem with the ' +
+        'all — an offline agent, a paused Claude scheduled task, a bad id — which is a problem with the ' +
         'monitoring, not with what it monitors. Do not report the first kind as "I could not run ' +
         'the task", and do not report the second as a failing check.',
       inputSchema: {
@@ -942,7 +942,7 @@ export function registerTools(
         'The server fills the template\'s {{placeholders}} from `parameters`, converts the cron schedule to the platform\'s ' +
         'native trigger, and registers the task (a Windows task is created via the signed local agent). ' +
         'A CLAUDE_CODE template is different in kind: its command is a PROMPT, and applying it creates a real ' +
-        'Claude Code routine that Anthropic runs in the cloud. That needs a Claude Code session on the machine ' +
+        'Claude Code scheduled task (formerly called a routine) that Anthropic runs in the cloud. That needs a Claude Code session on the machine ' +
         'running the backend — check list_claude_routines → session.mode first; without one the call returns 400 ' +
         'with what to do about it. ' +
         'A GEMINI_TRIGGERS template is a PROMPT PLUS A GRANT: applying it creates a real trigger Google runs ' +
@@ -1008,8 +1008,8 @@ export function registerTools(
           .max(10)
           .optional()
           .describe(
-            'CLAUDE_CODE only: git repositories the created routine may check out and work in. Never guessed — ' +
-            'a routine with no sources still runs, it just has no checkout, while attaching the WRONG repository ' +
+            'CLAUDE_CODE only: git repositories the created Claude scheduled task may check out and work in. Never guessed — ' +
+            'a scheduled task with no sources still runs, it just has no checkout, while attaching the WRONG repository ' +
             'to an agent that can commit is not a mistake the user can see before it happens. Ask before setting it.'
           )
       }
@@ -1916,7 +1916,7 @@ Next run: ${task.nextRunTime}` : '')
         '`template` is a portable Registry v1 template that recreates the task on ANY install, which is what ' +
         '"set this up on my other machine" actually asks for — but it DROPS platform-specific settings, so never ' +
         'offer it as a backup. It is also the only format that works with the Windows agent offline, or on a ' +
-        'Claude routine (whose definition lives at claude.ai). ' +
+        'Claude scheduled task (whose definition lives at claude.ai). ' +
         'IMPORTANT if you save the XML to a file: Windows requires it as UTF-16 LE with a BOM. Writing it as ' +
         'UTF-8 (the default almost everywhere) produces a file Windows refuses with "unable to switch the ' +
         'encoding" — the text below is correct, but the encoding you save it in is on you.',
@@ -1933,7 +1933,7 @@ Next run: ${task.nextRunTime}` : '')
             'task between machines or platforms. The template DROPS platform-specific settings ' +
             '(the account it runs as, run level, extra actions), so it is not a faithful backup — ' +
             'say so if you offer it as one. It also works where "native" cannot: with the Windows ' +
-            'agent offline, and for a Claude routine, whose definition lives at claude.ai.'
+            'agent offline, and for a Claude scheduled task, whose definition lives at claude.ai.'
           )
       }
     },
@@ -2365,7 +2365,7 @@ Next run: ${task.nextRunTime}` : '')
         'The new name survives future syncs. It cannot collide with anything — Cronsole\'s duplicate-name guard ' +
         'applies when creating a task (where the name becomes part of the Windows path), and a rename never ' +
         'touches the path. **Refused (400) where the platform owns the name** — GitHub Actions, Vercel, n8n, ' +
-        'Gemini and Claude routines read through sign-in: sync keeps those names current, so a rename here ' +
+        'Gemini and Claude scheduled tasks read through sign-in: sync keeps those names current, so a rename here ' +
         'would revert. The refusal names where to rename it on the platform; pass that on to the user.',
       inputSchema: {
         taskId: z.string().describe('The Cronsole task id (from list_tasks).'),
@@ -2419,7 +2419,7 @@ Next run: ${task.nextRunTime}` : '')
         'stop existing. ' +
         'Reversible: importing that category again in the Cronsole UI starts tracking the task once more. ' +
         'Not available for TASKHUB_NATIVE tasks, which exist only inside Cronsole and therefore have nothing to ' +
-        'be kept — disable or delete those instead. Refused for a CLAUDE_CODE task whose routine is DECLARED in ' +
+        'be kept — disable or delete those instead. Refused for a CLAUDE_CODE task whose Claude scheduled task is DECLARED in ' +
         'the connection config (added via connect_claude_routine), for the same reason one level over: removing ' +
         'the row would leave the declaration in place and the next sync would bring it back — use ' +
         'disconnect_claude_routine there, which removes both. A CLAUDE_CODE task discovered through an OAuth ' +
@@ -2561,34 +2561,34 @@ Next run: ${task.nextRunTime}` : '')
   server.registerTool(
     'create_claude_routine',
     {
-      title: 'Create a Claude Code routine on a schedule',
+      title: 'Create a Claude Code scheduled task',
       description:
-        'Create a real Claude Code routine — a saved prompt Anthropic runs on a schedule in a cloud sandbox — ' +
+        'Create a real Claude Code scheduled task (formerly called a routine) — a saved prompt Anthropic runs on a schedule in a cloud sandbox — ' +
         'and track it in Cronsole. This is NOT create_task: the "prompt" is natural language for an agent, not a ' +
         'command line, and it runs on Anthropic\'s infrastructure rather than the user\'s machine. ' +
         'REQUIRES a Claude Code session readable by the backend (the user signed in with the `claude` CLI on the ' +
         'host running Cronsole). Without one this returns 400 — check list_claude_routines, whose `session.mode` ' +
         'says which is available; if it is "declared", tell the user to run `/login` in the Claude Code CLI, or ' +
-        'create the routine at claude.ai and connect it with connect_claude_routine instead. ' +
-        'The routine runs with the account\'s Claude Code usage and draws on its daily run cap. ' +
-        'NOTE the routine is created with NO MCP connectors attached, deliberately — the user adds those at ' +
-        'claude.ai per routine, so a routine made from one sentence never silently arrives holding their mailbox.',
+        'create the scheduled task at claude.ai and connect it with connect_claude_routine instead. ' +
+        'The scheduled task runs with the account\'s Claude Code usage and draws on its daily run cap. ' +
+        'NOTE the scheduled task is created with NO MCP connectors attached, deliberately — the user adds those at ' +
+        'claude.ai per scheduled task, so one made from one sentence never silently arrives holding their mailbox.',
       inputSchema: {
-        name: z.string().min(1).describe('Display name for the routine, e.g. "Nightly dependency audit".'),
+        name: z.string().min(1).describe('Display name for the Claude scheduled task, e.g. "Nightly dependency audit".'),
         prompt: z
           .string()
           .min(1)
           .describe(
-            'What the routine should do, as a full instruction to a Claude Code agent — it starts with NO ' +
+            'What the scheduled task should do, as a full instruction to a Claude Code agent — it starts with NO ' +
             'context beyond this text and the repositories you attach. Be specific about the deliverable and ' +
-            'about what it must not do (a routine that can commit should be told what it may touch). ' +
+            'about what it must not do (a scheduled task that can commit should be told what it may touch). ' +
             'Say plainly if it should stop and report rather than act.'
           ),
         schedule: z
           .string()
           .min(1)
           .describe(
-            '5-field cron in UTC: "min hour dom month dow". Claude stores routine schedules as UTC cron too, ' +
+            '5-field cron in UTC: "min hour dom month dow". Claude stores scheduled task schedules as UTC cron too, ' +
             'so this is passed through unchanged — no trigger conversion happens and none can be lossy. ' +
             'Anthropic applies a few minutes of its own jitter to the actual fire time.'
           ),
@@ -2597,8 +2597,8 @@ Next run: ${task.nextRunTime}` : '')
           .max(10)
           .optional()
           .describe(
-            'Git repositories the routine may check out, e.g. ["https://github.com/owner/repo"]. ' +
-            'OMIT rather than guess: a routine with none still runs (it just has no checkout), whereas ' +
+            'Git repositories the scheduled task may check out, e.g. ["https://github.com/owner/repo"]. ' +
+            'OMIT rather than guess: a scheduled task with none still runs (it just has no checkout), whereas ' +
             'attaching the wrong repository to an agent that can commit is not a mistake the user sees coming. ' +
             'Only pass repositories the user actually named.'
           ),
@@ -2607,8 +2607,8 @@ Next run: ${task.nextRunTime}` : '')
           .max(50)
           .optional()
           .describe(
-            'Tool allowlist for the routine, e.g. ["Bash","Read","Edit","WebSearch"]. Omit for the platform ' +
-            'default. Narrow it only when the user asked to — a routine missing a tool it needs fails at 3am, ' +
+            'Tool allowlist for the scheduled task, e.g. ["Bash","Read","Edit","WebSearch"]. Omit for the platform ' +
+            'default. Narrow it only when the user asked to — a scheduled task missing a tool it needs fails at 3am, ' +
             'not at creation.'
           ),
         category: z.string().optional().describe('Cronsole category for grouping on the dashboard.')
@@ -2630,15 +2630,15 @@ Next run: ${task.nextRunTime}` : '')
         const task = result.task;
         const created = task
           ? `\n${task.name} [CLAUDE_CODE] — ${task.schedule ?? 'no schedule'} — ${task.status} (id: ${task.id})` +
-            (task.externalId ? `\nRoutine: https://claude.ai/code/routines/${task.externalId}` : '')
+            (task.externalId ? `\nClaude scheduled task: https://claude.ai/code/routines/${task.externalId}` : '')
           : '';
         // Stated every time, because it is the one thing that cannot be undone
         // from here: neither Claude API exposes a delete, so a routine created
         // by mistake has to be removed by hand at claude.ai.
         const removal =
-          '\nTo remove this routine you must delete it at claude.ai/code/routines — ' +
+          '\nTo remove this Claude scheduled task you must delete it at claude.ai/code/routines — ' +
           'Claude Code exposes no delete API, so Cronsole can disable it but never destroy it.';
-        return ok(`${result.message ?? 'Routine created'}${created}${removal}`, {
+        return ok(`${result.message ?? 'Claude scheduled task created'}${created}${removal}`, {
           task: task ? compactTask(task) : null
         });
       } catch (err) {
@@ -2652,15 +2652,15 @@ Next run: ${task.nextRunTime}` : '')
     {
       title: 'Show the Claude connection: which API is available, and what is connected',
       description:
-        'Reports `session.mode` — WHICH of the two Claude Code APIs this install can use — plus the routines ' +
-        'declared with per-routine tokens (never the tokens themselves). Check this before create_claude_routine. ' +
-        'mode "oauth": the backend can read the user\'s Claude Code session, so routines can be listed, created, ' +
+        'Reports `session.mode` — WHICH of the two Claude Code APIs this install can use — plus the Claude ' +
+        'scheduled tasks (formerly called routines) declared with per-task tokens (never the tokens themselves). Check this before create_claude_routine. ' +
+        'mode "oauth": the backend can read the user\'s Claude Code session, so scheduled tasks can be listed, created, ' +
         'rescheduled, paused and fired directly — and the declared list below is irrelevant to firing. Use ' +
-        'sync_tasks then list_tasks to see the REAL routines on the account. ' +
+        'sync_tasks then list_tasks to see the REAL scheduled tasks on the account. ' +
         'mode "declared": no readable session, so this list is all Cronsole knows. Claude\'s documented API has ' +
-        'no list endpoint, so a routine created at claude.ai will not appear until connect_claude_routine adds ' +
+        'no list endpoint, so a scheduled task created at claude.ai will not appear until connect_claude_routine adds ' +
         'it, and one deleted there still appears until its next run 404s. ' +
-        '`taskCount` is how many tracked Cronsole tasks point at each routine — what disconnecting would strand.',
+        '`taskCount` is how many tracked Cronsole tasks point at each scheduled task — what disconnecting would strand.',
       inputSchema: {}
     },
     async () => {
@@ -2672,16 +2672,16 @@ Next run: ${task.nextRunTime}` : '')
         const session = result.session;
         const oauth = session?.mode === 'oauth';
         const modeLine = oauth
-          ? 'Claude Code session: ACTIVE — routines can be listed, created, rescheduled, paused and fired directly. ' +
-            'Run sync_tasks to pull the real routines onto the dashboard.'
+          ? 'Claude Code session: ACTIVE — Claude scheduled tasks can be listed, created, rescheduled, paused and fired directly. ' +
+            'Run sync_tasks to pull the real scheduled tasks onto the dashboard.'
           : `Claude Code session: NOT AVAILABLE${session?.reason ? ` — ${session.reason}` : ''} ` +
-            'Only routines connected with a per-routine token can be fired.';
+            'Only Claude scheduled tasks connected with a per-task token can be fired.';
 
         if (!routines.length) {
           return ok(
             oauth
-              ? `${modeLine}\nNo per-routine tokens are stored, and none are needed in this mode.`
-              : `${modeLine}\nNo Claude routines are connected. Create one at claude.ai/code/routines (or with ` +
+              ? `${modeLine}\nNo per-task tokens are stored, and none are needed in this mode.`
+              : `${modeLine}\nNo Claude scheduled tasks are connected. Create one at claude.ai/code/routines (or with ` +
                   '/schedule in the Claude Code CLI), then connect it with connect_claude_routine.',
             { routines: [], session: session ?? null }
           );
@@ -2689,7 +2689,7 @@ Next run: ${task.nextRunTime}` : '')
         const summary = routines
           .map(r => `• ${r.name || r.id} (${r.id}) — ${r.taskCount} tracked task(s)`)
           .join('\n');
-        return ok(`${modeLine}\n${routines.length} routine(s) with a stored token.\n${summary}`, {
+        return ok(`${modeLine}\n${routines.length} Claude scheduled task(s) with a stored token.\n${summary}`, {
           routines,
           session: session ?? null
         });
@@ -2702,43 +2702,43 @@ Next run: ${task.nextRunTime}` : '')
   server.registerTool(
     'connect_claude_routine',
     {
-      title: 'Connect an existing Claude Code routine so Cronsole can fire it',
+      title: 'Connect an existing Claude Code scheduled task so Cronsole can fire it',
       description:
-        'Store a routine\'s id and API token so it appears on the dashboard with a working Run. ' +
-        'This does NOT create a routine — Anthropic exposes no create endpoint. The routine must already exist ' +
+        'Store a Claude scheduled task\'s (formerly called a routine) id and API token so it appears on the dashboard with a working Run. ' +
+        'This does NOT create a scheduled task — Anthropic exposes no create endpoint. The scheduled task must already exist ' +
         'at claude.ai/code/routines (or be made with /schedule in the Claude Code CLI), and must have an API ' +
-        'trigger: open the routine, Edit, Add another trigger, API, then Generate token. ' +
+        'trigger: open the scheduled task, Edit, Add another trigger, API, then Generate token. ' +
         'SECURITY: the token is a live credential and is passed here as a plain parameter, so it will appear in ' +
         'this conversation and in the MCP host\'s logs. If a human is available, prefer the Cronsole UI ' +
         '(Dashboard, New Task, Claude — or the Sources tab), where the token goes straight into encrypted ' +
         'storage without passing through a model context. Ask before requesting a token from a user. ' +
-        'Generating a token at claude.ai revokes the previous one for that routine, so re-connecting an id ' +
+        'Generating a token at claude.ai revokes the previous one for that scheduled task, so re-connecting an id ' +
         'here replaces the stored token rather than erroring — that is the rotation path. ' +
-        'Cronsole cannot read or set a routine\'s schedule; the cadence stays at claude.ai and the task will ' +
+        'Cronsole cannot read or set a declared scheduled task\'s schedule; the cadence stays at claude.ai and the task will ' +
         'show no cron.',
       inputSchema: {
         routineId: z
           .string()
           .min(1)
           .describe(
-            'The trig_… routine id, or the whole fire URL from the API trigger dialog (the id is extracted). ' +
-            'The routine\'s own page URL carries the same id.'
+            'The trig_… scheduled task id, or the whole fire URL from the API trigger dialog (the id is extracted). ' +
+            'The scheduled task\'s own page URL carries the same id.'
           ),
         token: z
           .string()
           .min(1)
           .describe(
-            'The per-routine bearer token (sk-ant-oat01-…). Shown once by claude.ai and not retrievable later.'
+            'The per-task bearer token (sk-ant-oat01-…). Shown once by claude.ai and not retrievable later.'
           ),
         name: z
           .string()
           .optional()
-          .describe('Display name on the dashboard. Defaults to the routine id, which is unreadable but never wrong.'),
+          .describe('Display name on the dashboard. Defaults to the scheduled task id, which is unreadable but never wrong.'),
         importNow: z
           .boolean()
           .default(true)
           .describe(
-            'Also run the import so the routine becomes a task immediately (what the UI does). Set false to ' +
+            'Also run the import so the scheduled task becomes a Cronsole task immediately (what the UI does). Set false to ' +
             'store the credential only — it will not appear on the dashboard until sync_tasks runs.'
           )
       }
@@ -2770,9 +2770,9 @@ Next run: ${task.nextRunTime}` : '')
           ? '\nImported — it is on the dashboard now.'
           : '\nNot imported. Call sync_tasks with category "Claude" to make it appear.';
         return ok(
-          `${verb} routine "${result.routine.name || result.routine.id}" (${result.routine.id}).` +
+          `${verb} Claude scheduled task "${result.routine.name || result.routine.id}" (${result.routine.id}).` +
             `${importText}${warnText}\n` +
-            'The routine still runs on its own schedule at claude.ai — Cronsole can trigger it, not reschedule it.',
+            'The scheduled task still runs on its own schedule at claude.ai — Cronsole can trigger it, not reschedule it.',
           {
             routine: result.routine,
             replaced: result.replaced,
@@ -2789,9 +2789,9 @@ Next run: ${task.nextRunTime}` : '')
   server.registerTool(
     'edit_claude_routine',
     {
-      title: 'Correct a connected routine\'s id or name, keeping its token',
+      title: 'Correct a connected Claude scheduled task\'s id or name, keeping its token',
       description:
-        'Fix a mistyped routine id, or rename one, WITHOUT re-entering the token. ' +
+        'Fix a mistyped Claude scheduled task (formerly called a routine) id, or rename one, WITHOUT re-entering the token. ' +
         'Use this instead of disconnect-then-connect: disconnecting discards the stored token, and claude.ai ' +
         'shows a token once — so recovering means generating a new one there, which also revokes the old one ' +
         'anywhere else it is used. A typo should not cost a credential. ' +
@@ -2800,7 +2800,7 @@ Next run: ${task.nextRunTime}` : '')
         'To rotate a token (rather than fix an id), use connect_claude_routine with the same id — re-connecting ' +
         'replaces the stored token.',
       inputSchema: {
-        routineId: z.string().min(1).describe('The routine as currently stored (from list_claude_routines).'),
+        routineId: z.string().min(1).describe('The scheduled task id as currently stored (from list_claude_routines).'),
         newId: z
           .string()
           .optional()
@@ -2832,7 +2832,7 @@ Next run: ${task.nextRunTime}` : '')
         const warnings = result.warnings ?? [];
         const warnText = warnings.length ? `\nWARNING: ${warnings.join(' ')}` : '';
         return ok(
-          `Updated routine "${result.routine.name || result.routine.id}" (${result.routine.id}). ` +
+          `Updated Claude scheduled task "${result.routine.name || result.routine.id}" (${result.routine.id}). ` +
             `The stored token was kept.${moved}${warnText}`,
           result
         );
@@ -2845,17 +2845,17 @@ Next run: ${task.nextRunTime}` : '')
   server.registerTool(
     'disconnect_claude_routine',
     {
-      title: 'Forget a Claude routine (it keeps running at claude.ai)',
+      title: 'Forget a Claude scheduled task (it keeps running at claude.ai)',
       description:
-        'Remove a routine\'s stored id and token from Cronsole. This is NOT a delete: the routine keeps running ' +
+        'Remove a Claude scheduled task\'s (formerly called a routine) stored id and token from Cronsole. This is NOT a delete: the scheduled task keeps running ' +
         'at claude.ai on its own schedule, and Cronsole has no API to stop or delete it — use claude.ai for that. ' +
         'One cost worth stating before you call it: the stored token is discarded and cannot be recovered, ' +
         'because claude.ai shows a token once. Re-connecting later means generating a new token there (which ' +
         'also revokes any other copy of the old one). ' +
-        'Tracked tasks pointing at the routine are removed with it, and the count is reported back. That is not ' +
-        'incidental cleanup — it is why this tool exists: a Claude task tracked because the routine is declared ' +
+        'Tracked tasks pointing at the scheduled task are removed with it, and the count is reported back. That is not ' +
+        'incidental cleanup — it is why this tool exists: a Claude task tracked because the scheduled task is declared ' +
         'here has untrack_task refuse for it, and this is the only way to take one off the dashboard. Only ' +
-        'declared routines can be disconnected this way — a CLAUDE_CODE task discovered through an OAuth ' +
+        'declared scheduled tasks can be disconnected this way — a CLAUDE_CODE task discovered through an OAuth ' +
         'session was never declared here, so untrack_task (not this tool) is what removes it.',
       inputSchema: {
         routineId: z.string().min(1).describe('The trig_… id (from list_claude_routines).')
@@ -2872,10 +2872,10 @@ Next run: ${task.nextRunTime}` : '')
           ? ` ${result.tasksRemoved} tracked task(s) were removed from the dashboard with it.`
           : '';
         const conn = result.connectionRemoved
-          ? ' That was the last routine, so the Claude connection was removed too.'
+          ? ' That was the last Claude scheduled task, so the Claude connection was removed too.'
           : '';
         return ok(
-          `Disconnected ${result.removed}. The routine itself is untouched and still runs at claude.ai.${stranded}${conn}`,
+          `Disconnected ${result.removed}. The scheduled task itself is untouched and still runs at claude.ai.${stranded}${conn}`,
           result
         );
       } catch (err) {
@@ -2915,7 +2915,7 @@ Next run: ${task.nextRunTime}` : '')
           .optional()
           .describe(
             'Categories to import (e.g. ["Claude"]). Omit to refresh only what is already tracked. ' +
-            'For Windows these are the root scheduler folder names; Claude routines all file under "Claude".'
+            'For Windows these are the root scheduler folder names; Claude scheduled tasks all file under "Claude".'
           )
       }
     },

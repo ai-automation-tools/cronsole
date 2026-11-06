@@ -90,12 +90,12 @@ export const looksLikeRoutineToken = (token: string) => token.startsWith(TOKEN_P
 
 export const routineInputSchema = z.object({
   /** The bare `trig_…` id, or the whole fire URL — normalized before storage. */
-  id: z.string().min(1, 'A routine id (or its fire URL) is required'),
+  id: z.string().min(1, 'A Claude scheduled task id (or its fire URL) is required'),
   /**
    * Per-routine bearer token from *Edit routine → Add another trigger → API →
    * Generate token*. Shown once by claude.ai and never retrievable again.
    */
-  token: z.string().min(1, 'A routine token is required'),
+  token: z.string().min(1, 'A Claude scheduled task token is required'),
   /** Display name. Defaults to the id, which is unreadable but never wrong. */
   name: z.string().trim().min(1).max(120).optional()
 });

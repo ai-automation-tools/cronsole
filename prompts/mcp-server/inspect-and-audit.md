@@ -27,7 +27,7 @@ one's schedule and last run result.
 
 ```text
 Using Cronsole, list my tasks by platform — how many are Windows, how many are
-native, how many are Claude routines?
+native, how many are Claude scheduled tasks?
 ```
 
 ```text
@@ -56,7 +56,7 @@ set it up on my laptop. Tell me what the template leaves out.
 
 The answer should name the loss — the account it runs as, run level, extra actions — because a
 template is a recipe, not a backup. It is also the only export that works with the **Windows agent
-offline**, or for a **Claude routine**, whose definition lives at claude.ai and cannot be fetched at
+offline**, or for a **Claude scheduled task**, whose definition lives at claude.ai and cannot be fetched at
 all. Ask for the native format when you want *this exact task back on this platform*.
 
 ## 🩺 What's broken?

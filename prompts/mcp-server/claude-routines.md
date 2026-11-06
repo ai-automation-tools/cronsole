@@ -1,9 +1,9 @@
 <a id="routines-top"></a>
 
-<h1 align="center">🧠 Claude Routine Prompts</h1>
+<h1 align="center">🧠 Claude Scheduled Task Prompts</h1>
 
 <p align="center">
-  <em>Create, connect, and manage Claude Code routines — scheduled agent runs in Anthropic's
+  <em>Create, connect, and manage Claude Code scheduled tasks — scheduled agent runs in Anthropic's
   cloud — from the same dashboard as everything else.</em>
 </p>
 
@@ -14,80 +14,81 @@
 
 ---
 
-A routine is a saved prompt Anthropic runs on a schedule in a cloud sandbox. No agent, no local
-paths, and it fires whether or not your machine is on. What Cronsole can do with routines
+A Claude Code scheduled task (formerly a routine) is a saved prompt Anthropic runs on a schedule
+in a cloud sandbox. No agent, no local paths, and it fires whether or not your machine is on. What
+Cronsole can do with them
 depends on which of two doors this install can reach, so **start every session here**:
 
 ```text
 Using Cronsole, check the Claude connection — which API mode is available, and
-what does that let me do? Tell me plainly whether I can create routines from
+what does that let me do? Tell me plainly whether I can create scheduled tasks from
 here or only fire ones I've connected.
 ```
 
 | `session.mode` | What it means | What works |
 |:---|:---|:---|
-| **`oauth`** | The backend can read your Claude Code session, because you signed in with the `claude` CLI on that machine | Create, list, reschedule, pause and run — routines behave like any other platform |
-| **`declared`** | No readable session | Only routines you've connected with a per-routine token, and only firing them |
+| **`oauth`** | The backend can read your Claude Code session, because you signed in with the `claude` CLI on that machine | Create, list, reschedule, pause and run — they behave like any other platform |
+| **`declared`** | No readable session | Only scheduled tasks you've connected with their own token, and only firing them |
 
 If it says `declared` and you wanted `oauth`, the fix is a `/login` in the Claude Code CLI **on
 the machine running the Cronsole backend** — not on whichever machine you happen to be reading
 this from.
 
-## ✨ Create a routine
+## ✨ Create a scheduled task
 
 ```text
-Using Cronsole, create a Claude routine called "Nightly dependency audit" that
+Using Cronsole, create a Claude scheduled task called "Nightly dependency audit" that
 runs at 5am UTC daily against https://github.com/me/my-app. The prompt: check
 for dependencies with known advisories or more than two majors behind, and write
 a short report ranked by risk. Report only — do not open PRs or change anything.
 ```
 
 ```text
-Using Cronsole, create a routine that triages new issues on
+Using Cronsole, create a Claude scheduled task that triages new issues on
 https://github.com/me/my-app every weekday morning: label them, spot duplicates,
 and summarize anything that looks like a regression. It should stop and report
 rather than close anything.
 ```
 
 ```text
-Using Cronsole, create a weekly routine that compares the docs under docs/ in
+Using Cronsole, create a weekly Claude scheduled task that compares the docs under docs/ in
 https://github.com/me/my-app against the code they describe, and lists every
 claim that's no longer true with the file and line that contradicts it. Friday
 afternoons.
 ```
 
 ```text
-Using Cronsole, list the Claude routine templates in the catalog and apply the
+Using Cronsole, list the Claude scheduled task templates in the catalog and apply the
 CI failure digest one to my repo, scheduled for weekday mornings.
 ```
 
 Three things about creating one, all of which your assistant should tell you unprompted:
 
-- **The prompt is the whole context.** A routine starts with nothing but that text and the
+- **The prompt is the whole context.** A scheduled task starts with nothing but that text and the
   repositories you attach. "Fix the build" means less to a cold agent than it does to you.
-- **Repositories are attached deliberately, never guessed.** A routine with none still runs; a
-  routine pointed at the wrong repo by an assistant filling in a blank is a bad afternoon.
+- **Repositories are attached deliberately, never guessed.** One with none still runs; one
+  pointed at the wrong repo by an assistant filling in a blank is a bad afternoon.
 - **The schedule is UTC cron and passes straight through.** No conversion, so nothing can be
   lossy. Anthropic adds a few minutes of its own jitter to the actual fire time, which is why
   the dashboard shows the platform's next-run time rather than recomputing one.
 
 > [!NOTE]
-> A routine created this way arrives with **no MCP connectors attached**, on purpose. You add
-> those at claude.ai per routine — so a routine made from one sentence never quietly ends up
+> A scheduled task created this way arrives with **no MCP connectors attached**, on purpose. You add
+> those at claude.ai per task — so one made from one sentence never quietly ends up
 > holding your mailbox.
 
-## 🔌 Connect a routine you made at claude.ai
+## 🔌 Connect a scheduled task you made at claude.ai
 
-In `declared` mode this is the only way a routine reaches Cronsole. Anthropic mints a token
-**per routine** and shows it exactly once.
+In `declared` mode this is the only way a scheduled task reaches Cronsole. Anthropic mints a
+token **per task** and shows it exactly once.
 
 ```text
-Using Cronsole, connect the Claude routine with id <routine-id> and the token I'm
+Using Cronsole, connect the Claude scheduled task with id <trig_id> and the token I'm
 about to paste, named "Morning digest". Then sync so it appears on the dashboard.
 ```
 
 ```text
-Using Cronsole, I typed the routine id wrong when I connected "Morning digest".
+Using Cronsole, I typed the scheduled task id wrong when I connected "Morning digest".
 Fix the id to <correct-id> — keep the token, I can't get it again.
 ```
 
@@ -97,26 +98,26 @@ re-show a token. Correcting a typo must not cost you the credential.
 ## ▶️ Run and manage
 
 ```text
-Using Cronsole, run my "Nightly dependency audit" routine now so I can see what
+Using Cronsole, run my "Nightly dependency audit" scheduled task now so I can see what
 it produces without waiting for 5am.
 ```
 
 ```text
-Using Cronsole, pause the "Issue triage" routine — I'm on holiday and I don't
+Using Cronsole, pause the "Issue triage" scheduled task — I'm on holiday and I don't
 want the daily run burning cap. Don't remove it.
 ```
 
 ```text
-Using Cronsole, move my docs-drift routine from Friday to Monday morning UTC.
+Using Cronsole, move my docs-drift scheduled task from Friday to Monday morning UTC.
 ```
 
 ```text
-Using Cronsole, sync my Claude tasks and show me every routine on the account
+Using Cronsole, sync my Claude tasks and show me every scheduled task on the account
 with its schedule and next run — I want to know what's actually there, not what
 Cronsole thinks is there.
 ```
 
-Routines draw on the account's Claude Code usage and its **daily run cap**. Pausing is the
+Scheduled tasks draw on the account's Claude Code usage and its **daily run cap**. Pausing is the
 honest way to stop one; encoding "don't run" into the cron is how you end up with a schedule
 nobody can read six months later.
 
@@ -126,13 +127,13 @@ Three verbs, and they're easy to confuse:
 
 | You want to… | Ask for | What happens |
 |:---|:---|:---|
-| Stop it running for now | **Pause / disable** | The routine stays, does nothing, restarts with one prompt |
-| Take it off Cronsole entirely | **Disconnect** | The declaration and its tracked tasks go; the routine keeps running at claude.ai |
-| Destroy the routine | **Nothing here can** | Neither Claude API exposes a delete — do it at claude.ai |
+| Stop it running for now | **Pause / disable** | The scheduled task stays, does nothing, restarts with one prompt |
+| Take it off Cronsole entirely | **Disconnect** | The declaration and its tracked tasks go; the scheduled task keeps running at claude.ai |
+| Destroy the scheduled task | **Nothing here can** | Neither Claude API exposes a delete — do it at claude.ai |
 
 ```text
-Using Cronsole, disconnect the routine "Morning digest" — take it off my
-dashboard. I understand the routine keeps running at claude.ai and that the
+Using Cronsole, disconnect the Claude scheduled task "Morning digest" — take it off my
+dashboard. I understand it keeps running at claude.ai and that the
 stored token is gone for good.
 ```
 
@@ -149,22 +150,22 @@ disconnecting discards versus what pausing would do.
 > the task straight back. Disconnect is the verb, and it says out loud that it's spending a
 > token you can't get again.
 
-## 🆚 Routine or headless CLI run?
+## 🆚 Scheduled task or headless CLI run?
 
 Both schedule a coding agent. They differ in where the work happens.
 
-| | Claude routine | [Headless CLI task](ai-agent-jobs.md) |
+| | Claude scheduled task | [Headless CLI task](ai-agent-jobs.md) |
 |:---|:---|:---|
 | **Runs on** | Anthropic's sandbox | Your machine, via Task Scheduler |
 | **Sees** | Repository URLs you attach | Any local path, your tools, your credentials |
-| **Needs** | A Claude Code session or a routine token | The local agent, and the CLI installed |
+| **Needs** | A Claude Code session or a scheduled task token | The local agent, and the CLI installed |
 | **When your machine is off** | Still runs | Doesn't |
 | **Best for** | Repo hygiene, triage, digests on GitHub | Anything touching a path only your machine has |
 
 ```text
 Using Cronsole, I want a nightly job that reviews my repo for dependency drift.
 The repo is on GitHub and nothing about this needs my machine — tell me whether
-a routine or a local headless task is the right shape, then create it.
+a Claude scheduled task or a local headless task is the right shape, then create it.
 ```
 
 ## 🔗 Related

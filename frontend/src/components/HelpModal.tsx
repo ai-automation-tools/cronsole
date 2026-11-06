@@ -215,8 +215,8 @@ export const HelpModal = ({ onClose, topic }: HelpModalProps) => {
                 className="p-3 bg-background border border-border hover:border-primary/50 rounded-2xl flex items-center justify-between group transition-colors"
               >
                 <div className="min-w-0">
-                  <span className="font-semibold text-xs text-foreground block truncate group-hover:text-foreground transition-colors">Claude Code Routines</span>
-                  <span className="text-[10px] text-subtle-foreground truncate block">Anthropic experimental routine docs</span>
+                  <span className="font-semibold text-xs text-foreground block truncate group-hover:text-foreground transition-colors">Claude Code Scheduled Tasks</span>
+                  <span className="text-[10px] text-subtle-foreground truncate block">Anthropic scheduled task docs</span>
                 </div>
                 <ExternalLink size={14} className="text-subtle-foreground group-hover:text-foreground transition-colors" />
               </a>

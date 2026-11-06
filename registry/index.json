@@ -1,6 +1,6 @@
 {
   "registryVersion": "1.0",
-  "updatedAt": "2026-11-06T20:44:06.345Z",
+  "updatedAt": "2026-11-06T21:20:54.791Z",
   "templates": [
     {
       "id": "tpl_daily_database_backup",
@@ -782,8 +782,8 @@
     },
     {
       "id": "tpl_starter_claude_routine",
-      "name": "Claude Code Routine",
-      "description": "Run a natural-language Claude Code routine on a schedule.",
+      "name": "Claude Code Scheduled Task",
+      "description": "Run a natural-language prompt as a Claude Code scheduled task.",
       "category": "ai-agent",
       "tags": [
         "ai",
@@ -796,7 +796,7 @@
         "claude-code"
       ],
       "path": "templates/tpl_starter_claude_routine.json",
-      "sha256": "0d7f60ce3de459cb5538916ff62c6c1811e93a3fc4b92d734d90bb0510fd94d2"
+      "sha256": "428756cf3083f487a7a78ae2889afae5a2c66fdc42a11d02ff0971b1ec3e5438"
     },
     {
       "id": "tpl_starter_chatgpt_link",
@@ -2290,8 +2290,8 @@
     },
     {
       "id": "claude-routine-issue-triage",
-      "name": "Routine: Issue Triage",
-      "description": "A Claude Code routine that reads new issues each morning, labels them by area and severity, and flags anything that looks like a regression.",
+      "name": "Claude Scheduled Task: Issue Triage",
+      "description": "A Claude Code scheduled task that reads new issues each morning, labels them by area and severity, and flags anything that looks like a regression.",
       "category": "dev-workflow",
       "tags": [
         "ai",
@@ -2306,12 +2306,12 @@
         "claude-code"
       ],
       "path": "templates/claude-routine-issue-triage.json",
-      "sha256": "7c63080e77ac22d51be02f8f0c8dddd2c9bed3209b18f50110df1a55d652eeae"
+      "sha256": "c219737784bf34a7765aaa9216cc36fc049949ab7314f0420f0624165d4aec86"
     },
     {
       "id": "claude-routine-dependency-review",
-      "name": "Routine: Dependency Review",
-      "description": "A weekly routine that checks outdated and vulnerable dependencies, and reports which upgrades are safe to take rather than upgrading anything itself.",
+      "name": "Claude Scheduled Task: Dependency Review",
+      "description": "A weekly Claude scheduled task that checks outdated and vulnerable dependencies, and reports which upgrades are safe to take rather than upgrading anything itself.",
       "category": "dev-workflow",
       "tags": [
         "ai",
@@ -2326,12 +2326,12 @@
         "claude-code"
       ],
       "path": "templates/claude-routine-dependency-review.json",
-      "sha256": "f328f30effdc424528e209d41313412e02eb50c15dfb1e41f036587b302e0b64"
+      "sha256": "3105238062b3926ef139adf848f1c265a03cd65c7ebc5ea291e27cc4cbe0ebd4"
     },
     {
       "id": "claude-routine-ci-failure-digest",
-      "name": "Routine: CI Failure Digest",
-      "description": "A weekday routine that reads the last day of failing CI runs, groups them by root cause, and separates real breakage from flakes.",
+      "name": "Claude Scheduled Task: CI Failure Digest",
+      "description": "A weekday Claude scheduled task that reads the last day of failing CI runs, groups them by root cause, and separates real breakage from flakes.",
       "category": "monitoring",
       "tags": [
         "ai",
@@ -2346,12 +2346,12 @@
         "claude-code"
       ],
       "path": "templates/claude-routine-ci-failure-digest.json",
-      "sha256": "378c643db203cac4b3c4e76a62df31bb8af221c98758916cee465f9f94e51ca2"
+      "sha256": "11551ccda209c3393667aa1bc8095322f662b8dd570e729a132550bd06748cb8"
     },
     {
       "id": "claude-routine-docs-drift",
-      "name": "Routine: Docs Drift Check",
-      "description": "A weekly routine that compares the documentation against the code it describes and lists what has quietly stopped being true.",
+      "name": "Claude Scheduled Task: Docs Drift Check",
+      "description": "A weekly Claude scheduled task that compares the documentation against the code it describes and lists what has quietly stopped being true.",
       "category": "dev-workflow",
       "tags": [
         "ai",
@@ -2365,12 +2365,12 @@
         "claude-code"
       ],
       "path": "templates/claude-routine-docs-drift.json",
-      "sha256": "65261cefbf946af81ae8b35ad60d652d9cf6133202003c13b227fcf38a299831"
+      "sha256": "9345c408216f3a076d58c7f827150bf9129a1f7ff1b2cea23fbcb3516e0cfdbe"
     },
     {
       "id": "claude-routine-standup-digest",
-      "name": "Routine: Standup Digest",
-      "description": "A weekday-morning routine that summarizes what actually landed yesterday — merged work, open reviews, and anything that stalled.",
+      "name": "Claude Scheduled Task: Standup Digest",
+      "description": "A weekday-morning Claude scheduled task that summarizes what actually landed yesterday — merged work, open reviews, and anything that stalled.",
       "category": "ai-agent",
       "tags": [
         "ai",
@@ -2385,12 +2385,12 @@
         "claude-code"
       ],
       "path": "templates/claude-routine-standup-digest.json",
-      "sha256": "9e029cda298c06c1b0a80f539f3a35666df068f1b6329b8912dda5c6d692a4c8"
+      "sha256": "c10f30bc7f3c7aa38c096466153d97beda3f382e13685d1653da385782a9884a"
     },
     {
       "id": "claude-routine-release-notes",
-      "name": "Routine: Release Notes Draft",
-      "description": "A weekly routine that turns everything merged since a release tag into a draft set of release notes written for the people who use the software, rather than the people who wrote it.",
+      "name": "Claude Scheduled Task: Release Notes Draft",
+      "description": "A weekly Claude scheduled task that turns everything merged since a release tag into a draft set of release notes written for the people who use the software, rather than the people who wrote it.",
       "category": "dev-workflow",
       "tags": [
         "ai",
@@ -2405,12 +2405,12 @@
         "claude-code"
       ],
       "path": "templates/claude-routine-release-notes.json",
-      "sha256": "cdaeed4fa658155b66558cafc09f2c578a4b63e88834b37f07dab1ab9134bea9"
+      "sha256": "5dacef77efd28b9bcbb65fea168c8908624f2fc96fee7e1815ae38339c9a314c"
     },
     {
       "id": "claude-routine-license-compliance",
-      "name": "Routine: License Compliance Check",
-      "description": "A routine that reviews the licenses of dependencies added or changed in a repository and flags anything copyleft, unapproved, or missing a license entirely, so a legal problem is caught before it ships rather than during an audit.",
+      "name": "Claude Scheduled Task: License Compliance Check",
+      "description": "A Claude scheduled task that reviews the licenses of dependencies added or changed in a repository and flags anything copyleft, unapproved, or missing a license entirely, so a legal problem is caught before it ships rather than during an audit.",
       "category": "dev-workflow",
       "tags": [
         "ai",
@@ -2425,12 +2425,12 @@
         "claude-code"
       ],
       "path": "templates/claude-routine-license-compliance.json",
-      "sha256": "4f29dd932f8ad84a7b23dc0159191ebb77d73d0813c0663edb16ac20b04094f4"
+      "sha256": "804ae7c8c7d28d303d4909ba682e5cf4a6f3c6ea66e3444cc9674b70de07ff06"
     },
     {
       "id": "claude-routine-stale-branch-sweep",
-      "name": "Routine: Stale Branch Sweep",
-      "description": "A weekly routine that lists remote branches with no commits in a configurable window and reports which look safe to delete, so a repository does not accumulate branches nobody remembers opening.",
+      "name": "Claude Scheduled Task: Stale Branch Sweep",
+      "description": "A weekly Claude scheduled task that lists remote branches with no commits in a configurable window and reports which look safe to delete, so a repository does not accumulate branches nobody remembers opening.",
       "category": "dev-workflow",
       "tags": [
         "ai",
@@ -2445,12 +2445,12 @@
         "claude-code"
       ],
       "path": "templates/claude-routine-stale-branch-sweep.json",
-      "sha256": "48555de5f604f9c4a99c60950a71451c6eba3648e1034a294f70047b24cfcf78"
+      "sha256": "82aab8638818b13bd428a8c51a39bcc6f612a5eee7d2b45eefb67d44ee5deb92"
     },
     {
       "id": "claude-routine-flaky-test-report",
-      "name": "Routine: Flaky Test Report",
-      "description": "A weekly routine that reads recent CI runs, finds tests that failed and then passed on a retry or a later commit with no relevant change, and ranks them by how often they flip, so intermittent failures get fixed instead of re-run.",
+      "name": "Claude Scheduled Task: Flaky Test Report",
+      "description": "A weekly Claude scheduled task that reads recent CI runs, finds tests that failed and then passed on a retry or a later commit with no relevant change, and ranks them by how often they flip, so intermittent failures get fixed instead of re-run.",
       "category": "dev-workflow",
       "tags": [
         "ai",
@@ -2465,12 +2465,12 @@
         "claude-code"
       ],
       "path": "templates/claude-routine-flaky-test-report.json",
-      "sha256": "10b52130877673ce2e17c4d991b9da9cc18219952b3a6c2d5067ed7928742bac"
+      "sha256": "0f21fb3e2d61e6bd7d3a1a5973a88fa275f9b412ebe45faedd07f3e37e18c59d"
     },
     {
       "id": "claude-routine-todo-backlog",
-      "name": "Routine: TODO Backlog Digest",
-      "description": "A weekly routine that finds TODO, FIXME and HACK comments added or still open in a repository, groups them by area, and ranks the ones that look risky, so deferred work is a list someone reads instead of comments nobody revisits.",
+      "name": "Claude Scheduled Task: TODO Backlog Digest",
+      "description": "A weekly Claude scheduled task that finds TODO, FIXME and HACK comments added or still open in a repository, groups them by area, and ranks the ones that look risky, so deferred work is a list someone reads instead of comments nobody revisits.",
       "category": "dev-workflow",
       "tags": [
         "ai",
@@ -2485,7 +2485,7 @@
         "claude-code"
       ],
       "path": "templates/claude-routine-todo-backlog.json",
-      "sha256": "5b4e2e8185d53e1d9b916f7accd8d1b6ba99578ee0151958e79a4318e83ee9d7"
+      "sha256": "eb6361199a72b32e56c3e45842b9f4b91331e4d9280dbecbf678f0f98ffddae9"
     },
     {
       "id": "gemini-daily-email-digest",
@@ -2596,7 +2596,7 @@
         "tpl_starter_chatgpt_link"
       ],
       "path": "packs/starters.json",
-      "sha256": "6f45e6f6215e0ac4310d7e2996fefb876d6ccff221487db8d183fdaefc1a250d"
+      "sha256": "658401a51c4bb400f4da759998784d605ba195d30a139d3ec0554e10071bf4fa"
     },
     {
       "id": "developer",
@@ -2642,7 +2642,7 @@
         "tpl_starter_chatgpt_link"
       ],
       "path": "packs/ai-agents.json",
-      "sha256": "b95c6f8d76ab3780974029405e94fb25538eb00a7be924517fa19e18ec9e0505"
+      "sha256": "e9b7ea8af54067c891e1144014b0ae877b03795ff209dc521258dddd77d2b42b"
     },
     {
       "id": "backup-cleanup",
@@ -2731,8 +2731,8 @@
     },
     {
       "id": "claude-routines",
-      "name": "Claude Routines",
-      "description": "Scheduled Claude Code routines — cloud-run prompts against your repositories: issue triage, dependency review, CI digests, docs drift, standups.",
+      "name": "Claude Scheduled Tasks",
+      "description": "Claude Code scheduled tasks (formerly routines) — cloud-run prompts against your repositories: issue triage, dependency review, CI digests, docs drift, standups.",
       "templateIds": [
         "claude-routine-issue-triage",
         "claude-routine-dependency-review",
@@ -2747,7 +2747,7 @@
         "tpl_starter_claude_routine"
       ],
       "path": "packs/claude-routines.json",
-      "sha256": "b721c788309e97b74a9d7683e1f186dea1396501d4d5e5d2018094f62e4ea3da"
+      "sha256": "2976dd74b7ab13cc333245b328878b7e760ef319325e12afa90e3b607ee388a1"
     },
     {
       "id": "gemini-triggers",

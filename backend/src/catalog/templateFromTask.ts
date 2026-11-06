@@ -120,8 +120,8 @@ function deriveAction(task: TaskLike): {
     // prompt, so there is genuinely nothing here to template, and "sync it and
     // try again" would be advice that cannot work.
     throw new SaveAsTemplateError(
-      'Cronsole has this routine\'s id but not its prompt, so there is nothing to put in a template. ' +
-        'A routine read through a Claude Code session on this machine carries its prompt; one connected by ' +
+      'Cronsole has this Claude scheduled task\'s id but not its prompt, so there is nothing to put in a template. ' +
+        'A scheduled task read through a Claude Code session on this machine carries its prompt; one connected by ' +
         'declaration does not, because its definition lives at claude.ai. Sign in to Claude Code and sync to capture it.'
     );
   }

@@ -372,7 +372,7 @@ export function runsEdit(task: Task): RunsEdit {
     kind: 'none',
     editable: false,
     reason: task.platform === 'CLAUDE_CODE'
-      ? 'What a Claude routine runs is defined at claude.ai — Cronsole can schedule and fire it, not rewrite its prompt.'
+      ? 'What a Claude scheduled task runs is defined at claude.ai — Cronsole can schedule and fire it, not rewrite its prompt.'
       // Claude's is a boundary; Gemini's is only a boundary on *editing in
       // place*, and saying the same sentence for both would hide a path that
       // exists two buttons away.

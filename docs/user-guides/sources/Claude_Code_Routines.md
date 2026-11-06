@@ -1,6 +1,6 @@
 <a id="claude-top"></a>
 
-<h1 align="center">🤖 Claude Code Routines</h1>
+<h1 align="center">🤖 Claude Code Scheduled Tasks</h1>
 
 <p align="center">
   <em>Prompts Anthropic runs on a schedule, in the cloud, against the repositories you attach.</em>
@@ -14,8 +14,8 @@
 
 ---
 
-A routine is a prompt Anthropic runs for you on a schedule. Cronsole shows them beside your Windows
-tasks and cron jobs, and — depending on your install — can create, pause and run them.
+A Claude Code scheduled task (formerly a routine) is a prompt Anthropic runs for you on a schedule.
+Cronsole shows them beside your Windows tasks and cron jobs, and — depending on your install — can create, pause and run them.
 
 **This is the one source whose capabilities depend on your machine**, because there are two different
 doors into it and Cronsole keeps both.
@@ -26,10 +26,10 @@ doors into it and Cronsole keeps both.
 
 | | **Signed in to the Claude Code CLI** on the machine running Cronsole | **Not signed in** |
 |:---|:---|:---|
-| Sync | Real: names, schedules, enabled state, next run | Returns the routines *you declared* |
+| Sync | Real: names, schedules, enabled state, next run | Returns the scheduled tasks *you declared* |
 | Create | Yes, including from a template | No — create at claude.ai, then connect |
 | Enable / disable, edit schedule | Yes | No — do it at claude.ai |
-| Run now | Yes, no token needed | Yes, using the routine's own API token |
+| Run now | Yes, no token needed | Yes, using the scheduled task's own API token |
 | Delete | **Impossible either way** | **Impossible either way** |
 
 The signed-in path uses the CLI's own OAuth session. **Cronsole reads it at the moment it needs it
@@ -45,33 +45,35 @@ Nothing to configure for that path: run `/login` in Claude Code on the backend's
 
 | ✅ Use it for | Why |
 |:---|:---|
-| Repository work an agent can do alone: review open PRs, bump dependencies, tidy docs | A routine gets a checkout of the repositories you attach and runs in Anthropic's cloud. |
+| Repository work an agent can do alone: review open PRs, bump dependencies, tidy docs | A scheduled task gets a checkout of the repositories you attach and runs in Anthropic's cloud. |
 | Work that should run while your machine is off | Nothing local is involved. |
 
 | 🚫 Use something else for | Instead |
 |:---|:---|
 | A fixed command or script | [Cronsole-native](Cronsole_Native.md) or [Windows Task Scheduler](Windows_Task_Scheduler.md). Exact, cheaper, and the output is recorded. |
-| Anything that needs files on your machine | [Windows Task Scheduler](Windows_Task_Scheduler.md). A routine sees only its checkout. |
-| Reading why a run failed, inside Cronsole | [Gemini API Triggers](Gemini_API_Triggers.md), if the job fits there. Cronsole can fire a routine but cannot read its runs. |
+| Anything that needs files on your machine | [Windows Task Scheduler](Windows_Task_Scheduler.md). A scheduled task sees only its checkout. |
+| Reading why a run failed, inside Cronsole | [Gemini API Triggers](Gemini_API_Triggers.md), if the job fits there. Cronsole can fire a scheduled task but cannot read its runs. |
 
 > [!NOTE]
-> **Anthropic now calls these "scheduled tasks".** Claude Code's docs renamed routines; the page
-> still lives at `claude.ai/code/routines`, and Cronsole keeps the older name for now.
+> **These used to be called routines.** Anthropic renamed them "scheduled tasks", and Cronsole now
+> uses the new name too. A few things still say `routine` because Anthropic's own surface does
+> (`claude.ai/code/routines`) or because renaming would break callers: the MCP tools keep their names
+> (`create_claude_routine`, `connect_claude_routine` and the rest).
 
 ---
 
-## 🔌 Connecting a routine by hand
+## 🔌 Connecting a scheduled task by hand
 
-Use this when you are not signed in, or when the routine already exists at claude.ai.
+Use this when you are not signed in, or when the scheduled task already exists at claude.ai.
 
-1. **Get the token.** At claude.ai: the routine → **Edit** → **Add another trigger** → **API** →
+1. **Get the token.** At claude.ai: the scheduled task → **Edit** → **Add another trigger** → **API** →
    **Generate token**. Generating a new one revokes its predecessor.
 2. **In Cronsole:** New Task → Claude, or the Claude panel on the Sources tab.
-3. Paste the **routine id** and the **token**. A pasted fire URL works too — Cronsole normalizes it
+3. Paste the **scheduled task id** and the **token**. A pasted fire URL works too — Cronsole normalizes it
    down to the `trig_` id.
 
 Cronsole stores the token encrypted and never shows it again. **There is no reveal button**, because
-claude.ai cannot re-display it either. Mistyped the id? Use **Edit** on the routine and the token is
+claude.ai cannot re-display it either. Mistyped the id? Use **Edit** on the task and the token is
 kept.
 
 > [!NOTE]
@@ -90,18 +92,18 @@ as *Unsupported* on the Sources tab — that tab answering about **this install*
 product. It is the one source where the capability row is a getter rather than a constant.
 
 **Delete is impossible on both doors**, verified by enumeration rather than assumed. Cronsole can
-pause a routine and forget it; removing it happens at claude.ai.
+pause a scheduled task and forget it; removing it happens at claude.ai.
 
 ---
 
 ## 📄 Applying a template
 
-Cronsole's catalog has a **Claude Routines** pack, and applying one creates a real routine.
+Cronsole's catalog has a **Claude Scheduled Tasks** pack, and applying one creates a real scheduled task.
 
 Because the "command" is a prompt, the Apply screen says **Resolved prompt** and offers a
-**Repositories** box. A routine with no repository still runs — it just has no checkout.
+**Repositories** box. A scheduled task with no repository still runs — it just has no checkout.
 
-**Cronsole never guesses a repository for you.** A routine can commit, and the wrong repo is not a
+**Cronsole never guesses a repository for you.** A scheduled task can commit, and the wrong repo is not a
 mistake you can see before it happens.
 
 ---
@@ -109,40 +111,40 @@ mistake you can see before it happens.
 ## 🗑️ Removing one — Disconnect, not Remove
 
 *Remove from Cronsole* is **refused** here, deliberately. On Windows, untracking means "don't
-re-import this from the machine". There is no machine here — your list of routines is your own
+re-import this from the machine". There is no machine here — your list of scheduled tasks is your own
 declaration — so removing the row alone would leave the declaration in place and the next sync would
 bring the task straight back while the removed-tasks table read empty. (If you hit that loop before
 12 August 2026, that was exactly it:
 [#47](../../troubleshooting/README.md#47-a-claude-task-keeps-coming-back-after-remove-from-cronsole).)
 
-**Disconnect routine** — in the task modal, or on the Sources tab — removes the declaration and the
+**Disconnect scheduled task** — in the task modal, or on the Sources tab — removes the declaration and the
 tracked task together. Two things it also does, both stated in the confirmation:
 
 - **It forgets the API token**, which claude.ai will not show you again. Reconnecting means
   generating a new one. That is precisely why this is a separate button: a control labelled *Remove
   from Cronsole* must not quietly spend a credential.
-- **It changes nothing at claude.ai.** The routine still exists and still runs.
+- **It changes nothing at claude.ai.** The scheduled task still exists and still runs.
 
-This applies to a routine you **connected by hand**. A routine Cronsole found through your signed-in
+This applies to a scheduled task you **connected by hand**. One Cronsole found through your signed-in
 CLI session has no declaration behind it, so *Remove from Cronsole* works on it like on any other
-source, and that is how you clear one whose routine was deleted at claude.ai.
+source, and that is how you clear one whose scheduled task was deleted at claude.ai.
 
 ---
 
 ## ⚠️ Things that surprise people
 
-- **Without a session, sync returns what you typed.** Nothing is fetched, so a routine deleted at
+- **Without a session, sync returns what you typed.** Nothing is fetched, so a scheduled task deleted at
   claude.ai keeps listing until its next run fails.
-- **The next-run time comes from Anthropic, not from the cron.** Routine runs carry a few minutes of
+- **The next-run time comes from Anthropic, not from the cron.** Scheduled runs carry a few minutes of
   scheduling jitter, so a locally computed time would disagree with claude.ai forever with nothing on
   screen to say which was right. With no session there is no schedule to show, and the card shows
   none rather than a guess.
 - **Health comes from your syncs, not from a probe.** Without a session the only available endpoint
-  *fires your routine* — a health check would eat your daily cap. With one, a read exists, but
+  *fires your scheduled task* — a health check would eat your daily cap. With one, a read exists, but
   `getHealth` runs every 45 seconds per open tab. Sync is the probe, on every source.
 - **This connector is experimental, specifically.** The documented endpoint is a research preview
   behind a dated beta header, and the API that makes create/list/pause possible is undocumented and
-  beta-gated. If it changes, Cronsole falls back to the declared-routine path rather than breaking —
+  beta-gated. If it changes, Cronsole falls back to the declared-task path rather than breaking —
   which is why that path is kept rather than retired.
 
 ---
@@ -152,7 +154,7 @@ source, and that is how you clear one whose routine was deleted at claude.ai.
 | Symptom | Start here |
 |:---|:---|
 | A Claude task keeps coming back after *Remove from Cronsole* | [#47](../../troubleshooting/README.md#47-a-claude-task-keeps-coming-back-after-remove-from-cronsole) |
-| Cronsole cannot list, pause or create routines | [#45](../../troubleshooting/README.md#45-cronsole-cant-list-pause-or-create-claude-code-routines) |
+| Cronsole cannot list, pause or create scheduled tasks | [#45](../../troubleshooting/README.md#45-cronsole-cant-list-pause-or-create-claude-code-routines) |
 
 ---
 
@@ -169,7 +171,7 @@ source, and that is how you clear one whose routine was deleted at claude.ai.
 
 | Resource | What it covers |
 |:---|:---|
-| [**claude.ai/code/routines**](https://claude.ai/code/routines) | Where routines are created, edited and deleted. Sign-in required. |
+| [**claude.ai/code/routines**](https://claude.ai/code/routines) | Where scheduled tasks are created, edited and deleted. Sign-in required. |
 | [**Scheduled tasks docs**](https://code.claude.com/docs/en/routines) | Triggers (schedule, API, GitHub), plans, and the API token. |
 | [**Introducing routines in Claude Code**](https://claude.com/resources/articles/introducing-routines-in-claude-code) | Anthropic's launch article. |
 

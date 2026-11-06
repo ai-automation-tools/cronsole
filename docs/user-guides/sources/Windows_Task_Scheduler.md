@@ -35,7 +35,7 @@ sources, this is the one to use for anything that must survive Cronsole being do
 
 | 🚫 Use something else for | Instead |
 |:---|:---|
-| Work that should run while this PC is off or asleep | A cloud source: [Claude Code Routines](Claude_Code_Routines.md), [Gemini API Triggers](Gemini_API_Triggers.md) or [GitHub Actions](GitHub_Actions.md). |
+| Work that should run while this PC is off or asleep | A cloud source: [Claude Code Scheduled Tasks](Claude_Code_Routines.md), [Gemini API Triggers](Gemini_API_Triggers.md) or [GitHub Actions](GitHub_Actions.md). |
 | A URL ping or health check whose output you want to read in Cronsole | [Cronsole-native](Cronsole_Native.md). A Windows run gives you an exit code, not the job's output. |
 | A backend on macOS or Linux | [Cronsole-native](Cronsole_Native.md) for now. A POSIX agent is on the [roadmap](../../ROADMAP.md). |
 
@@ -215,7 +215,7 @@ failing.
 <p align="center">
   <a href="README.md">← Source guides</a> ·
   <a href="Cronsole_Native.md">Cronsole-native</a> ·
-  <a href="Claude_Code_Routines.md">Next: Claude Code Routines →</a>
+  <a href="Claude_Code_Routines.md">Next: Claude Code Scheduled Tasks →</a>
 </p>
 
 <p align="right">(<a href="#windows-top">back to top</a>)</p>

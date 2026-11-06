@@ -215,15 +215,15 @@ export class ClaudeConnector implements PlatformConnector {
   ): Promise<{ success: boolean; platformRunId?: string; message?: string }> {
     const routine = declaredRoutines(config).find(r => r.id === externalId);
     if (!routine) {
-      return { success: false, message: `Routine ${externalId} is not in this connection's config` };
+      return { success: false, message: `Claude scheduled task ${externalId} is not in this connection's config` };
     }
     if (typeof routine.token !== 'string' || !routine.token) {
       return {
         success: false,
         message:
-          'No API token for this routine, and no Claude Code session to fall back on. ' +
+          'No API token for this Claude scheduled task, and no Claude Code session to fall back on. ' +
           'Either sign in with the Claude Code CLI (`/login`) on the machine running Cronsole, ' +
-          'or generate a per-routine token at claude.ai (Edit routine → Add another trigger → API).'
+          'or generate a per-task token at claude.ai (Edit → Add another trigger → API).'
       };
     }
 
@@ -270,7 +270,7 @@ export class ClaudeConnector implements PlatformConnector {
       return {
         success: false,
         message:
-          'Pausing a routine needs a Claude Code session on the machine running Cronsole. ' +
+          'Pausing a Claude scheduled task needs a Claude Code session on the machine running Cronsole. ' +
           (reason ?? 'Sign in with the Claude Code CLI (`/login`).') +
           ' Until then, pause it at claude.ai/code/routines.'
       };
@@ -301,7 +301,7 @@ export class ClaudeConnector implements PlatformConnector {
         success: false,
         clientError: true,
         message:
-          'Editing a routine\'s schedule needs a Claude Code session on the machine running Cronsole. ' +
+          'Editing a Claude scheduled task\'s schedule needs a Claude Code session on the machine running Cronsole. ' +
           (reason ?? 'Sign in with the Claude Code CLI (`/login`).') +
           ' Until then, edit it at claude.ai/code/routines.'
       };
@@ -346,7 +346,7 @@ export class ClaudeConnector implements PlatformConnector {
         success: false,
         foldersCreated: [],
         message:
-          'Creating a routine needs a Claude Code session on the machine running Cronsole. ' +
+          'Creating a Claude scheduled task needs a Claude Code session on the machine running Cronsole. ' +
           (reason ?? 'Sign in with the Claude Code CLI (`/login`).') +
           ' Alternatively create it at claude.ai/code/routines or with `/schedule` in the CLI, then sync.'
       };
@@ -362,7 +362,7 @@ export class ClaudeConnector implements PlatformConnector {
         success: false,
         foldersCreated: [],
         message:
-          'No Claude Code cloud environment found on this account. Create your first routine at ' +
+          'No Claude Code cloud environment found on this account. Create your first scheduled task at ' +
           'claude.ai/code/routines (or with `/schedule`), which sets one up — Cronsole can create the rest.'
       };
     }
@@ -405,7 +405,7 @@ export class ClaudeConnector implements PlatformConnector {
     if (!credential && routines.length === 0) {
       return {
         state: HealthState.UNKNOWN,
-        reason: reason ?? 'No routines configured, and no Claude Code session to read them from'
+        reason: reason ?? 'No Claude scheduled tasks configured, and no Claude Code session to read them from'
       };
     }
 
@@ -444,8 +444,8 @@ export class ClaudeConnector implements PlatformConnector {
         state: HealthState.UNKNOWN,
         reason: credential
           ? 'Connected with your Claude Code session; nothing exercised yet. Sync to check.'
-          : `${routines.length} routine${routines.length === 1 ? '' : 's'} configured, none fired yet. ` +
-            'Without a Claude Code session a routine can only be verified by running it.'
+          : `${routines.length} Claude scheduled task${routines.length === 1 ? '' : 's'} configured, none fired yet. ` +
+            'Without a Claude Code session a scheduled task can only be verified by running it.'
       };
     }
 
@@ -484,7 +484,7 @@ function toTaskInfo(trigger: ClaudeTrigger): TaskInfo {
     nextRunTime: parseTimestamp(trigger.next_run_at),
     metadata: {
       declared: false,
-      nameSource: 'the routine name at claude.ai',
+      nameSource: 'the scheduled task name at claude.ai',
       ...(prompt ? { prompt } : {}),
       ...(repositories.length ? { repositories } : {}),
       ...(trigger.last_fired_at ? { lastFiredAt: trigger.last_fired_at } : {}),
@@ -524,20 +524,20 @@ function describeFireError(error: any): string {
       if (!generic) return `Refused (400): ${apiMessage}`;
       return (
         'Refused (400): the request was rejected without a reason. ' +
-        'Most often the routine is paused — resume it at claude.ai/code/routines.'
+        'Most often the scheduled task is paused — resume it at claude.ai/code/routines.'
       );
     }
     case 401:
-      return 'Token rejected (401). Each token is scoped to one routine and is revoked when regenerated.';
+      return 'Token rejected (401). Each token is scoped to one Claude scheduled task and is revoked when regenerated.';
     case 403:
-      return 'No access (403). Routines need a Pro, Max, Team or Enterprise plan with Claude Code on the web enabled.';
+      return 'No access (403). Claude scheduled tasks need a Pro, Max, Team or Enterprise plan with Claude Code on the web enabled.';
     case 404:
-      return 'Routine not found (404). It may have been deleted in claude.ai, or the id is not the trig_ value.';
+      return 'Claude scheduled task not found (404). It may have been deleted in claude.ai, or the id is not the trig_ value.';
     case 429:
       return (
         'Run limit reached (429)' +
         (retryAfter ? `, retry after ${retryAfter}s` : '') +
-        '. Routine runs draw on a daily cap plus your Claude Code subscription usage.'
+        '. Scheduled task runs draw on a daily cap plus your Claude Code subscription usage.'
       );
     case 500:
       return 'Anthropic server error (500). Safe to retry with backoff.';
@@ -546,6 +546,6 @@ function describeFireError(error: any): string {
       // returns 503, so a shared "is it 529?" check would miss it.
       return 'Anthropic temporarily overloaded (503). Retry shortly.';
     default:
-      return apiMessage ?? error?.message ?? 'Unknown error firing routine';
+      return apiMessage ?? error?.message ?? 'Unknown error firing the Claude scheduled task';
   }
 }

@@ -18,7 +18,7 @@ quick-links only until an API appears.
 
 | Platform | Status in Cronsole |
 |:---|:---|
-| [**Claude Routines**](https://claude.ai/code/routines) | Experimental connector via the Anthropic API. |
+| [**Claude Code scheduled tasks**](https://claude.ai/code/routines) | Experimental connector via the Anthropic API. |
 | [**ChatGPT Schedules**](https://chatgpt.com/schedules) | Quick link — no public automations API today. |
 | [**Gemini Scheduled**](https://gemini.google.com/scheduled) | Quick link. |
 

@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#060606" />
   <title>Cronsole — local-first control plane for your scheduled tasks</title>
-  <meta name="description" content="Cronsole is a local-first dashboard for the scheduled work scattered across your machine — Windows Task Scheduler, Claude Code and Codex routines, AI-agent jobs. Try the live demo, or browse ready-to-run automation templates in the open template registry." />
+  <meta name="description" content="Cronsole is a local-first dashboard for the scheduled work scattered across your machine — Windows Task Scheduler, Claude Code scheduled tasks, Codex and other AI-agent jobs. Try the live demo, or browse ready-to-run automation templates in the open template registry." />
   <link rel="canonical" href="https://cronsole.ai-automation-tools.dev/" />
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="ai-automation-tools.dev" />
   <meta property="og:title" content="Cronsole — local-first control plane for your scheduled tasks" />
-  <meta property="og:description" content="One local dashboard for Windows Task Scheduler, Claude Code routines and jobs Cronsole runs itself. Try the live demo or browse the template registry." />
+  <meta property="og:description" content="One local dashboard for Windows Task Scheduler, Claude Code scheduled tasks and jobs Cronsole runs itself. Try the live demo or browse the template registry." />
   <meta property="og:url" content="https://cronsole.ai-automation-tools.dev/" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Ctitle%3ECronsole%3C%2Ftitle%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20rx%3D%227%22%20fill%3D%22%230b0b0e%22%2F%3E%3Crect%20x%3D%221%22%20y%3D%221%22%20width%3D%2230%22%20height%3D%2230%22%20rx%3D%226%22%20fill%3D%22none%22%20stroke%3D%22%235c4c8a%22%20stroke-width%3D%222%22%2F%3E%3Cg%20transform%3D%22translate(6%206)%20scale(0.8333333333333334)%22%20fill%3D%22none%22%20stroke%3D%22%23a78bfa%22%20stroke-width%3D%222.6%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%228.5%22%2F%3E%3Cpath%20d%3D%22M12%207v5l3.5%202%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E" />
   <style>
@@ -1019,7 +1019,7 @@
           // The eyebrow is also the way back to the org: this page is one tool of several.
           '<span class="hero-kicker kicker"><span class="pulse"></span><span><a href="' + LINKS.org + '" style="color:inherit">ai-automation-tools.dev</a> · <b>Open source</b> · local-first · ' + pluralize(PLATFORMS.length, "platform") + '</span></span>' +
           '<h1>Your automations,<br><span class="gr">finally in one place.</span></h1>' +
-          '<p class="lede">Cronsole is a <b>local-first control plane</b> for the scheduled work scattered across your machine — Windows Task Scheduler, Claude&nbsp;Code routines, and jobs Cronsole runs itself with no agent at all — in one dark, fast dashboard. View, run, pause and reschedule any of them without moving a single one off the platform it already runs on.</p>' +
+          '<p class="lede">Cronsole is a <b>local-first control plane</b> for the scheduled work scattered across your machine — Windows Task Scheduler, Claude&nbsp;Code scheduled tasks, and jobs Cronsole runs itself with no agent at all — in one dark, fast dashboard. View, run, pause and reschedule any of them without moving a single one off the platform it already runs on.</p>' +
           // This page is the PRODUCT's homepage (since 2026-10-19), not the registry's.
           // The demo is the one thing a visitor can try rather than read about, so it
           // is the primary action; the template registry is a section further down.
@@ -1040,7 +1040,7 @@
           '<h2 style="margin-top:8px">One dashboard for work that never talks to itself</h2>' +
           '<p>Scheduled work sprawls across tools that don\'t know about each other.</p></div></div>' +
           '<div class="how-grid">' +
-            valueCard("One dashboard", "Windows Task Scheduler, Claude Code routines, and Cronsole&#39;s own scheduler side by side — search, filter, and run any of them in seconds.") +
+            valueCard("One dashboard", "Windows Task Scheduler, Claude Code scheduled tasks, and Cronsole&#39;s own scheduler side by side — search, filter, and run any of them in seconds.") +
             valueCard("Local-first &amp; safe", "The whole stack runs on your machine. Commands execute no-shell and signed — a template parameter can never inject a second command.") +
             valueCard("Grow from templates", "An open, versioned registry of ready-to-run automations. Filter the gallery, import what you want, fill in the blanks, and schedule it.") +
           '</div></section>' +
@@ -1050,7 +1050,7 @@
         '<section class="band" id="sec-flow"><div class="band-head"><div><span class="kicker">How it works</span>' +
           '<h2 style="margin-top:8px">Every platform, one task list</h2>' +
           '<p>Each platform is read by its own connector and synced into PostgreSQL; the dashboard reads from there. Cronsole-native jobs skip the import and run on the backend&#39;s own scheduler.</p></div></div>' +
-          '<figure class="diagram"><iframe id="diagram-frame" src="source-data-flow.html" loading="lazy" onload="syncDiagramTheme()" title="Cronsole source data flow, interactive: Windows Task Scheduler, Claude Code routines, Gemini Triggers, GitHub Actions and n8n are read by their connectors; scope and sync upserts tasks into PostgreSQL, which the dashboard reads over REST; Cronsole-native jobs are scheduled and executed by the backend itself"></iframe>' +
+          '<figure class="diagram"><iframe id="diagram-frame" src="source-data-flow.html" loading="lazy" onload="syncDiagramTheme()" title="Cronsole source data flow, interactive: Windows Task Scheduler, Claude Code scheduled tasks, Gemini Triggers, GitHub Actions and n8n are read by their connectors; scope and sync upserts tasks into PostgreSQL, which the dashboard reads over REST; Cronsole-native jobs are scheduled and executed by the backend itself"></iframe>' +
           '<figcaption>Every node links to the code it describes; Route and Lens trace paths. <a href="source-data-flow.html">Open full screen ↗</a></figcaption></figure>' +
         '</section>' +
 
@@ -1094,7 +1094,7 @@
             howStep("Pick a template", "Download or copy any template here. You get one Registry v1 JSON file — fully inspectable.") +
             howStep("Open Cronsole → Import", "In your local Cronsole, go to the Templates tab and click Import.") +
             howStep("Validate & add", "Cronsole checks it against the same schema and {{placeholder}} rules as every built-in template.") +
-            howStep("Apply & schedule", "Fill in the parameters and pick a target — a Windows task, a job Cronsole runs itself, or a Claude Code routine.") +
+            howStep("Apply & schedule", "Fill in the parameters and pick a target — a Windows task, a job Cronsole runs itself, or a Claude Code scheduled task.") +
           '</div></div></section>' +
 
         // Resources — where the code, the demo and the docs actually live.
@@ -1458,7 +1458,7 @@
       }).join("");
       var notes = [];
       if (tgtList.some(function (x) { return targetMode(x) === "session"; })) {
-        notes.push('Claude Code routines are created by Cronsole where it can reach them — that needs a Claude Code session on the machine running the backend (sign in with the CLI, <code>/login</code>). Without one, Cronsole can still fire a routine you connected by token, and the Apply screen says so rather than failing at the click.');
+        notes.push('Claude Code scheduled tasks (formerly routines) are created by Cronsole where it can reach them — that needs a Claude Code session on the machine running the backend (sign in with the CLI, <code>/login</code>). Without one, Cronsole can still fire one you connected by token, and the Apply screen says so rather than failing at the click.');
       }
       if (tgtList.some(function (x) { return targetMode(x) === "key"; })) {
         notes.push('Gemini triggers are created by Cronsole over Google\'s API once you have added a Gemini API key to the Gemini source. A template that grants an MCP server names a <em>saved server</em> on your own connection, never a token in the template - so applying one asks you which of your saved servers to use, and Cronsole refuses a name you have not saved rather than creating a trigger that cannot authenticate.');
@@ -1769,7 +1769,7 @@
     var PLATFORMS = [
       { name: "Windows Task Scheduler", status: "Functional · local agent", c: "#38bdf8" },
       { name: "Cronsole-native jobs", status: "Functional · HTTP, program, script, check", c: "#34d399" },
-      { name: "Claude Code routines", status: "Experimental · Anthropic API", c: "#a78bfa" },
+      { name: "Claude Code scheduled tasks", status: "Experimental · Anthropic API", c: "#a78bfa" },
       { name: "Gemini API triggers", status: "Experimental · first hosted controller", c: "#818cf8" },
       { name: "GitHub Actions", status: "Observer · read-only", c: "#94a3b8" },
       { name: "Vercel Cron", status: "Observer · read-only", c: "#a1a1aa" },
@@ -1825,7 +1825,7 @@
           ctx.fillStyle = n.c; ctx.beginPath(); ctx.arc(n.x, n.y, h ? 4 : 3, 0, Math.PI * 2); ctx.fill();
           ctx.fillStyle = h ? (light ? "#111113" : "#f4f4f5") : (light ? "rgba(75,75,85,.95)" : "rgba(161,161,170,.9)");
           ctx.font = (h ? "500 " : "400 ") + "11.5px -apple-system, BlinkMacSystemFont, Inter, 'Segoe UI', sans-serif"; ctx.textAlign = "center";
-          ctx.fillText(n.name.replace(" Task Scheduler", "").replace(" routines", "").replace(" API triggers", "").replace("-native jobs", "-native"), n.x, n.y + r + 16);
+          ctx.fillText(n.name.replace(" Task Scheduler", "").replace(" scheduled tasks", "").replace(" API triggers", "").replace("-native jobs", "-native"), n.x, n.y + r + 16);
         });
         if (!reduced) orbitRaf = requestAnimationFrame(draw);
       }

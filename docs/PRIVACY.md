@@ -67,7 +67,7 @@ reached with a credential you supply, and **none of them is contacted until you 
 | **GitHub Actions** | `api.github.com` | Your token, and reads of the repositories you named |
 | **Vercel Cron** | `api.vercel.com` | Your token, and reads of your projects' cron configuration |
 | **Gemini API Triggers** | `generativelanguage.googleapis.com` | Your API key, and the triggers you create — **including their prompts** |
-| **Claude Code routines** | `api.anthropic.com`, `claude.ai` | Your Claude credential, and reads of your routines |
+| **Claude Code scheduled tasks** | `api.anthropic.com`, `claude.ai` | Your Claude credential, and reads of your scheduled tasks |
 | **Windows Task Scheduler** | *nothing* | Local only. The agent talks to your backend and to Windows |
 | **Cronsole native jobs** | *nothing, unless the job does* | See §3 |
 
@@ -79,7 +79,7 @@ how the platform functions, not something Cronsole adds. Cronsole states what a 
 granted (which tools, which domains, and that a credential now lives on the platform) at the moment
 you create it, because reach is the consequential half of scheduling an autonomous agent.
 
-**Claude routines are read with a credential Cronsole never stores.** It is read at call time and
+***Claude scheduled tasks are read with a credential Cronsole never stores.** It is read at call time and
 never written down, on the standing rule that a task manager must not be able to invalidate the
 login of the tool that created the task.
 

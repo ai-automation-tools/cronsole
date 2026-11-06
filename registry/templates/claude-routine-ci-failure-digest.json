@@ -1,8 +1,8 @@
 {
   "schemaVersion": "1.0",
   "id": "claude-routine-ci-failure-digest",
-  "name": "Routine: CI Failure Digest",
-  "description": "A weekday routine that reads the last day of failing CI runs, groups them by root cause, and separates real breakage from flakes.",
+  "name": "Claude Scheduled Task: CI Failure Digest",
+  "description": "A weekday Claude scheduled task that reads the last day of failing CI runs, groups them by root cause, and separates real breakage from flakes.",
   "runtime": "ai-prompt",
   "os": "cross-platform",
   "category": "monitoring",

@@ -86,7 +86,7 @@ Two guardrails that must never break:
 | `normalize.ts` | Registry shape → Prisma shape. **Whitelists fields** — the reason `core` never leaks. |
 | `denormalize.ts` | Prisma → registry shape (export) |
 | `importCatalog.ts` / `exportCatalog.ts` | `POST /api/templates/import` / `GET /api/templates/export` |
-| `templateFromTask.ts` | `POST /api/tasks/:id/save-as-template` **and** `GET /api/tasks/:id/export?format=template` — one derivation, two callers, differing only in whether a catalog row is written. Handles a native HTTP job, Windows exec actions, a plain `metadata.command`, and a Claude routine's `metadata.prompt` (`ai-prompt` / `claude-code`). |
+| `templateFromTask.ts` | `POST /api/tasks/:id/save-as-template` **and** `GET /api/tasks/:id/export?format=template` — one derivation, two callers, differing only in whether a catalog row is written. Handles a native HTTP job, Windows exec actions, a plain `metadata.command`, and a Claude scheduled task's `metadata.prompt` (`ai-prompt` / `claude-code`). |
 | `generate-registry.ts` / `registryBuild.ts` | `npm run registry:build` |
 
 ## `index.json` entry shape

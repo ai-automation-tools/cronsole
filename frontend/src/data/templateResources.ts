@@ -58,7 +58,7 @@ export const TEMPLATE_RESOURCES: ResourceSection[] = [
     title: 'AI / agent workflows',
     links: [
       {
-        label: 'Claude Routines',
+        label: 'Claude Code Scheduled Tasks',
         url: 'https://claude.ai/code/routines',
         description: 'Scheduled Claude Code runs — the experimental connector target.'
       },

@@ -1,6 +1,6 @@
 # Task authoring & management
 
-> Cronsole Connect Pack **v1.14** · canonical copy: <https://cronsole.ai-automation-tools.dev>
+> Cronsole Connect Pack **v1.15** · canonical copy: <https://cronsole.ai-automation-tools.dev>
 
 Every way to **create** a scheduled task through Cronsole, and how to **manage** it afterwards.
 Read this before creating a task on a user's real machine — a scheduled task is durable, runs
@@ -89,7 +89,7 @@ every parameter into arbitrary code.
 
 ---
 
-## 2a. Compose the prompt (hosted agents — Gemini, Claude routines)
+## 2a. Compose the prompt (hosted agents — Gemini, Claude scheduled tasks)
 
 On a hosted source the unit of work is **a sentence for an agent**, not a command line, and
 nothing in §2 applies: there is no executable, no tokenizer, no quoting problem. There is a
@@ -230,7 +230,7 @@ you:
 | **Re-schedule** | `update_task_schedule` | `PATCH /api/tasks/:id/schedule` |
 | **Edit the command** | `update_task_action` | `PATCH /api/tasks/:id/actions` |
 | **Edit a native job** (URL, method, headers, body, script command) | `update_native_job` | `PATCH /api/tasks/:id/job` |
-| **Rename** (Cronsole's label only) | `rename_task` | `PATCH /api/tasks/:id` — refused where the platform owns the name (GitHub Actions, Vercel, n8n, Gemini, a session-read Claude routine) |
+| **Rename** (Cronsole's label only) | `rename_task` | `PATCH /api/tasks/:id` — refused where the platform owns the name (GitHub Actions, Vercel, n8n, Gemini, a session-read Claude scheduled task) |
 | Run history | `get_task_history` | `GET /api/tasks/:id/executions` |
 | Export one task | `export_task` | `GET /api/tasks/:id/export` — the platform's own definition: Task Scheduler **XML** for Windows (UTF-16 LE + BOM; write it as raw bytes), Cronsole **JSON** for a native task. Restores that exact task onto that platform |
 | Export a task so it can be recreated **elsewhere** | `export_task` with `format: 'template'` | `GET /api/tasks/:id/export?format=template` — a portable Registry v1 template, importable with `POST /api/templates/import` and then applied to any compatible target. **Not a backup**: it drops platform-specific settings (the account the task runs as, run level, extra actions), so say so if you offer it as one. It is the only export that works with the **agent offline**, or for a **Claude routine**, whose definition lives at claude.ai. Writes nothing — unlike save-as-template |
@@ -249,7 +249,7 @@ you:
 | List / read deleted-task backups | `list_task_archives` | `GET /api/tools/task-archives[/:id]` — each row's `restorable` carries **its reason** |
 | **Rebuild a deleted task** | `restore_task_archive` | `POST /api/tools/task-archives/:id/restore` — a **new** task; the archived runs are not reattached and the archive is kept |
 | **Import an exported task file** | `import_task` | `POST /api/tasks/import` — the body **is** the file. Cronsole-native only |
-| **Claude routines**: which door, connect, fix, forget | `list_claude_routines`, `connect_claude_routine`, `edit_claude_routine`, `disconnect_claude_routine` | `/api/tools/platforms/claude/routines[/:id]`. Disconnect forgets a routine; it keeps running at claude.ai |
+| **Claude scheduled tasks** (formerly routines): which door, connect, fix, forget | `list_claude_routines`, `connect_claude_routine`, `edit_claude_routine`, `disconnect_claude_routine` | `/api/tools/platforms/claude/routines[/:id]`. Disconnect forgets a Claude scheduled task; it keeps running at claude.ai |
 
 **Disable is how you park a task** — not a weird cron (§3 explains why that backfires). It is
 reversible and ungated precisely so the safe move is the easy one.
@@ -383,7 +383,7 @@ Before you call `create_task` on a real machine:
 8. After creating: **run it and verify from outside Cronsole**.
 9. If it was a test: **delete it**.
 
-On a **hosted agent** (Gemini, a Claude routine) items 3–6 do not apply and three others take
+On a **hosted agent** (Gemini, a Claude scheduled task) items 3–6 do not apply and three others take
 their place (§2a): the prompt **offers no choice**, it **demands explicit failure reporting**,
 and the **grant** covers what it is told to do. Then verify by reading the run's **step list**,
 never its status.

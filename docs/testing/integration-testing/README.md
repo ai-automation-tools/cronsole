@@ -117,7 +117,7 @@ The only seam that touches real COM. Windows-only, and the hardest to fake.
 | I5.4 | **Catalog sync** | `catalogSync` upserts on boot + interval; **favorites and applied tasks are untouched** | ✅ `catalogSync.test.ts` |
 | I5.5 | **Prune-on-sync** | Managed rows outside core are deleted; `managed: false` (imported / saved-as-template) rows **never** pruned; empty core can't wipe the catalog | ✅ `catalogSync.test.ts` |
 | I5.6 | **Webhook delivery** | Generic / Discord / ntfy webhooks fire with the right shape; a dead endpoint doesn't take the run down | 🟡 `FailureNotificationService.test.ts` |
-| I5.7 | **Claude connector** | Real API contract for the routines connector | 🟡 `ClaudeConnector.test.ts` (mocked) |
+| I5.7 | **Claude connector** | Real API contract for the Claude scheduled-tasks connector | 🟡 `ClaudeConnector.test.ts` (mocked) |
 
 ## 🧩 Frontend ↔ Backend · MCP ↔ REST · Stack
 

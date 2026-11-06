@@ -5,7 +5,7 @@ description: Create, run, and manage scheduled tasks through a running Cronsole 
 
 # Cronsole
 
-> Cronsole Connect Pack **v1.14** · canonical copy: <https://cronsole.ai-automation-tools.dev>
+> Cronsole Connect Pack **v1.15** · canonical copy: <https://cronsole.ai-automation-tools.dev>
 > If this file is older than your Cronsole install, the install wins — re-download the pack.
 
 Cronsole is a single pane of glass for scheduled tasks. It runs **locally** on the user's own
@@ -51,7 +51,7 @@ leaves it running), or the dashboard. Do not route around a gate.
 | Schedule a **script you write** | `create_native_script_task` | `POST /api/tasks/native` with `job.jobType: 'SCRIPT'`. The body is stored and run under a named interpreter (`powershell`, `pwsh`, `bash`, `sh`, `python`, `node`), so nothing has to exist on disk first. `node` is present wherever the backend runs |
 | Schedule a **check** | `create_native_check_task` | `POST /api/tasks/native` with `job.jobType: 'CHECK'`. Asserts on an endpoint, a TCP port, a file's age, or free disk space — a failure here is a fact about the system, unlike a failing script |
 | Create a **Gemini trigger** (a scheduled prompt on Google's agent) | `create_gemini_trigger` | `POST /api/tasks` with `platform: 'GEMINI_TRIGGERS'`. The unit of work is a prompt plus the tools it may reach, not a command. A trigger's schedule and prompt are fixed once created. |
-| Create a **Claude Code routine** | `create_claude_routine` | `POST /api/tasks` with `platform: 'CLAUDE_CODE'`. Needs `list_claude_routines` to report `session.mode: "oauth"`; otherwise 400. |
+| Create a **Claude Code scheduled task** (formerly a routine) | `create_claude_routine` | `POST /api/tasks` with `platform: 'CLAUDE_CODE'`. Needs `list_claude_routines` to report `session.mode: "oauth"`; otherwise 400. |
 | Create from a template | `create_task_from_template` | `POST /api/templates/:id/apply` |
 | Browse templates | `list_templates` | `GET /api/templates` |
 | Validate a schedule | `convert_schedule` | `POST /api/tasks/preview` |
@@ -62,7 +62,7 @@ leaves it running), or the dashboard. Do not route around a gate.
 | Re-schedule | `update_task_schedule` | `PATCH /api/tasks/:id/schedule` |
 | Edit the command | `update_task_action` | `PATCH /api/tasks/:id/actions` |
 | Change what a **native** job runs | `update_native_job` | `PATCH /api/tasks/:id/job` — URL, method, headers, body, or a script's command and working directory. No agent involved. |
-| Rename (Cronsole's label only) | `rename_task` | `PATCH /api/tasks/:id` — nothing is renamed on the platform. **Refused** where the platform owns the name (GitHub Actions, Vercel, n8n, Gemini, a Claude routine read through the session). |
+| Rename (Cronsole's label only) | `rename_task` | `PATCH /api/tasks/:id` — nothing is renamed on the platform. **Refused** where the platform owns the name (GitHub Actions, Vercel, n8n, Gemini, a Claude scheduled task read through the session). |
 | Run history | `get_task_history` | `GET /api/tasks/:id/executions` |
 | Runs **the platform** recorded (incl. every scheduled run Cronsole never started) | `list_platform_runs` | `GET /api/tasks/:id/platform-runs` — where a hosted source's runs actually are. `get_task_history` holds only runs Cronsole performed. |
 | What one run produced: text, the **steps it took**, counts | `get_run_output` | `GET /api/tasks/:id/platform-runs/:runId/output` — read the steps, not only the status. |
@@ -83,10 +83,10 @@ leaves it running), or the dashboard. Do not route around a gate.
 | **What Cronsole can actually do with a platform** | `list_platforms` | `GET /api/tools/platforms` — each verb reads **`verified`** (has worked on this machine), **`declared`** (Cronsole will try; never observed to work here) or **`unsupported`** (would be refused). **Check this before promising the user a capability.** `declared` is not a yes |
 | Star / un-star a task | — | `POST` / `DELETE /api/tasks/:id/favorite` (`isFavorite` comes back on `GET /api/tasks`) |
 | Refresh tasks from a platform | `sync_tasks` | `POST /api/tasks/sync` |
-| Which Claude door this install has, and the declared routines | `list_claude_routines` | `GET /api/tools/platforms/claude/routines` — tokens are never returned (`hasToken` only). |
-| Connect an **existing** Claude routine by id and token | `connect_claude_routine` | `POST /api/tools/platforms/claude/routines`, then a sync. Connects; does not create. |
-| Fix a connected routine's id or name, **keeping its token** | `edit_claude_routine` | `PATCH /api/tools/platforms/claude/routines/:id` — claude.ai shows a token once, so disconnect-and-reconnect would lose it. |
-| Forget a connected Claude routine | `disconnect_claude_routine` | `DELETE /api/tools/platforms/claude/routines/:id` — **not a delete**: it keeps running at claude.ai. Removes the declaration and the row together. |
+| Which Claude door this install has, and the declared scheduled tasks | `list_claude_routines` | `GET /api/tools/platforms/claude/routines` — tokens are never returned (`hasToken` only). |
+| Connect an **existing** Claude scheduled task by id and token | `connect_claude_routine` | `POST /api/tools/platforms/claude/routines`, then a sync. Connects; does not create. |
+| Fix a connected Claude scheduled task's id or name, **keeping its token** | `edit_claude_routine` | `PATCH /api/tools/platforms/claude/routines/:id` — claude.ai shows a token once, so disconnect-and-reconnect would lose it. |
+| Forget a connected Claude scheduled task | `disconnect_claude_routine` | `DELETE /api/tools/platforms/claude/routines/:id` — **not a delete**: it keeps running at claude.ai. Removes the declaration and the row together. |
 | Template import/export, pairing | — | REST / dashboard only |
 
 ---

@@ -17,7 +17,7 @@
 [![Cronsole source data flow](source-data-flow.png)](source-data-flow.html)
 
 How a scheduled task gets into Cronsole: each platform (Windows Task Scheduler through the local
-agent, Claude Code routines, Gemini Triggers, GitHub Actions, n8n) is read by its connector, the
+agent, Claude Code scheduled tasks, Gemini Triggers, GitHub Actions, n8n) is read by its connector, the
 scope-and-sync step upserts the result into PostgreSQL, and the dashboard reads it over REST.
 Reverse arrows are the Run commands Cronsole sends back. Cronsole-native jobs skip the import:
 they live in PostgreSQL and the backend's scheduler runs them itself. Below the map, four cards

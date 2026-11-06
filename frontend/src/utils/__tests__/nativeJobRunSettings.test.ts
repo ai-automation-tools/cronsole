@@ -58,6 +58,15 @@ describe('native run settings', () => {
     expect(nativeJobPayload(v)).toMatchObject({ timeoutMs: 7_200_000, policy: { retries: 2, overlap: 'queue', catchUp: true } });
   });
 
+  it('sends and reads back the task it runs after', () => {
+    expect(nativeJobPayload(values({ runAfterTaskId: 'a1', runAfterWhen: 'failure' })))
+      .toMatchObject({ policy: { runAfter: { taskId: 'a1', when: 'failure' } } });
+    const v = (runsEdit(nativeTask({
+      jobType: 'HTTP', url: 'https://x.test', policy: { runAfter: { taskId: 'a1', when: 'always' } }
+    })) as { initial: NativeJobValues }).initial;
+    expect(v).toMatchObject({ runAfterTaskId: 'a1', runAfterWhen: 'always' });
+  });
+
   it('blocks out-of-range values with a sentence', () => {
     expect(nativeJobIncomplete(values({ timeoutMinutes: '1441' }))).toMatch(/24 hours/);
     expect(nativeJobIncomplete(values({ retries: '6' }))).toMatch(/0 to 5/);

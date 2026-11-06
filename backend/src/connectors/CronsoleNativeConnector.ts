@@ -72,6 +72,12 @@ export class CronsoleNativeConnector implements PlatformConnector {
       // fails validateJob never executes, and reporting that as a verdict would
       // hand the user a "check failed" for a task that never ran.
       const result = await executeJob(job, secrets);
+      // A Run now finishes a run like any other, so the tasks chained after this
+      // one start on it. A failure to find them must not turn a run that worked
+      // into an error.
+      await nativeScheduler.afterRun(task, result).catch(err =>
+        console.error(`[CronsoleNative] could not start the tasks that run after "${task.name}":`, err)
+      );
       return { success: result.success, ran: result.ran, message: result.log };
     } finally {
       await nativeScheduler.release(task.id);

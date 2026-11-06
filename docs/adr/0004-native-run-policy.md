@@ -87,6 +87,27 @@ logged as a catch-up. Once, not once per missed slot: `nextRunTime` is advanced 
 task down for a week runs one time, not 168. That matches Task Scheduler's *run as soon as possible
 after a scheduled start is missed*.
 
+### 5. Run after another task (added 2026-11-06)
+
+`policy.runAfter = { taskId, when: 'success' | 'failure' | 'always' }` starts a task when another
+**native** task finishes. Chaining **between tasks**, not ADR 0002's `SEQUENCE` steps inside one
+job: every link keeps its own history, retries, secrets and edit form, and nothing about the job
+model becomes recursive.
+
+- **Only native predecessors.** Cronsole sees a native run finish; a Windows task firing on its own
+  schedule reports nothing, so a chain on one would fire on Cronsole's runs only and look broken.
+- **The verdict is the final attempt.** `afterRun` is called once per finished run (the last
+  attempt of a scheduled run, or a Run now), so a failure a retry later fixed does not start the
+  *on failure* branch.
+- **Checked at save, by the database.** `nativeChain.runAfterError` refuses a missing or someone
+  else's predecessor, a non-native one, the task itself, and a loop (walking up at most 50 links).
+  `validateJob` only checks the shape, because it has no database.
+- **A chained task needs no schedule of its own**, so `schedule` is optional on create when
+  `runAfter` is set. A predecessor that is later deleted leaves the follower unreachable rather
+  than deleted; the form says so.
+- Dependents are found with a JSON-path filter on `metadata`, then re-checked in code, so the
+  filter is an index and never the rule.
+
 ## Consequences
 
 - A native task can now run for hours, beside other tasks, and recover from a flaky failure. The

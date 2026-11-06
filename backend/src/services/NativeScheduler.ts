@@ -11,8 +11,11 @@ const TICK_INTERVAL_MS = 30_000;
 // unless the task's policy asks for a catch-up (ADR 0004).
 export const MISSED_RUN_GRACE_MS = 5 * 60_000;
 
-/** What a run was started by, as it is written at the head of its log line. */
-type RunKind = 'scheduled' | 'catch-up' | 'queued';
+/**
+ * What a run was started by, as it is written at the head of its log line:
+ * `scheduled`, `catch-up`, `queued`, or `after "<predecessor>"` for a chained run.
+ */
+type RunKind = string;
 
 /**
  * What the scheduler can say about itself, for the diagnostics report.
@@ -121,6 +124,34 @@ export class NativeScheduler {
     // have been edited, or the task paused, while it ran.
     const fresh = await prisma.task.findUnique({ where: { id: taskId } });
     if (fresh && fresh.status === TaskStatus.ACTIVE) this.launch(fresh, 'queued');
+  }
+
+  /**
+   * Start the tasks that run after this one, if this outcome is the one they
+   * wait for (ROADMAP › Tier 2). Called once per finished run — the last attempt
+   * of a scheduled run, or a Run now — never per retry, so a chain moves on the
+   * verdict, not on a failure that a retry later fixed.
+   *
+   * Each dependent goes through `launch`, so its own overlap rule, retries and
+   * dependents apply. A loop cannot form: `runAfterError` refuses one at save.
+   */
+  async afterRun(task: Task, result: NativeRunResult): Promise<void> {
+    const dependents = await prisma.task.findMany({
+      where: {
+        userId: task.userId,
+        platform: PlatformType.TASKHUB_NATIVE,
+        status: TaskStatus.ACTIVE,
+        metadata: { path: ['job', 'policy', 'runAfter', 'taskId'], equals: task.id }
+      }
+    });
+    for (const dependent of dependents) {
+      const runAfter = jobOf(dependent)?.policy?.runAfter;
+      if (runAfter?.taskId !== task.id) continue; // the JSON filter is the index; this is the rule
+      const when = runAfter.when ?? 'success';
+      if (when === 'always' || (when === 'success') === result.success) {
+        this.launch(dependent, `after "${task.name}"`);
+      }
+    }
   }
 
   /** Resolves once every run started so far — and any run they queued — has ended. */
@@ -265,6 +296,7 @@ export class NativeScheduler {
           executionId: execution.id,
           triggeredAt: execution.triggeredAt
         });
+        await this.afterRun(task, result);
         return;
       }
       await this.sleep(delayMs);

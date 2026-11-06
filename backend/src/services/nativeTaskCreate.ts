@@ -3,6 +3,7 @@ import { Prisma, PlatformType, Task, TaskStatus } from '@prisma/client';
 import { prisma } from '../db.js';
 import { validateJob, NativeJob } from './NativeTaskExecutor.js';
 import { buildNativeJob } from './nativeJob.js';
+import { runAfterError } from './nativeChain.js';
 import { recordCapability } from './platformCapabilities.js';
 import { notifyTasksChanged } from '../ws/uiChannel.js';
 import { computeNextRun } from '../utils/cron-next.js';
@@ -38,8 +39,12 @@ export interface NativeTaskInput {
   name: string;
   /** Cronsole label. Defaults to `Cronsole` — the platform owns neither name nor category. */
   category?: string;
-  /** 5-field cron, **UTC** — the storage contract (AGENTS.md §9 › Data model). */
-  schedule: string;
+  /**
+   * 5-field cron, **UTC** — the storage contract (AGENTS.md §9 › Data model).
+   * Optional only for a task that runs after another one: that task is what
+   * starts it, so a schedule of its own is a second trigger, not a requirement.
+   */
+  schedule?: string | null;
   /** Normalized by `buildNativeJob`, then checked by the executor's own `validateJob`. */
   job: unknown;
   /**
@@ -77,18 +82,23 @@ export async function createNativeTask(
   userId: string,
   input: NativeTaskInput
 ): Promise<NativeTaskCreated> {
-  const nextRunTime = computeNextRun(input.schedule);
-  if (!nextRunTime) {
-    throw new NativeTaskCreateError('Schedule must be a valid 5-field cron expression (UTC).');
-  }
-
   // Normalize first, then validate **what will actually be stored** rather than
   // what arrived. The two differ for an EXEC job sent as a `command` line, and
   // validating the input would check a shape the executor never sees.
   const nativeJob: NativeJob = buildNativeJob(input.job as Record<string, unknown>);
-  const jobError = validateJob(nativeJob);
+  const jobError = validateJob(nativeJob) ?? await runAfterError(userId, null, nativeJob);
   if (jobError) {
     throw new NativeTaskCreateError(jobError);
+  }
+
+  const schedule = input.schedule?.trim() || null;
+  const nextRunTime = schedule ? computeNextRun(schedule) : null;
+  if (schedule ? !nextRunTime : !nativeJob.policy?.runAfter) {
+    throw new NativeTaskCreateError(
+      schedule
+        ? 'Schedule must be a valid 5-field cron expression (UTC).'
+        : 'A schedule is required, unless the task runs after another task.'
+    );
   }
 
   // Validated before the row exists, so a bad secret name cannot leave a task
@@ -109,7 +119,7 @@ export async function createNativeTask(
       externalId: `native_${randomBytes(8).toString('hex')}`,
       name: input.name,
       category: input.category ?? 'Cronsole',
-      schedule: input.schedule,
+      schedule,
       nextRunTime,
       status: TaskStatus.ACTIVE,
       metadata: { job: nativeJob } as unknown as Prisma.InputJsonValue

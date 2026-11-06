@@ -40,6 +40,7 @@ not a native job.
 | A job that needs an API key or token | `${secret.NAME}` is stored encrypted and redacted out of the run log. See [Secrets](#-secrets--store-a-reference-never-the-value). |
 | Anything you want a full run history for | Cronsole performs every run, scheduled ones included, so every run is logged with its output. |
 | A job that should try again when it fails | [Retries](#-run-settings) are a setting, and each attempt is in the run history with its output. |
+| One job that should start when another finishes | [Chaining](#-chaining-tasks) is a setting, on success, on failure, or either. Task Scheduler has no clean way to do this. |
 | A backend on Linux or in Docker, where there is no Windows | Native runs wherever the backend runs. |
 
 ### 🚫 Use something else
@@ -191,6 +192,7 @@ on the MCP create tools. All are optional, and a task that sets none behaves as 
 | **If still running when due** | *Skip that run*, or *Run it after this one*. Queuing holds one run, never a backlog. | Skip |
 | **Retries after a failure** | Runs a scheduled job again, up to 5 more times, 1 to 60 minutes apart, when it ran and failed. | 0 |
 | **Catch up a missed run** | If Cronsole was down when the task was due, runs it once when Cronsole is back, however many due times were missed. | Off |
+| **Also run after** | Starts this task when another native task finishes: when it succeeds, when it fails, or either way. See [Chaining tasks](#-chaining-tasks). | None |
 
 Three rules decide when a retry happens, and each one is there to stop a retry from hiding a real
 problem:
@@ -207,6 +209,29 @@ notification, so one failure is one alert. A retry that is waiting when the back
 dropped; the next scheduled run still happens.
 
 The reasoning is in [ADR 0004](../../adr/0004-native-run-policy.md).
+
+---
+
+## 🔗 Chaining tasks
+
+A native task can start when another one finishes. Build the report, then mail it. Take the backup,
+then check the file it wrote. If the sync fails, post to Slack.
+
+1. Open the second task's **Run settings** and pick the first task under **Also run after**.
+2. Choose when: **Succeeds**, **Fails**, or **Finishes either way**.
+3. Keep its own schedule, or tick **No schedule of its own** on New Task (or *No schedule (run on
+   demand)* on Edit) so the first task is the only thing that starts it.
+
+| Rule | Why |
+|:---|:---|
+| **Only a native task can be waited on.** | Its runs are the only ones Cronsole sees finish. A Windows task that runs on its own schedule tells Cronsole nothing. |
+| **The chain moves on the final verdict.** | With retries, a run that fails and then succeeds on its second attempt counts as a success. |
+| **Run now counts.** | Clicking Run now on the first task starts its followers too, the same as a scheduled run. |
+| **A loop is refused when you save.** | A → B → A would run forever. So would a task that runs after itself. |
+| **Each link keeps its own history, retries and secrets.** | A chain is several tasks, not one job with steps, so each one can be read, retried and edited on its own. |
+
+If the first task is deleted, its followers stay but nothing starts them: the form shows *A task that
+no longer exists* until you pick another or clear it.
 
 ---
 

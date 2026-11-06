@@ -474,7 +474,18 @@ const OVERLAP_CATCHUP_SHAPE = {
   catchUp: z
     .boolean()
     .optional()
-    .describe('If Cronsole was down at a due time, run once when it is back. Default false: a run over 5 minutes late is skipped.')
+    .describe('If Cronsole was down at a due time, run once when it is back. Default false: a run over 5 minutes late is skipped.'),
+  runAfterTaskId: z
+    .string()
+    .optional()
+    .describe(
+      'Also start this task when another Cronsole-native task (this id, from list_tasks) finishes. With it, ' +
+      'the schedule is optional. A loop, a non-native task and a missing id are refused.'
+    ),
+  runAfterWhen: z
+    .enum(['success', 'failure', 'always'])
+    .optional()
+    .describe("Which outcome of that task starts this one. Default 'success'. Judged on its final attempt, after retries.")
 };
 const RUN_POLICY_SHAPE = {
   ...OVERLAP_CATCHUP_SHAPE,
@@ -495,12 +506,16 @@ const RUN_POLICY_SHAPE = {
 };
 function withPolicy(
   job: Record<string, unknown>,
-  a: { overlap?: string; catchUp?: boolean; retries?: number; retryDelayMinutes?: number }
+  a: {
+    overlap?: string; catchUp?: boolean; retries?: number; retryDelayMinutes?: number;
+    runAfterTaskId?: string; runAfterWhen?: string;
+  }
 ): Record<string, unknown> {
   const policy: Record<string, unknown> = {};
   for (const k of ['overlap', 'catchUp', 'retries', 'retryDelayMinutes'] as const) {
     if (a[k] !== undefined) policy[k] = a[k];
   }
+  if (a.runAfterTaskId) policy.runAfter = { taskId: a.runAfterTaskId, when: a.runAfterWhen ?? 'success' };
   return Object.keys(policy).length ? { ...job, policy } : job;
 }
 
@@ -1193,11 +1208,12 @@ export function registerTools(
         url: z.string().describe('The URL to request. Must be absolute, e.g. "https://example.com/health".'),
         schedule: z
           .string()
+          .optional()
           .describe(
             '5-field cron in UTC: "min hour dom month dow". Native tasks are run by the backend\'s own cron ' +
             'scheduler, so the expression is used AS GIVEN — no Windows trigger conversion, and none of the ' +
             'hourly-fallback risk that applies to Windows tasks.'
-          ),
+           + ' Omit only for a task that runs after another (runAfterTaskId).'),
         method: z
           .enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'])
           .default('GET')
@@ -1288,10 +1304,11 @@ export function registerTools(
           ),
         schedule: z
           .string()
+          .optional()
           .describe(
             '5-field cron in UTC: "min hour dom month dow". Used AS GIVEN by the backend scheduler — no ' +
             'Windows trigger conversion and none of its lossiness.'
-          ),
+           + ' Omit only for a task that runs after another (runAfterTaskId).'),
         workingDirectory: z
           .string()
           .optional()
@@ -1375,10 +1392,11 @@ Next run: ${task.nextRunTime}` : '')
           ),
         schedule: z
           .string()
+          .optional()
           .describe(
             '5-field cron in UTC: "min hour dom month dow". Used AS GIVEN by the backend scheduler — no ' +
             'Windows trigger conversion and none of its lossiness.'
-          ),
+           + ' Omit only for a task that runs after another (runAfterTaskId).'),
         workingDirectory: z
           .string()
           .optional()
@@ -1440,7 +1458,8 @@ Next run: ${task.nextRunTime}` : '')
         name: z.string().describe('Task name.'),
         schedule: z
           .string()
-          .describe('5-field cron in UTC: "min hour dom month dow". Used as given by the backend scheduler.'),
+          .optional()
+          .describe('5-field cron in UTC: "min hour dom month dow". Used as given by the backend scheduler.' + ' Omit only for a task that runs after another (runAfterTaskId).'),
         kind: z
           .enum(['http', 'tcp', 'fileFresh', 'diskFree'])
           .describe('Which probe to run. The remaining fields depend on this.'),

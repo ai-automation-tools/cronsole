@@ -11,6 +11,7 @@ import { agentManager } from '../ws/AgentManager.js';
 import { TaskService, nameSourceOf } from '../services/TaskService.js';
 import { preflightPrompt } from '../services/promptPreflight.js';
 import { validateJob, NativeJob } from '../services/NativeTaskExecutor.js';
+import { runAfterError } from '../services/nativeChain.js';
 import { buildNativeJob } from '../services/nativeJob.js';
 import { missingSecretRefs, optionalSecretRefsIn, secretRefsIn } from '../services/jobSecrets.js';
 import {
@@ -837,7 +838,8 @@ router.post('/', validateBody(createTaskSchema), async (req: Request, res: Respo
 const createNativeSchema = z.object({
   name: z.string().trim().min(1, 'name is required'),
   category: z.string().trim().min(1).optional(),
-  schedule: z.string().trim().min(1, 'schedule is required'),
+  // Optional only for a task that runs after another; `createNativeTask` says so.
+  schedule: z.string().trim().nullable().optional(),
   job: z.unknown(), // semantic validation stays in validateJob (shared with the executor)
   /**
    * Secret name → value, encrypted at rest and never returned (ADR 0003).
@@ -987,7 +989,7 @@ router.patch('/:id/job', validateBody(patchNativeJobSchema), async (req: Request
   // differ for an EXEC job sent as a `command` line, and validating the input
   // would check a shape the executor never sees.
   const nativeJob: NativeJob = buildNativeJob(job as Record<string, unknown>);
-  const jobError = validateJob(nativeJob);
+  const jobError = validateJob(nativeJob) ?? await runAfterError(userId, id, nativeJob);
   if (jobError) {
     throw new HttpError(400, jobError);
   }

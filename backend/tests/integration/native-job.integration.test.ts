@@ -307,3 +307,70 @@ describe('POST /tasks/:id/run — completed-but-failed vs could-not-start', () =
     expect(res.body.success).toBe(true);
   });
 });
+
+describe('run after another task', () => {
+  let owner: Awaited<ReturnType<typeof createUser>>;
+  const http = (runAfter?: Record<string, unknown>) => ({
+    jobType: 'HTTP', url: 'https://example.com', ...(runAfter ? { policy: { runAfter } } : {})
+  });
+  const create = (body: Record<string, unknown>) =>
+    request(app).post('/api/tasks/native').set('Authorization', owner.auth).send(body);
+
+  beforeEach(async () => {
+    owner = await createUser('native-chain@example.com');
+  });
+
+  it('creates a chained task with no schedule of its own, and refuses an unchained one', async () => {
+    const a = await createNativeTask(owner.user.id, { name: 'A' });
+    const res = await create({ name: 'B', job: http({ taskId: a.id, when: 'success' }) }).expect(200);
+    expect(res.body.task.schedule).toBeNull();
+    expect(res.body.task.nextRunTime).toBeNull();
+
+    const bare = await create({ name: 'C', job: http() }).expect(400);
+    expect(bare.body.error).toMatch(/unless the task runs after another/);
+  });
+
+  it('refuses a predecessor that is missing, someone else\'s, or not native', async () => {
+    const stranger = await createUser('native-chain-other@example.com');
+    const theirs = await createNativeTask(stranger.user.id, { name: 'Theirs' });
+    const windows = await prisma.task.create({
+      data: {
+        userId: owner.user.id, platform: PlatformType.WINDOWS_TASK_SCHEDULER, externalId: '\Win',
+        name: 'Win', category: 'x', status: TaskStatus.ACTIVE, metadata: {}
+      }
+    });
+    for (const [taskId, message] of [['nope', /no task with id/], [theirs.id, /no task with id/], [windows.id, /not a Cronsole-native task/]] as const) {
+      const res = await create({ name: 'B', schedule: '0 9 * * *', job: http({ taskId, when: 'success' }) }).expect(400);
+      expect(res.body.error).toMatch(message);
+    }
+  });
+
+  it('starts the dependent when Run now finishes the predecessor (the JSON filter, against Postgres)', async () => {
+    const script = (body: string, runAfter?: Record<string, unknown>) => ({
+      jobType: 'SCRIPT', interpreter: 'node', body, ...(runAfter ? { policy: { runAfter } } : {})
+    });
+    const a = (await create({ name: 'A', schedule: '0 9 * * *', job: script('console.log("a")') }).expect(200)).body.task;
+    const b = (await create({ name: 'B', job: script('console.log("b")', { taskId: a.id, when: 'success' }) }).expect(200)).body.task;
+    const skipped = (await create({ name: 'C', job: script('console.log("c")', { taskId: a.id, when: 'failure' }) }).expect(200)).body.task;
+
+    await request(app).post(`/api/tasks/${a.id}/run`).set('Authorization', owner.auth).expect(200);
+    await nativeScheduler.idle();
+
+    const bLogs = await prisma.executionLog.findMany({ where: { taskId: b.id } });
+    expect(bLogs.map(l => l.log)).toEqual([expect.stringMatching(/^\[after "A"\] .*b/)]);
+    expect(await prisma.executionLog.count({ where: { taskId: skipped.id } })).toBe(0);
+  }, 30_000);
+
+  it('refuses an edit that would close a loop, and one that points at itself', async () => {
+    const a = await createNativeTask(owner.user.id, { name: 'A' });
+    const b = (await create({ name: 'B', job: http({ taskId: a.id, when: 'always' }) }).expect(200)).body.task;
+
+    const loop = await request(app).patch(`/api/tasks/${a.id}/job`).set('Authorization', owner.auth)
+      .send({ job: http({ taskId: b.id, when: 'success' }) }).expect(400);
+    expect(loop.body.error).toMatch(/loop/);
+
+    const self = await request(app).patch(`/api/tasks/${a.id}/job`).set('Authorization', owner.auth)
+      .send({ job: http({ taskId: a.id, when: 'success' }) }).expect(400);
+    expect(self.body.error).toMatch(/itself/);
+  });
+});

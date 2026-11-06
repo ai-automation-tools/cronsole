@@ -383,7 +383,11 @@ Non-negotiable rules. **Every one has a reason recorded in
   last notifies. Run now joins the overlap set (`claim`/`release`) and is refused while running —
   `busy: true` from the connector, a **409 that records nothing** (no history, no health
   evidence, no notification), since a refused click is not a run.
-  `timeoutMs` goes to 24 h, default still 5 min.
+  `timeoutMs` goes to 24 h, default still 5 min. **`policy.runAfter`** chains native tasks:
+  `afterRun` fires once per *finished* run (final attempt, or Run now) on `success`/`failure`/
+  `always`, each dependent through `launch`. Only a native predecessor, checked at save against the
+  DB by `nativeChain.runAfterError` (missing, foreign, non-native, self, loop), and a chained task
+  may have no schedule.
 - **A native job stores a *reference* to a credential, never the credential**
   ([ADR 0003](docs/adr/0003-per-job-secrets.md)). `${secret.NAME}` in a url · header value · body ·
   arg · env value — refused in an `executable`, an `interpreter` or a check assertion, by name. The

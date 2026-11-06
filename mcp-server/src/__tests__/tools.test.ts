@@ -1774,6 +1774,16 @@ describe('create_native_task', () => {
     expect((calls[1].body as any).job).not.toHaveProperty('policy');
   });
 
+  it('sends runAfter, defaulting to success, and no schedule when none is given', async () => {
+    const { client, calls } = stubClient({ 'POST /tasks/native': created });
+    const mcp = await connect(client);
+    await call(mcp, 'create_native_script_task', {
+      name: 'n', interpreter: 'node', body: 'x', runAfterTaskId: 'task-a'
+    });
+    expect((calls[0].body as any).schedule).toBeUndefined(); // dropped by JSON on the wire
+    expect((calls[0].body as any).job.policy).toEqual({ runAfter: { taskId: 'task-a', when: 'success' } });
+  });
+
   it('sends the jobType discriminator the route requires', async () => {
     // This test previously asserted a payload with NO `jobType` and was named
     // "nests the HTTP job the way the route expects" — a claim it could not

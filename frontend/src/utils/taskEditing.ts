@@ -106,6 +106,9 @@ export interface NativeJobValues {
   retryDelayMinutes: string;
   overlap: 'skip' | 'queue';
   catchUp: boolean;
+  /** Another native task's id to also run after; '' for none. */
+  runAfterTaskId: string;
+  runAfterWhen: 'success' | 'failure' | 'always';
 }
 
 /** The longest time limit a program or script may have, in minutes (24 hours). */
@@ -140,7 +143,9 @@ export const emptyNativeJobValues = (): NativeJobValues => ({
   retries: '0',
   retryDelayMinutes: '1',
   overlap: 'skip',
-  catchUp: false
+  catchUp: false,
+  runAfterTaskId: '',
+  runAfterWhen: 'success'
 });
 
 /**
@@ -323,6 +328,7 @@ function nativeJobEdit(task: Task): RunsEdit {
     : '';
 
   const policy = (job.policy ?? {}) as Meta;
+  const runAfter = (policy.runAfter ?? {}) as Meta;
   const probe = (job.probe ?? {}) as Meta;
   const probeKind = asText(probe.kind);
   const range = (probe.expectStatus ?? {}) as Meta;
@@ -389,7 +395,9 @@ function nativeJobEdit(task: Task): RunsEdit {
       retries: asText(policy.retries) ?? '0',
       retryDelayMinutes: asText(policy.retryDelayMinutes) ?? '1',
       overlap: policy.overlap === 'queue' ? 'queue' : 'skip',
-      catchUp: policy.catchUp === true
+      catchUp: policy.catchUp === true,
+      runAfterTaskId: asText(runAfter.taskId) ?? '',
+      runAfterWhen: runAfter.when === 'failure' || runAfter.when === 'always' ? runAfter.when : 'success'
     }
   };
 }
@@ -558,6 +566,7 @@ function withRunSettings(job: Record<string, unknown>, v: NativeJobValues): Reco
     policy.retries = retries;
     if (Number(v.retryDelayMinutes) !== 1) policy.retryDelayMinutes = Number(v.retryDelayMinutes);
   }
+  if (v.runAfterTaskId) policy.runAfter = { taskId: v.runAfterTaskId, when: v.runAfterWhen };
   if (Object.keys(policy).length) out.policy = policy;
   return out;
 }

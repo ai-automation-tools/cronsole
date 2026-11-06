@@ -1,4 +1,4 @@
-import { NativeJob, ScriptJob, CheckProbe, RunPolicy } from './NativeTaskExecutor.js';
+import { NativeJob, ScriptJob, CheckProbe, RunPolicy, RunAfterWhen } from './NativeTaskExecutor.js';
 import { toStructuredAction } from '../utils/commandParser.js';
 
 /**
@@ -51,6 +51,12 @@ function buildPolicy(raw: unknown): RunPolicy | undefined {
     }
   }
   if (p.catchUp !== undefined && p.catchUp !== false) out.catchUp = p.catchUp as boolean;
+  if (p.runAfter !== undefined && p.runAfter !== null) {
+    const r = p.runAfter as Record<string, unknown>;
+    out.runAfter = typeof r === 'object'
+      ? { taskId: String(r.taskId ?? '').trim(), when: (r.when ?? 'success') as RunAfterWhen }
+      : (r as unknown as RunPolicy['runAfter']);
+  }
   return Object.keys(out).length ? out : undefined;
 }
 

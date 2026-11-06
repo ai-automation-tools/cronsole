@@ -149,3 +149,31 @@ describe('NativeScheduler (ADR 0004)', () => {
     expect(scheduler.claim('t')).toBe(true);
   });
 });
+
+describe('run after another task', () => {
+  const a = task('a', { jobType: 'HTTP', url: 'a' });
+  const dep = (id: string, when: string) => task(id, { jobType: 'HTTP', url: id, policy: { runAfter: { taskId: 'a', when } } }, null as any);
+
+  it('starts the dependents whose condition the outcome meets, and only them', async () => {
+    vi.mocked(executeJob).mockResolvedValue(failed as any);
+    db.task.findMany
+      .mockResolvedValueOnce([a]) // the tick's due list
+      .mockResolvedValueOnce([dep('onSuccess', 'success'), dep('onFailure', 'failure'), dep('always', 'always')])
+      .mockResolvedValue([]); // the dependents have no dependents of their own
+    await scheduler.tick(now);
+    await scheduler.idle();
+    expect(logs()).toEqual(['[scheduled] exit 1', '[after "a"] exit 1', '[after "a"] exit 1']);
+    expect(vi.mocked(executeJob).mock.calls.map(c => (c[0] as any).url)).toEqual(['a', 'onFailure', 'always']);
+  });
+
+  it('moves on the final verdict, not on a failed attempt a retry fixed', async () => {
+    vi.mocked(executeJob).mockResolvedValueOnce(failed as any).mockResolvedValue(ok as any);
+    db.task.findMany
+      .mockResolvedValueOnce([task('a', { jobType: 'HTTP', url: 'a', policy: { retries: 1 } })])
+      .mockResolvedValueOnce([dep('onFailure', 'failure'), dep('onSuccess', 'success')])
+      .mockResolvedValue([]);
+    await scheduler.tick(now);
+    await scheduler.idle();
+    expect(vi.mocked(executeJob).mock.calls.map(c => (c[0] as any).url)).toEqual(['a', 'a', 'onSuccess']);
+  });
+});

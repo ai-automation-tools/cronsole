@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../../api';
+import type { Task } from '../../types';
 import { Terminal, FolderOpen, Globe, FileCode, Activity, Variable, Timer } from 'lucide-react';
 import {
   parseEnv,
@@ -35,6 +38,8 @@ interface Props {
   /** Where a native task actually executes, for the EXEC warning. */
   executionHost?: string;
   disabled?: boolean;
+  /** The task being edited, so it is left out of the tasks it can run after. */
+  taskId?: string;
 }
 
 /**
@@ -48,7 +53,7 @@ interface Props {
  * and the warning arrives *before* the click, since one that arrives with the
  * result arrives too late to change the decision.
  */
-export const NativeJobFields = ({ value, onChange, storedJobType, executionHost, disabled }: Props) => {
+export const NativeJobFields = ({ value, onChange, storedJobType, executionHost, disabled, taskId }: Props) => {
   const [headerError, setHeaderError] = useState<string | null>(null);
   const [envError, setEnvError] = useState<string | null>(null);
 
@@ -311,7 +316,7 @@ export const NativeJobFields = ({ value, onChange, storedJobType, executionHost,
         </>
       )}
 
-      <RunSettingsFields value={value} set={set} disabled={disabled} />
+      <RunSettingsFields value={value} set={set} disabled={disabled} taskId={taskId} />
     </div>
   );
 };
@@ -325,14 +330,27 @@ export const NativeJobFields = ({ value, onChange, storedJobType, executionHost,
 const RunSettingsFields = ({
   value,
   set,
-  disabled
+  disabled,
+  taskId
 }: {
   value: NativeJobValues;
   set: <K extends keyof NativeJobValues>(key: K, next: NativeJobValues[K]) => void;
   disabled?: boolean;
+  taskId?: string;
 }) => {
   const hasTimeout = value.jobType === 'EXEC' || value.jobType === 'SCRIPT';
   const canRetry = value.jobType !== 'CHECK';
+  // The dashboard's own cache key, so this reads the list already on screen
+  // rather than fetching a second copy that could disagree with it.
+  const { data: tasks } = useQuery<Task[]>({
+    queryKey: ['tasks'],
+    queryFn: async () => (await api.get('/tasks')).data
+  });
+  // Only native tasks can be waited on: theirs are the only runs Cronsole sees
+  // finish. A stored predecessor that is no longer listed stays selectable, so
+  // opening the form never silently drops the link.
+  const candidates = (Array.isArray(tasks) ? tasks : []).filter(t => t.platform === 'TASKHUB_NATIVE' && t.id !== taskId);
+  const storedMissing = !!value.runAfterTaskId && !candidates.some(t => t.id === value.runAfterTaskId);
   return (
     <fieldset className="space-y-3 border-t border-border pt-4">
       <legend className={LABEL}>
@@ -402,6 +420,38 @@ const RunSettingsFields = ({
               </div>
             )}
           </>
+        )}
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <label htmlFor="job-run-after" className={LABEL}>Also run after</label>
+          <select
+            id="job-run-after"
+            value={value.runAfterTaskId}
+            disabled={disabled}
+            onChange={e => set('runAfterTaskId', e.target.value)}
+            className={FIELD}
+          >
+            <option value="">No other task</option>
+            {storedMissing && <option value={value.runAfterTaskId}>A task that no longer exists</option>}
+            {candidates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        </div>
+        {value.runAfterTaskId && (
+          <div className="space-y-1.5">
+            <label htmlFor="job-run-after-when" className={LABEL}>When that task</label>
+            <select
+              id="job-run-after-when"
+              value={value.runAfterWhen}
+              disabled={disabled}
+              onChange={e => set('runAfterWhen', e.target.value as NativeJobValues['runAfterWhen'])}
+              className={FIELD}
+            >
+              <option value="success">Succeeds</option>
+              <option value="failure">Fails</option>
+              <option value="always">Finishes either way</option>
+            </select>
+          </div>
         )}
       </div>
       <label className="flex items-start gap-2 text-sm text-foreground min-h-9">

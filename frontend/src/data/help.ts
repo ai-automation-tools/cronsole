@@ -937,6 +937,12 @@ const jobRunSettings: HelpTopic = {
       body:
         'If Cronsole was down at a due time, the task runs once when it is back, however many due times ' +
         'it missed. Without it, a run more than 5 minutes late is skipped.'
+    },
+    {
+      label: 'Also run after',
+      body:
+        'Start this task when another Cronsole-native task finishes: when it succeeds, fails, or either. ' +
+        'Its final attempt decides, after retries, and Run now counts. A loop is refused when you save.'
     }
   ],
   doc: { label: 'Cronsole-native › Run settings', url: sourceDoc('TASKHUB_NATIVE', '-run-settings') },

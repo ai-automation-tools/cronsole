@@ -98,6 +98,9 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
   // Held in the user's zone; converted to UTC once, on submit. "0 8" now means
   // 8am where you are rather than 8am UTC.
   const [schedule, setSchedule] = useState(initial?.schedule ?? '0 8 * * *');
+  // A chained native task may have no schedule of its own: the task it runs
+  // after is what starts it.
+  const [chainOnly, setChainOnly] = useState(false);
   const storedSchedule = zone.toUtc(schedule);
   // The native job spec, in the **same shape the edit modal uses**. It was six
   // separate `useState`s covering only HTTP and EXEC, which is how a create form
@@ -194,6 +197,7 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
   // silently inherits the native job form — four job-type tabs over a platform
   // that has none.
   const isNative = !isWindows && !isClaude && !isGemini;
+  const chainedOnly = isNative && chainOnly && !!job.runAfterTaskId;
   /**
    * Which job types actually touch the backend's own filesystem, and so need the
    * execution-host disclosure below. `CHECK` is conditional on its probe: an
@@ -289,7 +293,7 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
       return api.post('/tasks/native', {
         name,
         category,
-        schedule: storedSchedule.cron,
+        schedule: chainedOnly ? null : storedSchedule.cron,
         // The same builder the edit modal posts to `PATCH /tasks/:id/job`. An
         // EXEC job still goes as a command *line* — the server tokenizes it with
         // the parser the Windows path uses, so a security-relevant parse has one
@@ -395,7 +399,7 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
   // schedule to require because Cronsole does not set one.
   const canCreate = isClaude
     ? !!routineId.trim() && !!routineToken.trim() && !createMutation.isPending
-    : !!name.trim() && !!schedule.trim() && targetValid && !createMutation.isPending;
+    : !!name.trim() && (chainedOnly || !!schedule.trim()) && targetValid && !createMutation.isPending;
 
   const platformButton = (p: CreatePlatform, label: string, Icon: typeof Zap, active: string) => (
     <button
@@ -610,6 +614,23 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
             </div>
           ) : (
           <div className="space-y-2">
+            {isNative && job.runAfterTaskId && (
+              <label className="flex items-start gap-2 text-sm text-foreground min-h-9">
+                <input
+                  type="checkbox"
+                  checked={chainOnly}
+                  onChange={e => setChainOnly(e.target.checked)}
+                  className="mt-1"
+                />
+                <span>
+                  No schedule of its own
+                  <span className="block text-[11px] text-subtle-foreground">
+                    Run only after the task chosen under Run settings.
+                  </span>
+                </span>
+              </label>
+            )}
+            {!chainedOnly && (<>
             <ScheduleBuilder
               inputId="create-schedule-cron"
               value={schedule}
@@ -638,6 +659,7 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
                 </p>
               )
             )}
+            </>)}
           </div>
           )}
 

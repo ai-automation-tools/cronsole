@@ -46,7 +46,16 @@ export interface RunPolicy {
   retryDelayMinutes?: number;
   /** Run once when Cronsole is back, if a due time passed while it was down. */
   catchUp?: boolean;
+  /**
+   * Also start when another native task finishes. Who the predecessor is can
+   * only be checked against the database, so `nativeChain.runAfterError` does
+   * that at save; this file checks the shape.
+   */
+  runAfter?: { taskId: string; when: RunAfterWhen };
 }
+
+export type RunAfterWhen = 'success' | 'failure' | 'always';
+export const RUN_AFTER_WHEN: RunAfterWhen[] = ['success', 'failure', 'always'];
 
 export const MAX_RETRIES = 5;
 export const MAX_RETRY_DELAY_MINUTES = 60;
@@ -426,6 +435,15 @@ function validatePolicy(policy: unknown, jobType: unknown): string | null {
   }
   if (p.catchUp !== undefined && typeof p.catchUp !== 'boolean') {
     return 'Job policy.catchUp must be true or false';
+  }
+  if (p.runAfter !== undefined) {
+    const r = p.runAfter as Record<string, unknown> | null;
+    if (!r || typeof r !== 'object' || typeof r.taskId !== 'string' || !r.taskId.trim()) {
+      return 'Job policy.runAfter needs the taskId of the task to run after';
+    }
+    if (!RUN_AFTER_WHEN.includes(r.when as RunAfterWhen)) {
+      return `Job policy.runAfter.when must be one of ${RUN_AFTER_WHEN.join(', ')}`;
+    }
   }
   return null;
 }

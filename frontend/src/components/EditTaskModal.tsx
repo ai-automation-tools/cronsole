@@ -475,6 +475,7 @@ export const EditTaskModal = ({ task, executionHost, onClose }: Props) => {
               storedJobType={nativeBase.jobType}
               executionHost={executionHost}
               disabled={saving}
+              taskId={task.id}
             />
           ) : (
             <Refusal reason={runs.reason} />

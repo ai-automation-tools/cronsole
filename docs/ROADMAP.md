@@ -1482,10 +1482,18 @@ catching up a missed start, and there were no retries. Design in
 - [x] **Catch-up** — a run missed while Cronsole was down runs once when it is back, if the task
       asks for it.
 
-Next, after these: *run after another task* (chaining between tasks, cheaper than ADR 0002's
-`SEQUENCE`), a *send a message* preset over an HTTP job (ADR 0002's `NOTIFY`, now unblocked by
-ADR 0003), a per-task *tell me when this fails* toggle, and an explicit per-job opt-in to inherit
-the user environment.
+**Tier 2 — reasons to prefer native** *(requested 2026-11-06)*:
+
+- [x] **Run after another task** *(shipped 2026-11-06)* — a native task can start when another native task finishes
+      (on success, on failure, or either), with or without a schedule of its own. Chaining between
+      tasks rather than ADR 0002's `SEQUENCE` steps inside one: each link keeps its own history,
+      retries and secrets. Cycles are refused at save.
+- [ ] **Send a message** — a create-form preset that writes an HTTP job for Discord, Slack, ntfy
+      or a generic webhook, with the URL as a `${secret.…}`. ADR 0002's `NOTIFY`, unblocked by
+      ADR 0003, as a preset rather than a fifth job type.
+- [ ] **Tell me when this fails** — a per-task switch over the existing notification channels.
+- [ ] **Pass named variables through** — a per-job, explicit list of the backend's own environment
+      variables to hand the child, refusing Cronsole's secrets by name.
 
 <a id="gemini-usability"></a>
 

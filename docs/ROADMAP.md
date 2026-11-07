@@ -1957,13 +1957,18 @@ see [Part II](#completed--p1-correctness--honesty).
       case, now rejects with a JSON-RPC `ProtocolError` instead of returning `isError`. **Left:**
       one tool call against a running backend, which no unattended run can make. Tick this when
       someone has.
-- [ ] **Bump the GitHub Actions to Node-24 majors** *(logged 2026-10-22 by the upstream check)*.
+- [x] **Bump the GitHub Actions to Node-24 majors** *(logged 2026-10-22 by the upstream check)*.
       GitHub removed Node 20 from Actions runners on 2026-09-23 and now runs JavaScript actions on
       Node 24 (source: github.blog/changelog/2026-09-23-node-20-is-no-longer-available-in-github-actions).
       We use `actions/checkout@v4`, `setup-node@v4`, `setup-dotnet@v4`; the latest releases are
       checkout v7, setup-node v7, setup-dotnet v6 (their releases pages). **What**: bump all three
       across the workflows and read each release's breaking-changes notes. **Where**: `.github/workflows/`
       (hold path, Mike reviews). **Done when**: CI is green on a PR that changes only the pins.
+      **Done 2026-11-06:** all five workflows now pin `checkout@v7`, `setup-node@v7`, `setup-dotnet@v6`
+      (and nothing else changed). Breaking notes read: checkout v6 moved HTTPS credentials to a separate
+      file (the publish jobs use `ssh-key`, unaffected); setup-node v5 turns on automatic package-manager
+      caching only when `package.json` has a `packageManager` field (none do). The two publish workflows
+      run only on `main` / schedule, so they get their first run on v7 after merge.
 
 <a id="connector-contract-test"></a>
 

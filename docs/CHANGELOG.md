@@ -19,6 +19,10 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 - **Backend `body-parser` 2.4.0 and `qs` 6.17.0** (2026-10-27, security sweep). Both come in through Express. The old `body-parser` could be tied up by a body with trailing bytes after the JSON, and the old `qs` threw on one `stringify` format (Dependabot #86, #87). Lockfile only; the frontend and `mcp-server` copies have their own Dependabot PRs.
 - **Token and secret checks tightened** (2026-10-26, security sweep). `checkToken` accepts only HS256, the algorithm `generateToken` signs with. `decrypt` refuses an auth tag that isn't the full 16 bytes. `ci.yml`, `frontdoor-drift.yml` and `registry-drift.yml` declare `permissions: contents: read`. A new `.gitleaksignore` suppresses the nine test-fixture and docs-placeholder hits.
 
+### Fixed
+
+- **The Windows agent reconnects after a backend restart** (2026-11-06). SocketIOClient 4.0.5 can leave `Connected` true on a dead socket: it ignores a WebSocket Close frame (so a graceful backend shutdown or `tsx watch` reload goes unnoticed) and has no client-side ping timeout. The watchdog trusted that flag, so the agent could sit offline for hours until someone restarted it. The agent now also needs a server ping within the last 60 seconds to count as connected, and rebuilds the client when one hasn't arrived.
+
 ### Changed
 
 - **Native docs caught up, Connect Pack v1.16** (2026-11-06). The UI User Guide said native tasks came in two kinds; it now lists all four and points to Run settings and Pass through. FEATURES lists the new native abilities. The System diagnostics remedy for an overdue native task mentions *Catch up a missed run*. An MCP template description still said a script's timeout tops out at 60 minutes (it is 24 hours). The Connect Pack's surface table gained a row for native run settings, chaining and `passEnv`, so an assistant using the pack knows they exist.

@@ -36,9 +36,17 @@ namespace Cronsole.Agent
             _auth = auth ?? throw new ArgumentNullException(nameof(auth));
         }
 
+        private readonly ConnectionLiveness _liveness = new();
+
         // Null until the first ConnectAsync(): callers register handlers (via On) at
         // construction time, before any connection exists.
-        public bool Connected => _client?.Connected ?? false;
+        //
+        // The library's own flag is not enough: it stays true after a WebSocket Close
+        // frame or a silent server (see ConnectionLiveness). Requiring a recent server
+        // ping is what lets the watchdog notice a backend restart.
+        public bool Connected => IsLive(_client);
+
+        private bool IsLive(SocketIO? client) => client != null && client.Connected && !_liveness.IsStale;
 
         public void On(string eventName, Action<ISocketResponse> callback)
         {
@@ -87,13 +95,21 @@ namespace Cronsole.Agent
             SocketIO client;
             lock (_lock)
             {
-                if (_client != null && _client.Connected)
+                if (IsLive(_client))
                 {
                     return;
                 }
 
-                // Dispose the old (aborted) client and start clean.
+                if (_client != null && _client.Connected)
+                {
+                    // The library still thinks it's connected, but no ping has arrived
+                    // within the liveness window: the server is gone.
+                    Console.WriteLine("Socket reports connected but the server has gone silent; rebuilding the connection.");
+                }
+
+                // Dispose the old (aborted or stale) client and start clean.
                 _client?.Dispose();
+                _liveness.Touch(); // fresh window for the new attempt
                 _client = BuildClient();
                 client = _client;
             }
@@ -117,7 +133,13 @@ namespace Cronsole.Agent
                 Auth = _auth.CreateHandshakeAuth()
             });
 
-            client.OnConnected += (_, _) => OnConnected?.Invoke();
+            client.OnConnected += (_, _) =>
+            {
+                _liveness.Touch();
+                OnConnected?.Invoke();
+            };
+            // Engine.IO v4: the server pings, the client pongs. Each ping is proof of life.
+            client.OnPing += (_, _) => _liveness.Touch();
             client.OnDisconnected += (_, _) => OnDisconnected?.Invoke();
 
             foreach (var (eventName, callback) in _handlers)

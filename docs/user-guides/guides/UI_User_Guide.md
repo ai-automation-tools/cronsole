@@ -74,12 +74,22 @@ Each task is represented by a card showing:
 ### Creating a Cronsole-native task
 
 **New Task › Cronsole** creates a task that lives only inside Cronsole — nothing appears in Windows
-Task Scheduler, and it runs whether or not the agent is connected. Two kinds:
+Task Scheduler, and it runs whether or not the agent is connected. Four kinds:
 
-- **HTTP request** — call a URL on a schedule. Webhooks, health checks, poking a deploy hook.
+- **HTTP request** — call a URL on a schedule. Webhooks, health checks, poking a deploy hook. An
+  empty one offers **Send a message to** Discord, Slack, ntfy or another webhook.
 - **Run a program** — a script or executable, with its exit code, duration and output recorded in
   the run history. This is a **real** result, unlike a Windows task where a success only means the
   agent accepted the start.
+- **Write a script** — the body is stored in the task and run under PowerShell, Bash, Python, Node
+  and a few others, so nothing has to exist on disk.
+- **Check something** — an endpoint, a port, a file's age or free disk space. A failing check is a
+  fact about your system, not a broken job.
+
+Every kind has **Run settings** at the bottom of the form: a time limit (programs and scripts, up to
+24 hours), retries after a failure, what to do if it is still running when it comes due, catching up
+a run missed while Cronsole was down, and **Also run after** another native task. The
+[Cronsole-native guide](../sources/Cronsole_Native.md#-run-settings) explains each one.
 
 Three things worth knowing about *Run a program*:
 
@@ -93,7 +103,9 @@ Three things worth knowing about *Run a program*:
 - **Your Cronsole secrets are not passed to it.** The program gets a minimal environment plus
   anything you set explicitly in the form's **Environment** field — not Cronsole's own, which holds
   the key that encrypts your stored platform credentials. See
-  [Environment variables](#environment-variables).
+  [Environment variables](#environment-variables). To hand it a variable that is already set on the
+  machine, such as `GH_TOKEN`, name it under **Pass through from Cronsole**
+  ([how that works](../sources/Cronsole_Native.md#passing-a-variable-through)).
 
 And one thing that applies to all four kinds: **if the job needs a credential, put it in
 [Secrets](#secrets) rather than in the job**. The New Task form has a Secrets section; anything you

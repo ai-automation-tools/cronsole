@@ -5,7 +5,7 @@ description: Create, run, and manage scheduled tasks through a running Cronsole 
 
 # Cronsole
 
-> Cronsole Connect Pack **v1.15** · canonical copy: <https://cronsole.ai-automation-tools.dev>
+> Cronsole Connect Pack **v1.16** · canonical copy: <https://cronsole.ai-automation-tools.dev>
 > If this file is older than your Cronsole install, the install wins — re-download the pack.
 
 Cronsole is a single pane of glass for scheduled tasks. It runs **locally** on the user's own
@@ -49,6 +49,7 @@ leaves it running), or the dashboard. Do not route around a gate.
 | Create an HTTP job | `create_native_task` | `POST /api/tasks/native` |
 | Schedule an **existing program** | `create_native_program_task` | `POST /api/tasks/native` with `job.jobType: 'EXEC'`. The program must already exist on the machine the **Cronsole backend** is on — not necessarily the user's desktop. Prefer a Windows task for anything that must run as the user or survive Cronsole being down |
 | Schedule a **script you write** | `create_native_script_task` | `POST /api/tasks/native` with `job.jobType: 'SCRIPT'`. The body is stored and run under a named interpreter (`powershell`, `pwsh`, `bash`, `sh`, `python`, `node`), so nothing has to exist on disk first. `node` is present wherever the backend runs |
+| Retry, chain, or pass a token to a **native** task | the native create tools above, and `update_native_job` | Optional run settings on the job: `retries` / `retryDelayMinutes` (never on a check), `overlap` (`skip`/`queue`), `catchUp`, `timeoutMs` up to 24 h, `runAfterTaskId` + `runAfterWhen` to start after another native task (then `schedule` may be omitted), and `passEnv` to copy named variables from Cronsole's environment. `update_native_job` **replaces** them, so resend any you want kept |
 | Schedule a **check** | `create_native_check_task` | `POST /api/tasks/native` with `job.jobType: 'CHECK'`. Asserts on an endpoint, a TCP port, a file's age, or free disk space — a failure here is a fact about the system, unlike a failing script |
 | Create a **Gemini trigger** (a scheduled prompt on Google's agent) | `create_gemini_trigger` | `POST /api/tasks` with `platform: 'GEMINI_TRIGGERS'`. The unit of work is a prompt plus the tools it may reach, not a command. A trigger's schedule and prompt are fixed once created. |
 | Create a **Claude Code scheduled task** (formerly a routine) | `create_claude_routine` | `POST /api/tasks` with `platform: 'CLAUDE_CODE'`. Needs `list_claude_routines` to report `session.mode: "oauth"`; otherwise 400. |

@@ -1016,7 +1016,7 @@ export function registerTools(
         '`missingSecrets`: a TASKHUB_NATIVE template whose job refers to `${secret.NAME}` creates a task with ' +
         'nothing stored, which refuses to run until the user sets those values in Cronsole (open the task → ' +
         'Edit → Secrets — no MCP tool can set one). `${secret.NAME?}` references are optional and never listed. ' +
-        'A native script template\'s `execution.timeoutSec` becomes the task\'s timeout (max 60 min; default 5).',
+        'A native script template\'s `execution.timeoutSec` becomes the task\'s timeout (max 24 hours; default 5 minutes).',
       inputSchema: {
         templateId: z.string().describe('The template id (from list_templates).'),
         platform: z

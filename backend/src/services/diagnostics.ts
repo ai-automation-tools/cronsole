@@ -481,7 +481,9 @@ async function checkNativeScheduler(ctx: CheckContext): Promise<DiagnosticCheck>
         ? `Running, but ${overdue} task(s) are past due by more than the grace window.`
         : 'Running, and no native task is overdue.',
     facts,
-    remedy: overdue > 0 ? 'A missed run is skipped rather than replayed. Check whether the backend was down.' : undefined
+    remedy: overdue > 0
+      ? 'A missed run is skipped rather than replayed, unless the task has Catch up a missed run on. Check whether the backend was down.'
+      : undefined
   };
 }
 

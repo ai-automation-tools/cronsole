@@ -1495,6 +1495,8 @@ catching up a missed start, and there were no retries. Design in
 - [x] **Pass named variables through** *(shipped 2026-11-06)* — a per-job, explicit list of the backend's own environment
       variables to hand the child, refusing Cronsole's secrets by name.
 
+Docs sweep after Tier 2 *(2026-11-06)*: UI User Guide (four job types, Run settings, Pass through), FEATURES, the diagnostics remedy, an MCP description and the Connect Pack (v1.16) now describe the same native scheduler.
+
 <a id="gemini-usability"></a>
 
 #### 🔴🔴 Top priority — requested 2026-08-25: Gemini usability

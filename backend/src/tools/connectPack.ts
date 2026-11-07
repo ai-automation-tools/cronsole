@@ -120,7 +120,9 @@ import { CONNECT_PACK_FILES } from './connectPackBundled.js';
 //   table gains rename, native-job edit, template delete and the routine verbs.
 // 1.15 (2026-11-06): Anthropic renamed Claude Code routines to scheduled tasks;
 //   SKILL.md and task-authoring say "Claude scheduled task" (tool names unchanged).
-export const CONNECT_PACK_VERSION = '1.15';
+// 1.16 (2026-11-06): native run settings (retries, overlap, catch-up, 24 h limit),
+// chaining (runAfterTaskId) and passEnv in the SKILL surface table.
+export const CONNECT_PACK_VERSION = '1.16';
 
 /** Where a reader should look for a newer copy than the one in their hand. */
 export const CONNECT_PACK_HOME = 'https://cronsole.ai-automation-tools.dev';

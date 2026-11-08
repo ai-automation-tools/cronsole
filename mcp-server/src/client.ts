@@ -16,7 +16,9 @@ export class CronsoleApiError extends Error {
   constructor(
     message: string,
     readonly status?: number,
-    readonly details?: unknown
+    readonly details?: unknown,
+    /** The backend took the request and did not answer in time — it may still be working on it. */
+    readonly timedOut = false
   ) {
     super(message);
     this.name = 'CronsoleApiError';
@@ -221,8 +223,13 @@ export class CronsoleClient {
     return this.request<T>('get', path, undefined, params);
   }
 
-  async post<T = unknown>(path: string, body?: unknown): Promise<T> {
-    return this.request<T>('post', path, body);
+  /**
+   * `waitAtLeastMs` raises this one request's timeout above the configured
+   * default (never lowers it): Run now on a native task answers only when the
+   * job ends, which is routinely longer than a read needs.
+   */
+  async post<T = unknown>(path: string, body?: unknown, opts?: { waitAtLeastMs?: number }): Promise<T> {
+    return this.request<T>('post', path, body, undefined, opts?.waitAtLeastMs);
   }
 
   async patch<T = unknown>(path: string, body?: unknown): Promise<T> {
@@ -263,10 +270,12 @@ export class CronsoleClient {
     method: 'get' | 'post' | 'patch' | 'delete',
     path: string,
     body?: unknown,
-    params?: Record<string, unknown>
+    params?: Record<string, unknown>,
+    waitAtLeastMs?: number
   ): Promise<T> {
+    const timeout = Math.max(this.http.defaults.timeout ?? 0, waitAtLeastMs ?? 0) || undefined;
     try {
-      const res = await this.http.request<T>({ method, url: path, data: body, params });
+      const res = await this.http.request<T>({ method, url: path, data: body, params, timeout });
       return res.data;
     } catch (err) {
       throw this.normalizeError(err);
@@ -290,7 +299,20 @@ export class CronsoleClient {
           `Cronsole API returned HTTP ${status}`;
         return new CronsoleApiError(message, status, data ?? err.response.data);
       }
-      if (err.code === 'ECONNREFUSED' || err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT') {
+      // ECONNABORTED is axios's own response timeout: the request reached the
+      // backend, which is still busy with it. That is not "could not reach", and
+      // saying so sent a caller looking for a dead backend while a job ran fine.
+      if (err.code === 'ECONNABORTED') {
+        const seconds = Math.round(Number(err.config?.timeout ?? 0) / 1000);
+        return new CronsoleApiError(
+          `The Cronsole backend took the request but did not answer within ${seconds}s. ` +
+          'It may still be working on it.',
+          undefined,
+          undefined,
+          true
+        );
+      }
+      if (err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT') {
         return new CronsoleApiError(
           `Could not reach the Cronsole backend at ${this.http.defaults.baseURL} (${err.code}). ` +
           'Is the backend running, and is CRONSOLE_API_URL correct?'

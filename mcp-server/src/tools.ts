@@ -92,7 +92,10 @@ export interface ToolOptions {
 // The platforms a bare command can be scheduled on. Claude is deliberately NOT
 // here: a routine's "command" is a natural-language prompt with repositories and
 // a tool allowlist, which is `create_claude_routine`, not a command line.
-const CREATABLE_PLATFORMS = ['WINDOWS_TASK_SCHEDULER', 'TASKHUB_NATIVE'] as const;
+/** How long run_task waits for a native job before answering "still running". */
+const RUN_WAIT_MS = 120_000;
+
+const CREATABLE_PLATFORMS =['WINDOWS_TASK_SCHEDULER', 'TASKHUB_NATIVE'] as const;
 
 // Where a *template* can be applied. Claude joined on 2026-08-13 with the Claude
 // Routines pack — an `ai-prompt` template IS a routine prompt, so the catalog can
@@ -682,7 +685,9 @@ export function registerTools(
         'page), and retrying it will not help. A tool ERROR means the run could not be started at ' +
         'all — an offline agent, a paused Claude scheduled task, a bad id — which is a problem with the ' +
         'monitoring, not with what it monitors. Do not report the first kind as "I could not run ' +
-        'the task", and do not report the second as a failing check.',
+        'the task", and do not report the second as a failing check. A third answer, "Still running" ' +
+        '(pending: true), means a native job outlasted the 2-minute wait: it is neither a pass nor a ' +
+        'failure yet, and get_task_history will show the verdict when it ends.',
       inputSchema: {
         taskId: z.string().describe('The Cronsole task id (from list_tasks).')
       }
@@ -690,7 +695,9 @@ export function registerTools(
     async ({ taskId }) => {
       try {
         const result = await client.post<Record<string, unknown>>(
-          `/tasks/${encodeURIComponent(taskId)}/run`
+          `/tasks/${encodeURIComponent(taskId)}/run`,
+          undefined,
+          { waitAtLeastMs: RUN_WAIT_MS }
         );
         // A 200 with `success: false` is a completed run with a failing verdict.
         // It stays a tool *result* — the call did what was asked — but the text
@@ -702,6 +709,17 @@ export function registerTools(
         }
         return ok(detail || 'Task run command sent', { taskId, result });
       } catch (err) {
+        // A native job runs inside the request, so a long one outlasts any sane
+        // wait. Not knowing yet is not a failure: say so, and say where the
+        // verdict will land, rather than inviting a retry the backend will 409.
+        if (err instanceof CronsoleApiError && err.timedOut) {
+          return ok(
+            `Still running: no verdict after ${RUN_WAIT_MS / 1000}s. A Cronsole-native job runs inside ` +
+              'this request, so a long one outlasts the wait. It is recorded when it ends: check ' +
+              'get_task_history before running it again (a second Run now is refused while it runs).',
+            { taskId, pending: true }
+          );
+        }
         return toolError(err);
       }
     }

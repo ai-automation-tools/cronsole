@@ -23,15 +23,51 @@ sources, this is the one to use for anything that must survive Cronsole being do
 
 ---
 
-## 🧭 When to use it, and when not to
+## 🎯 Best for
 
-| ✅ Use it for | Why |
+Work that has to happen on **this PC**, as **you**, whether or not Cronsole is running.
+
+| Automation | Why it belongs here |
 |:---|:---|
-| Anything that must run while Cronsole is off: backups, cleanup, maintenance | It is Windows' own scheduler. Cronsole only reads and writes the entries. |
-| Work that needs your Windows account: your profile, mapped drives, desktop apps | Tasks run as your user, with that account's privileges. |
-| Long jobs | No Cronsole timeout applies. Task Scheduler's own limits do. |
-| A fixed local clock time all year | A Windows trigger keeps its local time across daylight saving. |
-| Tasks you already have | Pick their folders and they appear, unchanged. |
+| Backups and file syncs: to OneDrive, Google Drive or a NAS | They must run even when Cronsole is down, and they use your account's drive mappings and sign-ins. |
+| Disk, temp and cache cleanup, log rotation | Maintenance should not depend on the app being maintained. |
+| Starting, stopping and restarting local apps and services: a dev server, n8n, a media server | Starts in your session, and what it starts keeps running after the task ends. |
+| Watchdogs and self-heal loops, including the one that restarts Cronsole | Only a scheduler outside Cronsole can bring Cronsole back. |
+| Scripts that need your profile: `gh`, `git` with your SSH key, desktop apps, Credential Manager | The task has everything your Windows account has. |
+| Headless agent runs against local repositories (`claude -p`, other agent CLIs) | Long, local, and needs your files and logins. |
+| Anything started at logon, at boot, when idle or on a system event | No other source has these triggers. |
+| A job at a fixed local clock time all year | A Windows trigger keeps its local time across daylight saving. |
+
+---
+
+## 🧰 Capabilities at a glance
+
+✅ yes · ⚠️ with a condition · ❌ no · — does not apply
+
+| | Can it? | Details |
+|:---|:---:|:---|
+| **Where it runs** | ✅ | Your PC, as your Windows user, reached through the local Cronsole agent. |
+| **Runs while Cronsole is off** | ✅ | It is Windows' own scheduler. Cronsole only reads and writes the entries. |
+| **Setup** | ⚠️ | Install the agent and run it **elevated**, then pick which folders to track. See [Connecting](#-connecting). |
+| **Schedules** | ⚠️ | Cron is converted to a native trigger, and some expressions cannot be held exactly; Cronsole warns ([Schedules](#-schedules-and-where-they-get-lossy)). Logon, boot and event triggers are kept. *No schedule* makes a task on demand. |
+| **Sync** | ✅ | Tracked folders: new tasks, changed schedules, enabled state, last result. Adopting a new folder is a separate step. |
+| **Run now** | ✅ | Signed per session (HMAC). Success means the agent started the task, not that the job worked. |
+| **Create** | ✅ | A real Task Scheduler entry, in `\Cronsole` by default. The action is `{executable, args[]}`, with no shell unless you name one. |
+| **Enable / disable** | ✅ | The task's own enabled flag on the machine. |
+| **Edit schedule** | ✅ | Rewrites the trigger. |
+| **Edit what it runs** | ✅ | Changes the action. |
+| **Delete** | ✅ | Removes the real task after writing a pre-delete archive. *Remove from Cronsole* stops tracking it and leaves it running. |
+| **Run history** | ⚠️ | Task Scheduler's own event log, grouped into runs, with exit codes. The job's output is not captured, and the log is switched off on some machines ([Reading run history](#-reading-run-history)). |
+| **Health** | ✅ | From each task's last result, plus whether the agent is connected. |
+| **Credentials** | — | Cronsole stores none. The task uses your account's own logins. |
+| **Export and restore** | ✅ | Task Scheduler XML (exact) or a portable template. Restore previews before it writes. |
+| **Templates** | ✅ | [Gallery: Windows templates](https://cronsole.ai-automation-tools.dev/#/browse?target=windows). |
+
+Every verb needs the agent online: it is the only thing that can touch Task Scheduler.
+
+---
+
+## 🚫 When to use something else
 
 | 🚫 Use something else for | Instead |
 |:---|:---|
@@ -72,26 +108,6 @@ now and later.
 folders, and it will not adopt a folder you never picked. Those are two different requests on
 purpose: naming a folder is the gesture that starts tracking it, and a routine refresh that quietly
 adopted new folders would undo a deliberate removal.
-
----
-
-## 🎛️ What Cronsole can do here
-
-The fullest set of any source. All of it needs the agent online — it is the only thing that can touch
-Task Scheduler.
-
-| Verb | What it does |
-|:---|:---|
-| **Sync** | Refresh tracked folders: new tasks, changed schedules, enabled state, last result. |
-| **Run now** | Ask the agent to start the task. Signed per session with an HMAC. |
-| **Create** | A real Task Scheduler entry, cron converted to a native trigger, action structured as `{executable, args[]}` — no shell unless you invoke one. |
-| **Enable / disable** | Flips the task's own enabled state on the machine. |
-| **Edit schedule** | Rewrites the trigger. Cronsole warns when a cron cannot be expressed natively. |
-| **Edit action** | Changes what it runs. |
-| **Export** | Task Scheduler XML (exact fidelity) or a portable template. |
-| **Restore** | Plans from read-only reads first, so `dryRun` is a real preview. |
-| **Delete** | Removes the real task, after writing a pre-delete archive. |
-| **Run history** | The Operational event log, grouped into runs, with exit codes. |
 
 ---
 

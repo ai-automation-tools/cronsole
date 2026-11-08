@@ -26,12 +26,44 @@ workflow through its own Schedule Trigger — see [Run now](#run-now) below.
 
 ---
 
-## 🧭 When to use it, and when not to
+## 🎯 Best for
 
-| ✅ Use it for | Why |
+Workflows that **join several services**, with their credentials kept in n8n.
+
+| Automation | Why it belongs here |
 |:---|:---|
-| Multi-step integrations across services, with credentials kept in n8n | That is what n8n is built for. Cronsole adds its health and runs beside everything else. |
-| Workflows you already have in n8n | Connect once and they all appear, with real run outcomes. |
+| Multi-service integrations: a CRM to a sheet to a chat channel | That is what n8n is built for. Cronsole adds its health and runs beside everything else. |
+| Digests assembled from several APIs on a schedule | Each node keeps its own credential in n8n. |
+| Form, webhook and chat workflows you also want to start by hand | They arrive as on-demand tasks, and Run now can start them. |
+| Workflows you already run in n8n | Connect once and they all appear, with real run outcomes. |
+
+---
+
+## 🧰 Capabilities at a glance
+
+✅ yes · ⚠️ with a condition · ❌ no · — does not apply
+
+| | Can it? | Details |
+|:---|:---:|:---|
+| **Where it runs** | ✅ | Your n8n instance, self-hosted or n8n Cloud. |
+| **Runs while Cronsole is off** | ✅ | n8n runs it. |
+| **Setup** | ⚠️ | An API key and the instance's **time zone**. Add an MCP access token for Run now, and optionally a read-only database role for folders. |
+| **Schedules** | ⚠️ | Schedule Triggers converted to UTC using the time zone you declare. A rule with no cron equivalent shows its reason instead ([Schedules with no cron](#schedules-with-no-cron)). |
+| **Sync** | ✅ | Every workflow with an enabled trigger, scheduled or on demand. |
+| **Run now** | ⚠️ | Needs the MCP access token. Runs the published workflow through its own Schedule Trigger ([Run now](#run-now)). |
+| **Create** | ❌ | Build it in n8n, publish it, sync. |
+| **Enable / disable** | ❌ | n8n switches a whole workflow, webhooks and forms included ([why](#-the-two-refusals)). |
+| **Edit schedule** | ❌ | n8n's update replaces the whole workflow. |
+| **Edit what it runs** | ❌ | Edit it in n8n. |
+| **Delete** | ❌ | *Remove from Cronsole* stops tracking one workflow. |
+| **Run history** | ✅ | The nodes that ran, where it stopped, n8n's error, and a link to the execution. |
+| **Health** | ✅ | From real run outcomes. |
+| **Credentials** | ✅ | The API key and MCP token are stored encrypted and never shown again. Workflow credentials stay in n8n. |
+| **Templates** | ❌ | Cronsole creates nothing here. |
+
+---
+
+## 🚫 When to use something else
 
 | 🚫 Use something else for | Instead |
 |:---|:---|
@@ -134,14 +166,6 @@ draft/publish model, so it is not a safe edit to make from outside.
 
 > Until 2026-10-05 Run now was the third refusal, on the grounds above about the REST API. The REST
 > half is still true; the MCP server is what changed.
-
----
-
-## 🎛️ What Cronsole can do here
-
-**Sync**, **health**, **Run now** (with an MCP access token), **Run History** (the platform's own
-executions, with each run's steps and a link to its page in n8n), and **Remove from Cronsole** on a
-single workflow.
 
 ---
 

@@ -22,11 +22,44 @@ reads *Unsupported*, and two of the three have working APIs behind them.
 
 ---
 
-## 🧭 When to use it, and when not to
+## 🎯 Best for
 
-| ✅ Use it for | Why |
+Scheduled workflows that already live in a repository, which you want to **watch** beside everything else.
+
+| Automation | Why it belongs here |
 |:---|:---|
-| Seeing scheduled workflows' health beside everything else | Cronsole reads every `on: schedule` workflow in the repositories you watch, with real outcomes. |
+| Nightly builds, scheduled test runs and security scans | Cronsole shows each run's real outcome and the failing step by name. |
+| Scheduled dependency, link and stale-issue checks | They need a checkout and a runner, which GitHub provides. |
+| A workflow GitHub switched off for inactivity | Cronsole shows it as its own health signal, with GitHub's reason, which is usually the first anyone hears of it. |
+| Every scheduled workflow across an account or organization | Watch the owner, and new repositories are picked up as they appear. |
+
+---
+
+## 🧰 Capabilities at a glance
+
+✅ yes · ⚠️ with a condition · ❌ no · — does not apply
+
+| | Can it? | Details |
+|:---|:---:|:---|
+| **Where it runs** | ✅ | GitHub's runners. |
+| **Runs while Cronsole is off** | ✅ | GitHub runs it. |
+| **Setup** | ✅ | A personal access token (classic `repo`, or fine-grained *Contents: read* and *Actions: read*), then the repositories or owners to watch. |
+| **Schedules** | ✅ | Read as written: GitHub's cron is already UTC, so there is no conversion ([Schedules](#-schedules--the-one-source-with-no-conversion)). |
+| **Sync** | ✅ | Every workflow with an `on: schedule` trigger in what you watch. |
+| **Run now** | ❌ | A `workflow_dispatch` run is not the scheduled run ([why](#-the-three-refusals-and-why-each-is-a-boundary)). |
+| **Create** | ❌ | That is committing a workflow file. |
+| **Enable / disable** | ❌ | A repository-state change that belongs behind its own scope. |
+| **Edit schedule** | ❌ | Edit the workflow file. |
+| **Edit what it runs** | ❌ | Edit the workflow file. |
+| **Delete** | ❌ | *Remove from Cronsole* stops watching one workflow. |
+| **Run history** | ✅ | Each run's outcome, the failing step by name, and a link to the raw log on github.com. |
+| **Health** | ✅ | From real run outcomes. |
+| **Credentials** | ✅ | The token is stored encrypted and never shown again. |
+| **Templates** | ❌ | Cronsole creates nothing here. |
+
+---
+
+## 🚫 When to use something else
 
 | 🚫 Use something else for | Instead |
 |:---|:---|
@@ -70,13 +103,6 @@ is no reveal button and rotating means pasting a new one.
 (`PUT …/actions/workflows/:id/disable`) does exactly what the Cronsole verb claims, with no second
 meaning. Unlocking it needs a scope you granted on purpose, a confirmation naming the repository, and
 the capability cell to stop saying *Unsupported* only once both exist.
-
----
-
-## 🎛️ What Cronsole can do here
-
-**Sync** and **health**, plus **Remove from Cronsole** on an individual workflow. Everything else is a
-stated boundary rather than a pending feature.
 
 ---
 

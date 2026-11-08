@@ -25,14 +25,16 @@ genuine scheduled invocation rather than something that resembles it.
 
 ## 🎯 Best for
 
-An **agent with tools** on a schedule, where you want to read what it did.
+An **agent with tools** on a schedule (web search, code, MCP servers), where you want to read every step it took.
 
 | Automation | Why it belongs here |
 |:---|:---|
-| Research digests: daily news, security advisories, release notes | The agent searches the web and writes it up in Google's sandbox. |
-| Reports that reach your own tools through an MCP server: email a digest, post to a channel | You grant MCP servers per trigger, and a saved server keeps its token out of the task. |
-| Agent jobs you want to audit run by run | Cronsole shows each run's output and every step it took. Google has no page for this. |
-| Small code or data jobs that need a sandbox | The agent can run code and write files without touching your machine. |
+| Every morning: "Search for new security advisories for the products we run and email me a summary" | Web search plus an email MCP server. Cronsole shows each step, so you can see whether it actually sent the email. |
+| Every weekday: a news or market brief on topics you name, posted to a Slack channel | Web search plus a Slack MCP server. |
+| Weekly: "Check the release notes of these libraries and list breaking changes" | The agent reads the pages and writes the list. |
+| Weekly: fetch a public CSV, analyze it with code, and write up what changed | Code execution runs in Google's sandbox, not on your machine. |
+| Daily: check a set of public pages for price or feature changes and report differences | Web access limited to the domains you allow. |
+| Any agent job you need to audit run by run | Cronsole is the only place to read a trigger's output and steps. Google has no page for it. |
 
 ---
 

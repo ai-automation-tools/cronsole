@@ -25,13 +25,15 @@ more than it first sounds.
 
 ## 🎯 Best for
 
-Seeing the crons your Vercel projects **declare**, beside everything else.
+Cron routes your Vercel projects **declare**, watched beside everything else.
 
 | Automation | Why it belongs here |
 |:---|:---|
-| Cron routes in your projects: revalidation, cleanup endpoints, scheduled emails | Cronsole lists each one with its schedule and its project. |
-| Spotting a project whose crons are switched off | Crons are on or off per project, and Cronsole shows which. |
-| Paired with a native [Endpoint check](Cronsole_Native.md#-checks--measure-something-and-compare-it) on what the cron produces | Vercel publishes no run history, so a check is how you learn whether it worked. |
+| `/api/cron/revalidate` rebuilding cached pages every hour | Cronsole lists it with its schedule and its project. |
+| A nightly cleanup route that deletes expired sessions or rows | You see that it is scheduled, and whether the project has crons switched on. |
+| A daily digest-email route | Pair it with a native check on what it produces to know it worked. |
+| Syncing data from an external API into your database every 15 minutes | Shows beside your other syncs, wherever they run. |
+| Any of the above, paired with a native [Endpoint check](Cronsole_Native.md#-checks--measure-something-and-compare-it) on a status route | Vercel publishes no run history, so a check is how you learn whether a cron worked. |
 
 ---
 

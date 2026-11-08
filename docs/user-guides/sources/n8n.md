@@ -28,14 +28,16 @@ workflow through its own Schedule Trigger — see [Run now](#run-now) below.
 
 ## 🎯 Best for
 
-Workflows that **join several services**, with their credentials kept in n8n.
+Workflows that **connect several services**, with their credentials kept in n8n.
 
 | Automation | Why it belongs here |
 |:---|:---|
-| Multi-service integrations: a CRM to a sheet to a chat channel | That is what n8n is built for. Cronsole adds its health and runs beside everything else. |
-| Digests assembled from several APIs on a schedule | Each node keeps its own credential in n8n. |
-| Form, webhook and chat workflows you also want to start by hand | They arrive as on-demand tasks, and Run now can start them. |
-| Workflows you already run in n8n | Connect once and they all appear, with real run outcomes. |
+| Every morning: pull calendar events and the weather, then send a Telegram or Slack briefing | Several services in one workflow, each with its own credential in n8n. |
+| RSS feeds, summarized by an LLM node, sent as an email digest | n8n has a node for each step. |
+| Every 15 minutes: copy new rows from a Google Sheet into a CRM | A polling sync between two apps is what n8n is built for. |
+| Nightly: sync Stripe payments into Airtable or a database | Retries, mapping and credentials stay inside n8n. |
+| A form or webhook workflow you also want to start by hand from Cronsole | It arrives as an on-demand task, and Run now can start it. |
+| Workflows you already run in n8n | Connect once and they all appear with real run outcomes, and the nodes that ran. |
 
 ---
 

@@ -23,26 +23,22 @@ that, use [Windows Task Scheduler](Windows_Task_Scheduler.md).
 
 ## 🎯 Best for
 
-Native is the easiest source to start with, which makes it the easiest to over-use. Three facts
-decide almost every case: it runs **only while Cronsole is running**, it runs **on the backend's
-host as the backend's account**, and it starts **on a cron clock or when another native task
-finishes**, never on a logon, an idle machine or a system event.
-
-**The rule of thumb:** if it would matter that the job did not run while Cronsole was stopped, it is
-not a native job.
+Jobs that only matter **while Cronsole is running**, where you want every run's output and a real pass or fail.
 
 | Automation | Why it belongs here |
 |:---|:---|
-| Calling a URL or firing a webhook on a schedule | An HTTP job needs nothing installed, and the status code is the verdict. |
-| Watching something: an endpoint is up, a port answers, a backup is fresh, a disk has room | That is what [Checks](#-checks--measure-something-and-compare-it) are for. A failure is a fact about your system, and the log records the measurement. |
-| A short script you want kept with the task | The body lives in the task, so it travels with an export, the pre-delete archive and a template. No file on disk to lose. |
-| A job that needs an API key or token | `${secret.NAME}` is stored encrypted and redacted out of the run log. See [Secrets](#-secrets--store-a-reference-never-the-value). |
-| Anything you want a full run history for | Cronsole performs every run, scheduled ones included, so every run is logged with its output. |
-| A job that should try again when it fails | [Retries](#-run-settings) are a setting, and each attempt is in the run history with its output. |
-| A message to Discord, Slack or ntfy | [Send a message](#-sending-a-message) fills in the request; the webhook address is kept as a secret. |
-| One job that should start when another finishes | [Chaining](#-chaining-tasks) is a setting, on success, on failure, or either. Task Scheduler has no clean way to do this. |
-| A tool that reads a token already set on the machine, like `gh` and `GH_TOKEN` | [Pass it through](#passing-a-variable-through) by name; its value stays out of the database and the log. |
-| A backend on Linux or in Docker, where there is no Windows | Native runs wherever the backend runs. |
+| Check a website or API every 5 minutes: status 200, and the body contains `"status":"ok"` | An Endpoint [check](#-checks--measure-something-and-compare-it) fails on an error page that still answers 200. |
+| Check that last night's backup file is less than 26 hours old | A File freshness check. A missing file fails too. |
+| Check that `C:` has at least 20 GB free | A Disk space check, with the measurement in the log. |
+| Check that a local database or app port answers: Postgres on 5432, a web UI on 8765 | A Port check, no script needed. |
+| Post to a deploy hook or an n8n webhook every night | An HTTP job: method, headers and body, with the URL kept as a secret. |
+| Send a daily Discord, Slack or ntfy message, or one only when another task fails | [Send a message](#-sending-a-message) fills in the request, and [chaining](#-chaining-tasks) sends it on failure. |
+| Run a short Node or Python script stored in the task: call an API, write a CSV, print a summary | The script lives in the task, so nothing on disk can go missing. |
+| Run an existing PowerShell script and keep its output, such as an app health check that exits non-zero on a problem | A [program](#-the-four-job-types) task records the exit code, duration and output. Task Scheduler records only the exit code. |
+| Run `gh` commands on a schedule: list stale PRs, close old issues, export a report | [Pass `GH_TOKEN` through](#passing-a-variable-through) by name, kept out of the database and the log. |
+| SSH to a server and check something: `ssh host "docker ps"`, a cron file, a backup's age | Works with your SSH keys when Cronsole runs on the host (the default). |
+| Run a backup script, then check the file it wrote, then post to Slack if either failed | Three native tasks [chained](#-chaining-tasks) on success and on failure. |
+| Retry a flaky API call up to 3 times, 5 minutes apart | [Retries](#-run-settings) are a setting, and every attempt is in the history. |
 
 ---
 
@@ -82,6 +78,14 @@ the run settings (`timeoutMs`, `retries`, `retryDelayMinutes`, `overlap`, `catch
 ---
 
 ## 🚫 When to use something else
+
+Native is the easiest source to start with, which makes it the easiest to over-use. Three facts
+decide almost every case: it runs **only while Cronsole is running**, it runs **on the backend's
+host as the backend's account**, and it starts **on a cron clock or when another native task
+finishes**, never on a logon, an idle machine or a system event.
+
+**The rule of thumb:** if it would matter that the job did not run while Cronsole was stopped, it is
+not a native job.
 
 | If the job… | Use instead | Why |
 |:---|:---|:---|

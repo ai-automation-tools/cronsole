@@ -184,11 +184,35 @@ weeks later as someone confidently doing the wrong thing.
   [`docs/user-guides/sources/`](../user-guides/sources/README.md) via `sourceDoc(platform)`, plus a
   row in that folder's README table. `docsLinks.test.ts` fails if the file or an anchor does not
   resolve, or if the README does not link the guide.
+- **The source's guide** follows the standard below. `sourceGuides.test.ts` fails if it does not.
 - `ALL_PLATFORMS` and the platform sentences in `mcp-server/src/tools.ts`, plus the `list_tasks` and
   `list_platforms` rows in **both** MCP tool tables (`mcp-server/README.md` and
   `docs/user-guides/guides/MCP_Server_Guide.md`).
 - The platform line in `AGENTS.md` §2, and any new invariant in §9.
 - [`docs/CHANGELOG.md`](../CHANGELOG.md) and [`docs/ROADMAP.md`](../ROADMAP.md), dated.
+
+### The source's guide
+
+Every guide in [`docs/user-guides/sources/`](../user-guides/sources/README.md) opens the same way,
+right after its short intro, so a reader comparing two sources finds the same answers in the same
+place. Copy the layout from an existing guide:
+
+1. **`## 🎯 Best for`**: one line saying what the source is for, then a table headed
+   `| Automation | Why it belongs here |` listing the scheduled jobs that are most at home here.
+   Name real kinds of job (*nightly builds*, *backups*, *research digests*), not features.
+2. **`## 🧰 Capabilities at a glance`**: the legend line, then a table headed
+   `| | Can it? | Details |` whose first rows are, in this order: **Where it runs**, **Runs while
+   Cronsole is off**, **Setup**, **Schedules**, **Sync**, **Run now**, **Create**, **Enable /
+   disable**, **Edit schedule**, **Edit what it runs**, **Delete**, **Run history**, **Health**,
+   **Credentials**. Mark each `✅`, `⚠️` (with a condition), `❌` or `—` (does not apply), and say
+   why in *Details*. Rows only this source has (native's run settings, Windows' export) go after
+   them, and the table includes a **Templates** row. Reasoning that does not fit a cell goes in a
+   paragraph under the table.
+3. **`## 🚫 When to use something else`**: the jobs that belong in another source, and which one.
+
+Everything else (connecting, refusals, schedules, surprises, troubleshooting, templates, official
+docs) follows in whatever order the source needs. When a capability changes later, its row changes
+in the same PR: the test checks the table's shape, never whether a ✅ is still true.
 
 ---
 

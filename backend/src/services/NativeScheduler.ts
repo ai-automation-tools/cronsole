@@ -273,6 +273,9 @@ export class NativeScheduler {
     const delayMs = (policy?.retryDelayMinutes ?? 1) * 60_000;
 
     for (let attempt = 1; attempt <= attempts; attempt++) {
+      // The row is written after the run ends, so its default `now()` would be
+      // the finish time — a 24-hour job would be listed a day after it started.
+      const triggeredAt = new Date();
       const result: NativeRunResult = job
         ? await runWithSecrets(task.id, job)
         : { success: false, log: 'Task has no job spec in metadata.job', durationMs: 0, ran: false };
@@ -281,7 +284,7 @@ export class NativeScheduler {
       const status = result.success ? 'SUCCESS' : 'FAILURE';
 
       const execution = await prisma.executionLog.create({
-        data: { taskId: task.id, status, log: `${label} ${result.log}`, durationMs: result.durationMs }
+        data: { taskId: task.id, status, log: `${label} ${result.log}`, durationMs: result.durationMs, triggeredAt }
       });
       console.log(`[NativeScheduler] ran "${task.name}" ${label}: ${status}`);
       notifyTasksChanged(task.userId);

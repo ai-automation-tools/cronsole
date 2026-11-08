@@ -21,6 +21,29 @@ that, use [Windows Task Scheduler](Windows_Task_Scheduler.md).
 
 ---
 
+## 🗺️ At a glance
+
+| Capability | What it gives you | Section |
+|:---|:---|:---|
+| **Four job types** | Call a URL, run a program, run a script written in the task, or check something and compare it | [The four job types](#-the-four-job-types) |
+| **Send a message** | A Discord, Slack, ntfy or webhook post, filled in for you, with the address kept as a secret | [Sending a message](#-sending-a-message) |
+| **Time limits** | A program or script may run up to 24 hours (default 5 minutes) | [Run settings](#-run-settings) |
+| **Retries** | A scheduled run that fails is tried again, up to 5 more times, 1 to 60 minutes apart | [Run settings](#-run-settings) |
+| **Overlap** | If a run is still going when the next is due: skip it, or queue one behind it | [Run settings](#-run-settings) |
+| **Catch-up** | One run when Cronsole is back, if it was down at a due time | [Run settings](#-run-settings) |
+| **Side by side** | Every due task starts on its own; a slow job never holds up another | [Run settings](#-run-settings) |
+| **Chaining** | Start a task when another succeeds, fails, or either | [Chaining tasks](#-chaining-tasks) |
+| **On demand** | No schedule at all; runs only from Run now, a chain, a phone shortcut or MCP | [Chaining tasks](#-chaining-tasks) |
+| **Secrets** | `${secret.NAME}`, stored encrypted per task and hidden in the run log | [Secrets](#-secrets--store-a-reference-never-the-value) |
+| **Pass through** | Hand a variable already set where Cronsole runs (`GH_TOKEN`) to a job by name | [Passing a variable through](#passing-a-variable-through) |
+| **Full run history** | Every run, scheduled or not, with its start time, duration, attempt and output | [Run history](#-run-history) |
+
+Everything here is also reachable over MCP: the `create_native_*` tools and `update_native_job` take
+the run settings (`timeoutMs`, `retries`, `retryDelayMinutes`, `overlap`, `catchUp`), chaining
+(`runAfterTaskId`, `runAfterWhen`) and `passEnv`.
+
+---
+
 ## 🧭 When to use it, and when not to
 
 Native is the easiest source to start with, which makes it the easiest to over-use. Three facts
@@ -252,6 +275,9 @@ then check the file it wrote. If the sync fails, post to Slack.
 If the first task is deleted, its followers stay but nothing starts them: the form shows *A task that
 no longer exists* until you pick another or clear it.
 
+Over MCP, pass `runAfterTaskId` (the first task's id) and `runAfterWhen` (`success`, `failure` or
+`always`) to a `create_native_*` tool, and leave out `schedule` for a task with none of its own.
+
 ---
 
 ## 🔐 Secrets — store a reference, never the value
@@ -335,7 +361,20 @@ native task shifts by an hour** while a Windows task keeps its local clock time.
 Native is the source where `ExecutionLog` is complete: Cronsole performs every run, so every run is
 recorded — scheduled ones included. Because Cronsole makes the call itself, the status and duration
 describe the actual run, unlike a Windows manual run. Output is stored, and `${secret.NAME}` values are **redacted out
-of the log** at the single point every job type funnels through.
+of the log** at the single point every job type funnels through, as are passed-through variables
+(shown as `${env.NAME}`).
+
+The time on each row is **when the run started**, and the duration says how long it took. Each log
+line starts with what started it:
+
+| Label | Meaning |
+|:---|:---|
+| `[scheduled]` | Its cron time came due |
+| `[scheduled · attempt 2 of 3]` | A retry after a failed attempt. Every attempt is its own row. |
+| `[queued]` | It came due while the last run was still going, and the task is set to queue |
+| `[catch-up]` | Cronsole was down at a due time and the task is set to catch up |
+| `[after "Backup"]` | Another task finished and this one is chained to it |
+| *(no label)* | Run now |
 
 ---
 
@@ -365,6 +404,11 @@ of the log** at the single point every job type funnels through.
 | A check that correctly finds a problem is reported as "could not run" | [#59](../../troubleshooting/README.md#59-a-check-that-correctly-finds-a-problem-is-reported-as-could-not-run-the-check) |
 | Save blocked on a script or check over a command field that is not there | [#76](../../troubleshooting/README.md#76-save-is-blocked-on-a-script-task-over-a-command-field-that-does-not-exist) |
 | A task refuses to start and names a secret | [#71](../../troubleshooting/README.md#71-a-native-task-refuses-to-start-and-names-a-secret) |
+| A task refuses to start and names a variable it *passes through* | The variable is not set where the backend runs. Set it there and restart Cronsole, or remove the name. See [Passing a variable through](#passing-a-variable-through). |
+| Run now says the task *is already running* | It is. Wait for that run to finish; the refused click is not recorded. |
+| A failed Run now was not retried | Retries apply to scheduled runs only. See [Run settings](#-run-settings). |
+| A chained task did not run | Check the first task's verdict against **when** (success, failure, either), and that the chained task is enabled. The chain moves on the final attempt. |
+| Runs in the history appear later than they started | Fixed 2026-11-07: rows written before then show when the run *finished*. |
 
 ---
 

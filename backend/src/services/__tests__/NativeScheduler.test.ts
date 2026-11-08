@@ -68,6 +68,22 @@ describe('NativeScheduler (ADR 0004)', () => {
     expect(scheduler.isRunning('slow')).toBe(false);
   });
 
+  it('records when a run started, not when its row was written', async () => {
+    let startedAt = 0;
+    vi.mocked(executeJob).mockImplementation(async () => {
+      startedAt = Date.now();
+      await new Promise(r => setTimeout(r, 50));
+      return ok as any;
+    });
+    db.task.findMany.mockResolvedValue([task('t', { jobType: 'HTTP', url: 'x' })]);
+
+    await scheduler.tick(now);
+    await scheduler.idle();
+    const at = (db.executionLog.create.mock.calls[0][0].data.triggeredAt as Date).getTime();
+    expect(at).toBeLessThanOrEqual(startedAt);
+    expect(startedAt - at).toBeLessThan(50);
+  });
+
   it('skips a run that comes due while the last is still going, by default', async () => {
     let finish!: () => void;
     vi.mocked(executeJob).mockImplementation(() => new Promise(r => { finish = () => r(ok as any); }));

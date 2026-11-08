@@ -12,6 +12,10 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
+### Changed
+
+- **Source data flow diagram re-read against the native scheduler** (2026-11-07, org upkeep). `NativeScheduler.ts`, `NativeTaskExecutor.ts` and `routes/tasks.ts` changed since the diagram was pinned. Line ranges on the PostgreSQL, dashboard, Cronsole-native and job-target nodes now point at the new code, and the cards note that the tick starts runs without waiting, plus the overlap, retry, catch-up and run-after policy. Rebuilt with `--pin-head`.
+
 ### Security
 
 - **`minimatch` 11 in `frontend/`** (2026-11-03). eslint 10 and typescript-eslint pull 10.2.5, which Dependabot can't lift past the parents' `^10` range (Dependabot #104). An npm `overrides` entry in `frontend/package.json` pins `^11.0.1`. Dev only.

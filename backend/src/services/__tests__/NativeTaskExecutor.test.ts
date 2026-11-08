@@ -177,6 +177,19 @@ describe('childEnv — the backend\'s secrets never reach a task', () => {
     expect(childEnv().PATH ?? childEnv().Path).toBeTruthy();
   });
 
+  it('keeps PROGRAMDATA, or ssh on Windows exits 255 with no message', () => {
+    const before = process.env.PROGRAMDATA;
+    process.env.PROGRAMDATA = 'C:\\ProgramData';
+    try {
+      // Windows spells it `ProgramData`; the allowlist matches case-insensitively.
+      const key = Object.keys(childEnv()).find(k => k.toLowerCase() === 'programdata');
+      expect(key && childEnv()[key]).toBe('C:\\ProgramData');
+    } finally {
+      if (before === undefined) delete process.env.PROGRAMDATA;
+      else process.env.PROGRAMDATA = before;
+    }
+  });
+
   it('lets a job add its own variables deliberately', () => {
     expect(childEnv({ MY_VAR: 'x' }).MY_VAR).toBe('x');
   });

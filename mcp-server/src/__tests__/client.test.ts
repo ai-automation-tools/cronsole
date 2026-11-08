@@ -124,6 +124,7 @@ describe('CronsoleClient', () => {
   let respond: (req: { url: string; method: string; body: string }) => {
     status: number;
     body: unknown;
+    delayMs?: number;
   };
   let lastRequest: { url: string; method: string; body: string; auth?: string };
 
@@ -139,8 +140,11 @@ describe('CronsoleClient', () => {
           auth: req.headers.authorization
         };
         const r = respond({ url: req.url ?? '', method: req.method ?? '', body });
-        res.writeHead(r.status, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(r.body));
+        setTimeout(() => {
+          if (res.destroyed) return;
+          res.writeHead(r.status, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(r.body));
+        }, r.delayMs ?? 0);
       });
     });
     await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -223,6 +227,24 @@ describe('CronsoleClient', () => {
     expect(err.message).toMatch(/Could not reach the Cronsole backend/);
     expect(err.message).toMatch(/Is the backend running/);
     expect(err.status).toBeUndefined();
+  });
+
+  // A response timeout means the backend took the request and is still on it — a
+  // long native Run now. Calling that "could not reach" sent people looking for a
+  // dead backend while the job ran fine.
+  it('reports a slow answer as a timeout, not as an unreachable backend', async () => {
+    respond = () => ({ status: 200, body: {}, delayMs: 500 });
+    const slow = new CronsoleClient({ baseUrl, token: 't', timeoutMs: 100 });
+    const err = await failure(slow.post('/tasks/x/run'));
+    expect(err.timedOut).toBe(true);
+    expect(err.message).toMatch(/did not answer within/);
+    expect(err.message).not.toMatch(/Could not reach/);
+  });
+
+  it('waitAtLeastMs raises one request above the default timeout', async () => {
+    respond = () => ({ status: 200, body: { ok: true }, delayMs: 300 });
+    const c = new CronsoleClient({ baseUrl, token: 't', timeoutMs: 100 });
+    await expect(c.post('/tasks/x/run', undefined, { waitAtLeastMs: 2000 })).resolves.toEqual({ ok: true });
   });
 
   it('carries the raw error body as details', async () => {

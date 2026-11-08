@@ -42,6 +42,8 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 100 | **`docker restart taskhub-backend-1` fails with `No such container`, or nothing changes** — or a republished agent reads *"Agent not connected"* | The default stack runs the backend as a **host** process, so the docker command restarts nothing; restart with the elevated `CronsoleRestart` task. A republish stops the agent before it builds — wait for `DONE` | [→](#100-docker-restart-fixes-a-stale-backend-and-nothing-changes) |
 | 102 | **The 5-minute self-heal stopped after re-registering `CronsoleStack`** — `NextRunTime` is empty, State reads `Ready`, nothing errors, and a service that dies stays down | The repetition hung off the **logon** trigger, and a logon trigger's repetition starts only at a logon, so re-registering mid-session disarmed it until the next one | [→](#102-the-5-minute-self-heal-stops-after-re-registering-cronsolestack) |
 | 103 | **A native task whose URL is only `${secret.NAME}` never asks for the secret** — the Secrets section lists nothing, `missingSecrets` is empty, and a run posts to the literal text instead of refusing | `hasSecretRef` called `.test` on the shared global `SECRET_REF`, leaving `lastIndex` at the end of the match, and `matchAll` starts from the `lastIndex` it copies | [→](#103-a-native-task-whose-url-is-only-a-secret-never-asks-for-the-secret) |
+| 104 | **A native job that runs `ssh` exits 255 with no output** — the same script works from your shell and from Task Scheduler | Win32-OpenSSH needs `PROGRAMDATA` (its system config lives there), and the native child environment did not include it | [→](#104-a-native-job-that-runs-ssh-exits-255-and-prints-nothing) |
+| 105 | **MCP `run_task` says the backend is unreachable, and the native job ran fine** | Run now answers when the job ends; a job past the client's 15s timeout read as *"Could not reach"* | [→](#105-mcp-run_task-says-the-backend-is-unreachable-and-the-job-ran-fine) |
 | 93 | **A restored backup succeeds and every platform connection is unreadable** — `pg_restore` exits 0, every row count matches, your tasks are all there, and every source is broken | **The credentials in the dump are ciphertext and the key is not in the dump.** `PlatformConnection.config` and `TaskSecret` are AES-256-GCM encrypted with `ENCRYPTION_KEY`, which lives in `.env`. A restore onto a stack with a different key genuinely succeeds and leaves every value permanently unreadable, discovered one failing sync at a time | [→](#93-a-restore-succeeds-and-every-platform-connection-is-unreadable) |
 | 92 | **A restore verification says the data does not match, and the restore was perfect** — the *restored* copy reports more rows than the original it came from | **The check is reading an estimate, not a count.** `pg_stat_user_tables.n_live_tup` is a planner input maintained by autovacuum: stale (often zero) on a database not analysed recently, accurate on a freshly-restored one. It can be wrong in **both** directions, so it can also report a match over a restore that dropped rows. Generate real `count(*)` queries | [→](#92-a-restored-database-reports-different-row-counts-and-the-restore-was-perfect) |
 | 91 | **A second clone of the repo is not a second install** — `docker compose up` from a fresh checkout adopts the first one's database, or fails with `port is already allocated`. Shifting the ports in a `docker-compose.override.yml` does not help | **The Compose project name is pinned in the file, not derived from the folder** (`name: taskhub`, deliberately — it is what stops a renamed checkout orphaning the Postgres volume). Every clone on the machine is therefore the *same* project. And a plain override **appends** to `ports:` rather than replacing it, so both bindings are attempted and the old one still collides. Use `docker compose -p <name>` **and** the `!override` tag on every port list | [→](#91-a-second-clone-of-the-repo-shares-the-first-ones-database-and-ports) |
@@ -6394,6 +6396,8 @@ client's side, a timeout and an unreachable server look the same. A `tsx watch` 
 **Fix.** Do not re-run blind — read the result first (`list_tasks`, or the dashboard's *Synced* time).
 To get the sync's own report, call `POST /api/tasks/sync` `{"scope":"tracked"}` directly with a long
 timeout. The n8n connector now reads execution history six workflows at a time to keep this short.
+Since 2026-11-07 the client tells the two apart: a timeout says *"took the request but did not answer
+within Ns"*, and only a refused connection says *"Could not reach"* (#105).
 
 ---
 
@@ -6528,3 +6532,41 @@ reference and found none. `validateJob` reaches `hasSecretRef` only when the URL
 shared one. The rule worth keeping: **never call `.test` or `.exec` on a shared global regex**;
 `replace` and `matchAll` look stateless and are not, because one of them reads the state the other
 left behind. Regression test in `NativeJobTypes.test.ts`.
+
+---
+
+## 104. A native job that runs `ssh` exits 255 and prints nothing
+
+**Symptom.** A native program or script that calls `ssh` (or `git` over SSH, or a script that does)
+fails where the same command works from your terminal and from Windows Task Scheduler. `ssh` exits
+`255` and writes nothing, not even with `-v`. Found 2026-11-07 running the *Update Automations Docs*
+fingerprint as a native task: it reported `hetznerCron (ssh exit 255)`, which its Task Scheduler runs
+never had.
+
+**Cause.** A native child gets an allowlist of environment variables, never the backend's own
+environment (§9). Win32-OpenSSH reads its system-wide config from `%PROGRAMDATA%\ssh\`, and with
+`PROGRAMDATA` unset it exits during startup, before it logs anything. Narrowed by running `ssh` with
+exactly the allowlist (255) and adding one variable at a time: `PROGRAMDATA` alone restored it.
+
+**Fix.** `PROGRAMDATA` is on the allowlist since 2026-11-07. It is a path, not a secret. On an older
+backend, add `PROGRAMDATA` to the job's **Pass through from Cronsole** list (`passEnv`). For a tool
+that fails silently under native but works in a terminal, the environment is the first suspect:
+compare with `childEnv()` in `NativeTaskExecutor.ts`.
+
+---
+
+## 105. MCP `run_task` says the backend is unreachable, and the job ran fine
+
+**Symptom.** `run_task` on a Cronsole-native task returns *"Could not reach the Cronsole backend at
+http://localhost:3000/api (ECONNABORTED)"*, and `get_task_history` then shows the run finished with
+`SUCCESS`. Hit 2026-11-07 on a 17.6s run.
+
+**Cause.** A native Run now executes inside the request, so the response arrives when the job ends.
+The MCP client's default timeout is 15s, and the client reported its own timeout as an unreachable
+backend (the #98 message).
+
+**Fix.** Since 2026-11-07 `run_task` waits up to 2 minutes, and past that answers *"Still running"*
+with `pending: true` and points at `get_task_history`, instead of an error that invites a retry the
+backend would refuse with a 409. Every other tool now reports a timeout as *"took the request but did
+not answer within Ns"*. A job longer than 2 minutes is normal for native (the limit is 24 hours): read
+its verdict from the history.

@@ -407,6 +407,8 @@ line starts with what started it:
 | A task refuses to start and names a variable it *passes through* | The variable is not set where the backend runs. Set it there and restart Cronsole, or remove the name. See [Passing a variable through](#passing-a-variable-through). |
 | Run now says the task *is already running* | It is. Wait for that run to finish; the refused click is not recorded. |
 | A failed Run now was not retried | Retries apply to scheduled runs only. See [Run settings](#-run-settings). |
+| `ssh` (or `git` over SSH) exits 255 with no output | The job's environment lacked `PROGRAMDATA`. Fixed 2026-11-07; on an older backend, pass it through. [#104](../../troubleshooting/README.md#104-a-native-job-that-runs-ssh-exits-255-and-prints-nothing) |
+| MCP `run_task` says *Still running* | The job outlasted the 2-minute wait. Its verdict lands in the run history when it ends. [#105](../../troubleshooting/README.md#105-mcp-run_task-says-the-backend-is-unreachable-and-the-job-ran-fine) |
 | A chained task did not run | Check the first task's verdict against **when** (success, failure, either), and that the chained task is enabled. The chain moves on the final attempt. |
 | Runs in the history appear later than they started | Fixed 2026-11-07: rows written before then show when the run *finished*. |
 

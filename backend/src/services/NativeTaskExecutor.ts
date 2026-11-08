@@ -303,6 +303,10 @@ const ENV_ALLOWLIST = [
   'PATH', 'PATHEXT', 'SystemRoot', 'windir', 'SystemDrive', 'COMSPEC',
   'TEMP', 'TMP', 'USERPROFILE', 'HOMEDRIVE', 'HOMEPATH', 'APPDATA',
   'LOCALAPPDATA', 'NUMBER_OF_PROCESSORS', 'OS', 'PROCESSOR_ARCHITECTURE',
+  // Win32-OpenSSH reads its system config from here, and without it `ssh` exits
+  // 255 before printing a word — so every native job that used ssh (or git over
+  // ssh) failed with no message. A path, not a secret.
+  'PROGRAMDATA',
   // POSIX
   'HOME', 'LANG', 'LC_ALL', 'TZ', 'TMPDIR', 'SHELL', 'USER', 'LOGNAME'
 ];

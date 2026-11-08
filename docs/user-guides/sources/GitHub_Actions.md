@@ -24,14 +24,16 @@ reads *Unsupported*, and two of the three have working APIs behind them.
 
 ## 🎯 Best for
 
-Scheduled workflows that already live in a repository, which you want to **watch** beside everything else.
+Scheduled workflows that already live in a repository, **watched** beside everything else.
 
 | Automation | Why it belongs here |
 |:---|:---|
-| Nightly builds, scheduled test runs and security scans | Cronsole shows each run's real outcome and the failing step by name. |
-| Scheduled dependency, link and stale-issue checks | They need a checkout and a runner, which GitHub provides. |
-| A workflow GitHub switched off for inactivity | Cronsole shows it as its own health signal, with GitHub's reason, which is usually the first anyone hears of it. |
-| Every scheduled workflow across an account or organization | Watch the owner, and new repositories are picked up as they appear. |
+| A nightly build and test run: `on: schedule: - cron: '0 3 * * *'` | Cronsole shows each run's outcome and the failing step by name. |
+| A weekly CodeQL or dependency vulnerability scan | You see a failed scan beside your other tasks instead of in an email you missed. |
+| Closing stale issues and PRs with `actions/stale` | Shows whether it still runs, and when it last did. |
+| A scheduled link check of a docs site | Real pass or fail per run. |
+| A scheduled data refresh that commits JSON back to the repository, or publishes a site | A failure shows up as unhealthy, with a link to the log. |
+| A scheduled workflow GitHub switched off after 60 days without activity | Cronsole reports it, with GitHub's reason, which is usually the first anyone hears of it. |
 
 ---
 

@@ -24,14 +24,16 @@ doors into it and Cronsole keeps both.
 
 ## 🎯 Best for
 
-Agent work on **a repository** that should happen whether or not your machine is on.
+Agent work on **a GitHub repository**, run in Anthropic's cloud whether or not your PC is on.
 
 | Automation | Why it belongs here |
 |:---|:---|
-| Reviewing and triaging open pull requests | It gets a fresh checkout and runs in Anthropic's cloud, with no machine of yours involved. |
-| Dependency bumps, changelog and docs tidying, opened as a PR | Repository work an agent can do alone. |
-| A weekly roadmap or status write-up from a repository's history | It reads the repository and writes the summary. |
-| Anything that must run while your PC is off or asleep | Nothing local is involved. |
+| Every weekday: "Review the pull requests opened since yesterday and leave review comments" | It gets a fresh checkout and GitHub access, with no machine of yours involved. |
+| Every Monday: "Bump patch-level dependencies, run the tests, and open a PR if they pass" | Repository work an agent can do alone, delivered as a PR to review. |
+| Every Friday: "Update the README and docs to match the code merged this week" | It reads the diff and the docs in the same checkout. |
+| Every morning: "Triage new issues: label them, ask for missing details, close duplicates" | Runs on a schedule without anyone at a keyboard. |
+| Weekly: "Write a status summary of merged PRs into docs/STATUS.md and open a PR" | It reads the repository's history and writes the summary. |
+| Monthly: "Find TODOs and dead code and open a cleanup PR" | A long, unattended pass over the whole codebase. |
 
 ---
 

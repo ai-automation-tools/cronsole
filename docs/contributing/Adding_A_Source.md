@@ -198,8 +198,10 @@ right after its short intro, so a reader comparing two sources finds the same an
 place. Copy the layout from an existing guide:
 
 1. **`## 🎯 Best for`**: one line saying what the source is for, then a table headed
-   `| Automation | Why it belongs here |` listing the scheduled jobs that are most at home here.
-   Name real kinds of job (*nightly builds*, *backups*, *research digests*), not features.
+   `| Automation | Why it belongs here |` listing jobs someone would actually set up, written
+   concretely enough to copy: the command, script or prompt and how often (*run `docker compose
+   down` every night*, *`claude -p "Review the open PRs…"` against a local repo*, *check that
+   `C:` has 20 GB free*). Not categories (*maintenance*) and not features (*retries*).
 2. **`## 🧰 Capabilities at a glance`**: the legend line, then a table headed
    `| | Can it? | Details |` whose first rows are, in this order: **Where it runs**, **Runs while
    Cronsole is off**, **Setup**, **Schedules**, **Sync**, **Run now**, **Create**, **Enable /

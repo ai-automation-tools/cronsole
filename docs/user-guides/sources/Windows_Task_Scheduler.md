@@ -25,18 +25,20 @@ sources, this is the one to use for anything that must survive Cronsole being do
 
 ## 🎯 Best for
 
-Work that has to happen on **this PC**, as **you**, whether or not Cronsole is running.
+Jobs that run **on this PC, as you**, and must keep running when Cronsole is off.
 
 | Automation | Why it belongs here |
 |:---|:---|
-| Backups and file syncs: to OneDrive, Google Drive or a NAS | They must run even when Cronsole is down, and they use your account's drive mappings and sign-ins. |
-| Disk, temp and cache cleanup, log rotation | Maintenance should not depend on the app being maintained. |
-| Starting, stopping and restarting local apps and services: a dev server, n8n, a media server | Starts in your session, and what it starts keeps running after the task ends. |
-| Watchdogs and self-heal loops, including the one that restarts Cronsole | Only a scheduler outside Cronsole can bring Cronsole back. |
-| Scripts that need your profile: `gh`, `git` with your SSH key, desktop apps, Credential Manager | The task has everything your Windows account has. |
-| Headless agent runs against local repositories (`claude -p`, other agent CLIs) | Long, local, and needs your files and logins. |
-| Anything started at logon, at boot, when idle or on a system event | No other source has these triggers. |
-| A job at a fixed local clock time all year | A Windows trigger keeps its local time across daylight saving. |
+| Run a PowerShell cleanup script every Sunday: clear `%TEMP%`, empty the Recycle Bin, delete logs older than 30 days | Runs as you, with your paths, whether or not Cronsole is up. |
+| Run Windows' own cleanup: `cleanmgr /sagerun:1`, or `Dism /Online /Cleanup-Image /StartComponentCleanup` | Needs administrator rights, which a task can run with (*Run with highest privileges*). |
+| Start a Docker app at logon with `docker compose up -d`, and stop it at night with `docker compose down` | A logon trigger starts it in your session, and the containers keep running after the task ends. |
+| Start a local dev server or web UI at logon (`npm run dev`, a Python app) and restart it if it dies | Only Task Scheduler can start something at logon or boot. |
+| Run a headless CLI agent session with a prompt: `claude -p "Review the open PRs in D:\repos\app and summarize them"` | It needs your local repositories, your CLI sign-in and as long as it takes. |
+| `git pull` every repository under `D:\repos` each morning | Uses your Git credentials and SSH keys. |
+| Back up a folder nightly with `robocopy` or `rclone` to OneDrive, Google Drive or a NAS | A backup must not depend on Cronsole being up. |
+| Dump a local database nightly: `pg_dump`, `mysqldump`, `mongodump` | Runs on the machine the database is on, with your credentials. |
+| A watchdog every 5 minutes that restarts a service or app that stopped, including Cronsole itself | Only a scheduler outside Cronsole can bring Cronsole back. |
+| Kill leftover processes weekly, such as stray `python.exe` or `node.exe` | Sees and stops your own processes. |
 
 ---
 

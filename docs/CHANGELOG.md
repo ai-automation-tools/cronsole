@@ -21,6 +21,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Fixed
 
+- **Native run history shows when a run started** (2026-11-07). Each history row was written after its run finished, so its time was the finish time: two 40-second jobs that started together at 23:48:03 were listed at 23:48:43, and with the new 24-hour limit a long job could appear a day late. Scheduled runs, retries, queued, catch-up and chained runs, and Run now all record the start time now. Rows written before the fix keep their old times. The [Cronsole-native guide](user-guides/sources/Cronsole_Native.md) gained an *At a glance* table of what native tasks can do, the run-history labels (`[scheduled · attempt 2 of 3]`, `[queued]`, `[catch-up]`, `[after "…"]`), the MCP argument names for chaining and pass-through, and troubleshooting rows for the new refusals.
 - **The Windows agent reconnects after a backend restart** (2026-11-06). SocketIOClient 4.0.5 can leave `Connected` true on a dead socket: it ignores a WebSocket Close frame (so a graceful backend shutdown or `tsx watch` reload goes unnoticed) and has no client-side ping timeout. The watchdog trusted that flag, so the agent could sit offline for hours until someone restarted it. The agent now also needs a server ping within the last 60 seconds to count as connected, and rebuilds the client when one hasn't arrived.
 
 ### Changed

@@ -170,7 +170,7 @@ cd backend && npm test   # the drift test fails if registry/ disagrees with bund
 
 ### 7. Only if the proxy is running: is `frontend/dist` right?
 
-**`frontend/dist` is the fourth thing that runs stale, and the only one with no keeper.** The
+**`frontend/dist` is the fourth thing that runs stale, and its only keeper is the optional hourly `CronsoleRebuild` task** (so up to an hour stale even with it; `cronsole rebuild` fixes it now). The
 other three announce themselves — a stale backend 404s, a stale agent 502s, an unbuilt
 `mcp-server/dist` behaves like old code. A stale `dist` serves a **complete, working,
 correct-looking dashboard from another day**. Nothing errors, nothing logs, and `:7373` is

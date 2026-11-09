@@ -18,6 +18,8 @@
       cronsole restart     down (app tier) then up
       cronsole status      One table showing every service (default)
       cronsole logs        Tail the backend/frontend logs
+      cronsole rebuild     Rebuild frontend\dist if the proxy is serving a stale
+                           one (no-op unless remote access is on)
       cronsole remote on   Publish the dashboard through the reverse proxy, and
                            keep it published (see Remote access below)
       cronsole remote off  Stop publishing it
@@ -54,7 +56,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('up', 'down', 'restart', 'status', 'logs', 'remote')]
+    [ValidateSet('up', 'down', 'restart', 'status', 'logs', 'remote', 'rebuild')]
     [string]$Command = 'status',
 
     # Only meaningful for `remote`. Defaults to reporting rather than changing:
@@ -651,6 +653,29 @@ function Invoke-Remote {
     }
 }
 
+# The proxy serves frontend\dist and nothing else rebuilds it, so after a frontend
+# change the phone sees yesterday's dashboard while :7373 is current (troubleshooting
+# #53). \Cronsole-Stack\CronsoleRebuild runs this hourly. Not part of `up`: a build
+# takes ~30s of CPU and `up` runs every 5 minutes. The staleness rule has one
+# definition, scripts\check-dist-fresh.mjs; --force because the marker already says
+# the proxy is wanted, and its own Docker query can fail in a task's bare PATH.
+function Invoke-Rebuild {
+    if (-not (Test-RemoteEnabled)) { Write-Host 'Remote access is off on this machine; nothing serves dist.'; return }
+    $node = 'C:\Program Files\nodejs\node.exe'
+    if (-not (Test-Path $node)) { $node = 'node' }
+    & $node (Join-Path $RepoRoot 'scripts\check-dist-fresh.mjs') --force | Out-Host
+    $code = $LASTEXITCODE
+    # 0 fresh, 1 stale, 2 never built, 3 cannot measure.
+    if ($code -ne 1 -and $code -ne 2) { return }
+    New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
+    $log = Join-Path $LogDir 'rebuild.log'
+    Write-Host "Rebuilding frontend\dist (log: $log)..."
+    Push-Location $FrontendDir
+    try { & $Npm run build:remote *> $log } finally { Pop-Location }
+    if ($LASTEXITCODE -eq 0) { Write-Host '  rebuilt; the proxy serves it immediately (live mount).' -ForegroundColor Green }
+    else { Write-Host "  BUILD FAILED (exit $LASTEXITCODE) - the old bundle is still being served. See $log" -ForegroundColor Red; exit 1 }
+}
+
 function Invoke-Logs {
     $files = Get-ChildItem $LogDir -Filter '*.log' -ErrorAction SilentlyContinue
     if (-not $files) { Write-Host "No logs in $LogDir yet."; return }
@@ -666,4 +691,5 @@ switch ($Command) {
     'status'  { Invoke-Status }
     'logs'    { Invoke-Logs }
     'remote'  { Invoke-Remote }
+    'rebuild' { Invoke-Rebuild }
 }

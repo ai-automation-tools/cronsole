@@ -3681,6 +3681,14 @@ correct. It was; nothing was serving it. **`cronsole up` starts the proxy and ne
 `dist`**, and that stays true deliberately — a start command that silently replaces what is being
 served is a worse property than a bundle you occasionally have to rebuild.
 
+**Since 2026-11-09 it has an opt-in keeper**, separate from `up` for exactly that reason:
+`\Cronsole-Stack\CronsoleRebuild` runs `cronsole.ps1 rebuild` hourly, which builds only when this
+script reports stale or never built, and only on a machine that ran `cronsole remote on`. Register it
+with `pwsh -File scripts/startup-task/Register-RebuildTask.ps1` (no elevation). The phone can still
+lag a change by up to an hour; `cronsole rebuild` closes the gap now. Hit again that day: a mobile
+layout fix worked in the desktop browser's phone emulation (`:7373`) and not on the phone over
+Tailscale (`:8080`), whose bundle was three days old.
+
 **The general rule.** This is a **fourth thing that runs stale**, and it belongs on the list with
 the other three (the Dockerized backend, `agent/publish/`, `mcp-server/dist/`). All four share one
 shape: *a compiled or published copy that keeps serving while the source moves underneath it*, with

@@ -22,6 +22,58 @@ doors into it and Cronsole keeps both.
 
 ---
 
+## 🎯 Best for
+
+Agent work on **a GitHub repository**, run in Anthropic's cloud whether or not your PC is on.
+
+| Automation | Why it belongs here |
+|:---|:---|
+| Every weekday: "Review the pull requests opened since yesterday and leave review comments" | It gets a fresh checkout and GitHub access, with no machine of yours involved. |
+| Every Monday: "Bump patch-level dependencies, run the tests, and open a PR if they pass" | Repository work an agent can do alone, delivered as a PR to review. |
+| Every Friday: "Update the README and docs to match the code merged this week" | It reads the diff and the docs in the same checkout. |
+| Every morning: "Triage new issues: label them, ask for missing details, close duplicates" | Runs on a schedule without anyone at a keyboard. |
+| Weekly: "Write a status summary of merged PRs into docs/STATUS.md and open a PR" | It reads the repository's history and writes the summary. |
+| Monthly: "Find TODOs and dead code and open a cleanup PR" | A long, unattended pass over the whole codebase. |
+
+---
+
+## 🧰 Capabilities at a glance
+
+✅ yes · ⚠️ with a condition · ❌ no · — does not apply
+
+| | Can it? | Details |
+|:---|:---:|:---|
+| **Where it runs** | ✅ | Anthropic's cloud, against the repositories you attach. |
+| **Runs while Cronsole is off** | ✅ | Cronsole only reads and controls it. |
+| **Setup** | ⚠️ | Full control needs the Claude Code CLI signed in on the machine running Cronsole. Otherwise each task is connected by hand with its own API token. See [The two doors](#-the-two-doors). |
+| **Schedules** | ⚠️ | Read and edited from Cronsole only when signed in. |
+| **Sync** | ⚠️ | Signed in: everything on the account. Not signed in: only the tasks you connected. |
+| **Run now** | ✅ | On both doors. |
+| **Create** | ⚠️ | Signed in only, including from a template. Otherwise create at claude.ai and connect it. |
+| **Enable / disable** | ⚠️ | Signed in only. |
+| **Edit schedule** | ⚠️ | Signed in only. |
+| **Edit what it runs** | ❌ | Change the prompt at claude.ai. |
+| **Delete** | ❌ | Impossible on both doors, verified by enumeration. Pause it here; delete it at claude.ai. |
+| **Run history** | ❌ | Cronsole can start a run but cannot read one. |
+| **Health** | ⚠️ | From syncs only. A probe would fire the task and use up its daily cap. |
+| **Credentials** | ✅ | A connected task's token is stored encrypted and never shown again. The CLI's login is read when needed and never stored or refreshed. |
+| **Templates** | ✅ | [Gallery: Claude Code templates](https://cronsole.ai-automation-tools.dev/#/browse?target=claude-code). |
+
+This is the one source whose row on the Sources tab depends on **your install**: signed out, Create, Enable / disable and Edit schedule read *Unsupported* for this machine, not for the product.
+
+---
+
+## 🚫 When to use something else
+
+| 🚫 Use something else for | Instead |
+|:---|:---|
+| A fixed command or script | [Cronsole-native](Cronsole_Native.md) or [Windows Task Scheduler](Windows_Task_Scheduler.md). Exact, cheaper, and the output is recorded. |
+| Anything that needs files on your machine | [Windows Task Scheduler](Windows_Task_Scheduler.md). A scheduled task sees only its checkout. |
+| Reading why a run failed, inside Cronsole | [Gemini API Triggers](Gemini_API_Triggers.md), if the job fits there. Cronsole can fire a scheduled task but cannot read its runs. |
+
+
+---
+
 ## 🚪 The two doors
 
 | | **Signed in to the Claude Code CLI** on the machine running Cronsole | **Not signed in** |
@@ -38,27 +90,6 @@ of Claude Code from a background poll. A task manager may not invalidate the log
 created it.
 
 Nothing to configure for that path: run `/login` in Claude Code on the backend's machine, then sync.
-
----
-
-## 🧭 When to use it, and when not to
-
-| ✅ Use it for | Why |
-|:---|:---|
-| Repository work an agent can do alone: review open PRs, bump dependencies, tidy docs | A scheduled task gets a checkout of the repositories you attach and runs in Anthropic's cloud. |
-| Work that should run while your machine is off | Nothing local is involved. |
-
-| 🚫 Use something else for | Instead |
-|:---|:---|
-| A fixed command or script | [Cronsole-native](Cronsole_Native.md) or [Windows Task Scheduler](Windows_Task_Scheduler.md). Exact, cheaper, and the output is recorded. |
-| Anything that needs files on your machine | [Windows Task Scheduler](Windows_Task_Scheduler.md). A scheduled task sees only its checkout. |
-| Reading why a run failed, inside Cronsole | [Gemini API Triggers](Gemini_API_Triggers.md), if the job fits there. Cronsole can fire a scheduled task but cannot read its runs. |
-
-> [!NOTE]
-> **These used to be called routines.** Anthropic renamed them "scheduled tasks", and Cronsole now
-> uses the new name too. A few things still say `routine` because Anthropic's own surface does
-> (`claude.ai/code/routines`) or because renaming would break callers: the MCP tools keep their names
-> (`create_claude_routine`, `connect_claude_routine` and the rest).
 
 ---
 
@@ -79,20 +110,6 @@ kept.
 > [!NOTE]
 > **Shape mismatches warn rather than refuse.** This is an experimental API, so an unfamiliar id
 > format is saved with a warning instead of being rejected by a rule written last month.
-
----
-
-## 🎛️ What Cronsole can do here
-
-**Signed in:** sync · run now · create · enable/disable · edit schedule, plus connect, edit and
-disconnect the declaration.
-
-**Not signed in:** run now and the declaration verbs. Create, enable/disable and edit-schedule show
-as *Unsupported* on the Sources tab — that tab answering about **this install**, not about the
-product. It is the one source where the capability row is a getter rather than a constant.
-
-**Delete is impossible on both doors**, verified by enumeration rather than assumed. Cronsole can
-pause a scheduled task and forget it; removing it happens at claude.ai.
 
 ---
 
@@ -132,6 +149,12 @@ source, and that is how you clear one whose scheduled task was deleted at claude
 ---
 
 ## ⚠️ Things that surprise people
+
+> [!NOTE]
+> **These used to be called routines.** Anthropic renamed them "scheduled tasks", and Cronsole now
+> uses the new name too. A few things still say `routine` because Anthropic's own surface does
+> (`claude.ai/code/routines`) or because renaming would break callers: the MCP tools keep their names
+> (`create_claude_routine`, `connect_claude_routine` and the rest).
 
 - **Without a session, sync returns what you typed.** Nothing is fetched, so a scheduled task deleted at
   claude.ai keeps listing until its next run fails.

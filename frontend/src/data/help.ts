@@ -233,7 +233,7 @@ const sourceWindows: HelpTopic = {
         'the picker. \\Microsoft\\ is refused outright.'
     }
   ],
-  doc: { label: 'Windows Task Scheduler › What Cronsole can do here', url: sourceDoc('WINDOWS_TASK_SCHEDULER', '-what-cronsole-can-do-here') },
+  doc: { label: 'Windows Task Scheduler › Capabilities at a glance', url: sourceDoc('WINDOWS_TASK_SCHEDULER', '-capabilities-at-a-glance') },
   more: [
     { label: 'Windows Agent Setup Guide', url: docLink(`${GUIDES}/Agent_Setup_Guide.md`) },
     { label: 'What the agent can do on your machine', url: docLink('docs/TRUST.md') }

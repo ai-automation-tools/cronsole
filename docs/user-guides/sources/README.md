@@ -67,7 +67,7 @@ while Cronsole is down.
 | Joins several services together | [**🔀 n8n**](n8n.md) | Build it in n8n; Cronsole reads it and can start it. |
 
 GitHub Actions and Vercel Cron are for watching work that already lives there; Cronsole creates
-nothing on either. [**Cronsole-native › When to use it**](Cronsole_Native.md#-when-to-use-it-and-when-not-to)
+nothing on either. [**Cronsole-native › When to use something else**](Cronsole_Native.md#-when-to-use-something-else)
 has the longer list of what does not belong in a native task.
 ---
 

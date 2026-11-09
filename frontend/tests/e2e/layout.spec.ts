@@ -383,12 +383,34 @@ test.describe('mobile layout — 375px', () => {
     // The per-task control: open the first task and find the bookmark menu.
     await page.getByRole('button', { name: /^Open details for / }).first().click();
     const taskModal = page.getByRole('dialog');
-    await expect(taskModal).toBeVisible();
+    await expect(taskModal).toBeVisible({ timeout: 15_000 });
 
     const bookmark = taskModal.getByRole('button', { name: /collection/i }).first();
     await expect(bookmark).toBeVisible();
     const box = (await bookmark.boundingBox())!;
     expect(box.x + box.width).toBeLessThanOrEqual(MOBILE.width + 1);
+  });
+
+  // The task sheet's footer used to be five rows of buttons that pushed Run Now
+  // to the bottom of the screen. Secondary actions fold behind "More" on a phone.
+  test('the task sheet keeps Run Now on screen and folds the rest behind More', async ({ page }) => {
+    await page.goto('/');
+    await dashboardReady(page);
+    await page.getByRole('button', { name: /^Open details for / }).first().click();
+    const sheet = page.getByRole('dialog');
+    // The modal is a lazy chunk; on a cold dev server it can take a few seconds.
+    await expect(sheet).toBeVisible({ timeout: 15_000 });
+
+    await expect(sheet.getByRole('button', { name: /Run Now/ })).toBeInViewport();
+    const edit = sheet.getByRole('button', { name: /^Edit$/ });
+    const footerTop = (await edit.boundingBox())!.y;
+    expect(footerTop).toBeGreaterThan(MOBILE.height - 120);
+
+    const more = sheet.getByRole('button', { name: 'More' });
+    await expect(sheet.getByRole('button', { name: /Export/ })).toBeHidden();
+    await more.click();
+    await expect(sheet.getByRole('button', { name: /Export/ })).toBeVisible();
+    expect((await measureOverflow(page)).bodyScrolls).toBe(false);
   });
 
   test('dashboard chrome', async ({ page }) => {

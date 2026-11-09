@@ -2226,7 +2226,9 @@ router.post('/:id/run', async (req: Request, res: Response) => {
       status: result.success ? 'SUCCESS' : 'FAILURE',
       log: result.message || (result.success ? 'Triggered from web dashboard' : 'Failed to trigger'),
       platformRunId: result.success ? result.platformRunId : undefined,
-      durationMs
+      durationMs,
+      // When the run started, not when this row is written after it ends.
+      triggeredAt: new Date(runStartedAt)
     }
   });
   queueRunNotification({

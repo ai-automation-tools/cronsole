@@ -49,6 +49,12 @@ interface ModalProps {
   initialFocusRef?: RefObject<HTMLElement | null>;
   /** `alertdialog` for confirmations, otherwise `dialog`. */
   role?: 'dialog' | 'alertdialog';
+  /**
+   * Below `sm`, fill the screen instead of floating with a margin. For the
+   * large, scrolling modals; a panel using it should be a flex column whose
+   * body scrolls.
+   */
+  sheet?: boolean;
 }
 
 export const Modal = ({
@@ -60,7 +66,8 @@ export const Modal = ({
   panelClassName = '',
   closeOnBackdrop = true,
   initialFocusRef,
-  role = 'dialog'
+  role = 'dialog',
+  sheet = false
 }: ModalProps) => {
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -134,7 +141,7 @@ export const Modal = ({
 
   return createPortal(
     <div
-      className={`fixed inset-0 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm ${overlayClassName}`}
+      className={`fixed inset-0 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm ${sheet ? 'max-sm:p-0' : ''} ${overlayClassName}`}
       // mousedown (not click) so selecting text inside the panel and releasing
       // on the backdrop doesn't count as a backdrop click.
       onMouseDown={e => {
@@ -148,7 +155,7 @@ export const Modal = ({
         aria-labelledby={labelledBy}
         aria-describedby={describedBy}
         tabIndex={-1}
-        className={`outline-none ${panelClassName}`}
+        className={`outline-none ${panelClassName} ${sheet ? 'max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:rounded-none max-sm:border-0' : ''}`}
       >
         {children}
       </div>

@@ -23,12 +23,55 @@ genuine scheduled invocation rather than something that resembles it.
 
 ---
 
-## 🧭 When to use it, and when not to
+## 🎯 Best for
 
-| ✅ Use it for | Why |
+An **agent with tools** on a schedule (web search, code, MCP servers), where you want to read every step it took.
+
+| Automation | Why it belongs here |
 |:---|:---|
-| An agent task that uses tools: research the web, write a digest, call an MCP server | The trigger runs Google's agent in its own sandbox, with the reach you grant. |
-| Agent work you want to audit run by run | Cronsole shows each run's output and every step, which Google has no page for. |
+| Every morning: "Search for new security advisories for the products we run and email me a summary" | Web search plus an email MCP server. Cronsole shows each step, so you can see whether it actually sent the email. |
+| Every weekday: a news or market brief on topics you name, posted to a Slack channel | Web search plus a Slack MCP server. |
+| Weekly: "Check the release notes of these libraries and list breaking changes" | The agent reads the pages and writes the list. |
+| Weekly: fetch a public CSV, analyze it with code, and write up what changed | Code execution runs in Google's sandbox, not on your machine. |
+| Daily: check a set of public pages for price or feature changes and report differences | Web access limited to the domains you allow. |
+| Any agent job you need to audit run by run | Cronsole is the only place to read a trigger's output and steps. Google has no page for it. |
+
+---
+
+## 🧰 Capabilities at a glance
+
+✅ yes · ⚠️ with a condition · ❌ no · — does not apply
+
+| | Can it? | Details |
+|:---|:---:|:---|
+| **Where it runs** | ✅ | Google's cloud, on a managed agent, in a sandbox. |
+| **Runs while Cronsole is off** | ✅ | Google runs it. |
+| **Setup** | ✅ | One API key. Save MCP servers first if the agent needs them ([Saving an MCP server](#-saving-an-mcp-server--do-this-first)). |
+| **Schedules** | ⚠️ | Set at create, written in UTC. Changing one means **Recreate with changes**. |
+| **Sync** | ✅ | Every trigger the key can see. |
+| **Run now** | ✅ | The real scheduled invocation, on the same run list. A slow answer is checked against that list rather than called a failure. |
+| **Create** | ✅ | Prompt, tools, MCP servers and a domain allowlist, from the form or a template. The confirmation says what was granted. |
+| **Enable / disable** | ✅ | Gemini may also pause a trigger itself after repeated failures, and Cronsole says when it did. |
+| **Edit schedule** | ⚠️ | Through **Recreate with changes**: a new trigger replaces the old one and keeps its history here. |
+| **Edit what it runs** | ⚠️ | Through **Recreate with changes**, as above. |
+| **Delete** | ✅ | Removes the trigger from Gemini. |
+| **Run history** | ✅ | Each run's output and every step. [Read the steps, not the status](#-run-history--read-the-steps-not-the-status). |
+| **Health** | ✅ | From real run outcomes. |
+| **Credentials** | ✅ | The API key and saved MCP servers are stored encrypted and never returned. A trigger stores a reference to a saved server, not its token. |
+| **Templates** | ✅ | [Gallery: Gemini templates](https://cronsole.ai-automation-tools.dev/#/browse?target=gemini). |
+
+**Why *Run now* works here when GitHub Actions and Vercel Cron refuse it.** Both of those have an
+endpoint that could be called, but what comes back is a lookalike: a `workflow_dispatch` run is a
+different event from the scheduled one, and calling a Vercel cron path yourself is an ordinary HTTP
+request the scheduler never records. Gemini's is not a lookalike. Running a trigger runs **its own
+agent, with its own prompt, in its own sandbox**, and the run appears on the same execution list the
+scheduled runs appear on. Google's own documentation notes that pausing a trigger stops its
+*scheduled* executions while leaving manual ones alone — the platform stating that the two are one
+mechanism with two doors.
+
+---
+
+## 🚫 When to use something else
 
 | 🚫 Use something else for | Instead |
 |:---|:---|
@@ -181,24 +224,6 @@ trigger could not authenticate to fails later, on a schedule.
 
 For rotating one token across *every* trigger, use **Push this credential** on the saved server
 instead — not this button, task by task.
-
----
-
-## 🎛️ What Cronsole can do here
-
-**Sync · Run now · Enable / disable · Create (with tools, MCP servers and an allowlist) · Delete**,
-plus real run outcomes feeding task health.
-
-*Edit action* and *Edit schedule* are the two it cannot do, both for the reason above.
-
-**Why *Run now* works here when GitHub Actions and Vercel Cron refuse it.** Both of those have an
-endpoint that could be called, but what comes back is a lookalike: a `workflow_dispatch` run is a
-different event from the scheduled one, and calling a Vercel cron path yourself is an ordinary HTTP
-request the scheduler never records. Gemini's is not a lookalike. Running a trigger runs **its own
-agent, with its own prompt, in its own sandbox**, and the run appears on the same execution list the
-scheduled runs appear on. Google's own documentation notes that pausing a trigger stops its
-*scheduled* executions while leaving manual ones alone — the platform stating that the two are one
-mechanism with two doors.
 
 ---
 

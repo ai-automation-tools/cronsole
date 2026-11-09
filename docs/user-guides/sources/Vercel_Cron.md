@@ -23,11 +23,45 @@ more than it first sounds.
 
 ---
 
-## 🧭 When to use it, and when not to
+## 🎯 Best for
 
-| ✅ Use it for | Why |
+Cron routes your Vercel projects **declare**, watched beside everything else.
+
+| Automation | Why it belongs here |
 |:---|:---|
-| Seeing the crons your projects declare, beside everything else | Cronsole reads each project's cron jobs and their schedules. |
+| `/api/cron/revalidate` rebuilding cached pages every hour | Cronsole lists it with its schedule and its project. |
+| A nightly cleanup route that deletes expired sessions or rows | You see that it is scheduled, and whether the project has crons switched on. |
+| A daily digest-email route | Pair it with a native check on what it produces to know it worked. |
+| Syncing data from an external API into your database every 15 minutes | Shows beside your other syncs, wherever they run. |
+| Any of the above, paired with a native [Endpoint check](Cronsole_Native.md#-checks--measure-something-and-compare-it) on a status route | Vercel publishes no run history, so a check is how you learn whether a cron worked. |
+
+---
+
+## 🧰 Capabilities at a glance
+
+✅ yes · ⚠️ with a condition · ❌ no · — does not apply
+
+| | Can it? | Details |
+|:---|:---:|:---|
+| **Where it runs** | ✅ | Vercel's functions, in your projects. |
+| **Runs while Cronsole is off** | ✅ | Vercel runs it. |
+| **Setup** | ✅ | An access token, then pick projects from a list Cronsole reads for you. |
+| **Schedules** | ✅ | Read as declared in `vercel.json`, in UTC. |
+| **Sync** | ✅ | Every cron job in the projects you watch. |
+| **Run now** | ❌ | Calling the path yourself is not the scheduled invocation ([why](#-the-three-refusals)). |
+| **Create** | ❌ | That is a `vercel.json` change and a deploy. |
+| **Enable / disable** | ❌ | Vercel only switches crons per project, not per cron. |
+| **Edit schedule** | ❌ | Edit `vercel.json`. |
+| **Edit what it runs** | ❌ | Edit the route. |
+| **Delete** | ❌ | *Remove from Cronsole* stops tracking one cron. |
+| **Run history** | ❌ | Vercel publishes none ([the one thing this source cannot tell you](#-the-one-thing-this-source-cannot-tell-you)). |
+| **Health** | ❌ | Always `unknown`. *Configured* is knowable here; *working* is not. |
+| **Credentials** | ✅ | The token is stored encrypted and never shown again. |
+| **Templates** | ❌ | Cronsole creates nothing here. |
+
+---
+
+## 🚫 When to use something else
 
 | 🚫 Use something else for | Instead |
 |:---|:---|
@@ -86,14 +120,6 @@ whatever the job itself writes — not on this dashboard.
 - **Enable / disable** is refused because Vercel has **no per-cron switch to expose**. Crons are turned
   on and off for a whole **project** at once, so a per-task toggle would be inventing a control the
   platform does not have.
-
----
-
-## 🎛️ What Cronsole can do here
-
-**Sync** and **health**, plus **Remove from Cronsole** on an individual cron job. Adding, editing,
-running and pausing a cron all happen on Vercel; on the Sources tab those show as *Unsupported* —
-the tab stating a boundary, not waiting for evidence.
 
 ---
 

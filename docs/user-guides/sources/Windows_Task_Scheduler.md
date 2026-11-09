@@ -23,15 +23,53 @@ sources, this is the one to use for anything that must survive Cronsole being do
 
 ---
 
-## 🧭 When to use it, and when not to
+## 🎯 Best for
 
-| ✅ Use it for | Why |
+Jobs that run **on this PC, as you**, and must keep running when Cronsole is off.
+
+| Automation | Why it belongs here |
 |:---|:---|
-| Anything that must run while Cronsole is off: backups, cleanup, maintenance | It is Windows' own scheduler. Cronsole only reads and writes the entries. |
-| Work that needs your Windows account: your profile, mapped drives, desktop apps | Tasks run as your user, with that account's privileges. |
-| Long jobs | No Cronsole timeout applies. Task Scheduler's own limits do. |
-| A fixed local clock time all year | A Windows trigger keeps its local time across daylight saving. |
-| Tasks you already have | Pick their folders and they appear, unchanged. |
+| Run a PowerShell cleanup script every Sunday: clear `%TEMP%`, empty the Recycle Bin, delete logs older than 30 days | Runs as you, with your paths, whether or not Cronsole is up. |
+| Run Windows' own cleanup: `cleanmgr /sagerun:1`, or `Dism /Online /Cleanup-Image /StartComponentCleanup` | Needs administrator rights, which a task can run with (*Run with highest privileges*). |
+| Start a Docker app at logon with `docker compose up -d`, and stop it at night with `docker compose down` | A logon trigger starts it in your session, and the containers keep running after the task ends. |
+| Start a local dev server or web UI at logon (`npm run dev`, a Python app) and restart it if it dies | Only Task Scheduler can start something at logon or boot. |
+| Run a headless CLI agent session with a prompt: `claude -p "Review the open PRs in D:\repos\app and summarize them"` | It needs your local repositories, your CLI sign-in and as long as it takes. |
+| `git pull` every repository under `D:\repos` each morning | Uses your Git credentials and SSH keys. |
+| Back up a folder nightly with `robocopy` or `rclone` to OneDrive, Google Drive or a NAS | A backup must not depend on Cronsole being up. |
+| Dump a local database nightly: `pg_dump`, `mysqldump`, `mongodump` | Runs on the machine the database is on, with your credentials. |
+| A watchdog every 5 minutes that restarts a service or app that stopped, including Cronsole itself | Only a scheduler outside Cronsole can bring Cronsole back. |
+| Kill leftover processes weekly, such as stray `python.exe` or `node.exe` | Sees and stops your own processes. |
+
+---
+
+## 🧰 Capabilities at a glance
+
+✅ yes · ⚠️ with a condition · ❌ no · — does not apply
+
+| | Can it? | Details |
+|:---|:---:|:---|
+| **Where it runs** | ✅ | Your PC, as your Windows user, reached through the local Cronsole agent. |
+| **Runs while Cronsole is off** | ✅ | It is Windows' own scheduler. Cronsole only reads and writes the entries. |
+| **Setup** | ⚠️ | Install the agent and run it **elevated**, then pick which folders to track. See [Connecting](#-connecting). |
+| **Schedules** | ⚠️ | Cron is converted to a native trigger, and some expressions cannot be held exactly; Cronsole warns ([Schedules](#-schedules-and-where-they-get-lossy)). Logon, boot and event triggers are kept. *No schedule* makes a task on demand. |
+| **Sync** | ✅ | Tracked folders: new tasks, changed schedules, enabled state, last result. Adopting a new folder is a separate step. |
+| **Run now** | ✅ | Signed per session (HMAC). Success means the agent started the task, not that the job worked. |
+| **Create** | ✅ | A real Task Scheduler entry, in `\Cronsole` by default. The action is `{executable, args[]}`, with no shell unless you name one. |
+| **Enable / disable** | ✅ | The task's own enabled flag on the machine. |
+| **Edit schedule** | ✅ | Rewrites the trigger. |
+| **Edit what it runs** | ✅ | Changes the action. |
+| **Delete** | ✅ | Removes the real task after writing a pre-delete archive. *Remove from Cronsole* stops tracking it and leaves it running. |
+| **Run history** | ⚠️ | Task Scheduler's own event log, grouped into runs, with exit codes. The job's output is not captured, and the log is switched off on some machines ([Reading run history](#-reading-run-history)). |
+| **Health** | ✅ | From each task's last result, plus whether the agent is connected. |
+| **Credentials** | — | Cronsole stores none. The task uses your account's own logins. |
+| **Export and restore** | ✅ | Task Scheduler XML (exact) or a portable template. Restore previews before it writes. |
+| **Templates** | ✅ | [Gallery: Windows templates](https://cronsole.ai-automation-tools.dev/#/browse?target=windows). |
+
+Every verb needs the agent online: it is the only thing that can touch Task Scheduler.
+
+---
+
+## 🚫 When to use something else
 
 | 🚫 Use something else for | Instead |
 |:---|:---|
@@ -72,26 +110,6 @@ now and later.
 folders, and it will not adopt a folder you never picked. Those are two different requests on
 purpose: naming a folder is the gesture that starts tracking it, and a routine refresh that quietly
 adopted new folders would undo a deliberate removal.
-
----
-
-## 🎛️ What Cronsole can do here
-
-The fullest set of any source. All of it needs the agent online — it is the only thing that can touch
-Task Scheduler.
-
-| Verb | What it does |
-|:---|:---|
-| **Sync** | Refresh tracked folders: new tasks, changed schedules, enabled state, last result. |
-| **Run now** | Ask the agent to start the task. Signed per session with an HMAC. |
-| **Create** | A real Task Scheduler entry, cron converted to a native trigger, action structured as `{executable, args[]}` — no shell unless you invoke one. |
-| **Enable / disable** | Flips the task's own enabled state on the machine. |
-| **Edit schedule** | Rewrites the trigger. Cronsole warns when a cron cannot be expressed natively. |
-| **Edit action** | Changes what it runs. |
-| **Export** | Task Scheduler XML (exact fidelity) or a portable template. |
-| **Restore** | Plans from read-only reads first, so `dryRun` is a real preview. |
-| **Delete** | Removes the real task, after writing a pre-delete archive. |
-| **Run history** | The Operational event log, grouped into runs, with exit codes. |
 
 ---
 

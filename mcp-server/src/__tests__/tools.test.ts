@@ -367,6 +367,17 @@ describe('run_task', () => {
     expect(calls[0].path).toBe('/tasks/a%2Fb/run');
   });
 
+  it('answers "still running", not an error, when a native job outlasts the wait', async () => {
+    const { client } = stubClient({
+      'POST /tasks/slow/run': () => new CronsoleApiError('did not answer within 120s', undefined, undefined, true)
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'run_task', { taskId: 'slow' });
+    expect(r.isError).toBeFalsy();
+    expect(text(r)).toMatch(/^Still running/);
+    expect(text(r)).toMatch(/get_task_history/);
+  });
+
   it('reports a not-found id honestly instead of throwing', async () => {
     const { client } = stubClient({
       'POST /tasks/ghost/run': () => new CronsoleApiError('Task not found', 404)

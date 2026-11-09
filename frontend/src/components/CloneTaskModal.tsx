@@ -70,6 +70,7 @@ export const CloneTaskModal = ({ task, onClose }: CloneTaskModalProps) => {
 
   return (
     <Modal
+      sheet
       onClose={onClose}
       overlayClassName="z-50"
       closeOnBackdrop={false}

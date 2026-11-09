@@ -21,7 +21,63 @@ that, use [Windows Task Scheduler](Windows_Task_Scheduler.md).
 
 ---
 
-## 🧭 When to use it, and when not to
+## 🎯 Best for
+
+Jobs that only matter **while Cronsole is running**, where you want every run's output and a real pass or fail.
+
+| Automation | Why it belongs here |
+|:---|:---|
+| Check a website or API every 5 minutes: status 200, and the body contains `"status":"ok"` | An Endpoint [check](#-checks--measure-something-and-compare-it) fails on an error page that still answers 200. |
+| Check that last night's backup file is less than 26 hours old | A File freshness check. A missing file fails too. |
+| Check that `C:` has at least 20 GB free | A Disk space check, with the measurement in the log. |
+| Check that a local database or app port answers: Postgres on 5432, a web UI on 8765 | A Port check, no script needed. |
+| Post to a deploy hook or an n8n webhook every night | An HTTP job: method, headers and body, with the URL kept as a secret. |
+| Send a daily Discord, Slack or ntfy message, or one only when another task fails | [Send a message](#-sending-a-message) fills in the request, and [chaining](#-chaining-tasks) sends it on failure. |
+| Run a short Node or Python script stored in the task: call an API, write a CSV, print a summary | The script lives in the task, so nothing on disk can go missing. |
+| Run an existing PowerShell script and keep its output, such as an app health check that exits non-zero on a problem | A [program](#-the-four-job-types) task records the exit code, duration and output. Task Scheduler records only the exit code. |
+| Run `gh` commands on a schedule: list stale PRs, close old issues, export a report | [Pass `GH_TOKEN` through](#passing-a-variable-through) by name, kept out of the database and the log. |
+| SSH to a server and check something: `ssh host "docker ps"`, a cron file, a backup's age | Works with your SSH keys when Cronsole runs on the host (the default). |
+| Run a backup script, then check the file it wrote, then post to Slack if either failed | Three native tasks [chained](#-chaining-tasks) on success and on failure. |
+| Retry a flaky API call up to 3 times, 5 minutes apart | [Retries](#-run-settings) are a setting, and every attempt is in the history. |
+
+---
+
+## 🧰 Capabilities at a glance
+
+✅ yes · ⚠️ with a condition · ❌ no · — does not apply
+
+| | Can it? | Details |
+|:---|:---:|:---|
+| **Where it runs** | ✅ | Inside Cronsole's backend, as the account that runs it. On a Dockerized stack that is inside the container. |
+| **Runs while Cronsole is off** | ❌ | A native task is a database row. *Catch up* runs a missed one once, when Cronsole is back. |
+| **Setup** | ✅ | None. Native is up whenever the backend is. |
+| **Schedules** | ✅ | 5-field cron in UTC, used as written and checked every 30 seconds. Or none: run on demand, or after another task. Shifts by an hour across daylight saving. |
+| **Sync** | — | Nothing to sync: the row is the task. |
+| **Run now** | ✅ | Runs inside the request, and is refused while the task is already running. |
+| **Create** | ✅ | Four job types: [HTTP, program, script and check](#-the-four-job-types), plus a [*Send a message*](#-sending-a-message) preset. |
+| **Enable / disable** | ✅ | Disabling clears the next run; enabling schedules it again. |
+| **Edit schedule** | ✅ | Including *No schedule* for a task that runs on demand or after another. |
+| **Edit what it runs** | ✅ | Replaces the whole job. Switching type discards the old type's fields, and the form says which. |
+| **Delete** | ✅ | After a pre-delete archive, so it can be restored. |
+| **Run history** | ✅ | Every run, with its start time, duration, attempt and output ([Run history](#-run-history)). |
+| **Health** | ✅ | From real run outcomes. A failing check is a finding about your system, not a broken source. |
+| **Credentials** | ✅ | [`${secret.NAME}`](#-secrets--store-a-reference-never-the-value), encrypted per task and hidden in the log, or [passed through](#passing-a-variable-through) by name. |
+| **Templates** | ✅ | [Gallery: Cronsole-native templates](https://cronsole.ai-automation-tools.dev/#/browse?target=cronsole-native). |
+| **Time limit** | ✅ | Up to 24 hours for a program or script; 5 minutes by default ([Run settings](#-run-settings)). |
+| **Retries** | ✅ | A failed scheduled run is tried again, up to 5 more times, 1 to 60 minutes apart. Never a check, never Run now. |
+| **Overlap** | ✅ | If a run is still going when the next is due: skip it, or queue one behind it. |
+| **Side by side** | ✅ | Every due task starts on its own, so a slow job never holds up another. |
+| **Chaining** | ✅ | Start when another native task succeeds, fails, or either ([Chaining tasks](#-chaining-tasks)). |
+
+The last five rows are native's own [run settings](#-run-settings); no other source has them.
+
+Everything here is also reachable over MCP: the `create_native_*` tools and `update_native_job` take
+the run settings (`timeoutMs`, `retries`, `retryDelayMinutes`, `overlap`, `catchUp`), chaining
+(`runAfterTaskId`, `runAfterWhen`) and `passEnv`.
+
+---
+
+## 🚫 When to use something else
 
 Native is the easiest source to start with, which makes it the easiest to over-use. Three facts
 decide almost every case: it runs **only while Cronsole is running**, it runs **on the backend's
@@ -30,23 +86,6 @@ finishes**, never on a logon, an idle machine or a system event.
 
 **The rule of thumb:** if it would matter that the job did not run while Cronsole was stopped, it is
 not a native job.
-
-### ✅ Good fits
-
-| Job | Why native suits it |
-|:---|:---|
-| Calling a URL or firing a webhook on a schedule | An HTTP job needs nothing installed, and the status code is the verdict. |
-| Watching something: an endpoint is up, a port answers, a backup is fresh, a disk has room | That is what [Checks](#-checks--measure-something-and-compare-it) are for. A failure is a fact about your system, and the log records the measurement. |
-| A short script you want kept with the task | The body lives in the task, so it travels with an export, the pre-delete archive and a template. No file on disk to lose. |
-| A job that needs an API key or token | `${secret.NAME}` is stored encrypted and redacted out of the run log. See [Secrets](#-secrets--store-a-reference-never-the-value). |
-| Anything you want a full run history for | Cronsole performs every run, scheduled ones included, so every run is logged with its output. |
-| A job that should try again when it fails | [Retries](#-run-settings) are a setting, and each attempt is in the run history with its output. |
-| A message to Discord, Slack or ntfy | [Send a message](#-sending-a-message) fills in the request; the webhook address is kept as a secret. |
-| One job that should start when another finishes | [Chaining](#-chaining-tasks) is a setting, on success, on failure, or either. Task Scheduler has no clean way to do this. |
-| A tool that reads a token already set on the machine, like `gh` and `GH_TOKEN` | [Pass it through](#passing-a-variable-through) by name; its value stays out of the database and the log. |
-| A backend on Linux or in Docker, where there is no Windows | Native runs wherever the backend runs. |
-
-### 🚫 Use something else
 
 | If the job… | Use instead | Why |
 |:---|:---|:---|
@@ -191,15 +230,6 @@ Created with **New Task › Cronsole › Check something**. Four kinds:
 
 ---
 
-## 🎛️ What Cronsole can do here
-
-The same list for all four job types: **Run now · Create · Enable/disable · Edit schedule · Edit what
-it runs · Export · Delete.** No agent, no round trip, nothing that can refuse — the write *is* the
-change. That is also why the Sources tab shows native as one card while the Source rail splits it into
-four rows: they are different things to look at with identical capabilities.
-
----
-
 ## ⏱️ Run settings
 
 Every native task has these, under **Run settings** on the New Task and Edit forms, or as arguments
@@ -251,6 +281,9 @@ then check the file it wrote. If the sync fails, post to Slack.
 
 If the first task is deleted, its followers stay but nothing starts them: the form shows *A task that
 no longer exists* until you pick another or clear it.
+
+Over MCP, pass `runAfterTaskId` (the first task's id) and `runAfterWhen` (`success`, `failure` or
+`always`) to a `create_native_*` tool, and leave out `schedule` for a task with none of its own.
 
 ---
 
@@ -335,7 +368,20 @@ native task shifts by an hour** while a Windows task keeps its local clock time.
 Native is the source where `ExecutionLog` is complete: Cronsole performs every run, so every run is
 recorded — scheduled ones included. Because Cronsole makes the call itself, the status and duration
 describe the actual run, unlike a Windows manual run. Output is stored, and `${secret.NAME}` values are **redacted out
-of the log** at the single point every job type funnels through.
+of the log** at the single point every job type funnels through, as are passed-through variables
+(shown as `${env.NAME}`).
+
+The time on each row is **when the run started**, and the duration says how long it took. Each log
+line starts with what started it:
+
+| Label | Meaning |
+|:---|:---|
+| `[scheduled]` | Its cron time came due |
+| `[scheduled · attempt 2 of 3]` | A retry after a failed attempt. Every attempt is its own row. |
+| `[queued]` | It came due while the last run was still going, and the task is set to queue |
+| `[catch-up]` | Cronsole was down at a due time and the task is set to catch up |
+| `[after "Backup"]` | Another task finished and this one is chained to it |
+| *(no label)* | Run now |
 
 ---
 
@@ -365,6 +411,13 @@ of the log** at the single point every job type funnels through.
 | A check that correctly finds a problem is reported as "could not run" | [#59](../../troubleshooting/README.md#59-a-check-that-correctly-finds-a-problem-is-reported-as-could-not-run-the-check) |
 | Save blocked on a script or check over a command field that is not there | [#76](../../troubleshooting/README.md#76-save-is-blocked-on-a-script-task-over-a-command-field-that-does-not-exist) |
 | A task refuses to start and names a secret | [#71](../../troubleshooting/README.md#71-a-native-task-refuses-to-start-and-names-a-secret) |
+| A task refuses to start and names a variable it *passes through* | The variable is not set where the backend runs. Set it there and restart Cronsole, or remove the name. See [Passing a variable through](#passing-a-variable-through). |
+| Run now says the task *is already running* | It is. Wait for that run to finish; the refused click is not recorded. |
+| A failed Run now was not retried | Retries apply to scheduled runs only. See [Run settings](#-run-settings). |
+| `ssh` (or `git` over SSH) exits 255 with no output | The job's environment lacked `PROGRAMDATA`. Fixed 2026-11-07; on an older backend, pass it through. [#104](../../troubleshooting/README.md#104-a-native-job-that-runs-ssh-exits-255-and-prints-nothing) |
+| MCP `run_task` says *Still running* | The job outlasted the 2-minute wait. Its verdict lands in the run history when it ends. [#105](../../troubleshooting/README.md#105-mcp-run_task-says-the-backend-is-unreachable-and-the-job-ran-fine) |
+| A chained task did not run | Check the first task's verdict against **when** (success, failure, either), and that the chained task is enabled. The chain moves on the final attempt. |
+| Runs in the history appear later than they started | Fixed 2026-11-07: rows written before then show when the run *finished*. |
 
 ---
 

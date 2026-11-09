@@ -414,6 +414,7 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
 
   return (
     <Modal
+      sheet
       onClose={onClose}
       overlayClassName="z-50"
       closeOnBackdrop={false}

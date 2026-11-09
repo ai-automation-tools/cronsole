@@ -225,6 +225,7 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
 
   return (
     <Modal
+      sheet
       onClose={onClose}
       overlayClassName="z-50"
       closeOnBackdrop={false}

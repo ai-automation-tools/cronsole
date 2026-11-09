@@ -343,6 +343,7 @@ export const EditTaskModal = ({ task, executionHost, onClose }: Props) => {
 
   return (
     <Modal
+      sheet
       onClose={handleClose}
       overlayClassName="z-[60]"
       closeOnBackdrop={false}

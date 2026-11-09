@@ -12,6 +12,10 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
+### Added
+
+- **The phone's dashboard rebuilds itself** (2026-11-09). The Tailscale / proxy page serves the built `frontend/dist`, and nothing rebuilt it, so a UI change reached the desktop and not the phone (troubleshooting #53). New `cronsole rebuild` builds `dist` only when `check-dist-fresh.mjs` reports it stale or missing, and only where `cronsole remote on` was run. `scripts/startup-task/Register-RebuildTask.ps1` registers `\Cronsole-Stack\CronsoleRebuild` to run it hourly, no elevation. `cronsole up` still never builds. `Migrate-RepoFolder.ps1` repoints the new task too.
+
 ### Changed
 
 - **Task details fit a phone** (2026-11-09). Below `sm` the task modal is a full-screen sheet with a smaller title, tighter header and tabs, and a one-row footer: **More · Edit · Run Now**. Remove, Delete, Save as template, Export, Phone shortcut and the Gemini verbs fold behind **More**; desktop is unchanged. The footer respects the bottom safe-area inset, and the four status tiles are tighter. Pinned by a 375px E2E check. New task, Edit, Clone, Apply template and Diagnostics get the same full-screen sheet on a phone (`Modal`'s new `sheet` prop). The Collections dialog now scrolls instead of clipping a long list.

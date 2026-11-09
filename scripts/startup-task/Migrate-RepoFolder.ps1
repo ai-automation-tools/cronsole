@@ -82,7 +82,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $TaskPath  = '\Cronsole-Stack\'
-$TaskNames = @('CronsoleRepublish', 'CronsoleRestart', 'CronsoleStack')
+$TaskNames = @('CronsoleRepublish', 'CronsoleRestart', 'CronsoleStack', 'CronsoleRebuild')
 
 function Test-Elevated {
     $id = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -310,6 +310,9 @@ Write-Host 'Verification (read back from Task Scheduler):' -ForegroundColor Cyan
 $bad = 0
 foreach ($n in $TaskNames) {
     $t = Get-ScheduledTask -TaskPath $TaskPath -TaskName $n -ErrorAction SilentlyContinue
+    # A task this machine never registered (CronsoleRebuild is optional) is not a failure;
+    # one that was planned and is now gone is.
+    if (-not $t -and $n -notin $plan) { continue }
     if (-not $t) { Write-Host ("  [MISS] {0}" -f $n) -ForegroundColor Red; $bad++; continue }
 
     $args = ($t.Actions | ForEach-Object { "$($_.Execute) $($_.Arguments)" }) -join ' '

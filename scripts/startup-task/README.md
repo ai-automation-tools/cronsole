@@ -4,17 +4,20 @@ Auto-starts the **entire local Cronsole stack** at Windows logon and keeps it up
 `http://localhost:7373` is live after you sign in — no manual `npm run dev` in three
 terminals.
 
-Three scheduled tasks live in `\Cronsole-Stack\`. One is a keeper that runs on a timer;
-two are on-demand chores that need elevation:
+Up to four scheduled tasks live in `\Cronsole-Stack\`. One is a keeper that runs on a timer,
+two are on-demand chores that need elevation, and one optional hourly task rebuilds the
+dashboard the phone sees:
 
 | Task | Trigger | Runs | Purpose |
 |---|---|---|---|
 | **`CronsoleStack`** | logon + **every 5 min** (its own time trigger, armed at registration, #102) | `cronsole.ps1 up` | The keeper. Idempotent, so it starts only what is down. |
 | **`CronsoleRepublish`** | none (on-demand) | `Republish-Agent.ps1` | Rebuild + republish the agent, then relaunch. |
 | **`CronsoleRestart`** | none (on-demand) | `cronsole.ps1 restart` | Stop the stack (agent included) and bring it back. |
+| **`CronsoleRebuild`** | **every 60 min** (optional, since 2026-11-09) | `cronsole.ps1 rebuild` | Rebuild `frontend/dist` when the proxy is serving a stale one. A no-op unless `cronsole remote on` and `check-dist-fresh.mjs` reports stale. RunLevel **Limited**, no elevation. |
 
-All three launch through `run-hidden.vbs` so nothing flashes on screen, and all three run
-at **RunLevel Highest** in the interactive user's session.
+All of them launch through `run-hidden.vbs` so nothing flashes on screen, and run in the
+interactive user's session: the first three at **RunLevel Highest**, `CronsoleRebuild` at
+**Limited** (building needs no admin).
 
 ## Contents
 
@@ -24,6 +27,7 @@ at **RunLevel Highest** in the interactive user's session.
 | `Register-CronsoleStack.ps1` | Registers **`CronsoleStack`**, the recurring self-heal. Also removes the obsolete `CronsoleAgent` (see below). Run once, **as Administrator**. |
 | `Register-RepublishTask.ps1` | Registers **`CronsoleRepublish`**, the on-demand elevated agent rebuild. Run once, **as Administrator**. |
 | `Register-RestartTask.ps1` | Registers **`CronsoleRestart`**, the on-demand elevated stack restart. Run once, **as Administrator**. |
+| `Register-RebuildTask.ps1` | Registers **`CronsoleRebuild`**, the hourly `dist` rebuild for the phone/tailnet page. Run once, **no elevation**. `-Unregister` removes it. |
 | `Migrate-RepoFolder.ps1` | **The only supported way to move this checkout.** Three tasks embed the repo path twice each and fail *silently* when it moves by hand. |
 | `Migrate-ToCronsole.ps1` | **One-time machine migration** for the 2026-07-31 rename: moved the launcher tasks from `\Task-Hub\` to `\Cronsole-Stack\` and `TASKHUB_TOKEN` → `CRONSOLE_TOKEN`. Already run on this machine; kept as the record of what moved and as the template for the next such migration. |
 

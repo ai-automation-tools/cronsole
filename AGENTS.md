@@ -92,10 +92,11 @@ cronsole/
 process under the default `cronsole.ps1` stack, restarted by the elevated `CronsoleRestart` task;
 a container only under the opt-in `--profile docker`), the
 published agent (`agent/publish/`), and `mcp-server/dist/`. A fourth — `frontend/dist/` — only while
-the `proxy` profile is running, and it is the one with **no keeper**: `cronsole up` starts the proxy
-and never rebuilds it, so the proxied page can be a complete, working dashboard from another day
-while `:7373` is current (`node scripts/check-dist-fresh.mjs`, which omits itself when the proxy is
-down). **The fifth is the database schema**, and it is the one the repo cannot see at all: an
+the `proxy` profile is running. `cronsole up` starts the proxy and never rebuilds it, so the proxied
+page can be a complete, working dashboard from another day while `:7373` is current
+(`node scripts/check-dist-fresh.mjs`, which omits itself when the proxy is down). Its keeper is the
+**optional hourly `\Cronsole-Stack\CronsoleRebuild`** (`cronsole rebuild`, since 2026-11-09), so on a
+machine without it there is still none, and on one with it the phone can lag a change by an hour. **The fifth is the database schema**, and it is the one the repo cannot see at all: an
 unapplied migration makes a whole feature 500 with a bare *"Internal server error"* on **every** route
 including reads, while `schema.prisma`, the generated client and the whole test suite hold the new
 value — only the DB does not, so nothing reddens

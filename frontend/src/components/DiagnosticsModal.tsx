@@ -56,6 +56,7 @@ export const DiagnosticsModal = ({ onClose }: { onClose: () => void }) => {
 
   return (
     <Modal
+      sheet
       onClose={onClose}
       labelledBy="diagnostics-title"
       panelClassName="bg-surface border border-border rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col"

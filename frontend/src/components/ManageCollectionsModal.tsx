@@ -101,7 +101,7 @@ export const ManageCollectionsModal = ({ onClose }: ManageCollectionsModalProps)
       labelledBy="manage-collections-title"
       panelClassName="bg-surface border border-border rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
     >
-      <div className="p-5">
+      <div className="p-5 min-h-0 overflow-y-auto">
         <h2 id="manage-collections-title" className="text-lg font-bold flex items-center gap-2">
           <Bookmark size={18} className="text-info-text" /> Collections
         </h2>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { XCircle, Folder, Play, History, Info, Loader2, CheckCircle2, XOctagon, Clock, Trash2, CalendarClock, Terminal, SlidersHorizontal, Pencil, BookmarkPlus, EyeOff, Wrench, RefreshCw, Copy, Smartphone } from 'lucide-react';
+import { XCircle, Folder, Play, History, Info, Loader2, CheckCircle2, XOctagon, Clock, Trash2, CalendarClock, Terminal, SlidersHorizontal, Pencil, BookmarkPlus, EyeOff, Wrench, RefreshCw, Copy, Smartphone, MoreHorizontal } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Task, ExecutionLogEntry } from '../types';
 import { PlatformRunHistory } from './PlatformRunHistory';
@@ -282,6 +282,9 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
    */
   const [showPhoneShortcut, setShowPhoneShortcut] = useState(false);
   const [showEditor, setShowEditor] = useState(false);
+  // Phone only: the secondary footer actions fold behind "More" so Edit and
+  // Run Now are not pushed below a wall of buttons. Always shown from `sm` up.
+  const [showMoreActions, setShowMoreActions] = useState(false);
 
   // A native job runs wherever the BACKEND runs, which on a Dockerized stack is
   // inside the container — so an EXEC path is resolved against a filesystem that
@@ -475,11 +478,12 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
     <Modal
       onClose={onClose}
       overlayClassName="z-50"
+      sheet
       closeOnBackdrop={false}
       labelledBy="task-modal-title"
       panelClassName="bg-surface border border-border rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
     >
-        <header className="p-6 border-b border-border flex justify-between items-start gap-2">
+        <header className="p-4 sm:p-6 border-b border-border flex justify-between items-start gap-2">
           <div className="min-w-0">
             {/*
               Wraps, because this row holds a badge, a task name of unbounded
@@ -489,7 +493,7 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
               other half: without it the flex parent refuses to shrink below the
               name's intrinsic width and wrapping never gets the chance to help.
             */}
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-2">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 sm:gap-y-2 mb-1.5 sm:mb-2">
               <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-primary/20 text-foreground border border-primary/30">
                 {task.platform}
               </span>
@@ -498,7 +502,7 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
                 edit affordances on this screen; all four are now the single Edit
                 button in the footer.
               */}
-              <h2 id="task-modal-title" className="text-2xl font-bold min-w-0 break-words">{task.name}</h2>
+              <h2 id="task-modal-title" className="text-lg sm:text-2xl font-bold min-w-0 break-words leading-tight">{task.name}</h2>
               {onToggleFavorite && (
                 <TaskFavoriteStar task={task} onToggle={onToggleFavorite} size={20} />
               )}
@@ -517,7 +521,7 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
               */}
               <TaskCollectionMenu task={task} variant="labeled" />
             </div>
-            <code className="text-xs text-subtle-foreground bg-background px-2 py-1 rounded">{task.externalId}</code>
+            <code className="block w-fit max-w-full text-[11px] sm:text-xs text-subtle-foreground bg-background px-2 py-1 rounded break-all">{task.externalId}</code>
             {/*
               Say it when the label and the machine have parted company. A rename
               is DB-only, so a Windows task keeps answering to its old path — and
@@ -539,7 +543,7 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
             </button>
           </div>
         </header>
-        <div className="px-6 pt-4 border-b border-border flex gap-1">
+        <div className="px-4 sm:px-6 pt-1 sm:pt-4 border-b border-border flex gap-1">
           <button
             onClick={() => setActiveTab('overview')}
             className={`px-4 py-2 rounded-t-lg text-xs font-bold transition-all border-b-2 ${activeTab === 'overview' ? 'text-foreground border-primary' : 'text-subtle-foreground border-transparent hover:text-foreground'}`}
@@ -555,7 +559,7 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
         </div>
 
         {activeTab === 'runs' && (
-          <div className="p-6 overflow-y-auto flex-1 text-foreground space-y-6">
+          <div className="p-4 sm:p-6 overflow-y-auto flex-1 text-foreground space-y-6">
             <section className="space-y-3">
               {/* Two groups, never one list. `ExecutionLog` is what Cronsole did;
                   the section below is what the platform did. Summing them would
@@ -615,13 +619,13 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
         )}
 
         {activeTab === 'overview' && (
-        <div className="p-6 overflow-y-auto space-y-8 flex-1 text-foreground">
-          <div className="grid grid-cols-2 gap-4">
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-6 sm:space-y-8 flex-1 text-foreground">
+          <div className="grid grid-cols-2 gap-2 sm:gap-4">
             {/* Wraps below `sm`: a half-width tile on a phone is ~145px and the
                 Disable button was drawn on top of the status word. */}
-            <div className="bg-background p-4 rounded-xl border border-border flex justify-between items-center max-sm:flex-wrap max-sm:gap-2">
+            <div className="bg-background p-3 sm:p-4 rounded-xl border border-border flex justify-between items-center max-sm:flex-wrap max-sm:gap-2">
               <div>
-                <span className="text-xs text-subtle-foreground block mb-1">Status</span>
+                <span className="text-xs text-subtle-foreground block mb-0.5 sm:mb-1">Status</span>
                 <span className="font-semibold text-foreground uppercase tracking-tighter text-sm flex items-center gap-2">
                   <div className={`h-2.5 w-2.5 rounded-full ${task.status === 'ACTIVE' ? 'bg-success' : task.status === 'MISSING' ? 'bg-warning' : 'bg-muted-foreground'}`}></div>
                   {task.status}
@@ -648,8 +652,8 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
                 </button>
               )}
             </div>
-            <div className="bg-background p-4 rounded-xl border border-border">
-              <span className="text-xs text-subtle-foreground block mb-1">Last Result</span>
+            <div className="bg-background p-3 sm:p-4 rounded-xl border border-border">
+              <span className="text-xs text-subtle-foreground block mb-0.5 sm:mb-1">Last Result</span>
               {task.lastRunStatus ? (
                 <span className={`inline-flex items-center gap-1.5 text-xs uppercase font-black px-2 py-0.5 rounded-full border ${statusStyle(task.lastRunStatus)}`}>
                   <StatusIcon status={task.lastRunStatus} /> {task.lastRunStatus}
@@ -658,12 +662,12 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
                 <span className="font-semibold text-sm text-subtle-foreground">No runs recorded</span>
               )}
             </div>
-            <div className="bg-background p-4 rounded-xl border border-border">
-              <span className="text-xs text-subtle-foreground block mb-1">Next Run</span>
+            <div className="bg-background p-3 sm:p-4 rounded-xl border border-border">
+              <span className="text-xs text-subtle-foreground block mb-0.5 sm:mb-1">Next Run</span>
               <span className="font-semibold text-sm">{nextRun ? localTime(nextRun) : '—'}</span>
             </div>
-            <div className="bg-background p-4 rounded-xl border border-border">
-              <span className="text-xs text-subtle-foreground block mb-1">Last Run</span>
+            <div className="bg-background p-3 sm:p-4 rounded-xl border border-border">
+              <span className="text-xs text-subtle-foreground block mb-0.5 sm:mb-1">Last Run</span>
               <span className="font-semibold text-sm">{lastRun ? localTime(lastRun) : '—'}</span>
             </div>
           </div>
@@ -776,7 +780,8 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
           </details>
         </div>
         )}
-        <footer className="p-6 bg-background border-t border-border flex flex-wrap gap-3">
+        <footer className="p-3 sm:p-6 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-6 bg-background border-t border-border flex flex-wrap gap-2 sm:gap-3">
+          <div id="task-more-actions" className={showMoreActions ? 'contents' : 'hidden sm:contents'}>
           {/*
             Two removals, and the entire design is in telling them apart.
             "Remove from Cronsole" keeps the scheduled task and forgets it here;
@@ -981,6 +986,16 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
               <Smartphone size={16} /> Phone shortcut
             </button>
           )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowMoreActions(v => !v)}
+            aria-expanded={showMoreActions}
+            aria-controls="task-more-actions"
+            className="sm:hidden bg-muted hover:bg-muted/80 px-3 py-3 rounded-xl font-bold transition-all border border-border active:scale-95 text-sm flex items-center gap-1.5"
+          >
+            <MoreHorizontal size={16} /> {showMoreActions ? 'Less' : 'More'}
+          </button>
           {/*
             The one edit control. Never disabled: name and category are editable
             on every platform, so there is no task for which "nothing can be
@@ -999,7 +1014,7 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
             onClick={() => { if (isRunnable(task)) { onRun(task); onClose(); } }}
             disabled={!isRunnable(task)}
             title={isRunnable(task) ? undefined : runButtonTitle(task)}
-            className="flex-1 bg-success hover:bg-success-hover text-success-foreground py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-success/20 active:scale-95 text-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100 disabled:shadow-none"
+            className="flex-1 bg-success hover:bg-success-hover text-success-foreground py-3 rounded-xl font-bold whitespace-nowrap transition-all flex items-center justify-center gap-2 shadow-lg shadow-success/20 active:scale-95 text-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100 disabled:shadow-none"
           >
             <Play size={16} fill="currentColor" /> Run Now
           </button>

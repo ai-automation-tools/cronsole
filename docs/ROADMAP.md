@@ -300,6 +300,7 @@ under that date.
       Gemini and OAuth-read Claude rows carry `metadata.nameSource`; sync writes `name` back and
       the rename route refuses with where to rename it. Narrows the 2026-08-12 label rule below,
       whose premise held only for Windows, declared Claude and native rows.
+- [ ] **Stamp the demo build** *(Homepage refresh, 2026-11-09)* — **What:** add a `<meta name="build" content="<sha>">` tag to the demo's page, set to the commit SHA at deploy time, as Incubate's boilerplate does. `Get-SurfaceDrift.py` finds no build stamp on https://cronsole-demo.ai-automation-tools.dev/, so a stale deploy can't be told from a current one. **Done when:** `Get-SurfaceDrift.py` shows the cronsole demo `current` after a deploy.
 - [ ] **Rename at the source where the platform allows it** — Gemini's `PATCH` takes
       `display_name`; a connector that gains the verb drops the `nameSource` marker for its rows.
       **Windows is not planned** *(owner's decision, 2026-10-23)*: a Cronsole rename stays a label,

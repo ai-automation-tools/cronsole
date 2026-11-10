@@ -41,13 +41,18 @@ concurrency:
   group: publish-registry
   cancel-in-progress: false
 
+# The push to cronsole-site goes over SITE_ORG_DEPLOY_KEY; the GitHub token only reads.
+permissions:
+  contents: read
+
 jobs:
   publish:
     name: Mirror registry + gallery to cronsole-site
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout cronsole (source of truth)
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           path: source
 
@@ -64,7 +69,7 @@ jobs:
           fi
 
       - name: Checkout cronsole-site (publish target)
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ai-automation-tools/cronsole-site
           ssh-key: ${{ secrets.SITE_ORG_DEPLOY_KEY }}

@@ -39,6 +39,13 @@ const APP_VERSION: string =
  */
 const RESTORE_BODY_LIMIT = '32mb';
 
+/**
+ * Body ceiling for a template import. A published Registry v1 pack is one JSON
+ * file of whole templates, script bodies included: the ai-automation-recipes
+ * pack is ~0.5 MB, five times the 100 kB default, so the default 413'd it.
+ */
+const IMPORT_BODY_LIMIT = '8mb';
+
 export function createApp(): Express {
   const app = express();
 
@@ -82,6 +89,7 @@ export function createApp(): Express {
   // `req._body`), so this widens the limit for exactly one route instead of
   // handing every endpoint in the API a 32 MB request budget.
   app.use('/api/tools/restore', express.json({ limit: RESTORE_BODY_LIMIT }));
+  app.use('/api/templates/import', express.json({ limit: IMPORT_BODY_LIMIT }));
   app.use(express.json());
 
   app.get('/api/health', (_req: Request, res: Response) => {

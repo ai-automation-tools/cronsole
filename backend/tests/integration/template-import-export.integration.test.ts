@@ -195,6 +195,37 @@ describe('template import/export', () => {
     expect(exp.body.tags).toEqual(['dev', 'git', 'build']);
   });
 
+  it('accepts a pack far larger than the global JSON limit', async () => {
+    // Pins the route-scoped parser in app.ts: a real published pack (whole
+    // script bodies) is several times Express's 100 kB default.
+    const templates = Array.from({ length: 60 }, (_, i) => ({
+      schemaVersion: '1.0',
+      id: `tpl_ie_big_${i}`,
+      name: `Big ${i}`,
+      trigger: { kind: 'schedule', cron: '30 6 * * 1' },
+      runtime: 'python',
+      action: { kind: 'script', interpreter: 'python', body: `# ${'x'.repeat(4000)}
+print(${i})
+` },
+      compatibleTargets: ['cronsole-native']
+    }));
+    const body = { templates };
+    expect(JSON.stringify(body).length).toBeGreaterThan(100 * 1024);
+
+    const res = await request(app).post('/api/templates/import').set('Authorization', owner.auth).send(body);
+
+    expect(res.status).toBe(200);
+    expect(res.body.created).toHaveLength(60);
+  });
+
+  it('413s, not 500s, a body over the global JSON limit elsewhere', async () => {
+    const res = await request(app)
+      .post('/api/templates/tpl_none/preview')
+      .set('Authorization', owner.auth)
+      .send({ platform: 'TASKHUB_NATIVE', pad: 'x'.repeat(200 * 1024) });
+    expect(res.status).toBe(413);
+  });
+
   it('401s when unauthenticated', async () => {
     expect((await request(app).get('/api/templates/export')).status).toBe(401);
     expect((await request(app).post('/api/templates/import').send({})).status).toBe(401);

@@ -35,6 +35,11 @@ export function errorHandler(err: unknown, req: Request, res: Response, next: Ne
   if (err instanceof SyntaxError && (err as any).status === 400 && 'body' in (err as any)) {
     return res.status(400).json({ error: 'Malformed JSON body' });
   }
+  // A body over the parser's limit. Without this it was logged and returned as
+  // a 500, which reads as a server bug rather than "this file is too big".
+  if ((err as any)?.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'Request body is too large' });
+  }
 
   console.error(`[${req.method} ${req.originalUrl}]`, err);
   res.status(500).json({ error: 'Internal server error' });

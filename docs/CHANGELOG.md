@@ -30,6 +30,8 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Fixed
 
+- **A published template pack imports again** (2026-11-10). `POST /api/templates/import` kept Express's 100 kB JSON default, and a real Registry v1 pack carries whole script bodies: the ai-automation-recipes pack is ~0.5 MB, so the import failed. It now gets its own 8 MB parser, scoped to that one route like restore's. A body over any parser limit now returns 413 "Request body is too large" instead of a logged 500.
+
 - **`ssh` works in native jobs, and MCP Run now stops calling a long run a dead backend** (2026-11-07). Found running two Task Scheduler automations as native tasks:
   - **`ssh`:** Windows OpenSSH needs `PROGRAMDATA`, which the native job environment did not include, so `ssh` (and `git` over SSH) exited 255 and printed nothing. It is now passed to every native job; it is a path, not a secret ([#104](troubleshooting/README.md#104-a-native-job-that-runs-ssh-exits-255-and-prints-nothing)).
   - **MCP `run_task`:** a native Run now answers when the job ends, so a run longer than the 15-second client timeout came back as *"Could not reach the Cronsole backend"* although it finished. `run_task` now waits 2 minutes, then answers *Still running* and points at `get_task_history`. Every tool now reports a timeout as *"took the request but did not answer within Ns"*, and only a refused connection as unreachable ([#105](troubleshooting/README.md#105-mcp-run_task-says-the-backend-is-unreachable-and-the-job-ran-fine)). Rebuild `mcp-server/` (`npm run build`) and reconnect to pick it up.

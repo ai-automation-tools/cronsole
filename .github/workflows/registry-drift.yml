@@ -28,6 +28,9 @@ jobs:
   drift:
     name: Hosted registry matches main
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write   # the failure-issue step below
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -41,3 +44,27 @@ jobs:
 
       - name: Compare the hosted registry against the committed artifact
         run: node scripts/check-registry-published.mjs
+
+      # While this workflow is red it keeps one open issue (label workflow-failure) up to date;
+      # the first green run closes it. A cancelled run does neither.
+      - name: Open, update or close the failure issue
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          OUTCOME: ${{ job.status }}
+          TITLE: "Scheduled workflow failing: ${{ github.workflow }}"
+        run: |
+          [ "$OUTCOME" = cancelled ] && exit 0
+          gh label create workflow-failure --color d73a4a --description "A scheduled workflow is failing" 2>/dev/null || true
+          issue=$(gh issue list --label workflow-failure --state open --json number,title --jq "[.[] | select(.title == \"$TITLE\")][0].number // empty")
+          if [ "$OUTCOME" = success ]; then
+            if [ -n "$issue" ]; then gh issue close "$issue" --comment "Green again: $RUN_URL"; fi
+            exit 0
+          fi
+          if [ -n "$issue" ]; then
+            gh issue comment "$issue" --body "Still failing: $RUN_URL"
+          else
+            gh issue create --title "$TITLE" --label workflow-failure --body "The scheduled workflow \`$GITHUB_WORKFLOW\` failed. Run: $RUN_URL"
+          fi

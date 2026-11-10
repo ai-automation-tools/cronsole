@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
-  "receiptId": "7093e2d9-45fa-40c4-bd73-d2831f649891",
+  "receiptId": "031f3a75-5938-444f-9298-5d4b624b3c5c",
   "status": "current",
   "command": "deliver",
   "type": "dataflow",
   "input": "docs/diagrams/template-catalogs.json",
   "output": "docs/diagrams/template-catalogs.html",
   "specification": {
-    "sha256": "55cecfe8ed82ce98f021baf94e6d3948a93176572be92ab62b705c30f5ea9c66",
-    "bytes": 10139
+    "sha256": "2c4c0e70492f7a483df859d9caaa67e96460b5206e901e633d971dcd72c070ed",
+    "bytes": 10255
   },
   "artifact": {
-    "sha256": "a6a6d03685624f24f301a2c68ec4fd6b5a818df1cc8a1c14b20da4f856c4a44b",
-    "bytes": 840812
+    "sha256": "3aa17fe7178de939f4662d5759f172d5535f031d4b5810d438a8e64ee9956674",
+    "bytes": 840936
   }
 }

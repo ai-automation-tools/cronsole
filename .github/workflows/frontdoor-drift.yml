@@ -45,8 +45,11 @@ jobs:
 
       # The page also advertises the other repos' catalogs in EXTERNAL_SOURCES (since 2026-11-10).
       # Their own drift checks cannot see what only this page needs: CORS, and no id clash with ours.
-      - name: The other catalogs the page lists still load
+      # It also probes every public org repo's homepage for a catalog the list does not name.
+      - name: The other catalogs the page lists still load, and none is missing from it
         if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: node scripts/check-external-catalogs.mjs
 
       # While this workflow is red it keeps one open issue (label workflow-failure) up to date;

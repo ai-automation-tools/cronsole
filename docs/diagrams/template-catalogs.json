@@ -9,7 +9,7 @@
     "repository": {
       "url": "https://github.com/ai-automation-tools/cronsole",
       "provider": "github",
-      "revision": "c1aaa54f6b28c925ffd18c651f0aaceb5a3314d2"
+      "revision": "30bad861f38e6976f99b33b3d11cbfcdb51675b7"
     },
     "legend": {
       "entries": {
@@ -421,6 +421,7 @@
       "items": [
         "Each repo's CI fails when its generated catalog is stale, and its daily drift check hashes every served file",
         "Front door drift loads every catalog the gallery lists: the CORS header, every sha256, no id clash with Cronsole",
+        "It also probes every public org homepage for /registry/ and fails on a catalog the gallery does not list",
         "Recipe READMEs link to their gallery pages from a generated block; Edge-Radar and Edge Spectrum link from their docs"
       ]
     }

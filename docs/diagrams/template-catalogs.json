@@ -1,0 +1,428 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "Cronsole and its template catalogs",
+    "output": "template-catalogs.html",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/ai-automation-tools/cronsole",
+      "provider": "github",
+      "revision": "c1aaa54f6b28c925ffd18c651f0aaceb5a3314d2"
+    },
+    "legend": {
+      "entries": {
+        "security": {
+          "label": "sha256-checked before use"
+        },
+        "dashed": {
+          "label": "automated PR, opt-in, or a person's download"
+        }
+      }
+    }
+  },
+  "stages": [
+    {
+      "label": "Source repo"
+    },
+    {
+      "label": "Generated catalog"
+    },
+    {
+      "label": "Public host"
+    },
+    {
+      "label": "Readers"
+    },
+    {
+      "label": "Your Cronsole"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "batch",
+      "type": "backend",
+      "icon": "calendar",
+      "label": "Weekly template PR",
+      "sublabel": "automated job",
+      "tag": "automation",
+      "stage": 0,
+      "row": 0
+    },
+    {
+      "id": "cronsole",
+      "type": "backend",
+      "label": "cronsole",
+      "sublabel": "bundled.ts + packs.ts",
+      "tag": "Apache-2.0",
+      "stage": 0,
+      "row": 1,
+      "sources": [
+        {
+          "path": "backend/src/catalog/bundled.ts",
+          "line": 3261,
+          "label": "bundledCatalog"
+        }
+      ]
+    },
+    {
+      "id": "recipes",
+      "type": "backend",
+      "label": "recipes repo",
+      "sublabel": "build_registry.py",
+      "tag": "MIT",
+      "stage": 0,
+      "row": 2
+    },
+    {
+      "id": "edgeRadar",
+      "type": "backend",
+      "label": "edge-radar",
+      "sublabel": "build_cronsole_registry.py",
+      "tag": "MIT",
+      "stage": 0,
+      "row": 3
+    },
+    {
+      "id": "edgeSpectrum",
+      "type": "backend",
+      "label": "edge-spectrum",
+      "sublabel": "build-registry.mjs",
+      "tag": "Apache-2.0",
+      "stage": 0,
+      "row": 4
+    },
+    {
+      "id": "cronReg",
+      "type": "database",
+      "label": "registry/",
+      "sublabel": "templates + packs",
+      "stage": 1,
+      "row": 1,
+      "sources": [
+        {
+          "path": "registry/index.json",
+          "line": 1
+        }
+      ]
+    },
+    {
+      "id": "recReg",
+      "type": "database",
+      "label": "registry/",
+      "sublabel": "Registry v1",
+      "stage": 1,
+      "row": 2
+    },
+    {
+      "id": "erReg",
+      "type": "database",
+      "label": "site/registry/",
+      "sublabel": "Registry v1",
+      "stage": 1,
+      "row": 3
+    },
+    {
+      "id": "esReg",
+      "type": "database",
+      "label": "public/registry/",
+      "sublabel": "Registry v1",
+      "stage": 1,
+      "row": 4
+    },
+    {
+      "id": "cronHost",
+      "type": "cloud",
+      "label": "cronsole-site",
+      "sublabel": "GitHub Pages",
+      "stage": 2,
+      "row": 1,
+      "sources": [
+        {
+          "path": ".github/workflows/publish-registry.yml",
+          "line": 152,
+          "label": "git push"
+        }
+      ]
+    },
+    {
+      "id": "recHost",
+      "type": "cloud",
+      "label": "recipes site",
+      "sublabel": "Pages, /registry/",
+      "stage": 2,
+      "row": 2
+    },
+    {
+      "id": "erHost",
+      "type": "cloud",
+      "label": "edge-radar site",
+      "sublabel": "Vercel, /registry/",
+      "stage": 2,
+      "row": 3
+    },
+    {
+      "id": "esHost",
+      "type": "cloud",
+      "label": "edge-spectrum site",
+      "sublabel": "Vercel, /registry/",
+      "stage": 2,
+      "row": 4
+    },
+    {
+      "id": "catSrc",
+      "type": "backend",
+      "label": "Catalog source",
+      "sublabel": "bundled, or URL",
+      "tag": "app",
+      "stage": 3,
+      "row": 1,
+      "sources": [
+        {
+          "path": "backend/src/catalog/source.ts",
+          "line": 61,
+          "label": "buildCatalogSource"
+        }
+      ]
+    },
+    {
+      "id": "gallery",
+      "type": "frontend",
+      "label": "Template gallery",
+      "sublabel": "EXTERNAL_SOURCES",
+      "tag": "browser",
+      "stage": 3,
+      "row": 3,
+      "sources": [
+        {
+          "path": "registry-site/index.html",
+          "line": 698,
+          "label": "EXTERNAL_SOURCES"
+        },
+        {
+          "path": "registry-site/index.html",
+          "line": 1961,
+          "label": "addCatalog"
+        },
+        {
+          "path": "scripts/check-external-catalogs.mjs",
+          "line": 1,
+          "label": "daily check"
+        }
+      ]
+    },
+    {
+      "id": "sync",
+      "type": "backend",
+      "label": "catalogSync",
+      "sublabel": "core only",
+      "stage": 4,
+      "row": 1,
+      "sources": [
+        {
+          "path": "backend/src/catalog/catalogSync.ts",
+          "line": 61,
+          "label": "syncCatalogToDb"
+        }
+      ]
+    },
+    {
+      "id": "db",
+      "type": "database",
+      "label": "Template table",
+      "sublabel": "Postgres",
+      "stage": 4,
+      "row": 2,
+      "sources": [
+        {
+          "path": "backend/prisma/schema.prisma",
+          "line": 423,
+          "label": "managed"
+        }
+      ]
+    },
+    {
+      "id": "importRoute",
+      "type": "backend",
+      "label": "Import route",
+      "sublabel": "Templates tab",
+      "stage": 4,
+      "row": 3,
+      "sources": [
+        {
+          "path": "backend/src/routes/templates.ts",
+          "line": 117
+        }
+      ]
+    }
+  ],
+  "flows": [
+    {
+      "id": "f-batch",
+      "from": "batch",
+      "to": "cronsole",
+      "label": "a few templates/PR",
+      "variant": "dashed"
+    },
+    {
+      "id": "f-cron-build",
+      "from": "cronsole",
+      "to": "cronReg",
+      "label": "registry:build",
+      "variant": "emphasis"
+    },
+    {
+      "id": "f-rec-build",
+      "from": "recipes",
+      "to": "recReg",
+      "label": "generate",
+      "variant": "emphasis"
+    },
+    {
+      "id": "f-er-build",
+      "from": "edgeRadar",
+      "to": "erReg",
+      "label": "generate",
+      "variant": "emphasis"
+    },
+    {
+      "id": "f-es-build",
+      "from": "edgeSpectrum",
+      "to": "esReg",
+      "label": "generate",
+      "variant": "emphasis"
+    },
+    {
+      "id": "f-cron-pub",
+      "from": "cronReg",
+      "to": "cronHost",
+      "label": "Pages on merge"
+    },
+    {
+      "id": "f-rec-pub",
+      "from": "recReg",
+      "to": "recHost",
+      "label": "after release"
+    },
+    {
+      "id": "f-er-pub",
+      "from": "erReg",
+      "to": "erHost",
+      "label": "Vercel deploy"
+    },
+    {
+      "id": "f-es-pub",
+      "from": "esReg",
+      "to": "esHost",
+      "label": "Vercel deploy"
+    },
+    {
+      "id": "f-optin",
+      "from": "cronHost",
+      "to": "catSrc",
+      "label": "if URL is set",
+      "variant": "dashed"
+    },
+    {
+      "id": "f-own",
+      "from": "cronHost",
+      "to": "gallery",
+      "label": "own catalog"
+    },
+    {
+      "id": "f-rec-read",
+      "from": "recHost",
+      "to": "gallery",
+      "label": "fetched live"
+    },
+    {
+      "id": "f-er-read",
+      "from": "erHost",
+      "to": "gallery",
+      "label": "fetched live"
+    },
+    {
+      "id": "f-es-read",
+      "from": "esHost",
+      "to": "gallery",
+      "label": "fetched live"
+    },
+    {
+      "id": "f-core",
+      "from": "catSrc",
+      "to": "sync",
+      "label": "sha256-verified",
+      "variant": "security"
+    },
+    {
+      "id": "f-managed",
+      "from": "sync",
+      "to": "db",
+      "label": "core (managed)",
+      "variant": "emphasis"
+    },
+    {
+      "id": "f-download",
+      "from": "gallery",
+      "to": "importRoute",
+      "label": "download + import",
+      "variant": "dashed"
+    },
+    {
+      "id": "f-user",
+      "from": "importRoute",
+      "to": "db",
+      "label": "managed: false"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "One gallery, several catalogs",
+      "items": [
+        "Each repo generates its own Registry v1 catalog and publishes it at /registry/ on its own site",
+        "The gallery lists Cronsole's catalog plus every catalog in EXTERNAL_SOURCES, read live from each host",
+        "A change in a catalog repo reaches the gallery on that repo's next deploy, with no Cronsole release"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "The automation that grows it",
+      "items": [
+        "An automated weekly job adds a few extended templates to bundled.ts and packs.ts, regenerates registry/ and opens a PR",
+        "Merging is what publishes, so a batch that is not green opens as a draft",
+        "It reads the other catalogs to judge overlap, never uses their id prefixes and never writes to them",
+        "The other catalogs grow when their repos gain a recipe or job; their templates are generated, not written"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "What reaches your install",
+      "items": [
+        "Only Cronsole's own core templates arrive by themselves, through catalogSync",
+        "Everything else, including every external catalog, arrives when you download it and import it",
+        "Imported rows are managed: false, so catalog sync never prunes them"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Rules for external catalogs",
+      "items": [
+        "Never Built-in: the gallery forces core to false for any catalog but Cronsole's",
+        "Downloads fetch the exact bytes from the host the entry came from; only the app's opt-in catalog source checks sha256",
+        "A catalog that fails to load is named on the page; Cronsole's own still renders",
+        "Cronsole's catalog wins an id collision, so external ids carry their repo's prefix"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Keeping them honest",
+      "items": [
+        "Each repo's CI fails when its generated catalog is stale, and its daily drift check hashes every served file",
+        "Front door drift loads every catalog the gallery lists: the CORS header, every sha256, no id clash with Cronsole",
+        "Recipe READMEs link to their gallery pages from a generated block; Edge-Radar and Edge Spectrum link from their docs"
+      ]
+    }
+  ]
+}

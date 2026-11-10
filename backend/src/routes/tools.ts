@@ -95,6 +95,7 @@ import { parseTaskBundle, TaskImportError } from '../services/taskImport.js';
 import { createNativeTask, NativeTaskCreateError } from '../services/nativeTaskCreate.js';
 import { HttpError } from '../middleware/errorHandler.js';
 import { validateBody } from '../middleware/validate.js';
+import { makeAuthLimiter } from '../middleware/authLimiter.js';
 import { notifyTasksChanged } from '../ws/uiChannel.js';
 import {
   buildManifest,
@@ -162,6 +163,14 @@ import {
 } from '../tools/connectPack.js';
 
 const router = Router();
+
+/**
+ * The connect routes check a pasted token, key or URL against the outside
+ * service before saving it, so each call is an outbound request on Cronsole's
+ * behalf. One shared per-IP budget keeps a stolen session from using them as
+ * a key-checking proxy; 30 per 15 minutes is far past any real setup.
+ */
+const connectLimiter = makeAuthLimiter({ max: 30 });
 
 /**
  * Ceiling on one export. Not a performance limit — a sanity bound, so a
@@ -1201,6 +1210,7 @@ router.get('/platforms/github/connection', async (req: Request, res: Response) =
  */
 router.put(
   '/platforms/github/connection',
+  connectLimiter,
   validateBody(tokenInputSchema),
   async (req: Request, res: Response) => {
     const userId = (req as AuthRequest).user!.id;
@@ -2566,6 +2576,7 @@ router.get('/platforms/vercel/connection', async (req: Request, res: Response) =
  */
 router.put(
   '/platforms/vercel/connection',
+  connectLimiter,
   validateBody(vercelTokenInputSchema),
   async (req: Request, res: Response) => {
     const userId = (req as AuthRequest).user!.id;
@@ -2981,6 +2992,7 @@ router.get('/platforms/gemini/connection', async (req: Request, res: Response) =
  */
 router.put(
   '/platforms/gemini/connection',
+  connectLimiter,
   validateBody(geminiKeyInputSchema),
   async (req: Request, res: Response) => {
     const userId = (req as AuthRequest).user!.id;
@@ -3492,6 +3504,7 @@ router.get('/platforms/n8n/connection', async (req: Request, res: Response) => {
  */
 router.put(
   '/platforms/n8n/connection',
+  connectLimiter,
   validateBody(n8nConnectionInputSchema),
   async (req: Request, res: Response) => {
     const userId = (req as AuthRequest).user!.id;
@@ -3600,6 +3613,7 @@ router.put(
  */
 router.put(
   '/platforms/n8n/folder-db',
+  connectLimiter,
   validateBody(n8nFolderDbInputSchema),
   async (req: Request, res: Response) => {
     const userId = (req as AuthRequest).user!.id;
@@ -3638,6 +3652,7 @@ router.put(
  */
 router.put(
   '/platforms/n8n/mcp',
+  connectLimiter,
   validateBody(n8nMcpTokenInputSchema),
   async (req: Request, res: Response) => {
     const userId = (req as AuthRequest).user!.id;

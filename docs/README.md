@@ -48,7 +48,7 @@ New to Cronsole? Follow this path in order:
 | Folder | What's inside |
 |:---|:---|
 | [**📄 reports/**](reports/README.md) | Task templates (the two-tier catalog and the Registry v1 schema) and worked API examples. |
-| [**🧭 diagrams/**](diagrams/README.md) | The source data-flow diagram the [homepage](https://cronsole.ai-automation-tools.dev/#sec-flow) shows: platforms → connectors → sync → PostgreSQL → dashboard, plus the native scheduler. Interactive, every node linked to its code, and drift-checked in CI. |
+| [**🧭 diagrams/**](diagrams/README.md) | The source data-flow diagram the [homepage](https://cronsole.ai-automation-tools.dev/#sec-flow) shows: platforms → connectors → sync → PostgreSQL → dashboard, plus the native scheduler; and how templates reach you from Cronsole's catalog and the other repos' catalogs the gallery lists. Interactive, every node linked to its code, and drift-checked in CI. |
 | [**🔌 mcp-server.md**](mcp-server.md) | The MCP server on one page: entry file, stdio transport, install line, env vars, and every tool with a one-line purpose (the two gated delete tools marked). |
 | [**🧠 adr/**](adr/README.md) | Architecture decision records — the template registry, the four native job types, and per-job secrets. Each dated, and kept as written once it ships. |
 | [**🛠️ agent-tools/**](agent-tools/README.md) | The AI tooling Cronsole is built with — MCP servers, CLIs, and subagents. |

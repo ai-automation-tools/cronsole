@@ -1,25 +1,26 @@
 #!/usr/bin/env node
 /**
- * Build and drift-check the source data-flow diagram (docs/diagrams/).
+ * Build and drift-check the diagrams in docs/diagrams/.
  *
- * docs/diagrams/source-data-flow.json is the only file to edit. Every node
- * cites the code it describes (path + line range) at the commit pinned in
+ * Each diagram's docs/diagrams/<stem>.json is the only file to edit. Every node
+ * that describes this repo's code cites it (path + line range) at the commit pinned in
  * `meta.repository.revision`. A build renders it with Archify
- * (https://github.com/tt-a1i/archify) into source-data-flow.html (interactive;
- * source links go to GitHub at that commit) and source-data-flow.png (the
- * homepage image; both are copied into registry-site/, whose flat files are what
- * the homepage publishes), and records the git blob of every cited file at the pinned
- * commit in source-data-flow.sources.lock.json.
+ * (https://github.com/tt-a1i/archify) into <stem>.html (interactive; source
+ * links go to GitHub at that commit) and <stem>.png (a static snapshot; for a
+ * diagram the homepage embeds, both are copied into registry-site/, whose flat
+ * files are what the homepage publishes), and records the git blob of every
+ * cited file at the pinned commit in <stem>.sources.lock.json.
  *
  * The check compares those blobs with the staged copies. A cited file that
  * changed since the pin may have moved or changed what a node describes, so the
  * diagram is stale until someone re-reads that code, fixes the JSON and
  * rebuilds with --pin-head.
  *
- *   node scripts/build-diagram.mjs              rebuild at the pinned commit
+ *   node scripts/build-diagram.mjs              rebuild every diagram at its pinned commit
  *   node scripts/build-diagram.mjs --pin-head   re-pin to HEAD, then rebuild
  *   node scripts/build-diagram.mjs --check      drift only, changes nothing; exit 1 if stale
  *   node scripts/build-diagram.mjs --hook       like --check, always exit 0 (CI warns with it)
+ *   ... --only <stem>                           limit any of the above to one diagram
  *
  * Building needs Chrome and the archify skill (default
  * ~/.claude/skills/archify/bin/archify.mjs; override with --archify <path>).
@@ -35,22 +36,28 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const DIAGRAMS = join(ROOT, 'docs', 'diagrams');
-const STEM = 'source-data-flow';
-const KIND = 'dataflow';
-const NAME = 'sources-diagram';
-const SOURCE = join(DIAGRAMS, `${STEM}.json`);
-const HTML = join(DIAGRAMS, `${STEM}.html`);
-const PNG = join(DIAGRAMS, `${STEM}.png`);
-const RECEIPT = join(DIAGRAMS, `${STEM}.delivery.json`);
-const LOCK = join(DIAGRAMS, `${STEM}.sources.lock.json`);
-const BUILD_DIR = join(DIAGRAMS, '.build');
 const HOMEPAGE = join(ROOT, 'registry-site');
-const SCREENSHOT = `${STEM}.visual-check.2048x1320.dark.png`;
+
+/** `name` is what the check prints, and what the weekly drift check reads; keep it stable. */
+const ALL = [
+  { stem: 'source-data-flow', kind: 'dataflow', name: 'sources-diagram', homepage: true },
+  { stem: 'template-catalogs', kind: 'dataflow', name: 'catalogs-diagram', homepage: false },
+];
 
 const git = (...args) =>
   execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 const readJson = (p) => JSON.parse(readFileSync(p, 'utf8'));
 const rel = (p) => relative(ROOT, p).replaceAll('\\', '/');
+
+function paths({ stem }) {
+  const at = (ext) => join(DIAGRAMS, `${stem}${ext}`);
+  return {
+    source: at('.json'), html: at('.html'), png: at('.png'),
+    receipt: at('.delivery.json'), lock: at('.sources.lock.json'),
+    buildDir: join(DIAGRAMS, '.build', stem),
+    screenshot: `${stem}.visual-check.2048x1320.dark.png`,
+  };
+}
 
 /** Blob id of `path` at `rev` ('' = the index), or null if it doesn't exist there. */
 function blob(rev, path) {
@@ -64,24 +71,27 @@ function blob(rev, path) {
 const citedPaths = (spec) =>
   [...new Set((spec.nodes ?? []).flatMap((n) => (n.sources ?? []).map((s) => s.path)))].sort();
 
-function findIssues() {
-  if (!existsSync(RECEIPT) || !existsSync(LOCK)) {
-    return ['the diagram has never been built; run node scripts/build-diagram.mjs'];
+function findIssues(d) {
+  const p = paths(d);
+  if (!existsSync(p.receipt) || !existsSync(p.lock)) {
+    return [`the diagram has never been built; run node scripts/build-diagram.mjs --only ${d.stem}`];
   }
   const issues = [];
-  const built = readJson(RECEIPT).specification.sha256;
-  if (createHash('sha256').update(readFileSync(SOURCE)).digest('hex') !== built) {
-    issues.push(`${STEM}.json changed since the last build; rebuild it`);
+  const built = readJson(p.receipt).specification.sha256;
+  if (createHash('sha256').update(readFileSync(p.source)).digest('hex') !== built) {
+    issues.push(`${d.stem}.json changed since the last build; rebuild it`);
   }
-  const spec = readJson(SOURCE);
-  const lock = readJson(LOCK);
+  const spec = readJson(p.source);
+  const lock = readJson(p.lock);
   if (lock.revision !== spec.meta.repository.revision) {
     issues.push('the pinned revision changed since the last build; rebuild it');
   }
-  for (const built of [HTML, PNG]) {
-    const copy = join(HOMEPAGE, basename(built));
-    if (!existsSync(copy) || !readFileSync(copy).equals(readFileSync(built))) {
-      issues.push(`registry-site/${basename(built)} differs from the build; rebuild it`);
+  if (d.homepage) {
+    for (const file of [p.html, p.png]) {
+      const copy = join(HOMEPAGE, basename(file));
+      if (!existsSync(copy) || !readFileSync(copy).equals(readFileSync(file))) {
+        issues.push(`registry-site/${basename(file)} differs from the build; rebuild it`);
+      }
     }
   }
   const changed = [];
@@ -108,48 +118,59 @@ function fail(message) {
   process.exit(1);
 }
 
-function build(pinHead, script) {
-  if (!existsSync(script)) fail(`Archify not found at ${script}; install the archify skill or pass --archify`);
-  const spec = readJson(SOURCE);
+function build(d, pinHead, script) {
+  const p = paths(d);
+  const spec = readJson(p.source);
   const cited = citedPaths(spec);
   if (pinHead) {
     const dirty = git('status', '--porcelain', '--', ...cited);
     if (dirty) fail(`Commit the cited files first; evidence is pinned to committed bytes:\n${dirty}`);
     spec.meta.repository.revision = git('rev-parse', 'HEAD');
-    writeFileSync(SOURCE, JSON.stringify(spec, null, 2) + '\n', 'utf8');
+    writeFileSync(p.source, JSON.stringify(spec, null, 2) + '\n', 'utf8');
   }
   const revision = spec.meta.repository.revision;
 
-  rmSync(BUILD_DIR, { recursive: true, force: true });
-  const result = archify(script, 'finalize', KIND, rel(SOURCE), rel(HTML), '--repo-root', '.',
-    '--quality', 'showcase', '--json', '--out-dir', rel(BUILD_DIR));
+  rmSync(p.buildDir, { recursive: true, force: true });
+  const result = archify(script, 'finalize', d.kind, rel(p.source), rel(p.html), '--repo-root', '.',
+    '--quality', 'showcase', '--json', '--out-dir', rel(p.buildDir));
   if (result.status !== 0) {
-    fail(`Archify finalize failed; see ${rel(BUILD_DIR)}/${STEM}.finalize-summary.json\n` +
+    fail(`Archify finalize failed; see ${rel(p.buildDir)}/${d.stem}.finalize-summary.json\n` +
       (result.stdout ?? '').slice(-2000));
   }
-  const visual = archify(script, 'visual-check', rel(HTML), '--summary', '--out-dir', rel(join(BUILD_DIR, 'visual')));
-  const shot = join(BUILD_DIR, 'visual', SCREENSHOT);
+  const visualDir = join(p.buildDir, 'visual');
+  const visual = archify(script, 'visual-check', rel(p.html), '--summary', '--out-dir', rel(visualDir));
+  const shot = join(visualDir, p.screenshot);
   if (visual.status !== 0 || !existsSync(shot)) fail(`Archify visual-check failed:\n${(visual.stdout ?? '').slice(-2000)}`);
-  copyFileSync(shot, PNG);
-  for (const built of [HTML, PNG]) copyFileSync(built, join(HOMEPAGE, basename(built)));
+  copyFileSync(shot, p.png);
+  if (d.homepage) for (const file of [p.html, p.png]) copyFileSync(file, join(HOMEPAGE, basename(file)));
 
   // Archify records absolute paths; a public repo must not carry the builder's disk layout.
-  const receipt = readJson(RECEIPT);
-  Object.assign(receipt, { input: rel(SOURCE), output: rel(HTML) });
-  writeFileSync(RECEIPT, JSON.stringify(receipt, null, 2) + '\n', 'utf8');
+  const receipt = readJson(p.receipt);
+  Object.assign(receipt, { input: rel(p.source), output: rel(p.html) });
+  writeFileSync(p.receipt, JSON.stringify(receipt, null, 2) + '\n', 'utf8');
 
-  const files = Object.fromEntries(cited.map((p) => [p, blob(revision, p)]));
-  writeFileSync(LOCK, JSON.stringify({ revision, files }, null, 2) + '\n', 'utf8');
-  console.log(`Built ${rel(HTML)} and ${rel(PNG)} at ${revision.slice(0, 8)}`);
+  const files = Object.fromEntries(cited.map((f) => [f, blob(revision, f)]));
+  writeFileSync(p.lock, JSON.stringify({ revision, files }, null, 2) + '\n', 'utf8');
+  console.log(`Built ${rel(p.html)} and ${rel(p.png)} at ${revision.slice(0, 8)}`);
 }
 
 const args = process.argv.slice(2);
 const flag = (f) => args.includes(f);
+const value = (f) => (args.indexOf(f) >= 0 ? args[args.indexOf(f) + 1] : undefined);
+const only = value('--only');
+const selected = only ? ALL.filter((d) => d.stem === only) : ALL;
+if (!selected.length) fail(`No diagram called ${only}. Diagrams: ${ALL.map((d) => d.stem).join(', ')}`);
+
 if (flag('--check') || flag('--hook')) {
-  const issues = findIssues();
-  for (const issue of issues) console.log(`ISSUE: ${NAME}: ${issue}`);
-  if (!issues.length) console.log(`OK: ${NAME} is current`);
-  process.exit(issues.length && flag('--check') ? 1 : 0);
+  let stale = false;
+  for (const d of selected) {
+    const issues = findIssues(d);
+    for (const issue of issues) console.log(`ISSUE: ${d.name}: ${issue}`);
+    if (!issues.length) console.log(`OK: ${d.name} is current`);
+    stale ||= issues.length > 0;
+  }
+  process.exit(stale && flag('--check') ? 1 : 0);
 }
-const at = args.indexOf('--archify');
-build(flag('--pin-head'), at >= 0 ? args[at + 1] : join(homedir(), '.claude', 'skills', 'archify', 'bin', 'archify.mjs'));
+const script = value('--archify') ?? join(homedir(), '.claude', 'skills', 'archify', 'bin', 'archify.mjs');
+if (!existsSync(script)) fail(`Archify not found at ${script}; install the archify skill or pass --archify`);
+for (const d of selected) build(d, flag('--pin-head'), script);

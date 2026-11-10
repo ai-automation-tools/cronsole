@@ -41,6 +41,8 @@ export function errorHandler(err: unknown, req: Request, res: Response, next: Ne
     return res.status(413).json({ error: 'Request body is too large' });
   }
 
-  console.error(`[${req.method} ${req.originalUrl}]`, err);
+  // The URL is client-controlled: keep it out of the format string, or a `%o`
+  // in a path would consume `err` and the stack would never reach the log.
+  console.error('[%s %s]', req.method, req.originalUrl, err);
   res.status(500).json({ error: 'Internal server error' });
 }

@@ -39,6 +39,39 @@ views:
   backend honours — dropping `headers` turned an authenticated check into a bare `GET {{url}}`,
   which reads as complete and is not. Adding a field to `HttpProbe` obliges a line here.
 
+## Other catalogs
+
+The page also lists **Registry v1 catalogs other repos publish**, named in `EXTERNAL_SOURCES` in
+the script (since 2026-11-10: `ai-automation-recipes`, served at
+`https://ai-automation-recipes.ai-automation-tools.dev/registry/` by that repo's Homepage workflow,
+and `edge-radar` and `edge-spectrum`, each served at `/registry/` on its Vercel site).
+Each is fetched live from its own host, so a change there shows up here with no Cronsole release and
+never touches `registry/`, `bundled.ts` or `catalogSync`. Their templates are import-only. The rules:
+
+- **An external template is never Built-in.** `core` is forced false on load, and the detail page
+  reads availability from the index entry, not the template file, so a catalog cannot claim a
+  template ships with Cronsole.
+- **Every entry and pack keeps the base it came from** (`_base`, `base`), so a download fetches the
+  bytes that catalog published, not a same-named path on this host.
+- **Cronsole's own catalog wins a collision** on a template or pack id, and the page states how many
+  entries it skipped.
+- **A catalog that fails to load is named, never hidden.** Home, Browse and Collections say it could
+  not be loaded; Cronsole's own catalog renders as before. Only Cronsole's own `index.json` can fail
+  the page.
+- External templates carry an amber source badge, a *Catalog* facet appears once a second catalog
+  has templates (`#/browse?source=<key>` deep-links it), the Home stat strip counts Cronsole's own
+  catalog only, and Collections groups packs under a heading per catalog.
+
+The whole picture, from each repo's build to your install, is the
+[template catalogs diagram](../docs/diagrams/README.md#-template-catalogs). Front door drift
+(`scripts/check-external-catalogs.mjs`) loads every listed catalog daily the way this page does: the
+CORS header, every file's sha256, and no id that collides with Cronsole's.
+
+To add a catalog: its host must serve `index.json`, `templates/` and `packs/` with
+`Access-Control-Allow-Origin: *` (GitHub Pages does), its ids should not collide with Cronsole's,
+and the entry needs `key`, `name`, `base`, `home` and a one-line `blurb`. To preview with a local
+copy, serve it with that header and point `base` at it in a copy of the page.
+
 Every template offers **Download JSON** and **Copy JSON**, which flow into the app's shipped
 **Templates → Import** path (`POST /api/templates/import`). Aesthetic direction (since 2026-10-05): the org design
 vocabulary shared with `ai-automation-tools.dev`, Edge-Radar and Edge Spectrum — `#060606` ground

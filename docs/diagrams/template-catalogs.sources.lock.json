@@ -1,0 +1,14 @@
+{
+  "revision": "c1aaa54f6b28c925ffd18c651f0aaceb5a3314d2",
+  "files": {
+    ".github/workflows/publish-registry.yml": "db5d207cf67346400657e4a35edc779ba1cfd3a9",
+    "backend/prisma/schema.prisma": "1feef7d34d32d0ed96eb7f1d21aaa778df91aaba",
+    "backend/src/catalog/bundled.ts": "562304edda17a19bf87cf7a91df5fe60258cb085",
+    "backend/src/catalog/catalogSync.ts": "401436f83cf237617dc5f6ad26c01fcdb2bdafb6",
+    "backend/src/catalog/source.ts": "adddfc92eea5629e57dc55074b07febfb7b03475",
+    "backend/src/routes/templates.ts": "9e5874b26a86cfee962a7cfed43eda4913cd4870",
+    "registry-site/index.html": "623a4d2665994051888a553612f99c6a4cd2ae0a",
+    "registry/index.json": "d45bcd95c1cff90f52ec0544c8606ba0a2ce2741",
+    "scripts/check-external-catalogs.mjs": "a5254c6ccf993a12e8cce7ea61bb585e4499f306"
+  }
+}

@@ -13,9 +13,18 @@
  * template and pack file against the sha256 in that index, and compares ids with registry/.
  * Cronsole's own catalog is registry-drift.yml's job, not this one's.
  *
+ * Then the other direction (since 2026-11-10): a catalog the list does NOT name. It asks GitHub for
+ * every public, unarchived repo in the org, and for each homepage probes <origin>/registry/index.json.
+ * A Registry v1 index there that EXTERNAL_SOURCES does not list fails the run, so a new project's
+ * catalog cannot sit published and unadvertised. A homepage that is down, or answers with anything but
+ * a Registry v1 index (an SPA fallback page, a 404), is not a catalog and is skipped. Set GH_TOKEN to
+ * lift GitHub's unauthenticated rate limit (the workflow passes its own token).
+ *
  *   node scripts/check-external-catalogs.mjs
  *
- * Exit 0 = every listed catalog loads. Exit 1 = one does not, or the list could not be read.
+ * Exit 0 = every listed catalog loads and no unlisted one exists. Exit 1 = a listed catalog does not
+ * load, the list could not be read, an org homepage serves a catalog the list does not name, or the
+ * org's repos could not be listed.
  */
 
 import { createHash } from 'node:crypto';
@@ -65,4 +74,47 @@ for (const c of catalogs) {
   for (const p of problems) console.log(`      ${p}`);
 }
 console.log(`\n${catalogs.length} external catalog(s) listed by the gallery, ${failed} failing.`);
-process.exit(failed ? 1 : 0);
+
+// ── Discovery: an org homepage serving a catalog the list does not name ──
+const ORG = 'ai-automation-tools';
+const OWN_HOST = 'cronsole.ai-automation-tools.dev';
+const listedHosts = new Set(catalogs.map((c) => new URL(c.base).host));
+const ghHeaders = { Accept: 'application/vnd.github+json', ...(process.env.GH_TOKEN ? { Authorization: `Bearer ${process.env.GH_TOKEN}` } : {}) };
+const repos = [];
+try {
+  for (let page = 1; ; page++) {
+    const res = await fetch(`https://api.github.com/orgs/${ORG}/repos?type=public&per_page=100&page=${page}`, { headers: ghHeaders });
+    if (!res.ok) throw new Error(`GitHub answered HTTP ${res.status}`);
+    const batch = await res.json();
+    repos.push(...batch);
+    if (batch.length < 100) break;
+  }
+} catch (err) {
+  // Not knowing which homepages exist is a failed check, not an org with no catalogs.
+  console.log(`FAIL  could not list ${ORG}'s repos to look for unlisted catalogs: ${err.message}`);
+  process.exit(1);
+}
+const unlisted = [];
+let probed = 0;
+for (const r of repos) {
+  if (r.archived || !r.homepage) continue;
+  let origin;
+  try { origin = new URL(r.homepage).origin; } catch { continue; }
+  if (!origin.startsWith('https://')) continue;
+  const host = new URL(origin).host;
+  if (host === OWN_HOST || listedHosts.has(host)) continue;
+  probed++;
+  try {
+    const res = await fetch(`${origin}/registry/index.json`, { signal: AbortSignal.timeout(15000) });
+    if (!res.ok) continue;
+    const index = await res.json();
+    if (index?.registryVersion === '1.0' && Array.isArray(index.templates) && index.templates.length) {
+      unlisted.push({ repo: r.name, base: `${origin}/registry/`, n: index.templates.length });
+    }
+  } catch { /* down, slow, or not JSON: not a catalog */ }
+}
+for (const u of unlisted) {
+  console.log(`FAIL  ${u.repo}  ${u.base}  serves ${u.n} template(s) the gallery does not list; add it to EXTERNAL_SOURCES`);
+}
+console.log(`${probed} other org homepage(s) probed for /registry/, ${unlisted.length} unlisted catalog(s).`);
+process.exit(failed || unlisted.length ? 1 : 0);

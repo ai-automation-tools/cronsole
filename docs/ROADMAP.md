@@ -2538,6 +2538,34 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
       Sources: <https://docs.openclaw.ai/cli/cron>, <https://docs.openclaw.ai/automation/cron-jobs>,
       <https://docs.openclaw.ai/automation/cron-jobs/managing-jobs>.
 
+- [ ] 🔒 Needs owner — **OpenAI Agents API automations — hosted controller** *(found by the Source
+      Scout 2026-11-10)*. **What:** OpenAI's beta Agents API has an `automations` resource: a
+      scheduled run of an agent session, created over REST. **Why it is a door:** the guide documents
+      the whole verb set on `/v1/agents/automations` — `POST` create, `GET` list (filter by
+      `session_id`), `GET /{id}`, update, `POST …/pause` and `…/resume`, `DELETE`, and
+      `POST …/invocations` (run now, "a manual invocation"). The schedule is a **five-field cron plus a
+      named IANA zone** (`UTC` allowed) or a one-time `run_at` Unix timestamp — Gemini's shape, so
+      `shiftCronToUtc` applies as-is. Auth is `Authorization: Bearer $OPENAI_API_KEY` plus the header
+      `OpenAI-Beta: agents=v1`. **Rank:** OpenAI's ChatGPT is #1 on both signals read: 79.4% of chatbot web
+      traffic in Aug 2026 ([StatCounter](https://gs.statcounter.com/ai-chatbot-market-share/all/worldwide/))
+      and 46.4% of monthly users at end of May 2026 (Sensor Tower, as reported by
+      [Business Today](https://businesstoday.in/technology/artificial-intelligence/story/chatgpts-dominance-is-fading-new-data-shows-below-50-drops-in-market-share-537476-2026-06-17)).
+      **Not what ChatGPT Tasks / Codex schedules are:** the page never mentions ChatGPT or Codex, so
+      this reads only automations made through the Agents API; the 👀 Watching lines for those two stay.
+      **Size:** about Gemini-sized (same CRUD + cron/zone + run-now shape, no OAuth). **Open
+      questions:** (1) the guide's invocation `status` is `queued` | `completed` and says a completed
+      delivery is not a completed agent run — outcomes are read from the session's events, so is health
+      `unknown` (Vercel's case) or scored from the session? (2) no list-invocations call was seen on
+      the page read; (3) it is `beta` behind a header, so `unsupportedVerbs` and the descriptor need a
+      re-check at build time; (4) an API key is account-wide: can a read-only observer key be used
+      (not documented)? **Done when:** an automation created via the API appears in Cronsole with its
+      cron/zone, `pause`/`resume`/`run`/`delete` round-trip, `access` is declared, and the source's
+      guide in `docs/user-guides/sources/` is written (**🎯 Best for**, **🧰 Capabilities at a glance**,
+      **🚫 When to use something else**). *Best-for first draft:* a daily digest agent
+      (`0 13 * * *` UTC, the guide's own periodic example), a one-off reminder run (`type: "once"`),
+      and a paused-until-needed maintenance agent fired by *Run now*.
+      Source: <https://developers.openai.com/api/docs/guides/agents-api/sessions/automations>.
+
 <a id="-watching--ai-tools-that-schedule-work-but-have-no-door-yet"></a>
 
 #### 👀 Watching — AI tools that schedule work but have no door yet
@@ -2545,12 +2573,15 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
 - **Hermes** (local harness, no ranking; official docs) — schedules: `every 2h`, `weekdays at 9am`,
   5-field cron, ISO one-shots, run by the gateway daemon from `~/.hermes/cron/jobs.json`. Missing: a
   documented machine-readable output (`--json`) on `hermes cron list` / `runs` / `status` — the
-  CLI reference documents none, and the docs advise against reading the jobs file directly; no
-  timezone setting is documented either. Has `list`, `pause`, `resume`, `run`, `runs`, `status`.
-  Checked 2026-10-27 (unchanged), <https://hermes-agent.nousresearch.com/docs/user-guide/features/cron>.
+  page documents none, and the docs advise against reading the jobs file directly. Has `list`,
+  `pause`, `resume`, `run`, `runs`, `status`. **2026-11-10: a timezone is now documented** (a
+  profile `timezone:` default, or `--timezone <IANA>` per job), which answers the old zone
+  question. A third-party guide lists an API-server `GET /api/jobs` (list, pause, resume, run) but
+  the official page read does not, so it is unconfirmed. Checked 2026-11-10,
+  <https://hermes-agent.nousresearch.com/docs/user-guide/features/cron>.
 - **Kimi** (rank not in the top four of Business Today's June 2026 visit ranking; no global figure
   found) — schedules: daily, weekly, monthly or one-time prompts, cloud or in the Kimi Work desktop
-  app. Missing: any API or CLI; the help page mentions neither. Checked 2026-10-27 (unchanged),
+  app. Missing: any API or CLI; the help page mentions neither. Checked 2026-11-10 (unchanged),
   <https://www.kimi.com/en/help/features/scheduled-tasks>.
 - **Perplexity** (no global rank found this run) — schedules: recurring background Scheduled Tasks on
   the Automations dashboard (replaced Perplexity Tasks). Missing: any API. Checked 2026-10-13,
@@ -2561,12 +2592,23 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
 - **Cursor Automations** (no rank found this run) — schedules: preset or cron-expression triggers,
   plus Slack / PR / webhook triggers. Missing: a documented list API (the docs page read names
   none). 2026-10-27: the page names an "API or Terraform provider" that creates automations but
-  documents no list or read call; webhook triggers only start runs. Checked 2026-10-27,
+  documents no list or read call; webhook triggers only start runs. Still true 2026-11-10 (a forum
+  request says scheduled agents are not addressable from API/MCP). Checked 2026-11-10,
   <https://cursor.com/docs/cloud-agent/automations>.
 - **Codex scheduled tasks** (inside ChatGPT, rank 1 by traffic) — schedules: UI controls or an RFC
   5545 `RRULE`; event triggers from Gmail, Slack and GitHub. Missing: any list API or CLI — the docs
-  say the CLI and IDE extension have no management interface. Checked 2026-10-13,
-  <https://learn.chatgpt.com/docs/automations?surface=app>.
+  say the CLI and IDE extension have no management interface. Checked 2026-11-10 (unchanged).
+  Note OpenAI's separate Agents API *does* list automations (see the queued item above) but
+  covers only automations made through that API, not these. <https://learn.chatgpt.com/docs/automations?surface=app>.
+- **Jules** (Google; no rank found) — schedules: recurring Scheduled Tasks managed from a Scheduled
+  tab in the dashboard. Missing: a schedules resource — the v1alpha reference lists only sources,
+  sessions and activities. Moved here from the quick-links-only line above so it is dated and
+  re-checked. Checked 2026-11-10, <https://jules.google/docs/scheduled-tasks/>,
+  <https://jules.google/docs/api/reference/>.
+- **Microsoft Copilot Cowork** (no rank found this run) — schedules: natural-language scheduled
+  prompts and event-driven tasks in a Scheduled view (edit, pause, resume, delete); preview. Missing:
+  any list API found. Checked 2026-11-10,
+  <https://support.microsoft.com/microsoft-365-copilot/cowork-manage-tasks-schedule-prompts>.
 - **DeepSeek** — no first-party scheduled-task feature found for its chat app (only third-party
   extensions). Not watched as a source; a DeepSeek harness whose jobs are Task Scheduler tasks is
   already covered by Windows. Checked 2026-10-13.

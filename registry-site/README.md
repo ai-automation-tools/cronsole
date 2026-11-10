@@ -43,7 +43,8 @@ views:
 
 The page also lists **Registry v1 catalogs other repos publish**, named in `EXTERNAL_SOURCES` in
 the script (since 2026-11-10: `ai-automation-recipes`, served at
-`https://ai-automation-recipes.ai-automation-tools.dev/registry/` by that repo's Homepage workflow).
+`https://ai-automation-recipes.ai-automation-tools.dev/registry/` by that repo's Homepage workflow,
+and `edge-radar` and `edge-spectrum`, each served at `/registry/` on its Vercel site).
 Each is fetched live from its own host, so a change there shows up here with no Cronsole release and
 never touches `registry/`, `bundled.ts` or `catalogSync`. Their templates are import-only. The rules:
 

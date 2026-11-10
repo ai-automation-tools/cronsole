@@ -44,6 +44,11 @@ github.com/ai-automation-tools/cronsole-site  → https://cronsole.ai-automation
 catalogSync  → DB (boot + interval)
 ```
 
+The gallery also lists **other repos' catalogs** (`EXTERNAL_SOURCES` in `registry-site/index.html`;
+first: `ai-automation-recipes`), read live from their own hosts. They never enter `registry/`,
+`bundled.ts` or `catalogSync`: import-only, never *Built-in*. See
+[`registry-site/README.md`](../../../registry-site/README.md#other-catalogs).
+
 ## Core vs. extended — the distribution tiers
 
 Templates carry an optional **`core`** flag. **Current split: 7 core + 59 extended = 66**

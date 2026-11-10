@@ -213,6 +213,11 @@
     .badge-runtime { color: var(--ink-2); }
     .badge-core { color: var(--phosphor); border-color: color-mix(in srgb, var(--phosphor) 30%, transparent); background: var(--phosphor-soft); }
     .badge-ext { color: var(--cyan); border-color: color-mix(in srgb, var(--cyan) 30%, transparent); background: var(--cyan-soft); }
+    /* A template from another catalog: provenance, in the one colour no other badge uses. */
+    .badge-src { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 35%, transparent); background: color-mix(in srgb, var(--amber) 12%, transparent); }
+    .catalog-note { font-size: 13px; color: var(--ink-2); margin-top: 14px; line-height: 1.6; }
+    .catalog-note.warn { color: var(--amber); }
+    .catalog-note svg { width: 14px; height: 14px; vertical-align: -2px; }
     .tag {
       font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); border: 1px solid var(--line);
       padding: 2px 7px; border-radius: 5px; cursor: pointer; transition: color .15s, border-color .15s, background .15s;
@@ -673,6 +678,37 @@
     var INDEX_URL = "./index.json";
     var ASSET_BASE = "./";           // set to REGISTRY_BASE if the local index is absent
 
+    /**
+     * Other catalogs this page lists beside Cronsole's own (since 2026-11-10).
+     *
+     * Each is a Registry v1 artifact its own repo publishes and keeps current, read
+     * live from that host: a change there reaches this page with no Cronsole release,
+     * and Cronsole's registry, bundled.ts and catalogSync never see it. Every entry
+     * and pack remembers the base it came from, so a download fetches the bytes that
+     * catalog published. Three rules:
+     *
+     *  - An external template is never "Built-in". Only Cronsole's own catalog decides
+     *    what ships in the app, so `core` is forced false whatever the index says.
+     *  - Cronsole's own catalog wins an id or pack-id collision, and the page says how
+     *    many entries it skipped rather than dropping them quietly.
+     *  - A catalog that fails to load is named where its templates would have been.
+     *    It never blanks the page: Cronsole's own catalog still renders.
+     */
+    var OWN_SOURCE = { key: "cronsole", name: "Cronsole" };
+    var EXTERNAL_SOURCES = [
+      { key: "ai-automation-recipes", name: "AI Automation Recipes",
+        base: "https://ai-automation-recipes.ai-automation-tools.dev/registry/",
+        home: "https://ai-automation-recipes.ai-automation-tools.dev/",
+        blurb: "Scheduled agent automations that research, write, build, draw and compose. MIT." }
+    ];
+    var SOURCE_NOTES = [];           // { source, text, warn }: what loading each external catalog did
+    function sourceByKey(k) {
+      if (k === OWN_SOURCE.key) return OWN_SOURCE;
+      for (var i = 0; i < EXTERNAL_SOURCES.length; i++) if (EXTERNAL_SOURCES[i].key === k) return EXTERNAL_SOURCES[i];
+      return null;
+    }
+    function isExternal(t) { return !!t && !!t._source && t._source !== OWN_SOURCE.key; }
+
     var LINKS = {
       appRepo: "https://github.com/ai-automation-tools/cronsole",
       demo: "https://cronsole-demo.ai-automation-tools.dev/",
@@ -823,7 +859,7 @@
     // Built from the registry at load time (see the fetch at the bottom).
     var COLLECTIONS = [];
 
-    function buildCollections(packs) {
+    function buildCollections(packs, source, base) {
       return (packs || []).map(function (p) {
         var style = PACK_STYLE[p.id] || DEFAULT_PACK_STYLE;
         var ids = p.templateIds || [];
@@ -832,6 +868,8 @@
           title: p.name,
           tagline: p.description || "",
           path: p.path,
+          base: base,
+          source: (source || OWN_SOURCE).key,
           templateIds: ids,
           icon: style.icon, glow: style.glow, iconBg: style.iconBg, iconFg: style.iconFg,
           match: function (t) { return ids.indexOf(t.id) !== -1; }
@@ -849,7 +887,7 @@
     // so it imports in one step.
     function downloadPack(coll) {
       if (!coll || !coll.path) { toast("This pack has no bundle in the registry.", "err"); return; }
-      fetch(ASSET_BASE + coll.path).then(function (r) {
+      fetch((coll.base || ASSET_BASE) + coll.path).then(function (r) {
         if (!r.ok) throw new Error("HTTP " + r.status);
         return r.text();
       }).then(function (text) {
@@ -865,7 +903,7 @@
 
     function copyPack(coll) {
       if (!coll || !coll.path) { toast("This pack has no bundle in the registry.", "err"); return; }
-      fetch(ASSET_BASE + coll.path).then(function (r) {
+      fetch((coll.base || ASSET_BASE) + coll.path).then(function (r) {
         if (!r.ok) throw new Error("HTTP " + r.status);
         return r.text();
       }).then(function (text) { return copyText(text); })
@@ -878,7 +916,7 @@
     // `search` narrows TEMPLATES (driven by the header box, global to every view).
     // `optionSearch` narrows the FILTER OPTIONS in the rail — a different job,
     // deliberately a different field, so neither silently resets the other.
-    var browseState = { search: "", optionSearch: "", availability: [], pack: [], target: [], category: [], os: [], runtime: [], tags: [], sort: "featured", showAllTags: false, railOpen: false };
+    var browseState = { search: "", optionSearch: "", availability: [], source: [], pack: [], target: [], category: [], os: [], runtime: [], tags: [], sort: "featured", showAllTags: false, railOpen: false };
 
     // ---------- helpers ----------
     function $(id) { return document.getElementById(id); }
@@ -931,7 +969,7 @@
     // ---------- fetch full template ----------
     function fetchFull(entry) {
       if (FULL[entry.id]) return Promise.resolve(FULL[entry.id]);
-      return fetch(ASSET_BASE + entry.path).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      return fetch((entry._base || ASSET_BASE) + entry.path).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
         .then(function (j) { FULL[entry.id] = j; return j; });
     }
     function copyText(text) {
@@ -970,7 +1008,7 @@
         '<div class="tcard-head"><div class="ic">' + runtimeIcon(t.runtime) + '</div>' +
         '<div style="min-width:0;flex:1"><h3 class="tcard-title">' + esc(t.name) + '</h3><div class="tcard-id">' + esc(t.id) + '</div></div></div>' +
         '<p class="tcard-desc">' + esc(t.description) + '</p>' +
-        '<div class="tcard-meta">' + (t.core ? '<span class="badge badge-core">Built-in</span>' : '') + '<span class="badge badge-cat">' + esc(lab(CAT, t.category)) + '</span><span class="badge badge-os">' + esc(lab(OS, t.os)) + '</span><span class="badge badge-runtime">' + esc(lab(RT, t.runtime)) + '</span>' + tags + '</div>' +
+        '<div class="tcard-meta">' + (t.core ? '<span class="badge badge-core">Built-in</span>' : '') + (isExternal(t) ? '<span class="badge badge-src">' + esc(sourceByKey(t._source).name) + '</span>' : '') + '<span class="badge badge-cat">' + esc(lab(CAT, t.category)) + '</span><span class="badge badge-os">' + esc(lab(OS, t.os)) + '</span><span class="badge badge-runtime">' + esc(lab(RT, t.runtime)) + '</span>' + tags + '</div>' +
         '<div class="tcard-foot"><span class="run-flag ' + ti.cls + '"><span class="dot"></span>' + esc(ti.txt) + '</span>' +
         '<span class="card-cta">View' + I.arrow + '</span></div></article>';
     }
@@ -993,18 +1031,15 @@
     // ======================================================
 
     function viewHome() {
-      var cats = uniq(TEMPLATES.map(function (t) { return t.category; })).length;
-      var rts = uniq(TEMPLATES.map(function (t) { return t.runtime; })).length;
-      var oses = uniq(TEMPLATES.map(function (t) { return t.os; })).length;
-      var coreCount = TEMPLATES.filter(function (t) { return t.core; }).length;
+      // The strip describes Cronsole's own catalog (its licence is printed beside it);
+      // other catalogs get their own line below it.
+      var OWN = TEMPLATES.filter(function (t) { return !isExternal(t); });
+      var cats = uniq(OWN.map(function (t) { return t.category; })).length;
+      var rts = uniq(OWN.map(function (t) { return t.runtime; })).length;
+      var oses = uniq(OWN.map(function (t) { return t.os; })).length;
+      var coreCount = OWN.filter(function (t) { return t.core; }).length;
 
-      var collCards = COLLECTIONS.map(function (c) {
-        var n = TEMPLATES.filter(c.match).length;
-        return '<div class="ccard" style="--cglow:' + c.glow + ';--c:' + c.iconFg + '" data-nav="#/collection/' + c.key + '">' +
-          '<div class="cic" style="background:' + c.iconBg + ';color:' + c.iconFg + '">' + c.icon + '</div>' +
-          '<h3>' + esc(c.title) + '</h3><p>' + esc(c.tagline) + '</p>' +
-          '<div class="cnt">' + I.tpl + pluralize(n, "template") + '</div></div>';
-      }).join("");
+      var collCards = COLLECTIONS.filter(function (c) { return c.source === OWN_SOURCE.key; }).map(collCard).join("");
 
       // featured: a couple from each of the richer collections
       var featured = [];
@@ -1074,11 +1109,12 @@
           '<p>The open, versioned catalog of ready-to-run automations. Download or copy any template and import it into your Cronsole.</p></div>' +
           '<span class="see-all" data-nav="#/browse">Browse all ' + TEMPLATES.length + ' templates' + I.arrow + '</span></div>' +
           '<div class="stat-strip" role="list" aria-label="Template registry at a glance"><span class="lbl-strip">At a glance</span>' +
-            stat(TEMPLATES.length, "templates", "#8b5cf6") + stat(coreCount, "built in", "#34d399") + stat(TEMPLATES.length - coreCount, "to import", "#38bdf8") + stat(cats, "categories", "#fbbf24") + stat(rts, "runtimes", "#a1a1aa") +
+            stat(OWN.length, "templates", "#8b5cf6") + stat(coreCount, "built in", "#34d399") + stat(OWN.length - coreCount, "to import", "#38bdf8") + stat(cats, "categories", "#fbbf24") + stat(rts, "runtimes", "#a1a1aa") +
             '<span class="meta">' + pluralize(oses, "platform target") + ' · content-addressed · Apache-2.0</span>' +
           '</div>' +
           '<div class="hero-cta" style="margin-top:18px"><button class="btn btn-primary" data-nav="#/browse">Browse the registry' + I.arrow + '</button>' +
           '<button class="btn btn-ghost" id="hero-import">' + I.info + ' How import works</button></div>' +
+          sourceNotesHtml() +
         '</section>' +
 
         '<section class="band"><div class="band-head"><div><h2>Browse by collection</h2><p>Hand-picked bundles for the things people automate most.</p></div>' +
@@ -1128,17 +1164,34 @@
     }
 
     // ---------- collections index ----------
+    function collCard(c) {
+      var n = TEMPLATES.filter(c.match).length;
+      return '<div class="ccard" style="--cglow:' + c.glow + ';--c:' + c.iconFg + '" data-nav="#/collection/' + c.key + '">' +
+        '<div class="cic" style="background:' + c.iconBg + ';color:' + c.iconFg + '">' + c.icon + '</div>' +
+        '<h3>' + esc(c.title) + '</h3><p>' + esc(c.tagline) + '</p>' +
+        '<div class="cnt">' + I.tpl + pluralize(n, "template") + '</div></div>';
+    }
+    // What loading the other catalogs did: a line per catalog that loaded, a warning per
+    // one that did not. Rendered wherever their templates would otherwise just be absent.
+    function sourceNotesHtml() {
+      return SOURCE_NOTES.map(function (n) {
+        var s = n.source;
+        var name = n.warn ? '<b>' + esc(s.name) + '</b>' : '<a data-nav="#/browse?source=' + encodeURIComponent(s.key) + '">' + esc(s.name) + '</a>';
+        return '<p class="catalog-note' + (n.warn ? ' warn' : '') + '">' + (n.warn ? I.alert + ' ' : 'Also listed: ') + name + ' ' + esc(n.text) +
+          ' <a href="' + esc(s.home) + '" target="_blank" rel="noopener">About it ↗</a></p>';
+      }).join("");
+    }
     function viewCollections() {
-      var cards = COLLECTIONS.map(function (c) {
-        var n = TEMPLATES.filter(c.match).length;
-        return '<div class="ccard" style="--cglow:' + c.glow + ';--c:' + c.iconFg + '" data-nav="#/collection/' + c.key + '">' +
-          '<div class="cic" style="background:' + c.iconBg + ';color:' + c.iconFg + '">' + c.icon + '</div>' +
-          '<h3>' + esc(c.title) + '</h3><p>' + esc(c.tagline) + '</p>' +
-          '<div class="cnt">' + I.tpl + pluralize(n, "template") + '</div></div>';
+      // One grid per catalog, Cronsole's first: a pack from another repo is listed, not curated here.
+      var groups = [OWN_SOURCE].concat(EXTERNAL_SOURCES).map(function (s) {
+        var list = COLLECTIONS.filter(function (c) { return c.source === s.key; });
+        if (!list.length) return "";
+        var head = s === OWN_SOURCE ? "" : '<div class="band-head" style="margin-top:36px"><div><h2>From ' + esc(s.name) + '</h2><p>' + esc(s.blurb || "") + ' A separate catalog, listed here: read a template before you import it.</p></div></div>';
+        return head + '<div class="coll-grid">' + list.map(collCard).join("") + '</div>';
       }).join("");
       return '<div class="wrap"><div class="browse-head"><span class="kicker">Curated bundles</span>' +
-        '<h1 style="margin-top:14px">Collections</h1><p>Grouped by what you\'re trying to automate — jump into any bundle and import what you need.</p></div>' +
-        '<div class="coll-grid" style="padding-bottom:70px">' + cards + '</div></div>';
+        '<h1 style="margin-top:14px">Collections</h1><p>Grouped by what you\'re trying to automate — jump into any bundle and import what you need.</p>' + sourceNotesHtml() + '</div>' +
+        '<div style="padding-bottom:70px">' + groups + '</div></div>';
     }
 
     // ---------- collection detail ----------
@@ -1160,6 +1213,7 @@
       return '<div class="wrap"><div class="crumb"><a data-nav="#/">Home</a>' + I.arrow + '<a data-nav="#/collections">Collections</a>' + I.arrow + '<span>' + esc(c.title) + '</span></div>' +
         '<div class="detail-hero"><div class="ic" style="background:' + c.iconBg + ';color:' + c.iconFg + '">' + c.icon + '</div>' +
         '<div><h1>' + esc(c.title) + '</h1><p class="dsub">' + esc(c.tagline) + '</p>' +
+        (c.source !== OWN_SOURCE.key ? '<div class="tcard-meta" style="margin-top:10px"><span class="badge badge-src">From ' + esc(sourceByKey(c.source).name) + '</span></div>' : '') +
         '<div class="mono" style="color:var(--ink-3);font-size:13px;margin-top:12px">' + pluralize(list.length, "template") + '</div>' +
         actions + '</div></div>' +
         '<div style="padding-bottom:70px">' + cardGrid(list) + '</div></div>';
@@ -1174,6 +1228,7 @@
           if (!q.split(/\s+/).every(function (w) { return hay.indexOf(w) !== -1; })) return false;
         }
         if (except !== "availability" && browseState.availability.length && browseState.availability.indexOf(availOf(t)) === -1) return false;
+        if (except !== "source" && browseState.source.length && browseState.source.indexOf(t._source) === -1) return false;
         // Pack is OR within the dimension (like availability/category), not AND:
         // selecting two packs means "in either", which is what a shopper means.
         if (except !== "pack" && browseState.pack.length) {
@@ -1202,7 +1257,7 @@
     function counts(list, keyFn) { var m = {}; list.forEach(function (t) { var ks = keyFn(t); (Array.isArray(ks) ? ks : [ks]).forEach(function (k) { if (k == null) return; m[k] = (m[k] || 0) + 1; }); }); return m; }
 
     function viewBrowse() {
-      return '<div class="wrap"><div class="browse-head"><h1>Browse the catalog</h1><p>Every template in the registry. A curated <b style="color:var(--phosphor)">Built-in</b> set ships with Cronsole by default; filter to <b style="color:var(--cyan)">Import on demand</b> to see everything else you can add.</p></div>' +
+      return '<div class="wrap"><div class="browse-head"><h1>Browse the catalog</h1><p>Every template in the registry. A curated <b style="color:var(--phosphor)">Built-in</b> set ships with Cronsole by default; filter to <b style="color:var(--cyan)">Import on demand</b> to see everything else you can add.</p>' + sourceNotesHtml() + '</div>' +
         '<div class="browse-layout"><aside class="rail' + (browseState.railOpen ? " open" : "") + '" id="rail"></aside>' +
         '<div><div class="browse-bar">' +
           '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span class="result-n" id="rn"></span><button class="btn btn-sm mobile-filter-btn" id="mfilter">' + I.filter + ' Filters</button></div>' +
@@ -1213,6 +1268,7 @@
     function renderRail() {
       var rail = $("rail"); if (!rail) return;
       var ac = counts(browseFiltered("availability"), function (t) { return availOf(t); });
+      var sc = counts(browseFiltered("source"), function (t) { return t._source; });
       var cc = counts(browseFiltered("category"), function (t) { return t.category; });
       var oc = counts(browseFiltered("os"), function (t) { return t.os; });
       var rc = counts(browseFiltered("runtime"), function (t) { return t.runtime; });
@@ -1265,6 +1321,14 @@
       ].join("");
       html += facet("Availability", availOpts);
 
+      // Catalog: only once a second one has templates on the page, since a single
+      // option filters nothing.
+      var srcKeys = uniq(TEMPLATES.map(function (t) { return t._source; }));
+      if (srcKeys.length > 1) {
+        html += facet("Catalog", srcKeys.filter(function (k) { return hit(sourceByKey(k).name, k); })
+          .map(function (k) { return opt("source", k, sourceByKey(k).name, sc[k] || 0); }).join(""));
+      }
+
       // Pack — the dimension packs introduced that Browse previously couldn't
       // see. Membership comes from the registry, so this stays correct without
       // a second definition of what a pack contains.
@@ -1290,7 +1354,7 @@
         html += '<div class="facet"><div class="facet-title" style="color:var(--ink-3);font-weight:400">No filter matches “' + esc(fq) + '”.</div></div>';
       }
 
-      var anyActive = browseState.availability.length || browseState.pack.length || browseState.target.length || browseState.category.length || browseState.os.length || browseState.runtime.length || browseState.tags.length || browseState.search;
+      var anyActive = browseState.availability.length || browseState.source.length || browseState.pack.length || browseState.target.length || browseState.category.length || browseState.os.length || browseState.runtime.length || browseState.tags.length || browseState.search;
       if (anyActive) html += '<button class="clear-all" id="clearall">' + I.x + ' Clear all filters</button>';
       rail.innerHTML = html;
     }
@@ -1298,6 +1362,7 @@
       var pills = $("pills"); if (!pills) return;
       var out = [];
       browseState.availability.forEach(function (v) { out.push(pill("availability", v, lab(AVAIL, v))); });
+      browseState.source.forEach(function (v) { var s = sourceByKey(v); out.push(pill("source", v, s ? s.name : v)); });
       browseState.pack.forEach(function (v) { var c = collByKey(v); out.push(pill("pack", v, c ? c.title : v)); });
       browseState.target.forEach(function (v) { out.push(pill("target", v, lab(TGT, v))); });
       browseState.category.forEach(function (v) { out.push(pill("category", v, lab(CAT, v))); });
@@ -1466,6 +1531,10 @@
       if (tgtList.some(function (x) { return targetMode(x) === "manual"; })) {
         notes.push('Dimmed targets have no connector yet — an honest "copy to set up manually" path, never a silent failure.');
       }
+      if (isExternal(entry)) {
+        var src = sourceByKey(entry._source);
+        notes.push('Published by <a href="' + esc(src.home) + '" target="_blank" rel="noopener">' + esc(src.name) + '</a>, a separate catalog this page lists. It is not part of Cronsole\'s own registry: read the template before you import it.');
+      }
       var targetsHtml = '<div class="sec"><p class="sec-label">Compatible targets</p><div class="targets">' + targets + '</div>' +
         notes.map(function (n) { return '<p class="note">' + n + '</p>'; }).join("") + '</div>';
 
@@ -1487,14 +1556,15 @@
         '<div class="detail-hero"><div class="ic">' + runtimeIcon(tpl.runtime) + '</div>' +
           '<div style="min-width:0"><h1>' + esc(tpl.name) + '</h1><div class="did">' + esc(tpl.id) + '</div>' +
           '<p class="dsub">' + esc(tpl.description) + '</p>' +
-          '<div class="tcard-meta" style="margin-top:16px">' + (tpl.core ? '<span class="badge badge-core">Built-in</span>' : '<span class="badge badge-ext">Import</span>') + '<span class="badge badge-cat">' + esc(lab(CAT, tpl.category)) + '</span><span class="badge badge-os">' + esc(lab(OS, tpl.os)) + '</span><span class="badge badge-runtime">' + esc(lab(RT, tpl.runtime)) + '</span></div></div></div>' +
+          '<div class="tcard-meta" style="margin-top:16px">' + (entry.core ? '<span class="badge badge-core">Built-in</span>' : '<span class="badge badge-ext">Import</span>') + (isExternal(entry) ? '<span class="badge badge-src">' + esc(sourceByKey(entry._source).name) + '</span>' : '') + '<span class="badge badge-cat">' + esc(lab(CAT, tpl.category)) + '</span><span class="badge badge-os">' + esc(lab(OS, tpl.os)) + '</span><span class="badge badge-runtime">' + esc(lab(RT, tpl.runtime)) + '</span></div></div></div>' +
         '<div class="detail-grid"><div>' + schedHtml + cmdHtml + paramsHtml + toolsHtml + targetsHtml + '</div>' +
-        '<aside><div class="aside-card"><h3>' + (tpl.core ? 'Built into Cronsole' : 'Add to your Cronsole') + '</h3><p class="sub">' + (tpl.core ? 'This template ships by default — no import needed. You can still download it for reference.' : 'Download or copy, then import in the Templates tab.') + '</p>' +
+        '<aside><div class="aside-card"><h3>' + (entry.core ? 'Built into Cronsole' : 'Add to your Cronsole') + '</h3><p class="sub">' + (entry.core ? 'This template ships by default — no import needed. You can still download it for reference.' : 'Download or copy, then import in the Templates tab.') + '</p>' +
           '<div class="aside-actions"><button class="btn btn-primary" data-dl>' + I.dl + ' Download JSON</button>' +
           '<button class="btn" data-copy>' + I.copy + ' Copy JSON</button>' +
           '<button class="btn btn-ghost" id="detail-import">' + I.info + ' How to import</button></div>' +
           '<div class="aside-meta">' +
-            metaRow("Availability", tpl.core ? "Built-in (default)" : "Import on demand") +
+            metaRow("Availability", entry.core ? "Built-in (default)" : "Import on demand") +
+            (isExternal(entry) ? metaRow("Catalog", '<a href="' + esc(sourceByKey(entry._source).home) + '" target="_blank" rel="noopener">' + esc(sourceByKey(entry._source).name) + ' ↗</a>') : "") +
             metaRow("Category", esc(lab(CAT, tpl.category))) + metaRow("Platform", esc(lab(OS, tpl.os))) + metaRow("Runtime", esc(lab(RT, tpl.runtime))) +
             metaRow("Schema", esc(tpl.schemaVersion || "1.0")) +
             (tagChips ? '<div class="meta-row" style="align-items:flex-start"><span class="ml">Tags</span><div class="aside-tags">' + tagChips + '</div></div>' : "") +
@@ -1554,7 +1624,7 @@
       var path = qi === -1 ? h : h.slice(0, qi);
       var parts = path.split("/").filter(Boolean); // e.g. ["t","dev-git-fetch-prune"]
       if (!parts.length) return { view: "home" };
-      if (parts[0] === "browse") { var q = parseQuery(h); return { view: "browse", tag: q.tag, pack: q.pack, target: q.target }; }
+      if (parts[0] === "browse") { var q = parseQuery(h); return { view: "browse", tag: q.tag, pack: q.pack, target: q.target, source: q.source }; }
       if (parts[0] === "collections") return { view: "collections" };
       if (parts[0] === "collection") return { view: "collection", key: parts[1] };
       if (parts[0] === "t") return { view: "detail", id: decodeURIComponent(parts[1] || "") };
@@ -1583,6 +1653,8 @@
       else if (r.view === "browse") {
         if (r.tag && browseState.tags.indexOf(r.tag) === -1) browseState.tags.push(r.tag);
         if (r.pack && collByKey(r.pack) && browseState.pack.indexOf(r.pack) === -1) browseState.pack.push(r.pack);
+        // ?source= is the link another catalog's own pages use ("everything from us").
+        if (r.source && sourceByKey(r.source) && browseState.source.indexOf(r.source) === -1) browseState.source.push(r.source);
         // ?target= is the deep link each source guide in the repo uses ("templates for this source").
         if (r.target && TGT[r.target] && browseState.target.indexOf(r.target) === -1) browseState.target.push(r.target);
         $("app").innerHTML = viewBrowse(); wireBrowse();
@@ -1644,7 +1716,7 @@
       if (ftag) { toggleArr(browseState.tags, ftag.getAttribute("data-ftag")); refreshBrowse(); return; }
       if (e.target.closest("#tagmore")) { browseState.showAllTags = !browseState.showAllTags; renderRail(); return; }
       if (e.target.closest("#clearall")) {
-        browseState.availability = []; browseState.pack = []; browseState.target = []; browseState.category = [];
+        browseState.availability = []; browseState.source = []; browseState.pack = []; browseState.target = []; browseState.category = [];
         browseState.os = []; browseState.runtime = []; browseState.tags = [];
         browseState.search = "";
         // Clear the header box too — it is the live source of `search`, so
@@ -1719,6 +1791,7 @@
     function renderRailCountsOnly() {
       // update facet counts + tag counts without rebuilding the search input (preserves focus)
       var ac = counts(browseFiltered("availability"), function (t) { return availOf(t); });
+      var sc = counts(browseFiltered("source"), function (t) { return t._source; });
       var cc = counts(browseFiltered("category"), function (t) { return t.category; });
       var oc = counts(browseFiltered("os"), function (t) { return t.os; });
       var rc = counts(browseFiltered("runtime"), function (t) { return t.runtime; });
@@ -1727,7 +1800,7 @@
       });
       document.querySelectorAll(".fopt[data-fdim]").forEach(function (el) {
         var dim = el.getAttribute("data-fdim"), val = el.getAttribute("data-fval");
-        var m = dim === "availability" ? ac : dim === "pack" ? pc : dim === "category" ? cc : dim === "os" ? oc : rc, n = m[val] || 0;
+        var m = dim === "availability" ? ac : dim === "source" ? sc : dim === "pack" ? pc : dim === "category" ? cc : dim === "os" ? oc : rc, n = m[val] || 0;
         var c = el.querySelector(".fcnt"); if (c) c.textContent = n;
         var on = browseState[dim].indexOf(val) !== -1; el.classList.toggle("dim", n === 0 && !on);
       });
@@ -1868,15 +1941,53 @@
         });
     }
 
+    // Started together. An external catalog that fails resolves to an error, never a
+    // rejection, so only Cronsole's own index can fail the page.
+    function loadExternal(s) {
+      return fetch(s.base + "index.json", { cache: "no-cache" })
+        .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+        .then(function (data) { return { source: s, data: data }; })
+        .catch(function (e) { return { source: s, error: e.message || String(e) }; });
+    }
+    // Adds one catalog's templates and packs; the first catalog to claim an id keeps it.
+    function addCatalog(data, source, base) {
+      var seen = {}, skipped = 0, added = 0;
+      TEMPLATES.forEach(function (t) { seen[t.id] = 1; });
+      ((data && data.templates) || []).forEach(function (t) {
+        if (seen[t.id]) { skipped++; return; }
+        t._source = source.key; t._base = base;
+        if (source !== OWN_SOURCE) t.core = false;
+        seen[t.id] = 1; TEMPLATES.push(t); added++;
+      });
+      // `packs` is optional in the index — a registry published before packs
+      // existed simply has none, and the Collections views render empty
+      // rather than breaking.
+      buildCollections(data && data.packs, source, base).forEach(function (c) {
+        if (collByKey(c.key)) { skipped++; return; }
+        COLLECTIONS.push(c);
+      });
+      return { added: added, skipped: skipped };
+    }
+
+    var externalLoads = EXTERNAL_SOURCES.map(loadExternal);
     loadIndex()
       .then(function (data) {
-        TEMPLATES = (data && data.templates) || [];
-        // `packs` is optional in the index — a registry published before packs
-        // existed simply has none, and the Collections views render empty
-        // rather than breaking.
-        COLLECTIONS = buildCollections(data && data.packs);
-        LOADED = true;
+        TEMPLATES = []; COLLECTIONS = [];
+        addCatalog(data, OWN_SOURCE, ASSET_BASE);
         if (!TEMPLATES.length) LOAD_ERR = "The registry has no templates.";
+        return Promise.all(externalLoads);
+      })
+      .then(function (results) {
+        results.forEach(function (res) {
+          if (res.error) {
+            SOURCE_NOTES.push({ source: res.source, warn: true, text: "could not be loaded (" + res.error + "), so its templates are missing from this page. Cronsole's own catalog is unaffected." });
+            return;
+          }
+          var r = addCatalog(res.data, res.source, res.source.base);
+          SOURCE_NOTES.push({ source: res.source, text: "· " + pluralize(r.added, "template") + " from a separate catalog" +
+            (r.skipped ? " (" + r.skipped + " skipped: Cronsole already uses the id)" : "") + "." });
+        });
+        LOADED = true;
         route();
       })
       .catch(function (e) { LOAD_ERR = e.message; route(); });

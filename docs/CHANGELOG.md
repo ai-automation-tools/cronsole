@@ -26,6 +26,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Security
 
+- **Connect routes are rate-limited, and the error log keeps the URL out of its format string** (2026-11-10, security sweep). The six routes that check a pasted token, key or URL against GitHub, Vercel, Gemini or n8n before saving it share one per-IP budget of 30 calls per 15 minutes, built with the existing `makeAuthLimiter` (CodeQL `js/missing-rate-limiting`). `errorHandler` now passes the method and URL as arguments to a fixed `[%s %s]` format, so a `%` sequence in a path can no longer reshape the log line (CodeQL `js/tainted-format-string`). New `errorHandler.test.ts`.
 - **`minimatch` 11 in `frontend/`** (2026-11-03). eslint 10 and typescript-eslint pull 10.2.5, which Dependabot can't lift past the parents' `^10` range (Dependabot #104). An npm `overrides` entry in `frontend/package.json` pins `^11.0.1`. Dev only.
 - **`follow-redirects` 1.16.2 in `frontend/` and `backend/`** (2026-11-03, security sweep). It comes in through `axios`. 1.16.1 could carry custom credential headers across a cross-origin redirect (Dependabot #102, #103). Lockfiles only.
 - **Backend `body-parser` 2.4.0 and `qs` 6.17.0** (2026-10-27, security sweep). Both come in through Express. The old `body-parser` could be tied up by a body with trailing bytes after the JSON, and the old `qs` threw on one `stringify` format (Dependabot #86, #87). Lockfile only; the frontend and `mcp-server` copies have their own Dependabot PRs.

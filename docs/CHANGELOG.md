@@ -14,6 +14,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **The template gallery lists the AI Automation Recipes catalog** (2026-11-10). cronsole.ai-automation-tools.dev now reads a second Registry v1 catalog, published by `ai-automation-recipes` at its own host, and shows its 98 templates and 9 packs beside Cronsole's. They carry a source badge and a *Catalog* filter (`#/browse?source=ai-automation-recipes`), downloads come from that catalog's host, and the Collections page lists its packs under their own heading. They are never *Built-in*, and if the catalog can't be loaded the page says so and shows Cronsole's own templates as before. The app is unchanged: these templates are imported from the gallery, never auto-synced.
 - **The phone's dashboard rebuilds itself** (2026-11-09). The Tailscale / proxy page serves the built `frontend/dist`, and nothing rebuilt it, so a UI change reached the desktop and not the phone (troubleshooting #53). New `cronsole rebuild` builds `dist` only when `check-dist-fresh.mjs` reports it stale or missing, and only where `cronsole remote on` was run. `scripts/startup-task/Register-RebuildTask.ps1` registers `\Cronsole-Stack\CronsoleRebuild` to run it hourly, no elevation. `cronsole up` still never builds. `Migrate-RepoFolder.ps1` repoints the new task too.
 
 ### Changed

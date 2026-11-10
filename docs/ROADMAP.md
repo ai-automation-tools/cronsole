@@ -2639,6 +2639,14 @@ Shipped P3 work is in [Part II](#completed--p3-expansion).
 - [ ] Partly shipped: **Template gallery site** — parts 1, 2, 4 and 5 shipped *(2026-07-14 → 2026-07-28)*.
       **Left: part 3**, the one-click "Add to my Cronsole" deep-link / protocol handoff. Download
       and Copy JSON use the shipped Import path today.
+  - [x] **The gallery lists other catalogs** *(2026-11-10)*. `EXTERNAL_SOURCES` in
+        `registry-site/index.html` names Registry v1 artifacts another repo publishes; the page reads
+        each live from its own host, beside Cronsole's. First entry: `ai-automation-recipes`, whose
+        Homepage workflow serves its `registry/` at `/registry/` and whose recipe READMEs link
+        straight to `#/t/<id>` and `#/collection/<pack>`. An external template is never *Built-in*
+        (`core` forced false), Cronsole's own catalog wins an id collision, and a catalog that fails
+        to load is named on the page instead of vanishing. Nothing reaches `registry/`, `bundled.ts`
+        or `catalogSync`: these are import-only, so the app needs no second registry source.
 
 - [ ] Partly shipped: **Remote access (self-hosted) — the final, optional enhancement.** Reach your **own** local
       instance from other devices (the code-server model) via Tailscale or Cloudflare Tunnel +

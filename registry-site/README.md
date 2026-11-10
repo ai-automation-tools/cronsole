@@ -62,6 +62,11 @@ never touches `registry/`, `bundled.ts` or `catalogSync`. Their templates are im
   has templates (`#/browse?source=<key>` deep-links it), the Home stat strip counts Cronsole's own
   catalog only, and Collections groups packs under a heading per catalog.
 
+The whole picture, from each repo's build to your install, is the
+[template catalogs diagram](../docs/diagrams/README.md#-template-catalogs). Front door drift
+(`scripts/check-external-catalogs.mjs`) loads every listed catalog daily the way this page does: the
+CORS header, every file's sha256, and no id that collides with Cronsole's.
+
 To add a catalog: its host must serve `index.json`, `templates/` and `packs/` with
 `Access-Control-Allow-Origin: *` (GitHub Pages does), its ids should not collide with Cronsole's,
 and the entry needs `key`, `name`, `base`, `home` and a one-line `blurb`. To preview with a local

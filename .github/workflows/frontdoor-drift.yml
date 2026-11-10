@@ -24,7 +24,7 @@ permissions:
 
 jobs:
   drift:
-    name: The front door serves the current gallery page
+    name: The front door serves the current gallery page, and its catalogs load
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -42,6 +42,12 @@ jobs:
 
       - name: Compare the host against the committed page
         run: node scripts/check-frontdoor-published.mjs
+
+      # The page also advertises the other repos' catalogs in EXTERNAL_SOURCES (since 2026-11-10).
+      # Their own drift checks cannot see what only this page needs: CORS, and no id clash with ours.
+      - name: The other catalogs the page lists still load
+        if: always()
+        run: node scripts/check-external-catalogs.mjs
 
       # While this workflow is red it keeps one open issue (label workflow-failure) up to date;
       # the first green run closes it. A cancelled run does neither.

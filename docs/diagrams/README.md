@@ -1,7 +1,7 @@
 <h1 align="center">🧭 Diagrams</h1>
 
 <p align="center">
-  <em>Where Cronsole's task data comes from and where it goes, drawn from the code and checked against it.</em>
+  <em>Where Cronsole's task data and its templates come from and where they go, drawn from the code and checked against it.</em>
 </p>
 
 <p align="center">
@@ -29,15 +29,34 @@ from a clone, or [render it from GitHub](https://raw.githack.com/ai-automation-t
 Each node links to the exact lines it describes at the pinned commit, and the viewer adds route
 tracing, search, light/dark, and SVG/PNG export.
 
+## 📚 Template catalogs
+
+[![Cronsole and its template catalogs](template-catalogs.png)](template-catalogs.html)
+
+How a template gets to you. Cronsole and each repo listed in `EXTERNAL_SOURCES` generate their own
+Registry v1 catalog and publish it on their own site. The [template gallery](https://cronsole.ai-automation-tools.dev/)
+reads all of them live from each host. In your install, only Cronsole's **core** templates arrive by
+themselves, through `catalogSync`; everything else you download from the gallery and import, as
+`managed: false` rows that sync never prunes. The top-left box is the automated weekly job that adds
+a few extended templates to Cronsole's catalog by PR. The cards cover the rules for external
+catalogs and the checks that keep each one honest. The rules themselves are in the gallery's
+[README › Other catalogs](../../registry-site/README.md#other-catalogs).
+
+Open [`template-catalogs.html`](template-catalogs.html) from a clone, or
+[render it from GitHub](https://raw.githack.com/ai-automation-tools/cronsole/main/docs/diagrams/template-catalogs.html).
+It is not on the homepage. Nodes for the other repos cite nothing, because their code lives in those
+repos; the daily *Front door drift* check (`scripts/check-external-catalogs.mjs`) is what notices
+when one of them stops loading.
+
 ## 📂 Files
 
 | File | What it is | Edit it? |
 |:---|:---|:---|
-| [`source-data-flow.json`](source-data-flow.json) | The source: stages, nodes, flows, cards, and the code each node cites | **Yes, this is the only file you edit** |
-| `source-data-flow.html` · `.png` | Generated: the interactive diagram, which the homepage embeds live, and a static PNG snapshot | Never; rebuild |
+| [`source-data-flow.json`](source-data-flow.json) · [`template-catalogs.json`](template-catalogs.json) | The source of each diagram: stages, nodes, flows, cards, and the code each node cites | **Yes, these are the only files you edit** |
+| `<name>.html` · `.png` | Generated: the interactive diagram and a static PNG snapshot. The homepage embeds the source data flow only | Never; rebuild |
 | `registry-site/source-data-flow.html` · `.png` | Copies the build writes for the homepage, which publishes the flat files in `registry-site/`. `--check` flags a copy that differs | Never; rebuild |
-| `source-data-flow.delivery.json` · `.sources.lock.json` | Build receipt, and the git blob of every cited file at the pinned commit | Never; rebuild |
-| [`../../scripts/build-diagram.mjs`](../../scripts/build-diagram.mjs) | Builds the diagram and checks it for drift | Only to change how it builds or checks |
+| `<name>.delivery.json` · `.sources.lock.json` | Build receipt, and the git blob of every cited file at the pinned commit | Never; rebuild |
+| [`../../scripts/build-diagram.mjs`](../../scripts/build-diagram.mjs) | Builds the diagrams and checks them for drift; `--only <name>` limits it to one | Only to change how it builds or checks |
 
 ## 🔁 Keeping it current
 

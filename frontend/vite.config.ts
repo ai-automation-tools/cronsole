@@ -42,7 +42,9 @@ function spaFallback(): Plugin {
 export default defineConfig(({ mode }) => ({
   plugins: [react(), ...(mode === 'demo' ? [spaFallback()] : [])],
   server: {
-    host: true,
+    // Loopback only: the dev server is not offered to the LAN. The container image
+    // passes --host itself (frontend/Dockerfile), which overrides this.
+    host: '127.0.0.1',
     // Deliberately NOT Vite's default 5173: every other Vite project on the machine
     // wants that port, and whichever starts first wins. A distinctive port means
     // "Cronsole's frontend" is unambiguous. strictPort so a collision fails loudly

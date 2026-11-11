@@ -258,6 +258,9 @@ const Segmented = <T extends string>({
 /** An option whose stored value differs from its label (e.g. an IANA zone id). */
 type SelectOption = string | { value: string; label: string };
 
+// Injected by Vite from package.json. Absent under a config that does not define it.
+const APP_VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'dev';
+
 const Select = ({
   value,
   options,
@@ -736,7 +739,8 @@ export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
 
   const platformOptions = useMemo(() => {
     const unique = Array.from(new Set((tasks ?? []).map(t => t.platform)));
-    return ['All', ...unique.sort()];
+    // The stored value stays the platform key; only the label is for reading.
+    return ['All', ...unique.sort().map(p => ({ value: p, label: platformLabel(p) }))];
   }, [tasks]);
 
   /**
@@ -1019,7 +1023,7 @@ export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
           {section === 'about' && (
             <Section icon={Info} title="About" subtitle="Environment and useful links.">
               <Row label="Version">
-                <span className="text-xs font-mono font-bold text-muted-foreground">MVP preview</span>
+                <span className="text-xs font-mono font-bold text-muted-foreground">{APP_VERSION}</span>
               </Row>
               <Row label="Backend">
                 <span className="inline-flex items-center gap-1.5 text-xs font-bold">

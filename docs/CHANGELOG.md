@@ -50,6 +50,11 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Fixed
 
+- **The list view's columns line up with their headings** (2026-11-11). A leftover empty "Select" heading pushed every column one place to the left, so "Actions" headed nothing. The "Last Sync" column is now labelled **Updated**, which is what it shows.
+- **Settings shows source names, not internal codes** (2026-11-11). The *Default platform filter* list read `TASKHUB_NATIVE` and `WINDOWS_TASK_SCHEDULER`; it now reads the same names the rest of the app uses.
+- **About shows the real version** (2026-11-11). It said "MVP preview" regardless of the build.
+- **Error messages stay long enough to read** (2026-11-11). An error toast now stays 8 seconds instead of 4, is announced to screen readers as an alert, and no longer runs off the left edge of a phone screen.
+- **The sign-in screen says when your session expired** (2026-11-11). It used to appear with no explanation.
 - **The Windows agent has a log** (2026-11-11). The agent is a windowless program started hidden, so everything it printed, including why it exited, went nowhere. `cronsole up` now writes it to `logs/agent.out.log` and `logs/agent.err.log`.
 - **Agent setup gives the agent its pairing secret** (2026-11-11). `agent/setup-agent-startup.ps1` copies `AGENT_PAIRING_SECRET` from `backend/.env` (or the root `.env`) into the agent's `appsettings.json` when that file does not exist, and stops with instructions when there is no secret to copy. Before this a first install got an agent that started, exited and showed Offline.
 - **`cronsole.ps1` finds Docker instead of assuming a path** (2026-11-11). The Docker CLI and Docker Desktop paths were one machine's. They are now resolved from `PATH`, falling back to the default install folder, so the 5-minute self-heal can restart the engine on any machine.

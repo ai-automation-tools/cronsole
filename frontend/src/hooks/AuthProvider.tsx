@@ -27,6 +27,7 @@ function storeUser(user: AuthUser | null): void {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<'loading' | 'needsSetup' | 'unauthed' | 'authed'>('loading');
   const [user, setUser] = useState<AuthUser | null>(readStoredUser());
+  const [sessionExpired, setSessionExpired] = useState(false);
 
   // Decide the initial screen once. A stored login token is trusted here — if
   // it's actually expired, the first protected request 401s and the auth-failure
@@ -74,12 +75,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setStatus('authed');
       return;
     }
+    setSessionExpired(true);
     setStatus('unauthed');
   }), []);
 
   const applyAuth = useCallback((token: string, u: AuthUser) => {
     // A real login re-arms the fallback: the next expiry is a fresh question.
     fallbackSpent.current = false;
+    setSessionExpired(false);
     setAuthToken(token);
     storeUser(u);
     setUser(u);
@@ -104,6 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearAuthToken();
     storeUser(null);
     setUser(null);
+    setSessionExpired(false);
     setStatus('unauthed');
   }, []);
 
@@ -112,7 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ status, user, login, setup, logout, changePassword }}>
+    <AuthContext.Provider value={{ status, user, login, setup, logout, changePassword, sessionExpired }}>
       {children}
     </AuthContext.Provider>
   );

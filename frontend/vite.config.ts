@@ -1,4 +1,4 @@
-import { copyFileSync, existsSync } from 'node:fs'
+import { copyFileSync, existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
@@ -39,7 +39,10 @@ function spaFallback(): Plugin {
 }
 
 // https://vite.dev/config/
+const APP_VERSION = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version
+
 export default defineConfig(({ mode }) => ({
+  define: { __APP_VERSION__: JSON.stringify(APP_VERSION) },
   plugins: [react(), ...(mode === 'demo' ? [spaFallback()] : [])],
   server: {
     // Loopback only: the dev server is not offered to the LAN. The container image

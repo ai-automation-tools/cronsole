@@ -827,7 +827,7 @@ const schedule: HelpTopic = {
       label: 'You type in your zone, not UTC',
       body:
         '"0 8" means 8am where you are. The zone is Settings › Behavior › Schedule timezone, ' +
-        'Pacific by default, and every clock time in the app follows it.'
+        'the zone of your browser by default, and every clock time in the app follows it.'
     },
     {
       label: 'UTC is what gets stored',

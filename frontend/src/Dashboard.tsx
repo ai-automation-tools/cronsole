@@ -14,6 +14,8 @@ import { useLiveTaskUpdates } from './hooks/useLiveTaskUpdates';
 import { describeUntracked, describeCoverage, type SyncResponse } from './utils/syncSummary';
 import { stageRestore } from './utils/restoreHandoff';
 import { taskDetailRoute, taskDetailReturn } from './utils/taskRoute';
+import { errorMessage } from './utils/errorMessage';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Everything below is off the first paint (another tab, or a modal that opens on
 // a click), so each loads as its own chunk instead of riding in the one bundle
@@ -98,7 +100,7 @@ const Dashboard = () => {
     }
   };
 
-  const { data: tasks, isLoading } = useQuery<Task[]>({
+  const { data: tasks, isLoading, isError: tasksFailed, error: tasksError, refetch: refetchTasks } = useQuery<Task[]>({
     queryKey: ['tasks'],
     queryFn: async () => {
       const response = await api.get('/tasks');
@@ -435,6 +437,8 @@ const Dashboard = () => {
           <DashboardScreen
             tasks={tasks}
             isLoading={isLoading}
+            loadError={tasksFailed && !tasks ? errorMessage(tasksError, 'The request failed.') : null}
+            onRetryLoad={() => { void refetchTasks(); }}
             onImportFile={() => setShowImportFile(true)}
             onAddSources={() => setShowSyncSources(true)}
             onSyncNow={() => syncMutation.mutate({ scope: 'tracked' })}
@@ -455,6 +459,7 @@ const Dashboard = () => {
         )}
         {activeTab !== 'dashboard' && (
           <div className="px-4 py-5 md:px-8 md:py-7">
+            <ErrorBoundary resetKey={activeTab}>
             <Suspense fallback={<div className="flex justify-center py-16 text-muted-foreground"><Loader2 className="animate-spin" size={24} /></div>}>
             {activeTab === 'templates' && <TemplatesScreen />}
             {activeTab === 'sources' && <SourcesScreen />}
@@ -462,6 +467,7 @@ const Dashboard = () => {
             {activeTab === 'tools' && <ToolsScreen />}
             {activeTab === 'settings' && <SettingsScreen tasks={tasks} />}
             </Suspense>
+            </ErrorBoundary>
           </div>
         )}
       </main>

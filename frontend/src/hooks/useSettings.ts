@@ -46,7 +46,7 @@ export interface Settings {
   // Behavior
   confirmBeforeRun: boolean;
   /**
-   * The zone you read and write schedules in. Defaults to Pacific rather than
+   * The zone you read and write schedules in. Defaults to the browser's own zone (`'local'`), not
    * UTC: every cron field in the app used to be labelled UTC, so applying a
    * template whose schedule reads `0 8 * * *` quietly created a task that runs
    * at 1 AM — correct, stored honestly, and useless as a thing to reason about.
@@ -183,7 +183,7 @@ export const DEFAULT_SETTINGS: Settings = {
   showSystemTasks: false,
   templateView: 'grid',
   confirmBeforeRun: true,
-  timezone: 'America/Los_Angeles',
+  timezone: 'local',
   toastOnSuccess: true,
   toastOnFailure: true,
   desktopNotifyOnFailure: false,

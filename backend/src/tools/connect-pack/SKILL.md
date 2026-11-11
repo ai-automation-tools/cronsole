@@ -5,7 +5,7 @@ description: Create, run, and manage scheduled tasks through a running Cronsole 
 
 # Cronsole
 
-> Cronsole Connect Pack **v1.16** · canonical copy: <https://cronsole.ai-automation-tools.dev>
+> Cronsole Connect Pack **v1.17** · canonical copy: <https://cronsole.ai-automation-tools.dev>
 > If this file is older than your Cronsole install, the install wins — re-download the pack.
 
 Cronsole is a single pane of glass for scheduled tasks. It runs **locally** on the user's own
@@ -96,7 +96,7 @@ leaves it running), or the dashboard. Do not route around a gate.
 
 | Rule | Why it exists |
 |:---|:---|
-| **Schedules are 5-field cron in UTC** | Not local time. The dashboard reads *and writes* in the user's own zone (Pacific by default) and converts before calling the API — **you can't see that setting, so you convert on the way in**. Ask which zone "9am" means, and confirm both readings back. See §3 of the task-authoring reference. |
+| **Schedules are 5-field cron in UTC** | Not local time. The dashboard reads *and writes* in the user's own zone (the browser's by default) and converts before calling the API — **you can't see that setting, so you convert on the way in**. Ask which zone "9am" means, and confirm both readings back. See §3 of the task-authoring reference. |
 | **Commands are tokenized, no shell** | A Windows command becomes a structured `{executable, args[]}` action. Pipes, `>`, `&&`, `%VAR%` do **not** work unless you invoke a shell explicitly. This is the injection guarantee — an implicit shell turns every parameter into arbitrary code. |
 | **`\Microsoft\` is refused** | Registering a task **silently overwrites** a same-named one, and the agent runs **elevated**. Writing there could destroy a real Windows task with no error. Refused in the backend *and* independently in the agent. |
 | **A folder must already exist — unless you ask for it, and say so** | The only folder Cronsole creates *unasked* is `\Cronsole`, and it is the only one it removes. A create into a missing folder is refused honestly; pass **`createFolder: true`** on `create_task` to make the chain instead. **Do not reach for that flag to get past an error.** Deleting a Task Scheduler folder needs elevation, and the agent is elevated — so a folder it creates is a door only an *administrator* can close. Tell the user what you are about to create and why, and prefer an existing folder from `list_folders`. The response names every folder it made. |

@@ -8,6 +8,7 @@ import { ToastProvider } from './hooks/ToastProvider.tsx'
 import { ConfirmProvider } from './hooks/ConfirmProvider.tsx'
 import { AuthProvider } from './hooks/AuthProvider.tsx'
 import { AuthGate } from './components/AuthGate.tsx'
+import { ErrorBoundary } from './components/ErrorBoundary.tsx'
 import { migrateLegacyStorageKeys } from './utils/storageMigration.ts'
 import { startSettingsSync } from './hooks/useSettings.ts'
 import './index.css'
@@ -47,9 +48,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <ConfirmProvider>
             <AuthProvider>
               <BackendStatusBanner />
-              <AuthGate>
-                <Dashboard />
-              </AuthGate>
+              <ErrorBoundary preferencesKey="cronsole.settings">
+                <AuthGate>
+                  <Dashboard />
+                </AuthGate>
+              </ErrorBoundary>
             </AuthProvider>
           </ConfirmProvider>
         </ToastProvider>

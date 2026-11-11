@@ -428,7 +428,7 @@ Clicking a task card opens the **Task Details** modal, which has two tabs.
 ### Overview
 Instead of raw data, the Overview parses the task's synced configuration into readable panels:
 - **Summary:** Status, last result (success/failure), next run, and last run.
-- **Schedule:** A human-readable description (e.g. *"Daily at 9:00 AM PDT"*) alongside the underlying cron expression. Schedules are **stored** in UTC but **read and written in your own timezone** — Pacific by default, changeable under Settings → Behavior → Schedule timezone. If Cronsole can't express the trigger as cron (boot, logon, event, or on-demand tasks), it says so honestly rather than guessing.
+- **Schedule:** A human-readable description (e.g. *"Daily at 9:00 AM PDT"*) alongside the underlying cron expression. Schedules are **stored** in UTC but **read and written in your own timezone** — your browser's zone by default, changeable under Settings → Behavior → Schedule timezone. If Cronsole can't express the trigger as cron (boot, logon, event, or on-demand tasks), it says so honestly rather than guessing.
 - **Action:** What the task actually runs — an HTTP request for Cronsole-native tasks, or the executable/arguments/working directory for Windows tasks. If your agent build doesn't yet report a task's action, the panel says so rather than showing a blank.
 - **Settings:** Scheduler state, whether the task is enabled, the account it runs as, run level, logon type, author, and description — shown when the agent reports them.
 - **Raw platform metadata:** The full untouched sync payload is still available under a collapsible section at the bottom.

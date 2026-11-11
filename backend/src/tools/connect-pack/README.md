@@ -1,6 +1,6 @@
 # Cronsole Connect Pack
 
-**v1.16** · canonical copy: <https://cronsole.ai-automation-tools.dev>
+**v1.17** · canonical copy: <https://cronsole.ai-automation-tools.dev>
 
 Teach any AI tool — Claude Code, Claude Desktop, Cursor, Codex, or your own agent — to create
 and manage scheduled tasks through **your** running Cronsole.

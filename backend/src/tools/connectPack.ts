@@ -35,7 +35,7 @@ import { CONNECT_PACK_FILES } from './connectPackBundled.js';
 //   one — but "where to find a newer copy" changing IS a content change, and this
 //   stamp is the only way that copy can tell its reader it predates the move.
 // 1.3 (2026-07-31): the dashboard now authors schedules in the user's own zone
-//   (Pacific by default) while the API stays UTC. The pack always said "convert on
+//   (the browser's by default) while the API stays UTC. The pack always said "convert on
 //   the way in", but a reader could reasonably assume the user's "9am" was already
 //   what the app would store. It isn't, and the caller cannot see that setting — so
 //   the instruction is now to ASK the zone and confirm both readings back.
@@ -120,9 +120,10 @@ import { CONNECT_PACK_FILES } from './connectPackBundled.js';
 //   table gains rename, native-job edit, template delete and the routine verbs.
 // 1.15 (2026-11-06): Anthropic renamed Claude Code routines to scheduled tasks;
 //   SKILL.md and task-authoring say "Claude scheduled task" (tool names unchanged).
+// 1.17 (2026-11-11): the dashboard's schedule zone defaults to the browser's, not Pacific.
 // 1.16 (2026-11-06): native run settings (retries, overlap, catch-up, 24 h limit),
 // chaining (runAfterTaskId) and passEnv in the SKILL surface table.
-export const CONNECT_PACK_VERSION = '1.16';
+export const CONNECT_PACK_VERSION = '1.17';
 
 /** Where a reader should look for a newer copy than the one in their hand. */
 export const CONNECT_PACK_HOME = 'https://cronsole.ai-automation-tools.dev';

@@ -10,6 +10,14 @@ vi.mock('../../api', () => ({
   api: { get: vi.fn().mockResolvedValue({ data: [] }), post: vi.fn(), patch: vi.fn(), delete: vi.fn() }
 }));
 
+// The schedule zone defaults to the machine's, so a clock-time assertion would pass
+// or fail by where the suite runs. Pin it to Pacific.
+vi.mock('../../hooks/useSettings', async importOriginal => {
+  const actual = await importOriginal<typeof import('../../hooks/useSettings')>();
+  const settings = () => ({ ...actual.DEFAULT_SETTINGS, timezone: 'America/Los_Angeles' });
+  return { ...actual, useSettings: () => ({ settings: settings() }), getSettings: settings };
+});
+
 const mockTask: Task = {
   id: 'task-123',
   name: 'Test Schedule Task',
@@ -55,7 +63,7 @@ describe('TaskCard Component', () => {
   // --- schedule preview (added 2026-08-11) ---
   //
   // The card is the surface most people read; it has to answer "when does this
-  // run?" without a click. Settings default to Pacific, so a UTC cron is shown
+  // run?" without a click. The zone is pinned to Pacific above, so a UTC cron is shown
   // shifted — the same reading the detail modal gives.
 
   it('shows the schedule in words on the card', () => {

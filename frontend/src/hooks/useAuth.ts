@@ -21,6 +21,8 @@ export interface AuthContextValue {
   setup: (email: string, password: string, name?: string) => Promise<void>;
   logout: () => void;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  /** True when the login screen is showing because a session ended, not a sign-out. */
+  sessionExpired?: boolean;
 }
 
 // Shared by AuthProvider (the component) and the useAuth hook. Kept in this

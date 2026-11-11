@@ -1203,19 +1203,18 @@ export const DashboardScreen = ({
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-border/80 text-[10px] uppercase font-black text-subtle-foreground tracking-wider bg-background/20">
-                      <th className="py-4 pl-6 pr-0 w-4"><span className="sr-only">Select</span></th>
                       <th className="py-4 px-4">Name</th>
                       <th className="py-4 px-4">Platform</th>
                       <th className="py-4 px-4">Category</th>
                       <th className="py-4 px-4">Status</th>
-                      <th className="py-4 px-4">Last Sync</th>
+                      <th className="py-4 px-4">Updated</th>
                       <th className="py-4 px-4">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/50 text-sm">
                     {filteredTasks.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="text-center py-12 text-subtle-foreground font-medium italic">
+                        <td colSpan={6} className="text-center py-12 text-subtle-foreground font-medium italic">
                           No tasks match the active filters.
                         </td>
                       </tr>

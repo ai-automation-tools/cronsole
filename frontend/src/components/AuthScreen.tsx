@@ -11,7 +11,7 @@ type Mode = 'login' | 'setup';
  * the one account); `login` mode is every visit after.
  */
 export function AuthScreen({ mode }: { mode: Mode }) {
-  const { login, setup } = useAuth();
+  const { login, setup, sessionExpired } = useAuth();
   const isSetup = mode === 'setup';
 
   const [email, setEmail] = useState('');
@@ -115,6 +115,12 @@ export function AuthScreen({ mode }: { mode: Mode }) {
                 placeholder="Re-enter your password"
               />
             </label>
+          )}
+
+          {!isSetup && sessionExpired && !error && (
+            <p role="status" className="text-sm text-warning-text bg-warning/10 border border-warning/30 rounded-lg px-3 py-2">
+              Your session expired. Sign in again to continue.
+            </p>
           )}
 
           {error && (

@@ -20,7 +20,8 @@ let nextId = 1;
 /**
  * Lightweight, dependency-free toast system. Wrap the app once and call
  * `useToast().toast(...)` anywhere. Replaces blocking `alert()` calls so a
- * background task run doesn't freeze the UI. Auto-dismisses after 4s.
+ * background task run doesn't freeze the UI. Auto-dismisses after 4s (8s for an
+ * error, 10s when it carries an action).
  */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -35,19 +36,20 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     // An actionable toast gets longer than four seconds: the reader has to
     // decide, not just read, and a button that leaves before it can be pressed
     // is worse than no button.
-    window.setTimeout(() => remove(id), action ? 10000 : 4000);
+    // An error is the one a reader must not miss, and it is usually the longest.
+    window.setTimeout(() => remove(id), action ? 10000 : variant === 'error' ? 8000 : 4000);
   }, [remove]);
 
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
-      <div className="fixed bottom-6 right-6 z-[200] flex flex-col gap-2 w-full max-w-sm pointer-events-none">
+      <div className="fixed bottom-6 inset-x-4 sm:left-auto sm:right-6 sm:w-96 z-[200] flex flex-col gap-2 pointer-events-none">
         {toasts.map(t => {
           const { ring, Icon, icon } = VARIANT_STYLES[t.variant];
           return (
             <div
               key={t.id}
-              role="status"
+              role={t.variant === 'error' ? 'alert' : 'status'}
               className={`pointer-events-auto flex items-start gap-3 rounded-2xl border ${ring}
                           bg-surface/95 backdrop-blur-sm px-4 py-3 text-sm text-foreground
                           shadow-2xl animate-in slide-in-from-bottom-2 fade-in duration-300`}

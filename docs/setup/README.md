@@ -22,10 +22,10 @@ authenticate the dashboard, and connect the agent. If you haven't installed yet,
 | **`VITE_DEV_TOKEN`** | frontend | **Optional dev/E2E fallback** auth token, used only when no one has logged in (the dashboard has had a real single-user login since 2026-07-16, and a login token always wins). No committed default. <br><br>⚠️ **It must never reach a build, and since 2026-08-15 it structurally cannot.** Vite loads `.env.local` in *every* mode and inlines `VITE_*` references as literals, so this variable was being compiled into `dist/` as a valid owner JWT — every built copy of the dashboard arrived **already authenticated**, making the login screen decorative. The reference is now gated on `import.meta.env.DEV` (statically `false` in a build, so it folds away), and `npm run check:bundle` fails the build if a credential-shaped literal reappears. **The general rule: a `VITE_*` variable is compiled into the bundle and served to every visitor — the prefix means "safe to publish", not "available to the frontend".** ([troubleshooting #55](../troubleshooting/README.md#55-the-dashboard-is-already-signed-in-on-a-browser-that-never-logged-in)) |
 | **`DATABASE_URL`** | backend | PostgreSQL 16 connection string. Required when running the backend outside Docker Compose. |
 | **`TEST_DATABASE_URL`** | backend (tests) | Postgres URL for the integration suite (`npm run test:integration`). Defaults to `postgresql://taskhub:password@localhost:5432/taskhub_test` — the suite **creates, migrates, and truncates** this database, so point it at a throwaway DB, never a real one. Unit tests (`npm test`) don't use it. |
-| **`JWT_SECRET`** | backend | Signing secret for user auth tokens. Must be **≥ 16 chars**; the backend **fails to start** on a missing or weak secret. Generate: `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`. |
+| **`JWT_SECRET`** | backend | Signing secret for user auth tokens. **Generated on first boot** when empty and written to `backend/.env`. If you set your own it must be **≥ 16 chars**; the backend fails to start on a weak one. A value Cronsole once published in `docker-compose.yml` is treated as empty and replaced. |
 | **`JWT_EXPIRES_IN`** | backend | Optional. How long an issued token lives; defaults to **`24h`**, so a browser session is unchanged unless you set it. Accepts a duration (`24h`, `30d`) or a plain number of **seconds** — a bare number is read as seconds, not the milliseconds `ms` would otherwise infer, so `3600` means an hour rather than 3.6 seconds. The backend **probe-signs at boot** and refuses to start on a value that cannot produce a usable token, instead of failing at the first login where the symptom (403 on everything) points at the token rather than the config. Set it for the **MCP server**, a long-lived stdio client that cannot re-authenticate ([guide](../user-guides/guides/MCP_Server_Guide.md#getting-a-token)). **Caveat: one value for all tokens** — raising it also lengthens browser sessions, including on a phone if you use remote access. |
-| **`ENCRYPTION_KEY`** | backend | AES-256-GCM key that encrypts `PlatformConnection.config` (API keys, agent IDs, pairing secrets) **at rest**. Must be **exactly 32 characters**; the backend **fails to start** otherwise. |
-| **`AGENT_PAIRING_SECRET`** | backend + agent | Shared secret for the agent's WebSocket handshake. The backend **fails to start** without it; the agent must set the same value as `CRONSOLE_PAIRING_SECRET`. Use a long random string (`openssl rand -hex 24`). |
+| **`ENCRYPTION_KEY`** | backend | AES-256-GCM key that encrypts stored credentials (API keys, tokens, per-job secrets) **at rest**. **Generated on first boot** when empty and the database holds nothing encrypted yet. If you set your own it must be **exactly 32 characters**. **Do not change it afterwards** — data stored under the old key becomes unreadable — and back it up with the database. An install that already has data under the old published default keeps that key and warns at every boot. |
+| **`AGENT_PAIRING_SECRET`** | backend + agent | Shared secret for the agent's WebSocket handshake. **Generated on first boot** when empty and written to `backend/.env`; `agent\setup-agent-startup.ps1` copies it into the agent's `appsettings.json`. The agent must hold the same value (`CRONSOLE_PAIRING_SECRET` or `appsettings.json`). |
 | **`DISABLE_AUTH_RATE_LIMIT`** | backend | Optional. Set to `true` to disable the login/setup rate-limiter (per-IP, on `/api/auth/login` + `/setup`). The limiter is already skipped under `NODE_ENV=test`; this is an escape hatch for local load testing. Leave unset in normal use. |
 | **`BIND_HOST`** | backend | Interface the API listens on. Defaults to **`127.0.0.1`**, so nothing off the machine can reach `:3000`; the agent, the dashboard and the bundled proxy on Docker Desktop all use loopback. Set `0.0.0.0` only when something off-box must connect directly. **Linux Docker Engine is that case for the proxy**: `host.docker.internal` is the bridge address there, not loopback, so the proxy answers `502` until this is set. The boot line states which it is. |
 | **`ALLOWED_ORIGINS`** | backend | Comma-separated browser origins allowed to reach the backend — it gates **both** the REST API's CORS headers and the Socket.IO handshake. Set it to the frontend origin (e.g. `http://localhost:7373`); that also enables **browser live updates**, the dashboard's push channel that refreshes the task list on agent syncs / scheduled runs instead of polling. **Empty = agent-only sockets *and* a REST API any origin can read** — the backend warns at boot when that's the case. Non-browser callers (the MCP server, `curl`) send no `Origin` and are unaffected. A **refused** browser origin is logged once, naming the origin and the allowed list ([troubleshooting #31](../troubleshooting/README.md#31-the-dashboard-loads-but-every-api-call-fails-with-a-cors-error)). |
@@ -61,14 +61,13 @@ authenticate the dashboard, and connect the agent. If you haven't installed yet,
 > the canonical copy of this warning; other docs link here rather than repeat it.)*
 
 > [!IMPORTANT]
-> `docker-compose.yml` bakes in **DEV-ONLY default secrets** (`JWT_SECRET`,
-> `ENCRYPTION_KEY`, `AGENT_PAIRING_SECRET`) so `docker compose up` boots out of the box.
-> Those defaults **won't match** a `frontend/.env.local` dev token or an agent pairing
-> secret you generated against a rotated `backend/.env` — the dashboard then gets
-> `403 Invalid or expired token` and the agent handshake is rejected. To align them,
-> create a **root `.env`** (gitignored, next to `docker-compose.yml`) mirroring the
-> secret values from `backend/.env`; Compose interpolates it automatically. Recreate the
-> backend after changing it: `docker compose up -d --force-recreate backend`.
+> **The three secrets generate themselves.** Leave `JWT_SECRET`, `ENCRYPTION_KEY` and
+> `AGENT_PAIRING_SECRET` empty and the backend creates each on first boot, writes it to
+> `backend/.env` and says so in its log. That holds for the Docker stack too:
+> `docker-compose.yml` carries no default values, and `./backend` is mounted into the
+> container, so the file lands in your checkout. A value in the host environment or a
+> root `.env` still wins over the file. Until 2026-11-11 Compose shipped published
+> default values instead; the backend now replaces those wherever it finds them.
 
 ### Run it manually (no Docker)
 
@@ -97,9 +96,9 @@ Then fill in `backend/.env` (the [table above](#-key-environment-variables) has 
 | Variable | Rule | Generate |
 |:---|:---|:---|
 | `DATABASE_URL` | Already points at the Compose database; change it for your own instance. | — |
-| `JWT_SECRET` | ≥ 16 chars | `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"` |
-| `ENCRYPTION_KEY` | **exactly** 32 chars | `node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"` |
-| `AGENT_PAIRING_SECRET` | ≥ 16 chars; the agent must use the same value | `node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"` |
+| `JWT_SECRET` | Leave empty to have it generated on first boot. Your own: ≥ 16 chars | `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"` |
+| `ENCRYPTION_KEY` | Leave empty to have it generated on first boot. Your own: **exactly** 32 chars | `node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"` |
+| `AGENT_PAIRING_SECRET` | Leave empty to have it generated on first boot. Your own: ≥ 16 chars; the agent must use the same value | `node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"` |
 
 **3. Run each piece**, one terminal each:
 

@@ -837,6 +837,13 @@ Non-negotiable rules. **Every one has a reason recorded in
   because a GET capability link is fired by link previews and prefetchers.
 - **Exactly one account-creation path: `POST /api/auth/setup`** (first run only). **Never re-add a
   register route for a test** — an integration test pins its 404.
+- **No secret has a published default.** `config/secrets.ts` runs before anything reads
+  `JWT_SECRET`, `ENCRYPTION_KEY` or `AGENT_PAIRING_SECRET`: a value that is missing, or is one
+  Compose used to ship, is generated and written to `backend/.env` (environment, then that file,
+  then generated). **`ENCRYPTION_KEY` is generated only while nothing is encrypted yet**; an
+  install with data under the published key keeps it and warns at every boot. An unwritable
+  `.env` is a refusal to start, never an in-memory secret. Never add a default back to
+  `docker-compose.yml`, and keep `:-` rather than `:?` there.
 - **The API listens on loopback unless `BIND_HOST` says otherwise.** It can run commands on the
   machine, so it is not offered to the LAN by default, and the Vite dev server follows the same
   rule. The container sets `0.0.0.0` because its published port is what is pinned to `127.0.0.1`.

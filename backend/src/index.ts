@@ -1,4 +1,7 @@
 import 'dotenv/config';
+// Must stay second: it settles JWT_SECRET, ENCRYPTION_KEY and AGENT_PAIRING_SECRET,
+// which the modules imported below read while they load.
+import './config/secrets.js';
 import { createServer } from 'http';
 import { Server, Socket } from 'socket.io';
 import { PlatformType } from '@prisma/client';

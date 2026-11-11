@@ -93,14 +93,15 @@ services:
       # Inside the container loopback is the container itself; the published port
       # is what stays pinned to 127.0.0.1 on the host.
       BIND_HOST: 0.0.0.0
-      # The backend fail-fasts without these. Values below are DEV-ONLY defaults so
-      # `docker compose up` boots out of the box; override them (host env or a root
-      # .env) for anything real. JWT_SECRET must be >= 16 chars, ENCRYPTION_KEY
-      # EXACTLY 32, AGENT_PAIRING_SECRET >= 16 and matched by the agent's
-      # CRONSOLE_PAIRING_SECRET (see docs/setup/README.md).
-      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-in-production}
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-dev_encryption_key_32_chars_1234}
-      AGENT_PAIRING_SECRET: ${AGENT_PAIRING_SECRET:-dev-pairing-secret-change-me}
+      # No defaults, on purpose. These used to carry published DEV values, which
+      # meant every install that had not set its own shared one signing key. Left
+      # empty, the backend generates each on first boot and writes it to
+      # backend/.env (this folder is mounted at /app), where the agent setup script
+      # finds the pairing secret. A value in the host env or a root .env still wins.
+      # `:-` and never `:?` - compose interpolates the whole file for every command.
+      JWT_SECRET: ${JWT_SECRET:-}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      AGENT_PAIRING_SECRET: ${AGENT_PAIRING_SECRET:-}
       # Frontend origin(s) allowed to open the browser live-update socket.
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:7373}
     depends_on:

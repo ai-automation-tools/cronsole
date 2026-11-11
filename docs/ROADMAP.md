@@ -1921,8 +1921,10 @@ no-shell execution held up; the gaps are in defaults and deployment.
 - [x] **Listen on loopback by default** *(2026-11-11)*. `BIND_HOST`, default `127.0.0.1`, for the
       backend; the Vite dev server follows.
 - [x] **Rate-limit `PATCH /api/auth/password`** *(2026-11-11)*.
-- [ ] **Generate secrets on first run and refuse the known defaults at boot.** The Docker profile
-      boots with published values for `JWT_SECRET`, `ENCRYPTION_KEY` and the pairing secret.
+- [x] **Generate secrets on first run; replace the published defaults** *(2026-11-11)*.
+      `config/secrets.ts`. Compose carries no default values any more.
+- [ ] **A re-encrypting `ENCRYPTION_KEY` rotation.** An install with data under the published
+      key keeps it and warns; nothing can move it to a private key yet.
 - [ ] **Run only the agent elevated.** `CronsoleStack` starts the backend and the dev server at
       RunLevel Highest, so every native job runs as administrator.
 - [x] **Give the agent a log, and give agent setup a pairing secret** *(2026-11-11)*. `logs/agent.*.log`;

@@ -689,12 +689,18 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rise {
-    animation: none;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
-  .spot::before,
-  .spot::after {
-    transition: none;
+  /* A stopped spinner reads as a hang, so it keeps turning, slowly. */
+  .animate-spin {
+    animation-duration: 3s !important;
+    animation-iteration-count: infinite !important;
   }
 }
 

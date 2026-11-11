@@ -212,7 +212,7 @@ is. See [troubleshooting #45](../../../docs/troubleshooting/README.md#45-cronsol
 - **Envelope:** `{ type: string, payload: object }`. Types are `noun:verb` — `task:run`,
   `agent:hello`, `task:scan`, `agent:tasks:list`, `task:create`, `task:delete`, `task:export`,
   `task:import`, `task:folders`.
-- **Heartbeat:** ping every 30s. Reconnect with exponential backoff, **1s → 5min cap**.
+- **Heartbeat:** ping every 30s. A watchdog in `Program.cs` retries a dropped connection **every 30s**, with no backoff.
 - **Run commands are HMAC-signed** per session to prevent replay. Read-only commands (e.g.
   `task:export`, `task:folders`) aren't signed — but still need the agent republished for the
   handler to exist.

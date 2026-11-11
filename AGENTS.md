@@ -489,7 +489,7 @@ Non-negotiable rules. **Every one has a reason recorded in
 ### Agent ↔ server protocol
 - The agent **always initiates** the WebSocket; the server never connects in. No `0.0.0.0` binds — it
   is a client.
-- Envelope `{ type, payload }`, `noun:verb` types. Ping 30s, reconnect 1s → 5min backoff.
+- Envelope `{ type, payload }`, `noun:verb` types. Ping 30s; a watchdog retries a dropped connection every 30s (fixed, no backoff).
 - Run commands are **HMAC-signed per session**. Anything that widens blast radius rides *inside* the
   signature (`folder`, `overwrite`, `createFolders`, and the restore XML's sha256).
 - **The agent gets no file-write verb** — it is elevated and local, so that would be a general

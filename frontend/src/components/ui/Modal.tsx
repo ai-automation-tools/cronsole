@@ -71,6 +71,13 @@ export const Modal = ({
 }: ModalProps) => {
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // Held in a ref so the effect below does not depend on it. Nearly every caller
+  // passes an inline arrow, which is a new function on each parent render; as a
+  // dependency it re-ran the effect and moved focus back to the first control on
+  // every keystroke in a field that updates parent state.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+
   useEffect(() => {
     const previouslyFocused = document.activeElement as HTMLElement | null;
 
@@ -95,7 +102,7 @@ export const Modal = ({
       if (!isTop()) return;
       if (e.key === 'Escape') {
         e.stopPropagation();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (e.key !== 'Tab') return;
@@ -137,7 +144,7 @@ export const Modal = ({
       document.body.style.overflow = prevOverflow;
       previouslyFocused?.focus?.();
     };
-  }, [onClose, initialFocusRef]);
+  }, [initialFocusRef]);
 
   return createPortal(
     <div

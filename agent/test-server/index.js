@@ -5,10 +5,12 @@ const crypto = require("crypto");
 // Dev stub of the backend for manually exercising the .NET agent. It mirrors the
 // real handshake + per-command signing (backend/src/ws/agentAuth.ts) so the agent
 // accepts its commands. Set AGENT_PAIRING_SECRET to match the agent's
-// CRONSOLE_PAIRING_SECRET (defaults to the local dev value in backend/.env).
-const PAIRING_SECRET =
-  process.env.AGENT_PAIRING_SECRET ||
-  "48ea0bf89b69253fc6695949f777097e16a64bce8cbef51f";
+// CRONSOLE_PAIRING_SECRET. There is no fallback: a default here is a secret in git.
+const PAIRING_SECRET = process.env.AGENT_PAIRING_SECRET;
+if (!PAIRING_SECRET) {
+  console.error("Set AGENT_PAIRING_SECRET (the value in backend/.env) before starting the test server.");
+  process.exit(1);
+}
 
 const hmac = (key, msg) =>
   crypto.createHmac("sha256", key).update(msg, "utf8").digest("hex");

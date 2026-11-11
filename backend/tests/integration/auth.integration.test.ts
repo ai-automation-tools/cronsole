@@ -246,3 +246,40 @@ describe('req.user is resolved from the database, not from the claim', () => {
     expect(after.body.error).toBe('This account no longer exists');
   });
 });
+
+describe('a password change ends other sessions', () => {
+  const creds = { email: 'rotating@example.com', password: 'correct-horse-battery', name: 'Owner' };
+  const bearer = (t: string) => ({ Authorization: `Bearer ${t}` });
+  const mintApiToken = async (session: string) =>
+    (await request(app).post('/api/auth/tokens').set(bearer(session))
+      .send({ name: 'mcp', expiresIn: '30d', password: creds.password })).body.token as string;
+  /** `iat` is whole seconds, so the old session has to be from an earlier one. */
+  const nextSecond = () => new Promise(r => setTimeout(r, 1100));
+
+  it('refuses the old session, returns a working one, and keeps API tokens by default', async () => {
+    const old = (await request(app).post('/api/auth/setup').send(creds)).body.token as string;
+    const apiToken = await mintApiToken(old);
+    await nextSecond();
+
+    const res = await request(app).patch('/api/auth/password').set(bearer(old))
+      .send({ currentPassword: creds.password, newPassword: 'a-different-passphrase' });
+    expect(res.status).toBe(200);
+    expect(res.body.revokedApiTokens).toBe(0);
+
+    const stale = await request(app).get('/api/tasks').set(bearer(old));
+    expect(stale.status).toBe(403);
+    expect(stale.body.error).toBe('Your password was changed. Sign in again.');
+    expect((await request(app).get('/api/tasks').set(bearer(res.body.token))).status).toBe(200);
+    expect((await request(app).get('/api/tasks').set(bearer(apiToken))).status).toBe(200);
+  });
+
+  it('revokes API tokens too when asked', async () => {
+    const session = (await request(app).post('/api/auth/setup').send(creds)).body.token as string;
+    const apiToken = await mintApiToken(session);
+
+    const res = await request(app).patch('/api/auth/password').set(bearer(session))
+      .send({ currentPassword: creds.password, newPassword: 'a-different-passphrase', revokeApiTokens: true });
+    expect(res.body.revokedApiTokens).toBe(1);
+    expect((await request(app).get('/api/tasks').set(bearer(apiToken))).status).toBe(403);
+  });
+});

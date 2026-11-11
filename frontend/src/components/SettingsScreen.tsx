@@ -641,6 +641,7 @@ const AccountSection = () => {
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [revokeTokens, setRevokeTokens] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const submit = async () => {
@@ -654,9 +655,11 @@ const AccountSection = () => {
     }
     setBusy(true);
     try {
-      await changePassword(current, next);
-      setCurrent(''); setNext(''); setConfirm('');
-      toast('Password changed.', 'success');
+      await changePassword(current, next, revokeTokens);
+      setCurrent(''); setNext(''); setConfirm(''); setRevokeTokens(false);
+      toast(revokeTokens
+        ? 'Password changed. Other devices are signed out and all API tokens are revoked.'
+        : 'Password changed. Other devices are signed out.', 'success');
     } catch (err) {
       toast(errorMessage(err, 'Could not change the password.'), 'error');
     } finally {
@@ -672,7 +675,7 @@ const AccountSection = () => {
       <Row label="Signed in as">
         <span className="text-xs font-mono text-muted-foreground">{user?.email ?? 'this device'}</span>
       </Row>
-      <Row label="Change password" description="Requires your current password. There's no email reset on a local install.">
+      <Row label="Change password" description="Requires your current password, and signs out every other device. There's no email reset on a local install.">
         <div className="flex flex-col gap-2">
           <input type="password" autoComplete="current-password" placeholder="Current password"
             value={current} onChange={e => setCurrent(e.target.value)} className={inputClass} />
@@ -680,6 +683,10 @@ const AccountSection = () => {
             value={next} onChange={e => setNext(e.target.value)} className={inputClass} />
           <input type="password" autoComplete="new-password" placeholder="Confirm new password"
             value={confirm} onChange={e => setConfirm(e.target.value)} className={inputClass} />
+          <label className="flex items-start gap-2 text-xs text-muted-foreground sm:w-64">
+            <input type="checkbox" className="mt-0.5" checked={revokeTokens} onChange={e => setRevokeTokens(e.target.checked)} />
+            <span>Also revoke all API tokens. The MCP server and phone shortcuts stop working until you create new ones.</span>
+          </label>
           <button
             onClick={submit}
             disabled={busy || !current || !next || !confirm}

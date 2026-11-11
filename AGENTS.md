@@ -60,7 +60,7 @@ ChatGPT / Grok / Jules / Open Claw / Hermes = quick links only.
 | Database | PostgreSQL 16 + Prisma |
 | Real-time | Socket.io server + WebSocket client in the agent |
 | Windows agent | .NET 10 (C#) + `Microsoft.Win32.TaskScheduler` |
-| Auth | JWT in two kinds: a 24h **browser session** (no refresh, no `jti`, not individually revocable) and a named, revocable **API token** (`ApiToken`, `/api/auth/tokens`, 30/60/90 days or never). `checkToken` is one definition shared by REST middleware and the Socket.IO handshake, fails closed on DB error, and **resolves the identity from the `User` row rather than from the claims**. |
+| Auth | JWT in two kinds: a 24h **browser session** (no refresh, no `jti`, not individually revocable; a password change ends every one issued before it, via `User.passwordChangedAt`) and a named, revocable **API token** (`ApiToken`, `/api/auth/tokens`, 30/60/90 days or never). `checkToken` is one definition shared by REST middleware and the Socket.IO handshake, fails closed on DB error, and **resolves the identity from the `User` row rather than from the claims**. |
 | Hosting | Docker Compose (dev). **No prod hosting — local-first.** Secrets live in the user's own `.env`. |
 | MCP server | Node.js stdio wrapper over the REST API (`mcp-server/`) |
 

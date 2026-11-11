@@ -20,7 +20,8 @@ export interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   setup: (email: string, password: string, name?: string) => Promise<void>;
   logout: () => void;
-  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  /** Ends every other browser session; `revokeApiTokens` also ends the API tokens. */
+  changePassword: (currentPassword: string, newPassword: string, revokeApiTokens?: boolean) => Promise<void>;
   /** True when the login screen is showing because a session ended, not a sign-out. */
   sessionExpired?: boolean;
 }

@@ -270,7 +270,7 @@ Configuration is via environment variables (see [`mcp-server/.env.example`](../.
 | `CRONSOLE_MCP_ALLOW_DESTRUCTIVE` |  | `false` | Expose the **`delete_task`** and **`delete_template`** tools (the second deletes only templates you imported or saved, never the built-in catalog). It deletes **Cronsole-native tasks only** and backs each one up first, so it can't reach a Windows task — but both stay off unless you set this to `true` or `1` (anything else, including a typo, leaves them off). When off, your assistant doesn't see either tool at all. Prefer disabling a task to deleting it. |
 
 > [!IMPORTANT]
-> The server reads its **process environment only** — it loads no `.env` file, so copying
+> The server reads its **process environment** (`CRONSOLE_TOKEN` alone also falls back to the Windows User environment, then a `.env` in `mcp-server/` or the repo root), so copying
 > `.env.example` to `.env.local` does nothing by itself. Either set the vars in your host's
 > `env` block (below), or export `CRONSOLE_TOKEN` in the environment you launch the host from:
 >

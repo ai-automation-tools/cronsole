@@ -50,6 +50,9 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Fixed
 
+- **The MCP server no longer reads a token from the folder it was launched in** (2026-11-11). When `CRONSOLE_TOKEN` was not in the environment, the server looked for a `.env` in the working directory first, so a host started inside another project could pick up that project's token. It now looks only in `mcp-server/` and the repo root (after the Windows User environment).
+- **A mistyped `CRONSOLE_TIMEOUT_MS` no longer means no timeout** (2026-11-11). A value such as `15s` was read as "never time out", so a hung backend hung the tool call. Anything that is not a positive number now falls back to 15 seconds.
+- **The MCP server reports its real version** (2026-11-11). It announced 1.0.0 while the package was 0.9.0.
 - **The list view's columns line up with their headings** (2026-11-11). A leftover empty "Select" heading pushed every column one place to the left, so "Actions" headed nothing. The "Last Sync" column is now labelled **Updated**, which is what it shows.
 - **Settings shows source names, not internal codes** (2026-11-11). The *Default platform filter* list read `TASKHUB_NATIVE` and `WINDOWS_TASK_SCHEDULER`; it now reads the same names the rest of the app uses.
 - **About shows the real version** (2026-11-11). It said "MVP preview" regardless of the build.

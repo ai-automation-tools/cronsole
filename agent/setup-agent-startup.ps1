@@ -34,6 +34,43 @@ no prebuilt binary to download by design (docs/STATUS.md).
     Exit 1
 }
 
+# The agent exits at once without a pairing secret, and the secret has to match the
+# backend's. Copy it across here so a first install is not left with an agent that
+# starts, exits and shows Offline with nothing explaining why. An existing
+# appsettings.json is never touched.
+$AppSettings = Join-Path $ProjectDir "appsettings.json"
+if (-not (Test-Path $AppSettings)) {
+    $Secret = $null
+    foreach ($EnvFile in @((Join-Path $RepoRoot "backend\.env"), (Join-Path $RepoRoot ".env"))) {
+        if (-not (Test-Path $EnvFile)) { continue }
+        $Line = Get-Content $EnvFile | Where-Object { $_ -match '^\s*AGENT_PAIRING_SECRET\s*=' } | Select-Object -First 1
+        if ($Line) {
+            $Secret = ($Line -replace '^\s*AGENT_PAIRING_SECRET\s*=\s*', '').Trim().Trim('"').Trim("'")
+            break
+        }
+    }
+    if ($Secret) {
+        $Json = '{' + [Environment]::NewLine +
+            '  "serverUrl": "http://localhost:3000",' + [Environment]::NewLine +
+            '  "pairingSecret": "' + $Secret + '",' + [Environment]::NewLine +
+            '  "agentId": ""' + [Environment]::NewLine + '}' + [Environment]::NewLine
+        [System.IO.File]::WriteAllText($AppSettings, $Json, (New-Object System.Text.UTF8Encoding $false))
+        Write-Host "Wrote $AppSettings with the backend's pairing secret." -ForegroundColor Green
+    } else {
+        Write-Error @"
+No pairing secret found, so the agent could not connect.
+
+Set AGENT_PAIRING_SECRET in backend\.env (or the repo-root .env that Docker Compose
+reads), restart the backend, and run this script again. Generate one with:
+
+  node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+
+See docs/setup/README.md.
+"@
+        Exit 1
+    }
+}
+
 Write-Host "1. Building Cronsole C# Agent in Release mode..." -ForegroundColor Cyan
 
 # Stop any running agent first -- publish fails if Cronsole.Agent.exe is locked.

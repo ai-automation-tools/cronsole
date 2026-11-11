@@ -43,6 +43,9 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Fixed
 
+- **The Windows agent has a log** (2026-11-11). The agent is a windowless program started hidden, so everything it printed, including why it exited, went nowhere. `cronsole up` now writes it to `logs/agent.out.log` and `logs/agent.err.log`.
+- **Agent setup gives the agent its pairing secret** (2026-11-11). `agent/setup-agent-startup.ps1` copies `AGENT_PAIRING_SECRET` from `backend/.env` (or the root `.env`) into the agent's `appsettings.json` when that file does not exist, and stops with instructions when there is no secret to copy. Before this a first install got an agent that started, exited and showed Offline.
+- **`cronsole.ps1` finds Docker instead of assuming a path** (2026-11-11). The Docker CLI and Docker Desktop paths were one machine's. They are now resolved from `PATH`, falling back to the default install folder, so the 5-minute self-heal can restart the engine on any machine.
 - **A published template pack imports again** (2026-11-10). `POST /api/templates/import` kept Express's 100 kB JSON default, and a real Registry v1 pack carries whole script bodies: the ai-automation-recipes pack is ~0.5 MB, so the import failed. It now gets its own 8 MB parser, scoped to that one route like restore's. A body over any parser limit now returns 413 "Request body is too large" instead of a logged 500.
 
 - **`ssh` works in native jobs, and MCP Run now stops calling a long run a dead backend** (2026-11-07). Found running two Task Scheduler automations as native tasks:

@@ -89,6 +89,17 @@ To verify that the agent has connected to the Cronsole server:
 - **Windows Task Scheduler** in the dashboard's source rail should carry a green dot (**Online**).
 - Verify that your local Windows scheduled tasks are successfully imported/synchronized.
 
+If it stays grey, read the agent's own log: `logs\agent.out.log` in the repo folder. The agent
+is a windowless program, so that file is the only place it can say why it exited or could not
+connect (for example a missing or mismatched pairing secret).
+
+### 4. The pairing secret
+The agent and the backend share one secret, `AGENT_PAIRING_SECRET`. The setup script copies it
+from `backend\.env` (or the repo-root `.env`) into `agent\Cronsole.Agent\appsettings.json` the
+first time it runs, and never overwrites that file afterwards. If neither file has the secret,
+the script stops and says so. After changing the secret in the backend, update
+`appsettings.json` (and `agent\publish\appsettings.json`) to match, then restart the stack.
+
 ---
 
 ## 🔧 Manual Build & Run (For Development)

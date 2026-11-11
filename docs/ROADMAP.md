@@ -1925,8 +1925,9 @@ no-shell execution held up; the gaps are in defaults and deployment.
       boots with published values for `JWT_SECRET`, `ENCRYPTION_KEY` and the pairing secret.
 - [ ] **Run only the agent elevated.** `CronsoleStack` starts the backend and the dev server at
       RunLevel Highest, so every native job runs as administrator.
-- [ ] **Give the agent a log, and give the Quick Start a pairing secret.** A fresh install gets an
-      agent that exits silently.
+- [x] **Give the agent a log, and give agent setup a pairing secret** *(2026-11-11)*. `logs/agent.*.log`;
+      `setup-agent-startup.ps1` copies the secret from the backend's `.env`. Open: an install with no
+      `.env` at all (the Docker quick start) still has to create one, which is the item above.
 - [ ] **A password change revokes sessions and offers to revoke API tokens.**
 - [ ] **Security headers and a CSP on the proxy.**
 - [ ] **Stored webhook and preset headers are dropped when the URL changes origin.**

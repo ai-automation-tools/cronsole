@@ -102,9 +102,17 @@ function Get-AgentProcess {
 
 $Npm = 'C:\Program Files\nodejs\npm.cmd'
 if (-not (Test-Path $Npm)) { $Npm = 'npm.cmd' }
-$Docker = 'D:\GDrive\Repos\Docker\resources\bin\docker.exe'
-if (-not (Test-Path $Docker)) { $Docker = 'docker' }
-$DockerDesktop = 'D:\GDrive\Repos\Docker\Docker Desktop.exe'
+# Found, not assumed: Docker Desktop installs wherever its owner put it. docker.exe
+# lives at <install>\resources\bin\docker.exe, so Docker Desktop.exe is two folders
+# up from it. A path written here once was one machine's, and on every other machine
+# it made the engine keeper below warn forever without being able to act.
+$DockerDesktop = Join-Path $env:ProgramFiles 'Docker\Docker\Docker Desktop.exe'
+$Docker = (Get-Command docker -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1).Source
+if (-not $Docker) { $Docker = Join-Path $env:ProgramFiles 'Docker\Docker\resources\bin\docker.exe' }
+if (Test-Path $Docker) {
+    $beside = Join-Path (Split-Path (Split-Path (Split-Path $Docker))) 'Docker Desktop.exe'
+    if (Test-Path $beside) { $DockerDesktop = $beside }
+} else { $Docker = 'docker' }
 
 if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Path $LogDir -Force | Out-Null }
 
@@ -519,8 +527,12 @@ function Invoke-Up {
             Write-Host '           republish to swap it: scripts\Republish-Agent.ps1' -ForegroundColor Yellow
         }
     } elseif (Test-Path $AgentExe) {
-        Start-Process -FilePath $AgentExe -WorkingDirectory (Split-Path -Parent $AgentExe) -WindowStyle Hidden | Out-Null
-        Write-Host '  started agent'
+        # The agent is a windowless exe, so without these two files everything it
+        # prints - including the reason it exited - goes nowhere.
+        Start-Process -FilePath $AgentExe -WorkingDirectory (Split-Path -Parent $AgentExe) -WindowStyle Hidden `
+            -RedirectStandardOutput (Join-Path $LogDir 'agent.out.log') `
+            -RedirectStandardError (Join-Path $LogDir 'agent.err.log') | Out-Null
+        Write-Host "  started agent (logs: $LogDir\agent.*.log)"
     } else {
         Write-Host "  WARNING: agent exe not found at $AgentExe (publish it first)" -ForegroundColor Yellow
     }

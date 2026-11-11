@@ -1,7 +1,8 @@
 // Vite's `?raw` rather than node:fs — this file is compiled by tsconfig.app.json,
 // whose `types` is `["vite/client"]`, so node builtins are not available here
 // (and shouldn't be: it's the browser project).
-import indexHtml from '../../../index.html?raw';
+// The pre-paint script is a file since 2026-11-11 (the proxy's CSP allows no inline script).
+import indexHtml from '../../../public/theme-boot.js?raw';
 import { renderHook, act } from '@testing-library/react';
 import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest';
 

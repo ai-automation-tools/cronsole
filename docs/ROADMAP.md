@@ -1934,7 +1934,9 @@ no-shell execution held up; the gaps are in defaults and deployment.
 - [x] **A password change revokes sessions and offers to revoke API tokens** *(2026-11-11)*.
       `User.passwordChangedAt`; `checkToken` refuses an older browser session. Open sockets of
       another session stay connected until they reconnect.
-- [ ] **Security headers and a CSP on the proxy.**
+- [x] **Security headers and a CSP on the proxy** *(2026-11-11)*. `script-src 'self'`; the two
+      inline scripts in `index.html` became files in `frontend/public/`, held by a test.
+      `:7373` and `:3000` send no CSP; they are loopback-only dev servers.
 - [x] **Stored webhook and preset headers are dropped when the URL changes origin** *(2026-11-11)*.
 - [x] **Small hardening** *(2026-11-11)*: restore archive limits checked before inflating, a 10 MB
       response cap on HTTP jobs and checks, masking a secret cut by truncation, constant-time

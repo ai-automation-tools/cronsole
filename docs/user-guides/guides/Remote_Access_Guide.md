@@ -378,6 +378,9 @@ for iOS Shortcuts or Android HTTP Shortcuts. Setup, responses, revoking and trou
 - [ ] **A phone shortcut holds a run-only token, never a full API token.** A full token in a
       shortcut is your whole account on a device that can be lost; use the task's **Phone
       shortcut** button, and revoke its token if the phone goes missing.
+- [ ] **The proxy is sending its security headers.** `curl -sI http://127.0.0.1:8080/` should list a
+      `Content-Security-Policy`. A proxy container started before 2026-11-11 has the old config
+      until it is recreated: `docker compose --profile proxy up -d --force-recreate proxy`.
 - [ ] Keep your `JWT_SECRET`, `ENCRYPTION_KEY`, and `AGENT_PAIRING_SECRET` strong and private
       (see [Setup](../../setup/README.md)).
 

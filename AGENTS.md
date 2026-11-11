@@ -858,6 +858,10 @@ Non-negotiable rules. **Every one has a reason recorded in
   machine, so it is not offered to the LAN by default, and the Vite dev server follows the same
   rule. The container sets `0.0.0.0` because its published port is what is pinned to `127.0.0.1`.
   The boot line states which interface is in use.
+- **`index.html` carries no inline script.** The proxy sends `script-src 'self'` because the
+  session token lives in `localStorage`, so an inline script runs on `:7373` and is silently
+  dropped on the proxied page. Boot scripts are files in `frontend/public/`
+  (`noInlineScript.test.ts`). Styles keep `'unsafe-inline'`: React writes style attributes.
 - **`ALLOWED_ORIGINS` is one list gating two surfaces** (REST CORS + the Socket.IO handshake), parsed
   once in `config/origins.ts`. No `Origin` header = always allowed (non-browser callers are gated by
   auth). Empty list stays permissive but warns at boot.

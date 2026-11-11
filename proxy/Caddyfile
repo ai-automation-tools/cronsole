@@ -26,6 +26,21 @@
 :80 {
 	encode zstd gzip
 
+	# --- Security headers ------------------------------------------------------
+	# The session token lives in localStorage, so an injected script could read it.
+	# `script-src 'self'` is the line that matters: nothing inline and nothing from
+	# another origin runs, which is why index.html loads its two small boot scripts
+	# as files. Styles keep 'unsafe-inline' because React writes style attributes.
+	# No HSTS: this listener is plain HTTP on loopback and the tunnel in front of it
+	# owns TLS.
+	header {
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+
 	# --- The API ---------------------------------------------------------------
 	# `handle` blocks are mutually exclusive, so the first matching one wins and
 	# the SPA fallback below can never swallow an API request. Using `handle_path`

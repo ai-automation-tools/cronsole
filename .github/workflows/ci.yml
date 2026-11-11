@@ -65,6 +65,40 @@ jobs:
       - name: Check tracked .env files are allowlisted and secret-free
         run: node scripts/check-tracked-env.mjs
 
+  security:
+    name: Secret scan and dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          # The whole history: a secret removed in a later commit is still published.
+          fetch-depth: 0
+
+      # The env-file check above reads two populations by provider pattern. This reads
+      # every commit, including generic high-entropy assignments. A reviewed false
+      # positive goes in .gitleaksignore with the reason beside it. Values are redacted
+      # because this log is public. Image pinned; never :latest.
+      - name: Scan the git history for secrets
+        run: >
+          docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.24.3
+          git /repo --no-banner --redact=100
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      # Shipped dependencies only, high and critical only: a dev-tool advisory would
+      # redden every unrelated pull request and teach people to ignore the job.
+      - name: Audit shipped dependencies
+        run: |
+          for dir in backend frontend mcp-server; do
+            echo "::group::npm audit $dir"
+            (cd "$dir" && npm audit --omit=dev --audit-level=high)
+            echo "::endgroup::"
+          done
+
   backend:
     name: Backend tests and build
     runs-on: ubuntu-latest

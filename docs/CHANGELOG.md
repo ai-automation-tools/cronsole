@@ -33,6 +33,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Security
 
+- **CI scans the whole git history for secrets and audits shipped dependencies** (2026-11-11). A new `security` job runs gitleaks over every commit and `npm audit` (high and critical, production dependencies) for the backend, frontend and MCP server. The first full scan found two owner tokens hardcoded in the frontend in June 2026; both were signed with a secret that is no longer in use, so nothing accepts them.
 - **A saved credential no longer follows a changed URL** (2026-11-11). Editing the notification webhook, or a saved Gemini MCP server, without re-entering its headers used to keep the stored ones even when the URL changed, so a stored token could be sent to a different server. The stored headers are now kept only when the new URL has the same scheme, host and port; otherwise they are dropped and you enter them again.
 - **Restore refuses an archive that expands too far** (2026-11-11). The file count is checked before anything is unpacked, and unpacking stops at 64 MB, so a small, highly compressed archive can no longer exhaust the backend's memory.
 - **A secret cut off by log truncation is masked** (2026-11-11). Output is shortened before it is stored, and a cut that landed inside a secret left its first characters in the run log. The leading fragment at a cut is now masked too.

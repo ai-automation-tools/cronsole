@@ -9,6 +9,7 @@ import {
   illegalSecretRef,
   missingSecretRefs,
   redactSecrets,
+  TRUNCATION_MARK,
   resolveJobSecrets
 } from './jobSecrets.js';
 
@@ -224,6 +225,8 @@ const ALLOWED_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'];
 
 /** An HTTP body is usually incidental to the status code. */
 const LOG_SNIPPET_LENGTH = 500;
+/** Largest response body an HTTP job or check will read. Past it the request fails, by name. */
+const MAX_RESPONSE_BYTES = 10 * 1024 * 1024;
 /**
  * A script's output *is* the result, not context for it — so exec keeps more.
  * `ExecutionLog.log` is `@db.Text`, so this costs nothing structural.
@@ -697,6 +700,9 @@ async function executeHttp(job: HttpJob): Promise<ExecutedRunResult> {
       headers: job.headers,
       data: job.body || undefined,
       timeout: 15000,
+      // Only the first few hundred characters are kept, so there is no reason to
+      // hold an unbounded body in the process that runs every native job.
+      maxContentLength: MAX_RESPONSE_BYTES,
       // Treat any HTTP response as a completed request; status is judged below.
       validateStatus: () => true
     });
@@ -792,7 +798,8 @@ function runProcess(spec: ProcessSpec): Promise<ExecutedRunResult> {
 
     const tail = () => {
       const text = output.trim().slice(0, EXEC_LOG_LENGTH);
-      const more = truncated || output.trim().length > EXEC_LOG_LENGTH ? ' …(truncated)' : '';
+      // TRUNCATION_MARK, not a literal: redactSecrets looks for it to find the cut.
+      const more = truncated || output.trim().length > EXEC_LOG_LENGTH ? TRUNCATION_MARK : '';
       return text ? ` | ${text}${more}` : '';
     };
 
@@ -966,6 +973,7 @@ async function probeHttp(probe: HttpProbe): Promise<ProbeResult> {
     method,
     headers: probe.headers,
     timeout: CHECK_TIMEOUT_MS,
+    maxContentLength: MAX_RESPONSE_BYTES,
     validateStatus: () => true,
     // Keep the body as text: the assertions are a substring match and a JSON
     // path, and axios' automatic JSON parse would make the first one silently

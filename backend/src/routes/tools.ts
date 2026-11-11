@@ -14,6 +14,7 @@ import JSZip from 'jszip';
 import { z } from 'zod';
 import { ExecutionStatus, PlatformType, TaskStatus, Prisma } from '@prisma/client';
 import { prisma } from '../db.js';
+import { sameOrigin } from '../utils/sameOrigin.js';
 import { connectorRegistry } from '../connectors/registry.js';
 import { AuthRequest } from '../auth/auth.js';
 import { deserializeConfig, serializeConfig } from '../auth/connectionConfig.js';
@@ -566,13 +567,35 @@ async function expandArchive(archiveBase64: string): Promise<RestoreInputFile[]>
     throw new HttpError(400, `That file could not be read as a .zip archive: ${err?.message ?? 'unknown error'}`);
   }
 
+  // Both limits are checked BEFORE or WHILE inflating, never after: a small archive
+  // of highly compressible data expands to gigabytes, and this process also runs
+  // every native job. The count is known from the directory without inflating anything.
+  const entries = Object.values(zip.files).filter(entry => !entry.dir);
+  if (entries.length > MAX_TASKS_PER_RESTORE) {
+    throw new HttpError(
+      400,
+      `That archive holds ${entries.length} files; a restore takes at most ${MAX_TASKS_PER_RESTORE}. Split it and restore in parts.`
+    );
+  }
+
   const files: RestoreInputFile[] = [];
-  for (const entry of Object.values(zip.files)) {
-    if (entry.dir) continue;
-    files.push({ relativePath: entry.name, bytes: await entry.async('nodebuffer') });
+  let total = 0;
+  for (const entry of entries) {
+    const bytes = await entry.async('nodebuffer');
+    total += bytes.length;
+    if (total > MAX_RESTORE_INFLATED_BYTES) {
+      throw new HttpError(
+        400,
+        `That archive expands to more than ${MAX_RESTORE_INFLATED_BYTES / (1024 * 1024)} MB, which is far more than task definitions need. Nothing was restored.`
+      );
+    }
+    files.push({ relativePath: entry.name, bytes });
   }
   return files;
 }
+
+/** Ceiling on what one restore archive may expand to. A task definition is a few KB. */
+const MAX_RESTORE_INFLATED_BYTES = 64 * 1024 * 1024;
 
 /**
  * Ceiling on one history read. Generous — a year of a busy machine fits — but
@@ -3137,7 +3160,9 @@ router.put(
       throw new HttpError(400, `A connection may hold ${MAX_TOOL_PRESETS} saved servers.`);
     }
 
-    const kept = existingIndex === -1 ? undefined : presets[existingIndex]!.headers;
+    // Stored headers stay only while the server they were saved for does (sameOrigin).
+    const previous = existingIndex === -1 ? undefined : presets[existingIndex]!;
+    const kept = previous && sameOrigin(previous.url, url) ? previous.headers : undefined;
     const headers = body.headers ?? kept;
     const preset: AgentToolPreset = {
       name,

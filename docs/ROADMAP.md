@@ -1933,7 +1933,10 @@ no-shell execution held up; the gaps are in defaults and deployment.
       `.env` at all (the Docker quick start) still has to create one, which is the item above.
 - [ ] **A password change revokes sessions and offers to revoke API tokens.**
 - [ ] **Security headers and a CSP on the proxy.**
-- [ ] **Stored webhook and preset headers are dropped when the URL changes origin.**
+- [x] **Stored webhook and preset headers are dropped when the URL changes origin** *(2026-11-11)*.
+- [x] **Small hardening** *(2026-11-11)*: restore archive limits checked before inflating, a 10 MB
+      response cap on HTTP jobs and checks, masking a secret cut by truncation, constant-time
+      login refusal, bcrypt cost 12 with a 72-character cap.
 - [ ] **Scan every tracked file for credentials in CI**, not only env files and the bundle.
 
 ---

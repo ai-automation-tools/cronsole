@@ -28,6 +28,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Security
 
+- **The agent test server no longer carries a pairing secret** (2026-11-11). `agent/test-server/index.js` fell back to a hardcoded `AGENT_PAIRING_SECRET` when the variable was unset, and that fallback was a real secret. It now refuses to start without the variable. If you ever copied that value into your own `backend/.env` or agent `appsettings.json`, generate a new one.
 - **Connect routes are rate-limited, and the error log keeps the URL out of its format string** (2026-11-10, security sweep). The six routes that check a pasted token, key or URL against GitHub, Vercel, Gemini or n8n before saving it share one per-IP budget of 30 calls per 15 minutes, built with the existing `makeAuthLimiter` (CodeQL `js/missing-rate-limiting`). `errorHandler` now passes the method and URL as arguments to a fixed `[%s %s]` format, so a `%` sequence in a path can no longer reshape the log line (CodeQL `js/tainted-format-string`). New `errorHandler.test.ts`.
 - **`minimatch` 11 in `frontend/`** (2026-11-03). eslint 10 and typescript-eslint pull 10.2.5, which Dependabot can't lift past the parents' `^10` range (Dependabot #104). An npm `overrides` entry in `frontend/package.json` pins `^11.0.1`. Dev only.
 - **`follow-redirects` 1.16.2 in `frontend/` and `backend/`** (2026-11-03, security sweep). It comes in through `axios`. 1.16.1 could carry custom credential headers across a cross-origin redirect (Dependabot #102, #103). Lockfiles only.

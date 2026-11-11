@@ -131,7 +131,7 @@ If the task has since been deleted, the line says so, and the token stays listed
 it existed.
 
 If a phone is lost, revoke every *Runs only* token issued for it. Then change your password if the
-dashboard was signed in on that phone too.
+dashboard was signed in on that phone too: a password change signs out every other device.
 
 ## Troubleshooting
 

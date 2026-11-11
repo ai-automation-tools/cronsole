@@ -13,6 +13,9 @@ model User {
   id        String   @id @default(cuid())
   email     String   @unique
   password  String?
+  // Whole seconds, because a JWT's `iat` is. A browser session issued before this
+  // instant is refused by `checkToken`; NULL (never changed) refuses nothing.
+  passwordChangedAt DateTime?
   name      String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

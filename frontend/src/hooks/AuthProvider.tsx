@@ -111,8 +111,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStatus('unauthed');
   }, []);
 
-  const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
-    await api.patch('/auth/password', { currentPassword, newPassword });
+  const changePassword = useCallback(async (currentPassword: string, newPassword: string, revokeApiTokens = false) => {
+    const res = await api.patch('/auth/password', { currentPassword, newPassword, revokeApiTokens });
+    // The change ended the session this request was made with; the response carries its replacement.
+    if (res.data?.token) setAuthToken(res.data.token);
   }, []);
 
   return (

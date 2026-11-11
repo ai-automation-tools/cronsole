@@ -180,7 +180,7 @@ export const runScopeAllows = (runTaskId: string, request?: { method: string; pa
  * handshake) means "not a REST call", which a run-only token is never allowed.
  */
 export async function checkToken(token: string, request?: { method: string; path: string }): Promise<TokenCheck> {
-  let payload: { id?: unknown; jti?: unknown };
+  let payload: { id?: unknown; jti?: unknown; iat?: unknown };
   try {
     // Pinned to what generateToken signs with, so no other algorithm is ever accepted.
     payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as typeof payload;
@@ -256,7 +256,7 @@ export async function checkToken(token: string, request?: { method: string; path
   try {
     user = await prisma.user.findUnique({
       where: { id: payload.id },
-      select: { id: true, email: true }
+      select: { id: true, email: true, passwordChangedAt: true }
     });
   } catch {
     // Same rule as the revocation lookup above: being unable to ask is not
@@ -269,6 +269,16 @@ export async function checkToken(token: string, request?: { method: string; path
   // reasonably try to log in again with credentials that no longer exist.
   if (!user) {
     return { ok: false, status: 403, error: 'This account no longer exists' };
+  }
+
+  // A browser session (no `jti`) has no row to revoke, so a password change ends
+  // them all by date: anything issued before it is refused. An API token is
+  // untouched here; it has its own row and its own revocation.
+  if (typeof payload.jti !== 'string' && user.passwordChangedAt) {
+    const issuedMs = typeof payload.iat === 'number' ? payload.iat * 1000 : 0;
+    if (issuedMs < user.passwordChangedAt.getTime()) {
+      return { ok: false, status: 403, error: 'Your password was changed. Sign in again.' };
+    }
   }
 
   return { ok: true, user: { id: user.id, email: user.email } };

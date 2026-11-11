@@ -150,17 +150,23 @@ router.post('/login', authLimiter, validateBody(loginSchema), async (req: Reques
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, 'Current password is required'),
-  newPassword: z.string().min(8, 'New password must be at least 8 characters').max(MAX_PASSWORD, TOO_LONG)
+  newPassword: z.string().min(8, 'New password must be at least 8 characters').max(MAX_PASSWORD, TOO_LONG),
+  revokeApiTokens: z.boolean().optional()
 });
 
 /**
  * Change the signed-in user's password. Requires a valid token AND the current
  * password (a stolen session alone can't lock the owner out). No email/reset
  * flow — that stays deferred with the rest of multi-tenant.
+ *
+ * Every browser session issued before the change stops working, and the caller
+ * gets a fresh one in the response. API tokens are kept unless `revokeApiTokens`
+ * is set: they are what the MCP server and phone shortcuts hold, and ending them
+ * silently would break those without the user having asked.
  */
 router.patch('/password', authenticateToken, authLimiter, validateBody(changePasswordSchema), async (req: Request, res: Response) => {
   const userId = (req as AuthRequest).user!.id;
-  const { currentPassword, newPassword } = req.body;
+  const { currentPassword, newPassword, revokeApiTokens } = req.body;
 
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user || !user.password) {
@@ -173,8 +179,23 @@ router.patch('/password', authenticateToken, authLimiter, validateBody(changePas
   }
 
   const hashedPassword = await bcrypt.hash(newPassword, BCRYPT_COST);
-  await prisma.user.update({ where: { id: userId }, data: { password: hashedPassword } });
-  res.json({ success: true });
+  // Whole seconds, taken BEFORE the new session is signed: `iat` is whole seconds,
+  // so a millisecond timestamp would refuse the token issued two lines below.
+  const passwordChangedAt = new Date(Math.floor(Date.now() / 1000) * 1000);
+  const [, revoked] = await prisma.$transaction([
+    prisma.user.update({ where: { id: userId }, data: { password: hashedPassword, passwordChangedAt } }),
+    prisma.apiToken.updateMany({
+      // An impossible id when the box is unticked, so the transaction keeps one shape.
+      where: { userId: revokeApiTokens ? userId : '', revokedAt: null },
+      data: { revokedAt: new Date() }
+    })
+  ]);
+  res.json({
+    success: true,
+    token: generateToken(user),
+    expiresIn: tokenLifetime(),
+    revokedApiTokens: revoked.count
+  });
 });
 
 // ---------------------------------------------------------------------------

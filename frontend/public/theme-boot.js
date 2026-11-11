@@ -1,0 +1,27 @@
+// Apply the persisted theme before first paint to avoid a flash of the
+// wrong theme. Defaults to dark (Cronsole's default) when unset or on error
+// — this fallback must match DEFAULT_MODE in src/hooks/useTheme.ts, or the
+// first frame disagrees with the app that replaces it.
+(function () {
+  try {
+    // Reads the legacy key too: this runs BEFORE the module that migrates
+    // it, so without the fallback the first load after the rename would
+    // flash the wrong theme for someone who had chosen light.
+    var mode = localStorage.getItem('cronsole.theme')
+      || localStorage.getItem('taskhub.theme')
+      || 'dark';
+    // Named palettes (kept in sync with NAMED_THEMES in useTheme.ts) apply
+    // directly; light/dark/system still resolve against the OS.
+    if (mode === 'dracula' || mode === 'nord' || mode === 'solarized' || mode === 'tokyo-night') {
+      document.documentElement.classList.add(mode);
+    } else {
+      var dark =
+        mode === 'dark' ||
+        (mode === 'system' &&
+          window.matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.classList.add(dark ? 'dark' : 'light');
+    }
+  } catch (e) {
+    document.documentElement.classList.add('dark');
+  }
+})();

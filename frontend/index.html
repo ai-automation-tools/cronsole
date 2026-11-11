@@ -7,35 +7,9 @@
     <meta name="theme-color" content="#060606" />
     <meta name="description" content="Cronsole — a single pane of glass for viewing, triggering, and managing scheduled tasks across Windows Task Scheduler, Claude routines, and more." />
     <title>Cronsole</title>
-    <script>
-      // Apply the persisted theme before first paint to avoid a flash of the
-      // wrong theme. Defaults to dark (Cronsole's default) when unset or on error
-      // — this fallback must match DEFAULT_MODE in src/hooks/useTheme.ts, or the
-      // first frame disagrees with the app that replaces it.
-      (function () {
-        try {
-          // Reads the legacy key too: this runs BEFORE the module that migrates
-          // it, so without the fallback the first load after the rename would
-          // flash the wrong theme for someone who had chosen light.
-          var mode = localStorage.getItem('cronsole.theme')
-            || localStorage.getItem('taskhub.theme')
-            || 'dark';
-          // Named palettes (kept in sync with NAMED_THEMES in useTheme.ts) apply
-          // directly; light/dark/system still resolve against the OS.
-          if (mode === 'dracula' || mode === 'nord' || mode === 'solarized' || mode === 'tokyo-night') {
-            document.documentElement.classList.add(mode);
-          } else {
-            var dark =
-              mode === 'dark' ||
-              (mode === 'system' &&
-                window.matchMedia('(prefers-color-scheme: dark)').matches);
-            document.documentElement.classList.add(dark ? 'dark' : 'light');
-          }
-        } catch (e) {
-          document.documentElement.classList.add('dark');
-        }
-      })();
-    </script>
+    <!-- A file, not inline: the proxy's Content-Security-Policy allows scripts from
+         this origin only. Blocking on purpose, so the theme is set before first paint. -->
+    <script src="/theme-boot.js"></script>
   </head>
   <body>
     <!-- Painted before the JS bundle arrives (~1s); React replaces it on mount.
@@ -49,17 +23,6 @@
     </style>
     <div id="root"><div id="boot" aria-label="Loading Cronsole" role="status"><i></i></div></div>
     <script type="module" src="/src/main.tsx"></script>
-    <script>
-      // Consent gate, for the hosted demo only. The same bundle IS the local-first
-      // app, which is expected to make no outbound request at all and to work
-      // air-gapped -- so the hostname is checked here rather than letting the
-      // script load and no-op itself. Shared copy: ai-automation-tools.dev/consent.js
-      if (/(^|\.)ai-automation-tools\.dev$/.test(location.hostname)) {
-        var c = document.createElement('script');
-        c.src = 'https://ai-automation-tools.dev/consent.js';
-        c.defer = true;
-        document.head.appendChild(c);
-      }
-    </script>
+    <script src="/consent-gate.js"></script>
   </body>
 </html>

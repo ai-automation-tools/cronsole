@@ -48,6 +48,7 @@ const IMPORT_BODY_LIMIT = '8mb';
 
 export function createApp(): Express {
   const app = express();
+  app.disable('x-powered-by');
 
   // Who the login rate-limiter thinks it is throttling.
   //

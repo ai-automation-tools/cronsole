@@ -19,7 +19,7 @@ const VALID_MODES: readonly ThemeMode[] = ['light', 'dark', 'system', ...NAMED_T
  * would ship a first paint the product was never designed in. `system` stays
  * available, but only as a mode the user picks on purpose.
  *
- * The pre-paint script in `index.html` hard-codes the same fallback; if this
+ * The pre-paint script (`public/theme-boot.js`) hard-codes the same fallback; if this
  * changes, change that too or the first frame disagrees with the app.
  */
 const DEFAULT_MODE: ThemeMode = 'dark';

@@ -1925,8 +1925,9 @@ no-shell execution held up; the gaps are in defaults and deployment.
       `config/secrets.ts`. Compose carries no default values any more.
 - [ ] **A re-encrypting `ENCRYPTION_KEY` rotation.** An install with data under the published
       key keeps it and warns; nothing can move it to a private key yet.
-- [ ] **Run only the agent elevated.** `CronsoleStack` starts the backend and the dev server at
-      RunLevel Highest, so every native job runs as administrator.
+- [x] **Run only the agent elevated** *(2026-11-11)*. `CronsoleStack` is Limited; the new
+      `CronsoleAgentKeeper` starts the agent at Highest. The backend reports its own rights in
+      `executionHost`. Admin work is a Windows Task Scheduler task, never a native job.
 - [x] **Give the agent a log, and give agent setup a pairing secret** *(2026-11-11)*. `logs/agent.*.log`;
       `setup-agent-startup.ps1` copies the secret from the backend's `.env`. Open: an install with no
       `.env` at all (the Docker quick start) still has to create one, which is the item above.

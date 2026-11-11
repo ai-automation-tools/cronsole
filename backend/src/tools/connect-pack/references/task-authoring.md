@@ -4,7 +4,14 @@
 
 Every way to **create** a scheduled task through Cronsole, and how to **manage** it afterwards.
 Read this before creating a task on a user's real machine — a scheduled task is durable, runs
-unattended, and on Windows runs **elevated**.
+unattended, and a Windows task can run **elevated**.
+
+**Which source for which rights.** A Cronsole-native job runs inside Cronsole's backend and
+**never has administrator rights**. Anything that needs them (services, protected folders,
+`Dism`, `cleanmgr`, firewall rules) must be a **Windows Task Scheduler task** with
+`runLevel: highest` - or, on macOS and Linux, a job in that system's own scheduler, which
+Cronsole cannot create yet. Choosing native for such a job produces a task that fails every
+run with *Access is denied*.
 
 ---
 

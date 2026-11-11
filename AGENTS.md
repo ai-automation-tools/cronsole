@@ -509,6 +509,16 @@ Non-negotiable rules. **Every one has a reason recorded in
   `\Microsoft\` is refused in the backend *and* independently in the agent.
 - **`\Cronsole-Stack\` is deliberately untracked** — it is the thing that runs Cronsole, not work
   Cronsole runs. Nothing enforces this; it is a standing choice.
+- **Only the agent is elevated; the backend never is.** The backend runs native jobs, so an
+  elevated backend makes every native job, and every package behind it, an administrator.
+  `\Cronsole-Stack\CronsoleStack` runs `cronsole.ps1 up` at RunLevel **Limited** (database,
+  backend, frontend, proxy) and `\Cronsole-Stack\CronsoleAgentKeeper` runs `cronsole.ps1 agent` at
+  **Highest**. A process inherits its launcher's token, so the split is decided at launch and
+  nowhere else: an elevated `up` or `restart` starts the agent and **hands the web tier to the
+  Limited task** rather than starting it. `runtimeContext` asks the OS whether the backend is
+  elevated and says so in `executionHost.summary` (create form, diagnostics, `list_platforms`).
+  **Work that needs administrator rights is a Windows Task Scheduler task, never a native job** -
+  on other systems, that system's own scheduler.
 - **A launcher task is not the process it launched, and exactly one script may own a task name.**
   Every `\Cronsole-Stack\` task runs `wscript.exe` → `run-hidden.vbs`, which waits for its script
   (since 2026-11-03, so `IgnoreNew` really prevents overlap and a 10-minute limit ends a hung run),

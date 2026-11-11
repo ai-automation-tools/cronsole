@@ -27,6 +27,13 @@ sources, this is the one to use for anything that must survive Cronsole being do
 
 Jobs that run **on this PC, as you**, and must keep running when Cronsole is off.
 
+> [!IMPORTANT]
+> **Anything that needs administrator rights belongs here**, never in a
+> [Cronsole-native](Cronsole_Native.md) job. Tick *Run with highest privileges* (`runLevel:
+> highest`) on the task. Native jobs run inside Cronsole's backend, which deliberately has no
+> administrator rights; the agent that creates this Windows task is the only elevated part of
+> Cronsole.
+
 | Automation | Why it belongs here |
 |:---|:---|
 | Run a PowerShell cleanup script every Sunday: clear `%TEMP%`, empty the Recycle Bin, delete logs older than 30 days | Runs as you, with your paths, whether or not Cronsole is up. |

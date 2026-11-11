@@ -1303,6 +1303,8 @@ export function registerTools(
         'nothing on disk. Use this when the job is an executable and you want ' +
         'real run results — exit code, duration and captured output land in the task history, unlike a Windows ' +
         'task where a SUCCESS only means the agent accepted the start. ' +
+        'It runs WITHOUT administrator rights. For work that needs them (services, protected folders, system ' +
+        'cleanup) use create_task instead, which makes a Windows Task Scheduler task. ' +
         'IMPORTANT: this runs wherever the Cronsole BACKEND runs, which is the user\'s machine for a normal ' +
         'local install but is INSIDE THE CONTAINER if the backend is Dockerized — where their paths and tools ' +
         'do not exist. Check the executionHost on the Cronsole-native row of GET /api/tools/platforms if the ' +
@@ -1396,6 +1398,8 @@ Next run: ${task.nextRunTime}` : '')
         'exist on the user\'s disk first, which is what makes this the right tool when YOU are authoring the ' +
         'script — use create_native_program_task instead only when the program is already installed. ' +
         'Exit code, duration and captured output land in the task history. ' +
+        'It runs WITHOUT administrator rights. For work that needs them (services, protected folders, system ' +
+        'cleanup) use create_task instead, which makes a Windows Task Scheduler task. ' +
         'IMPORTANT: this runs wherever the Cronsole BACKEND runs, which is the user\'s machine for a normal ' +
         'local install but is INSIDE THE CONTAINER if the backend is Dockerized. The interpreter must exist ' +
         'there: "node" always does (Cronsole runs on it), while powershell/pwsh/python may not — prefer node ' +

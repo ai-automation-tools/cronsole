@@ -44,6 +44,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 103 | **A native task whose URL is only `${secret.NAME}` never asks for the secret** — the Secrets section lists nothing, `missingSecrets` is empty, and a run posts to the literal text instead of refusing | `hasSecretRef` called `.test` on the shared global `SECRET_REF`, leaving `lastIndex` at the end of the match, and `matchAll` starts from the `lastIndex` it copies | [→](#103-a-native-task-whose-url-is-only-a-secret-never-asks-for-the-secret) |
 | 104 | **A native job that runs `ssh` exits 255 with no output** — the same script works from your shell and from Task Scheduler | Win32-OpenSSH needs `PROGRAMDATA` (its system config lives there), and the native child environment did not include it | [→](#104-a-native-job-that-runs-ssh-exits-255-and-prints-nothing) |
 | 105 | **MCP `run_task` says the backend is unreachable, and the native job ran fine** | Run now answers when the job ends; a job past the client's 15s timeout read as *"Could not reach"* | [→](#105-mcp-run_task-says-the-backend-is-unreachable-and-the-job-ran-fine) |
+| 106 | **A native job fails with *Access is denied* after an update** — it manages a service, writes to a protected folder, or runs `Dism` / `cleanmgr`, and it used to work | The backend no longer runs as administrator, so native jobs do not either. Move the job to a Windows task with *Run with highest privileges* | [→](#106-a-native-job-fails-with-access-is-denied-after-an-update) |
 | 93 | **A restored backup succeeds and every platform connection is unreadable** — `pg_restore` exits 0, every row count matches, your tasks are all there, and every source is broken | **The credentials in the dump are ciphertext and the key is not in the dump.** `PlatformConnection.config` and `TaskSecret` are AES-256-GCM encrypted with `ENCRYPTION_KEY`, which lives in `.env`. A restore onto a stack with a different key genuinely succeeds and leaves every value permanently unreadable, discovered one failing sync at a time | [→](#93-a-restore-succeeds-and-every-platform-connection-is-unreadable) |
 | 92 | **A restore verification says the data does not match, and the restore was perfect** — the *restored* copy reports more rows than the original it came from | **The check is reading an estimate, not a count.** `pg_stat_user_tables.n_live_tup` is a planner input maintained by autovacuum: stale (often zero) on a database not analysed recently, accurate on a freshly-restored one. It can be wrong in **both** directions, so it can also report a match over a restore that dropped rows. Generate real `count(*)` queries | [→](#92-a-restored-database-reports-different-row-counts-and-the-restore-was-perfect) |
 | 91 | **A second clone of the repo is not a second install** — `docker compose up` from a fresh checkout adopts the first one's database, or fails with `port is already allocated`. Shifting the ports in a `docker-compose.override.yml` does not help | **The Compose project name is pinned in the file, not derived from the folder** (`name: taskhub`, deliberately — it is what stops a renamed checkout orphaning the Postgres volume). Every clone on the machine is therefore the *same* project. And a plain override **appends** to `ports:` rather than replacing it, so both bindings are attempted and the old one still collides. Use `docker compose -p <name>` **and** the `!override` tag on every port list | [→](#91-a-second-clone-of-the-repo-shares-the-first-ones-database-and-ports) |
@@ -6584,3 +6585,33 @@ with `pending: true` and points at `get_task_history`, instead of an error that 
 backend would refuse with a 409. Every other tool now reports a timeout as *"took the request but did
 not answer within Ns"*. A job longer than 2 minutes is normal for native (the limit is 24 hours): read
 its verdict from the history.
+
+---
+
+## 106. A native job fails with *Access is denied* after an update
+
+**Symptom.** A Cronsole-native program or script task that worked for months now fails every run
+with *Access is denied*, *Requested operation requires elevation*, or exit code 5. It stops or
+starts a service, writes under `C:\Windows` or `C:\Program Files`, changes a firewall rule, or
+runs `Dism` or `cleanmgr`. Nothing in the task changed.
+
+**Cause.** Until 2026-11-11 one elevated scheduled task started the whole stack, so the backend
+ran as administrator and every native job inherited that. Only the agent needs elevation. The
+stack is now split: `\Cronsole-Stack\CronsoleStack` starts the database, backend and dashboard
+without administrator rights, and `\Cronsole-Stack\CronsoleAgentKeeper` starts the agent
+elevated. A native job that relied on the old behaviour was relying on a defect.
+
+**Fix.** Recreate the job as a **Windows Task Scheduler** task and tick *Run with highest
+privileges* (`runLevel: highest` over the API or MCP). That is where work needing administrator
+rights belongs; on macOS or Linux, use that system's own scheduler. Do not re-register the
+stack elevated to make the job pass.
+
+**How to check which state you are in.** The New Task form says it under the program or script
+fields, and so does Diagnose: *"They run without administrator rights"* is the intended state,
+and a line starting *"WARNING: Cronsole itself is running with administrator rights"* means the
+old registration is still in place. Over MCP it is the native row of `list_platforms`:
+`executionHost.elevated`. To move an older install over, run
+`scripts\startup-task\Register-CronsoleStack.ps1` from an Administrator prompt, then start
+`\Cronsole-Stack\CronsoleRestart` once.
+
+*First hit: 2026-11-11 (the change itself; no job was reported broken).*

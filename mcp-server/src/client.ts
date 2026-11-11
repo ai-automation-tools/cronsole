@@ -135,8 +135,10 @@ function resolveFallbackToken(): string | undefined {
 
   // 2. Check .env file in mcp-server or parent directories
   try {
+    // Only this install's own folders. The working directory is whatever project the
+    // MCP host happened to be launched in, and a CRONSOLE_TOKEN in that project's
+    // .env is not this server's to pick up.
     const searchDirs = [
-      process.cwd(),
       fileURLToPath(new URL('..', import.meta.url)),
       fileURLToPath(new URL('../..', import.meta.url))
     ];
@@ -188,7 +190,10 @@ export function configFromEnv(): CronsoleServerConfig {
     );
   }
   const rawTimeout = env('TIMEOUT_MS');
-  const timeoutMs = rawTimeout ? Number(rawTimeout) : 15000;
+  // `Number('15s')` is NaN, and axios reads NaN as "no timeout": a hung backend would
+  // then hang the tool call for ever. Anything that is not a positive number is ignored.
+  const parsedTimeout = Number(rawTimeout);
+  const timeoutMs = rawTimeout && Number.isFinite(parsedTimeout) && parsedTimeout > 0 ? parsedTimeout : 15000;
   return { baseUrl, token, timeoutMs, allowDestructive: readAllowDestructive() };
 }
 

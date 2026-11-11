@@ -124,7 +124,7 @@ Set via environment (see [`.env.example`](.env.example)):
 | `CRONSOLE_TIMEOUT_MS` |  | `15000` | Per-request timeout. `run_task` waits at least 2 minutes, because a native Run now answers when the job ends; past that it answers *Still running*. |
 | `CRONSOLE_MCP_ALLOW_DESTRUCTIVE` |  | `false` | Register `delete_task` (**Cronsole-native tasks only**, archived before deletion) and `delete_template` (imported / saved templates only). Only an exact `true`/`1` opens it — a typo, an empty value, or an unexpanded `${…}` literal all fail **closed**, because a false negative costs one missing tool while a false positive hands an agent a deletion verb you never granted. When off, both are **absent** from `tools/list`. |
 
-The server reads its **process environment only** and loads no `.env` file. Getting a token,
+The server reads its **process environment**. `CRONSOLE_TOKEN` alone has two fallbacks for a stale host environment: the Windows User environment, then a `.env` in `mcp-server/` or the repo root (never the working directory the host was launched in). Getting a token,
 exporting it, and the Windows fresh-terminal rule are user setup, covered in the
 [MCP Server Guide](../docs/user-guides/guides/MCP_Server_Guide.md#getting-a-token).
 

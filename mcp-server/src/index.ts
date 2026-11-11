@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createRequire } from 'node:module';
 import { McpServer } from '@modelcontextprotocol/server';
 import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
 import { CronsoleClient, configFromEnv } from './client.js';
@@ -10,13 +11,17 @@ import { registerTools } from './tools.js';
  * create scheduled tasks. All I/O on stdout is the JSON-RPC stream — logging
  * MUST go to stderr (console.error) so it doesn't corrupt the protocol.
  */
+// Read rather than written out: a literal here said 1.0.0 while the package was 0.9.0.
+// Resolves from src/ and dist/ alike, since package.json sits one level above both.
+const PACKAGE_VERSION: string = createRequire(import.meta.url)('../package.json').version;
+
 async function main(): Promise<void> {
   const config = configFromEnv();
   const client = new CronsoleClient(config);
 
   const server = new McpServer({
     name: 'cronsole',
-    version: '1.0.0'
+    version: PACKAGE_VERSION
   });
 
   registerTools(server, client, { allowDestructive: config.allowDestructive });

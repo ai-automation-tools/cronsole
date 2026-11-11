@@ -112,6 +112,15 @@ describe('configFromEnv', () => {
     process.env.CRONSOLE_TIMEOUT_MS = '500';
     expect(configFromEnv().timeoutMs).toBe(500);
   });
+
+  it('falls back to the default for a timeout that is not a positive number', () => {
+    process.env.CRONSOLE_TOKEN = 't';
+    // NaN would reach axios as "no timeout", and a hung backend would hang the tool.
+    for (const bad of ['15s', '0', '-5', 'abc']) {
+      process.env.CRONSOLE_TIMEOUT_MS = bad;
+      expect(configFromEnv().timeoutMs).toBe(15000);
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------

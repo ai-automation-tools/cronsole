@@ -75,6 +75,8 @@ export const DashboardScreen = ({
   onRun,
   tasks: allTasks,
   isLoading,
+  loadError,
+  onRetryLoad,
   onImportFile,
   onAddSources,
   onSyncNow,
@@ -94,6 +96,9 @@ export const DashboardScreen = ({
   onRun: (task: Task) => void;
   tasks: Task[] | undefined;
   isLoading: boolean;
+  /** Set when the task list could not be loaded at all. Not the same as an empty list. */
+  loadError?: string | null;
+  onRetryLoad?: () => void;
   /** Open the file importer. Import means a file now; adopting a machine's tasks is under Sync. */
   onImportFile: () => void;
   /** Open the folder picker that adopts tasks already on the machine. */
@@ -647,7 +652,27 @@ export const DashboardScreen = ({
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
         <Loader2 className="animate-spin text-foreground" size={48} />
-        <p className="text-subtle-foreground font-medium animate-pulse">Fetching live tasks from agent...</p>
+        <p className="text-subtle-foreground font-medium animate-pulse">Loading tasks...</p>
+      </div>
+    );
+  }
+
+  // A failed read is not an empty dashboard. Rendering it as one tells a user whose
+  // database is unreachable to "connect systems and perform your first sync".
+  if (loadError) {
+    return (
+      <div role="alert" className="flex flex-col items-center justify-center h-[60vh] gap-3 px-6 text-center">
+        <h3 className="text-xl font-bold text-foreground">Couldn't load your tasks</h3>
+        <p className="text-subtle-foreground max-w-md">
+          The backend answered with an error, so this is not an empty dashboard. Your tasks are unaffected.
+        </p>
+        <p className="text-xs font-mono text-danger-text max-w-md break-words">{loadError}</p>
+        <button
+          onClick={onRetryLoad}
+          className="mt-2 bg-primary hover:bg-primary-hover px-5 py-2.5 rounded-2xl text-sm font-bold"
+        >
+          Try again
+        </button>
       </div>
     );
   }

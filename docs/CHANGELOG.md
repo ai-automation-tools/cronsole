@@ -22,6 +22,10 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Changed
 
+- **Schedules default to your own timezone** (2026-11-11). A new install read and wrote cron fields in Pacific until you changed Settings > Behavior > Schedule timezone. The default is now the browser's zone. A zone you already chose is kept.
+- **A failed load no longer looks like an empty dashboard** (2026-11-11). When the task list cannot be fetched, the dashboard says so and offers **Try again**, instead of "Dashboard is empty" and a prompt to run your first sync.
+- **One broken screen no longer blanks the app** (2026-11-11). A render error now shows the message with **Reload** and **Reset preferences and reload**, and switching tabs recovers the rest of the app.
+
 - Source scout 2026-11-10: queued OpenAI Agents API automations; watching Jules, Microsoft Copilot Cowork (added), Hermes, Kimi, Cursor, Codex (re-checked); quick links unchanged (Jules link proposed in the PR, file edit was denied).
 - **Task details fit a phone** (2026-11-09). Below `sm` the task modal is a full-screen sheet with a smaller title, tighter header and tabs, and a one-row footer: **More · Edit · Run Now**. Remove, Delete, Save as template, Export, Phone shortcut and the Gemini verbs fold behind **More**; desktop is unchanged. The footer respects the bottom safe-area inset, and the four status tiles are tighter. Pinned by a 375px E2E check. New task, Edit, Clone, Apply template and Diagnostics get the same full-screen sheet on a phone (`Modal`'s new `sheet` prop). The Collections dialog now scrolls instead of clipping a long list.
 - **Source data flow diagram re-read against the native scheduler** (2026-11-07, org upkeep). `NativeScheduler.ts`, `NativeTaskExecutor.ts` and `routes/tasks.ts` changed since the diagram was pinned. Line ranges on the PostgreSQL, dashboard, Cronsole-native and job-target nodes now point at the new code, and the cards note that the tick starts runs without waiting, plus the overlap, retry, catch-up and run-after policy. Rebuilt with `--pin-head`.

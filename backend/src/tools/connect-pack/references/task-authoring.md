@@ -1,6 +1,6 @@
 # Task authoring & management
 
-> Cronsole Connect Pack **v1.16** · canonical copy: <https://cronsole.ai-automation-tools.dev>
+> Cronsole Connect Pack **v1.17** · canonical copy: <https://cronsole.ai-automation-tools.dev>
 
 Every way to **create** a scheduled task through Cronsole, and how to **manage** it afterwards.
 Read this before creating a task on a user's real machine — a scheduled task is durable, runs
@@ -157,7 +157,7 @@ servers **by saved preset name**, so no bearer token ever enters a tool call.
 **All schedules are 5-field cron in UTC.** Not local time.
 
 **The API is UTC; the person talking to you is not, and neither is their dashboard.** Cronsole's UI
-reads and writes schedules in the user's own timezone (Pacific by default) and converts before it
+reads and writes schedules in the user's own timezone (the browser's by default) and converts before it
 calls the API — you have no access to that setting, so **you must convert yourself**. When someone
 says "run it at 9am", ask which zone if you don't know it, convert to UTC, and **state both** in your
 confirmation ("`0 16 * * *` — 9:00 AM Pacific"). Sending `0 9 * * *` for a 9am request is the single

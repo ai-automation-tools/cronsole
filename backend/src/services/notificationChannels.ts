@@ -1,5 +1,6 @@
 import { prisma } from '../db.js';
 import { encryptConfig, decryptConfig } from '../auth/encryption.js';
+import { sameOrigin } from '../utils/sameOrigin.js';
 
 /**
  * A user's own opt-in run-outcome webhook (`NotificationChannel`, off by
@@ -116,7 +117,8 @@ export async function saveNotificationChannel(
   let headers = input.headers;
   if (headers === undefined) {
     const existing = await getNotificationChannel(userId);
-    headers = existing?.config?.headers;
+    // "Unchanged" only holds for the endpoint they were saved for (see sameOrigin).
+    headers = sameOrigin(existing?.config?.url, input.url) ? existing?.config?.headers : undefined;
   }
 
   const config: NotificationChannelConfig | null = input.url

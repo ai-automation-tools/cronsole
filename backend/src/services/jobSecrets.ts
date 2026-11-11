@@ -364,6 +364,35 @@ export function redactSecrets(text: string, secrets: Record<string, string>, lab
   for (const [name, value] of entries) {
     out = out.split(value).join(`\${${label}.${name}}`);
   }
+  // Output is cut to length before it gets here, and a cut that lands inside a
+  // secret leaves its opening characters behind where the whole-value match above
+  // cannot see them. So a prefix of a secret that sits right at a cut is masked too.
+  for (const [name, value] of entries) {
+    out = redactCutPrefix(out, value, `\${${label}.${name}}`);
+  }
+  return out;
+}
+
+/** The marker `executeExec` appends after output it shortened. */
+export const TRUNCATION_MARK = ' …(truncated)';
+/** Shortest leading fragment of a secret worth masking; shorter ones match by chance. */
+const MIN_CUT_PREFIX = 8;
+
+function redactCutPrefix(text: string, value: string, mask: string): string {
+  if (value.length <= MIN_CUT_PREFIX) return text;
+  // A cut is the end of the text, or the position just before a truncation marker.
+  const cuts = [text.length];
+  for (let at = text.indexOf(TRUNCATION_MARK); at >= 0; at = text.indexOf(TRUNCATION_MARK, at + 1)) cuts.push(at);
+  let out = text;
+  // Right to left, so replacing one cut does not move the positions of the others.
+  for (const cut of cuts.sort((a, b) => b - a)) {
+    for (let len = value.length - 1; len >= MIN_CUT_PREFIX; len--) {
+      if (cut >= len && out.slice(cut - len, cut) === value.slice(0, len)) {
+        out = out.slice(0, cut - len) + mask + out.slice(cut);
+        break;
+      }
+    }
+  }
   return out;
 }
 

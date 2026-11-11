@@ -239,6 +239,16 @@ describe('optional references — ${secret.NAME?}', () => {
 });
 
 describe('redactSecrets', () => {
+  it('masks the opening of a secret that a length cut left behind', () => {
+    const secrets = { TOKEN: 'sk_live_abcdefghijklmnop' };
+    // Cut at the end of the text, and cut before the marker exec output carries.
+    expect(redactSecrets('Authorization: sk_live_abcdef', secrets)).toBe('Authorization: ${secret.TOKEN}');
+    expect(redactSecrets('out sk_live_abcd …(truncated)', secrets)).toBe('out ${secret.TOKEN} …(truncated)');
+    // A fragment too short to be anything but coincidence, and one mid-text, stay.
+    expect(redactSecrets('ends with sk_l', secrets)).toBe('ends with sk_l');
+    expect(redactSecrets('sk_live_abcdef then more', secrets)).toBe('sk_live_abcdef then more');
+  });
+
   it('replaces the value with the reference that carried it', () => {
     expect(redactSecrets('POST https://hooks/abc123 → 204', { PATH: 'abc123' }))
       .toBe('POST https://hooks/${secret.PATH} → 204');

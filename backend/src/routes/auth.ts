@@ -18,9 +18,19 @@ const router = Router();
 
 const authLimiter = makeAuthLimiter();
 
+// bcrypt reads only the first 72 bytes of a password, so anything longer would be
+// silently shortened. Refuse it instead of storing less than was typed.
+const MAX_PASSWORD = 72;
+const TOO_LONG = `Password must be at most ${MAX_PASSWORD} characters`;
+/** Work factor for new hashes. Existing hashes keep theirs and still verify. */
+const BCRYPT_COST = 12;
+// Compared against when the email is unknown, so "no such account" and "wrong
+// password" take the same time and cannot be told apart by timing.
+const DUMMY_HASH = bcrypt.hashSync('cronsole-no-such-account', BCRYPT_COST);
+
 const credentialsSchema = z.object({
   email: z.email('A valid email is required'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: z.string().min(8, 'Password must be at least 8 characters').max(MAX_PASSWORD, TOO_LONG),
   name: z.string().trim().min(1).optional()
 });
 
@@ -66,7 +76,7 @@ router.post('/setup', authLimiter, validateBody(credentialsSchema), async (req: 
     throw new HttpError(409, 'An account already exists on this instance. Log in instead.');
   }
 
-  const hashedPassword = await bcrypt.hash(password, 10);
+  const hashedPassword = await bcrypt.hash(password, BCRYPT_COST);
   const placeholder = await prisma.user.findFirst({
     where: { OR: [{ password: null }, { password: '' }] }
   });
@@ -121,6 +131,7 @@ router.post('/login', authLimiter, validateBody(loginSchema), async (req: Reques
   // Same 401 whether the email is unknown or the password is wrong — don't leak
   // which accounts exist. `!user.password` covers a user row with no password set.
   if (!user || !user.password) {
+    await bcrypt.compare(password, DUMMY_HASH);
     throw new HttpError(401, 'Invalid email or password');
   }
 
@@ -139,7 +150,7 @@ router.post('/login', authLimiter, validateBody(loginSchema), async (req: Reques
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, 'Current password is required'),
-  newPassword: z.string().min(8, 'New password must be at least 8 characters')
+  newPassword: z.string().min(8, 'New password must be at least 8 characters').max(MAX_PASSWORD, TOO_LONG)
 });
 
 /**
@@ -161,7 +172,7 @@ router.patch('/password', authenticateToken, authLimiter, validateBody(changePas
     throw new HttpError(401, 'Current password is incorrect');
   }
 
-  const hashedPassword = await bcrypt.hash(newPassword, 10);
+  const hashedPassword = await bcrypt.hash(newPassword, BCRYPT_COST);
   await prisma.user.update({ where: { id: userId }, data: { password: hashedPassword } });
   res.json({ success: true });
 });

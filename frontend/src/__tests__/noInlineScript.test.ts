@@ -5,7 +5,7 @@ import html from '../../index.html?raw';
 // index.html would run on :7373 and be silently dropped on the proxied page.
 describe('index.html', () => {
   it('has no inline script', () => {
-    const inline = [...html.matchAll(/<script\b([^>]*)>/g)].filter(m => !/\bsrc=/.test(m[1]));
+    const inline = [...html.matchAll(/<script\b([^>]*)>/gi)].filter(m => !/\bsrc=/i.test(m[1]));
     expect(inline).toEqual([]);
   });
 

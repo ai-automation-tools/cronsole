@@ -64,9 +64,12 @@ Full details, verification steps, and troubleshooting are in the
 
 ## 3. Auto-start the stack at logon
 
-This registers `\Cronsole-Stack\CronsoleStack`, which brings up Docker, Postgres, Redis, the
-backend, the frontend **and the agent** at logon, then re-checks every 5 minutes and restarts
-whatever died. From an **Administrator** PowerShell, once:
+This registers two tasks. `\Cronsole-Stack\CronsoleStack` brings up Docker, Postgres, Redis, the
+backend and the frontend **without administrator rights**; `\Cronsole-Stack\CronsoleAgentKeeper`
+starts the agent **elevated**. Both run at logon and re-check every 5 minutes. Only the agent is
+elevated, so a Cronsole-native job never runs as administrator: work that needs that belongs in a
+[Windows Task Scheduler task](../../user-guides/sources/Windows_Task_Scheduler.md). From an
+**Administrator** PowerShell, once:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\startup-task\Register-CronsoleStack.ps1

@@ -11,13 +11,22 @@ dashboard the phone sees:
 | Task | Trigger | Runs | Purpose |
 |---|---|---|---|
 | **`CronsoleStack`** | logon + **every 5 min** (its own time trigger, armed at registration, #102) | `cronsole.ps1 up` | The keeper. Idempotent, so it starts only what is down. |
+| **`CronsoleAgentKeeper`** | logon + **every 5 min** | `cronsole.ps1 agent` | Starts the agent if it is not running. The only recurring task that is elevated. |
 | **`CronsoleRepublish`** | none (on-demand) | `Republish-Agent.ps1` | Rebuild + republish the agent, then relaunch. |
 | **`CronsoleRestart`** | none (on-demand) | `cronsole.ps1 restart` | Stop the stack (agent included) and bring it back. |
 | **`CronsoleRebuild`** | **every 60 min** (optional, since 2026-11-09) | `cronsole.ps1 rebuild` | Rebuild `frontend/dist` when the proxy is serving a stale one. A no-op unless `cronsole remote on` and `check-dist-fresh.mjs` reports stale. RunLevel **Limited**, no elevation. |
 
 All of them launch through `run-hidden.vbs` so nothing flashes on screen, and run in the
-interactive user's session: the first three at **RunLevel Highest**, `CronsoleRebuild` at
-**Limited** (building needs no admin).
+interactive user's session. **`CronsoleStack` and `CronsoleRebuild` run without elevation**
+(`Limited`); `CronsoleAgentKeeper`, `CronsoleRepublish` and `CronsoleRestart` run at
+**RunLevel Highest**, because the agent does.
+
+**Only the agent is elevated, and that is deliberate.** The backend runs Cronsole-native jobs,
+so a backend started from an elevated task made every native job an administrator. `up`
+therefore runs without elevation and asks `CronsoleAgentKeeper` for the agent; an elevated
+`restart` stops everything, starts the agent, and hands the web tier back to `CronsoleStack`.
+Registered before 2026-11-11? Re-run `Register-CronsoleStack.ps1` (elevated), then start
+`CronsoleRestart` once so the backend comes back without administrator rights.
 
 ## Contents
 

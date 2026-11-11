@@ -82,7 +82,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $TaskPath  = '\Cronsole-Stack\'
-$TaskNames = @('CronsoleRepublish', 'CronsoleRestart', 'CronsoleStack', 'CronsoleRebuild')
+$TaskNames = @('CronsoleRepublish', 'CronsoleRestart', 'CronsoleStack', 'CronsoleAgentKeeper', 'CronsoleRebuild')
 
 function Test-Elevated {
     $id = [Security.Principal.WindowsIdentity]::GetCurrent()

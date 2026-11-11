@@ -79,9 +79,9 @@ the run settings (`timeoutMs`, `retries`, `retryDelayMinutes`, `overlap`, `catch
 
 ## 🚫 When to use something else
 
-Native is the easiest source to start with, which makes it the easiest to over-use. Three facts
+Native is the easiest source to start with, which makes it the easiest to over-use. Four facts
 decide almost every case: it runs **only while Cronsole is running**, it runs **on the backend's
-host as the backend's account**, and it starts **on a cron clock or when another native task
+host as the backend's account**, it has **no administrator rights**, and it starts **on a cron clock or when another native task
 finishes**, never on a logon, an idle machine or a system event.
 
 **The rule of thumb:** if it would matter that the job did not run while Cronsole was stopped, it is
@@ -91,6 +91,7 @@ not a native job.
 |:---|:---|:---|
 | Must run while Cronsole is stopped, updating or crashed (backups, nightly cleanup) | [Windows Task Scheduler](Windows_Task_Scheduler.md) | A native task is a database row. Nothing runs it when the backend is down. |
 | Must run on time even while Cronsole is down | Windows Task Scheduler | [Catch up](#-run-settings) runs a missed job **once Cronsole is back**, which is late. A run that must happen at 3:00 sharp belongs in Windows. |
+| Needs administrator rights: starting or stopping a service, writing under `C:\Windows` or `C:\Program Files`, `Dism`, `cleanmgr`, changing a firewall rule | Windows Task Scheduler, with *Run with highest privileges* | **Native jobs never run as administrator.** Cronsole's backend runs as an ordinary user on purpose, because it runs whatever a native job says. Only the Windows agent is elevated, and it only creates and manages Task Scheduler tasks. On macOS or Linux the same rule points at that system's own scheduler (`cron`, a systemd timer, `launchd`); Cronsole has no agent for those yet. |
 | Needs your Windows user: your profile, mapped drives, a desktop app, a window | Windows Task Scheduler | Native runs as whatever account runs the backend, and never in your desktop session. |
 | Reads or writes files on your desktop while the backend runs in Docker | Windows Task Scheduler, or run the backend on the host | Inside a container, `D:\` is not your `D:\`. |
 | Must fire at the same local time across a daylight-saving change | Windows Task Scheduler | Native runs the stored UTC cron, so it shifts by an hour. |

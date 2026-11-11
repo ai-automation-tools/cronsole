@@ -58,6 +58,17 @@ missing task mean anything.
 
 ---
 
+**Only the agent is elevated.** The backend, the dashboard and the database run as an ordinary
+user, started by a scheduled task with no administrator rights
+(`\Cronsole-Stack\CronsoleStack`). That matters because the backend runs
+[Cronsole-native jobs](user-guides/sources/Cronsole_Native.md), which are commands and scripts
+you (or an assistant) typed: launched from an elevated process, each of them would be an
+administrator. So the rule is one sentence. **A job that needs administrator rights is a
+Windows Task Scheduler task; a native job never has them.** The backend checks its own rights at
+start-up, and the New Task form, the diagnostics panel and `list_platforms` all show a warning
+if it finds itself elevated. Until 2026-11-11 one elevated task started everything; if you
+installed before then, re-run `scripts\startup-task\Register-CronsoleStack.ps1` and restart.
+
 ## 2. What the agent can do — the complete list
 
 This is not a summary. **Ten** of these are the whole of the agent's scheduler interface
@@ -157,9 +168,10 @@ A complete inventory, so nothing is a surprise later:
 | What | Where | Notes |
 |:---|:---|:---|
 | `Cronsole.Agent.exe` | a host process | Elevated. Outbound WebSocket only |
-| Backend + frontend | host Node processes, or Docker | Bound to **loopback** |
+| Backend + frontend | host Node processes, or Docker | **Not elevated.** Bound to **loopback** |
 | Postgres + Redis | Docker containers | Bound to **loopback** |
-| `\Cronsole-Stack\CronsoleStack` | Scheduled Task | Elevated · every 5 min · restarts anything that died |
+| `\Cronsole-Stack\CronsoleStack` | Scheduled Task | **Not elevated** · every 5 min · restarts the database, backend and dashboard |
+| `\Cronsole-Stack\CronsoleAgentKeeper` | Scheduled Task | Elevated · every 5 min · starts the agent if it is not running, nothing else |
 | `\Cronsole-Stack\CronsoleRepublish` | Scheduled Task | Elevated · on demand · rebuilds the agent |
 | `\Cronsole-Stack\CronsoleRestart` | Scheduled Task | Elevated · on demand · bounces the stack |
 | `\Cronsole\…` | Scheduled Tasks | **Tasks you created.** Ordinary Windows tasks |

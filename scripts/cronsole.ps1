@@ -16,6 +16,8 @@
       cronsole down        Stop the backend, frontend, and agent (leaves db/redis up)
       cronsole down -All   Also stop the Docker db/redis + proxy containers
       cronsole restart     down (app tier) then up
+      cronsole agent       Start only the Windows agent (what the elevated
+                           \Cronsole-Stack\CronsoleAgentKeeper task runs)
       cronsole status      One table showing every service (default)
       cronsole logs        Tail the backend/frontend logs
       cronsole rebuild     Rebuild frontend\dist if the proxy is serving a stale
@@ -50,13 +52,27 @@
     UP or DOWN) when something is clearly present but cannot be confirmed serving.
     See the Probes section below for why this matters in both directions.
 
+    WHO RUNS ELEVATED
+
+    Only the agent. It needs administrator rights to see and change every Task
+    Scheduler folder (troubleshooting #74). The backend does not, and must not have
+    them: it runs Cronsole-native jobs, so an elevated backend makes every native
+    job, and every package it depends on, an administrator. Work that needs
+    administrator rights belongs in a Windows Task Scheduler task, which Cronsole
+    creates through the agent, not in a native job.
+
+    Two scheduled tasks keep that split: \Cronsole-Stack\CronsoleStack runs `up`
+    WITHOUT elevation (database, backend, frontend, proxy) and
+    \Cronsole-Stack\CronsoleAgentKeeper runs `agent` elevated. `up` and `restart`
+    hand each half to the right task, whichever kind of shell they are called from.
+
     Run it from anywhere:  pwsh <repo>\scripts\cronsole.ps1 status
 #>
 
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('up', 'down', 'restart', 'status', 'logs', 'remote', 'rebuild')]
+    [ValidateSet('up', 'down', 'restart', 'status', 'logs', 'remote', 'rebuild', 'agent')]
     [string]$Command = 'status',
 
     # Only meaningful for `remote`. Defaults to reporting rather than changing:
@@ -98,6 +114,28 @@ $AgentProcNames = @('Cronsole.Agent', 'TaskHub.Agent')
 
 function Get-AgentProcess {
     Get-Process -Name $AgentProcNames -ErrorAction SilentlyContinue
+}
+
+# --- Elevation ---------------------------------------------------------------
+# A process inherits the token of whatever started it, so "who is elevated" is
+# decided here, at launch, and nowhere else. See WHO RUNS ELEVATED above.
+$StackTaskPath = '\Cronsole-Stack\'
+
+function Test-Elevated {
+    $id = [Security.Principal.WindowsIdentity]::GetCurrent()
+    (New-Object Security.Principal.WindowsPrincipal($id)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+function Get-StackTask([string]$Name) {
+    Get-ScheduledTask -TaskPath $StackTaskPath -TaskName $Name -ErrorAction SilentlyContinue
+}
+
+# Starting a task runs it at the level it was REGISTERED with, whatever the caller
+# is: that is how an ordinary shell gets an elevated agent without a UAC prompt, and
+# how an elevated shell gets a backend that is not elevated.
+function Start-StackTask([string]$Name) {
+    try { Start-ScheduledTask -TaskPath $StackTaskPath -TaskName $Name -ErrorAction Stop; return $true }
+    catch { return $false }
 }
 
 $Npm = 'C:\Program Files\nodejs\npm.cmd'
@@ -475,8 +513,67 @@ function Start-HostService([string]$Name, [string]$WorkDir) {
     Write-Host "  started $Name (logs: $LogDir\$Name.*.log)"
 }
 
+# The agent (host .exe - needs Task Scheduler access, and elevation to see all of it).
+function Start-Agent {
+    # Ask for the PROCESS, not the probe state: a legacy-named agent probes WARN, and
+    # branching on 'UP' would start a second agent alongside it. Two agents on one
+    # machine both answer task:run.
+    $running = Get-AgentProcess | Select-Object -First 1
+    if ($running) {
+        Write-Host ("  agent already up ({0}, pid {1})" -f $running.ProcessName, $running.Id)
+        if ($running.ProcessName -ne 'Cronsole.Agent') {
+            Write-Host '  WARNING: that is the pre-rename binary - it is running stale code.' -ForegroundColor Yellow
+            Write-Host '           republish to swap it: scripts\Republish-Agent.ps1' -ForegroundColor Yellow
+        }
+        return
+    }
+    if (-not (Test-Path $AgentExe)) {
+        Write-Host "  WARNING: agent exe not found at $AgentExe (publish it first)" -ForegroundColor Yellow
+        return
+    }
+    if (-not (Test-Elevated)) {
+        # The normal case under \Cronsole-Stack\CronsoleStack, which is not elevated.
+        if ((Get-StackTask 'CronsoleAgentKeeper') -and (Start-StackTask 'CronsoleAgentKeeper')) {
+            Write-Host '  agent: asked \Cronsole-Stack\CronsoleAgentKeeper to start it (elevated)'
+            return
+        }
+        Write-Host '  WARNING: starting the agent WITHOUT administrator rights. It cannot see protected' -ForegroundColor Yellow
+        Write-Host '           Task Scheduler folders, so syncs are partial (troubleshooting #74).' -ForegroundColor Yellow
+        Write-Host '           Register the keeper once, elevated: scripts\startup-task\Register-CronsoleStack.ps1' -ForegroundColor Yellow
+    }
+    # The agent is a windowless exe, so without these two files everything it
+    # prints - including the reason it exited - goes nowhere.
+    Start-Process -FilePath $AgentExe -WorkingDirectory (Split-Path -Parent $AgentExe) -WindowStyle Hidden `
+        -RedirectStandardOutput (Join-Path $LogDir 'agent.out.log') `
+        -RedirectStandardError (Join-Path $LogDir 'agent.err.log') | Out-Null
+    Write-Host "  started agent (logs: $LogDir\agent.*.log)"
+}
+
 function Invoke-Up {
     Write-Host 'Bringing the Cronsole stack up...'
+
+    # An elevated `up` must not start the web tier itself: whatever it starts inherits
+    # the administrator token, and the backend runs native jobs. Start the agent here
+    # and hand the rest to the task that is registered without elevation.
+    if (Test-Elevated) {
+        $stack = Get-StackTask 'CronsoleStack'
+        if ($stack -and "$($stack.Principal.RunLevel)" -eq 'Limited') {
+            Start-Agent
+            if (Start-StackTask 'CronsoleStack') {
+                Write-Host '  web tier: handed to \Cronsole-Stack\CronsoleStack (no administrator rights);'
+                Write-Host '            it comes up in the background - check with: cronsole status'
+            } else {
+                Write-Host '  WARNING: could not start \Cronsole-Stack\CronsoleStack; its next 5-minute run will' -ForegroundColor Yellow
+                Write-Host '           bring the web tier up.' -ForegroundColor Yellow
+            }
+            Start-Sleep -Seconds 2
+            Invoke-Status
+            return
+        }
+        Write-Host '  WARNING: this shell is elevated and no un-elevated \Cronsole-Stack\CronsoleStack task' -ForegroundColor Yellow
+        Write-Host '           is registered, so the backend - and every native job it runs - will have' -ForegroundColor Yellow
+        Write-Host '           administrator rights. Fix: scripts\startup-task\Register-CronsoleStack.ps1' -ForegroundColor Yellow
+    }
 
     # 0. The engine every Docker row below sits on.
     Start-DockerEngine | Out-Null
@@ -515,27 +612,8 @@ function Invoke-Up {
         Start-HostService 'frontend' $FrontendDir
     }
 
-    # 4. Agent (host .exe - needs Task Scheduler access)
-    # Ask for the PROCESS, not the probe state: a legacy-named agent probes WARN, and
-    # branching on 'UP' would start a second agent alongside it. Two agents on one
-    # machine both answer task:run.
-    $running = Get-AgentProcess | Select-Object -First 1
-    if ($running) {
-        Write-Host ("  agent already up ({0}, pid {1})" -f $running.ProcessName, $running.Id)
-        if ($running.ProcessName -ne 'Cronsole.Agent') {
-            Write-Host '  WARNING: that is the pre-rename binary - it is running stale code.' -ForegroundColor Yellow
-            Write-Host '           republish to swap it: scripts\Republish-Agent.ps1' -ForegroundColor Yellow
-        }
-    } elseif (Test-Path $AgentExe) {
-        # The agent is a windowless exe, so without these two files everything it
-        # prints - including the reason it exited - goes nowhere.
-        Start-Process -FilePath $AgentExe -WorkingDirectory (Split-Path -Parent $AgentExe) -WindowStyle Hidden `
-            -RedirectStandardOutput (Join-Path $LogDir 'agent.out.log') `
-            -RedirectStandardError (Join-Path $LogDir 'agent.err.log') | Out-Null
-        Write-Host "  started agent (logs: $LogDir\agent.*.log)"
-    } else {
-        Write-Host "  WARNING: agent exe not found at $AgentExe (publish it first)" -ForegroundColor Yellow
-    }
+    # 4. Agent. Elevated through its own task when this run is not (see Start-Agent).
+    Start-Agent
 
     # 5. Reverse proxy - only where this machine asked for it (`cronsole remote on`).
     # This step is the whole reason remote access is durable. `restart: unless-stopped`
@@ -699,7 +777,17 @@ function Invoke-Logs {
 switch ($Command) {
     'up'      { Invoke-Up }
     'down'    { Invoke-Down }
-    'restart' { Invoke-Down; Start-Sleep -Seconds 2; Invoke-Up }
+    'restart' {
+        # Stopping the agent needs elevation. From an ordinary shell, hand the whole
+        # restart to the elevated task instead of half-doing it here.
+        if (-not (Test-Elevated) -and (Get-StackTask 'CronsoleRestart') -and (Start-StackTask 'CronsoleRestart')) {
+            Write-Host 'Restart handed to \Cronsole-Stack\CronsoleRestart (stopping the agent needs elevation).'
+            Write-Host 'It takes about 30 seconds - check with: cronsole status'
+        } else {
+            Invoke-Down; Start-Sleep -Seconds 2; Invoke-Up
+        }
+    }
+    'agent'   { Start-Agent }
     'status'  { Invoke-Status }
     'logs'    { Invoke-Logs }
     'remote'  { Invoke-Remote }

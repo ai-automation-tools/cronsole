@@ -333,6 +333,13 @@ const sourceNativeScript: HelpTopic = {
         'normally. The interpreter itself is a fixed list — it is never a path you type.'
     },
     {
+      label: 'It never runs as administrator',
+      body:
+        'Cronsole runs native jobs as an ordinary user. A job that needs administrator rights, ' +
+        'such as managing a service or writing to a protected folder, belongs in a Windows Task ' +
+        'Scheduler task with "Run with highest privileges".'
+    },
+    {
       label: 'The interpreter has to exist where the backend runs',
       body:
         'Node always does; Cronsole itself runs on it. PowerShell and Python may not, especially ' +

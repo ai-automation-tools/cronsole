@@ -28,6 +28,17 @@
     and starting it - which did nothing at all. See Register-RestartTask.ps1, which
     registers the task that actually restarts things.
 
+    LEAST PRIVILEGE (2026-11-11): this registers TWO recurring tasks. CronsoleStack runs
+    `cronsole.ps1 up` WITHOUT elevation and starts the database, backend, frontend and
+    proxy. CronsoleAgentKeeper runs `cronsole.ps1 agent` at RunLevel Highest and starts
+    only the agent. Before this, one elevated task started everything, so the backend -
+    and every Cronsole-native job it ran - held administrator rights. Work that needs
+    them belongs in a Windows Task Scheduler task, not a native job.
+
+    After re-registering on a machine that ran the old single task, restart once so the
+    backend comes back un-elevated:
+        Start-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleRestart'
+
     REQUIRES ELEVATION: the \Cronsole-Stack\ folder and Highest-run-level tasks need an
     administrator PowerShell. Run:
 
@@ -68,10 +79,14 @@ $q          = '"'   # a literal double-quote, so argument strings need no backti
 if (-not (Test-Path $ControlPs1)) { throw "Control script not found at $ControlPs1" }
 if (-not (Test-Path $HiddenVbs))  { throw "Hidden launcher not found at $HiddenVbs" }
 
-# Shared principal/settings for the self-heal tasks: run in the interactive
-# user's session (host backend/frontend/agent need it), elevated so a (re)started
-# agent can manage Windows Task Scheduler.
+# Two principals, and the difference is the point. Both run in the interactive user's
+# session (the host backend, frontend and agent need it). Only the AGENT is elevated:
+# it has to enumerate and change ACL'd Task Scheduler folders (troubleshooting #74).
+# The web tier is not, because the backend runs Cronsole-native jobs - launched from an
+# elevated task, every native job and every npm package behind it ran as administrator.
 $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" `
+    -LogonType Interactive -RunLevel Limited
+$agentPrincipal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" `
     -LogonType Interactive -RunLevel Highest
 $settings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew `
     -ExecutionTimeLimit (New-TimeSpan -Minutes 10) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) `
@@ -108,7 +123,7 @@ STATE AND LAST RESULT DESCRIBE ONE 'up' RUN, NEVER THE STACK. run-hidden.vbs wai
 
 Do not use Stop-ScheduledTask on this task to stop the stack - at most it ends an 'up' in progress; the services keep running. Use 'cronsole.ps1 down' (elevated), and disable this task first or it will restart everything within $IntervalMinutes minutes.
 
-Registered by scripts\startup-task\Register-CronsoleStack.ps1. Runs as the interactive user at RunLevel Highest - the agent needs elevation to enumerate ACL'd Task Scheduler folders (troubleshooting #74).
+Registered by scripts\startup-task\Register-CronsoleStack.ps1. Runs as the interactive user WITHOUT elevation, on purpose: the backend runs native jobs, and they must not be administrators. The agent, which does need elevation, is started by \Cronsole-Stack\CronsoleAgentKeeper; 'up' asks that task for it.
 "@
 
 Register-ScheduledTask -TaskName 'CronsoleStack' -TaskPath '\Cronsole-Stack\' `
@@ -117,7 +132,39 @@ Register-ScheduledTask -TaskName 'CronsoleStack' -TaskPath '\Cronsole-Stack\' `
     -Force | Out-Null
 
 $t = Get-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleStack'
-Write-Host "Registered \Cronsole-Stack\CronsoleStack (State: $($t.State)) - recurring self-heal every $IntervalMinutes min, no console flash."
+Write-Host "Registered \Cronsole-Stack\CronsoleStack (State: $($t.State), RunLevel $($t.Principal.RunLevel)) - recurring self-heal every $IntervalMinutes min, no console flash."
+
+# --- \Cronsole-Stack\CronsoleAgentKeeper: the one elevated keeper ---------------------
+# Same triggers and settings as CronsoleStack, a different verb and a different token.
+# `cronsole.ps1 agent` starts the agent if it is not running and does nothing else, so
+# this is the only recurring thing in the folder that holds administrator rights.
+# The name is deliberately NOT CronsoleAgent: that name is retired, removed below and by
+# agent\setup-agent-startup.ps1, and one script owns one task name (troubleshooting #86).
+$agentArg    = "$q$HiddenVbs$q $q$ControlPs1$q agent"
+$agentAction = New-ScheduledTaskAction -Execute $WScript -Argument $agentArg -WorkingDirectory $RepoRoot
+$agentTrigger = @(
+    New-ScheduledTaskTrigger -AtLogOn
+    New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) `
+        -RepetitionInterval (New-TimeSpan -Minutes $IntervalMinutes)
+)
+$agentDescription = @"
+KEEPS THE CRONSOLE WINDOWS AGENT RUNNING, ELEVATED. Runs scripts\cronsole.ps1 agent at logon and every $IntervalMinutes minutes, which starts agent\publish\Cronsole.Agent.exe if it is not already running and does nothing else.
+
+This is the only recurring Cronsole task with administrator rights. The agent needs them to see and change every Task Scheduler folder (troubleshooting #74). The database, backend and dashboard are started by \Cronsole-Stack\CronsoleStack without them.
+
+STATE AND LAST RESULT DESCRIBE ONE RUN OF THE SCRIPT, NEVER THE AGENT. The agent is launched with Start-Process and outlives the run. To restart it use \Cronsole-Stack\CronsoleRestart.
+
+Registered by scripts\startup-task\Register-CronsoleStack.ps1.
+"@
+Register-ScheduledTask -TaskName 'CronsoleAgentKeeper' -TaskPath '\Cronsole-Stack\' `
+    -Action $agentAction -Trigger $agentTrigger -Settings $settings -Principal $agentPrincipal `
+    -Description $agentDescription `
+    -Force | Out-Null
+$k = Get-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleAgentKeeper'
+Write-Host "Registered \Cronsole-Stack\CronsoleAgentKeeper (State: $($k.State), RunLevel $($k.Principal.RunLevel)) - starts only the agent, elevated."
+Write-Host ""
+Write-Host "If the backend was started by the old elevated task it is still elevated until restarted:"
+Write-Host "  Start-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleRestart'"
 
 # --- \Cronsole-Stack\CronsoleAgent: remove (obsolete - see DEDUPE above) --------------
 # Order matters: CronsoleStack is registered ABOVE, so the machine is never left with

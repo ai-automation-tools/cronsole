@@ -169,7 +169,7 @@ A complete inventory, so nothing is a surprise later:
 |:---|:---|:---|
 | `Cronsole.Agent.exe` | a host process | Elevated. Outbound WebSocket only |
 | Backend + frontend | host Node processes, or Docker | **Not elevated.** Bound to **loopback** |
-| Postgres + Redis | Docker containers | Bound to **loopback** |
+| Postgres | a Docker container | Bound to **loopback** |
 | `\Cronsole-Stack\CronsoleStack` | Scheduled Task | **Not elevated** · every 5 min · restarts the database, backend and dashboard |
 | `\Cronsole-Stack\CronsoleAgentKeeper` | Scheduled Task | Elevated · every 5 min · starts the agent if it is not running, nothing else |
 | `\Cronsole-Stack\CronsoleRepublish` | Scheduled Task | Elevated · on demand · rebuilds the agent |

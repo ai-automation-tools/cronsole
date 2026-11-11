@@ -36,7 +36,7 @@ docker compose --profile docker up --build
 #   → backend   http://localhost:3000   (GET /api/health to verify)
 ```
 
-Keep `--profile docker` — without it only Postgres and Redis start
+Keep `--profile docker` — without it only Postgres starts
 ([why](../../setup/README.md#-docker-vs-manual)). Database migrations apply themselves on boot,
 so there is no schema step. Rather run each piece without Docker? See
 [**Run it manually**](../../setup/README.md#run-it-manually-no-docker).
@@ -64,7 +64,7 @@ Full details, verification steps, and troubleshooting are in the
 
 ## 3. Auto-start the stack at logon
 
-This registers two tasks. `\Cronsole-Stack\CronsoleStack` brings up Docker, Postgres, Redis, the
+This registers two tasks. `\Cronsole-Stack\CronsoleStack` brings up Docker, Postgres, the
 backend and the frontend **without administrator rights**; `\Cronsole-Stack\CronsoleAgentKeeper`
 starts the agent **elevated**. Both run at logon and re-check every 5 minutes. Only the agent is
 elevated, so a Cronsole-native job never runs as administrator: work that needs that belongs in a

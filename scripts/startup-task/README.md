@@ -78,7 +78,7 @@ Its only other unique job was starting the Docker engine, and that moved into
 `cronsole.ps1 up` (`Start-DockerEngine`), which is where it belonged: **the engine had no
 keeper**, because the only thing that started it ran at logon while the thing that runs
 every 5 minutes could merely warn that it was down. Quit Docker Desktop mid-session and
-the self-heal logged `WARNING: docker compose up for db/redis failed` every 5 minutes
+the self-heal logged `WARNING: docker compose up for the database failed` every 5 minutes
 forever — [troubleshooting #70](../../docs/troubleshooting/README.md#70-the-tailscale-url-is-dead-for-days-while-every-other-service-is-healthy)'s
 shape (an opt-in with no keeper) one layer further down.
 
@@ -140,7 +140,7 @@ Host-process architecture (matches how the stack actually runs), dev mode:
 | # | Component | How | Endpoint |
 |---|---|---|---|
 | 0 | Docker engine | starts Docker Desktop and waits up to 120s if it's down | — |
-| 1 | Postgres + Redis | `docker compose up -d db redis` | `:5432` / `:6379` |
+| 1 | Postgres | `docker compose up -d db` | `:5432` |
 | 2 | Backend | `npm run dev` (host) | `http://localhost:3000` |
 | 3 | Frontend | `npm run dev` (host, Vite) | `http://localhost:7373` |
 | 4 | Agent | `agent\publish\Cronsole.Agent.exe` (host) | outbound WebSocket → backend |
@@ -208,7 +208,7 @@ Confirm the result by asking the stack, not the task's exit code:
 pwsh .\scripts\cronsole.ps1 status
 ```
 
-Give Docker ~15–30s on a cold boot — `up` waits for the engine before starting db/redis.
+Give Docker ~15–30s on a cold boot — `up` waits for the engine before starting the database.
 
 ## How to update
 
@@ -236,7 +236,7 @@ this repo by absolute path — the `\Cronsole-Stack\` tasks, the published agent
 
 ```powershell
 pwsh .\scripts\cronsole.ps1 down        # backend, frontend, agent
-pwsh .\scripts\cronsole.ps1 down -All   # also db, redis and the proxy
+pwsh .\scripts\cronsole.ps1 down -All   # also the database and the proxy
 ```
 
 `down` must be **elevated** to stop the agent — it runs at RunLevel Highest, so an
@@ -251,7 +251,7 @@ unelevated `Stop-Process` is refused. `Invoke-Down` checks and says so rather th
 | Dashboard empty / red "Can't reach backend" banner | Is `:3000` listening? See `logs\backend.err.log`. |
 | Backend up but **Sync tasks now** fails | Is the agent running & connected? `curl http://localhost:3000/api/tasks/health` should show `WINDOWS_TASK_SCHEDULER: HEALTHY`. |
 | Nothing starts at logon | `Get-ScheduledTaskInfo -TaskName CronsoleStack -TaskPath '\Cronsole-Stack\'` → check `LastRunTime` and `NextRunTime`. An empty `NextRunTime` means the 5-minute repetition is disarmed (#102): re-run `Register-CronsoleStack.ps1` elevated. `LastTaskResult` `0x0` only means `up` finished; `cronsole.ps1 status` says what is up. |
-| `db + redis` never come up | Docker Desktop not installed at the expected path — `up` says so by name rather than retrying silently. |
+| The database never comes up | Docker Desktop not installed at the expected path — `up` says so by name rather than retrying silently. |
 | Dozens of Windows tasks flip to MISSING | The agent is running **unelevated**. `Start-ScheduledTask … CronsoleRestart`, then Sync. See [troubleshooting #74](../../docs/troubleshooting/README.md#74-dozens-of-windows-tasks-go-missing-in-one-sync-and-the-agent-is-healthy). |
 | Agent changes have no effect | The agent never hot-reloads. `Start-ScheduledTask … CronsoleRepublish`. |
 | "Access is denied" editing a task | You're not elevated. Re-run in an **Administrator** PowerShell. |

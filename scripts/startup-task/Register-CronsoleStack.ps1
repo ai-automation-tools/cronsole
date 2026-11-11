@@ -117,7 +117,7 @@ $stackTrigger = @(
 $stackDescription = @"
 KEEPS THE LOCAL CRONSOLE STACK UP. Runs scripts\cronsole.ps1 up at logon and every $IntervalMinutes minutes.
 
-Starts whatever is currently DOWN and leaves what is up alone (idempotent, so it never spawns duplicates): the Docker engine, Postgres + Redis, the backend (:3000), the frontend (:7373), the Windows agent, and the reverse proxy on machines that ran 'cronsole remote on'.
+Starts whatever is currently DOWN and leaves what is up alone (idempotent, so it never spawns duplicates): the Docker engine, Postgres, the backend (:3000), the frontend (:7373), the Windows agent, and the reverse proxy on machines that ran 'cronsole remote on'.
 
 STATE AND LAST RESULT DESCRIBE ONE 'up' RUN, NEVER THE STACK. run-hidden.vbs waits for 'up' (seconds, normally), so the task reads Running only while that run lasts, and a run past 10 minutes is ended. What it started is launched with Start-Process and runs on independently. 'up' returns 0 even when something stayed down, so a Last Result of 0 is not a health check. To ask whether the stack is up:  pwsh scripts\cronsole.ps1 status
 

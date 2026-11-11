@@ -8,11 +8,11 @@ Load when doing one of the common jobs. Each is the *sequence* — the docs have
 pwsh scripts/cronsole.ps1 up        # idempotent — starts anything not running
 pwsh scripts/cronsole.ps1 status    # one table, every service + the signal used (default)
 pwsh scripts/cronsole.ps1 logs      # tail backend/frontend/launcher
-pwsh scripts/cronsole.ps1 down      # stop app tier (leaves db/redis)
-pwsh scripts/cronsole.ps1 down -All # also stop db/redis containers
+pwsh scripts/cronsole.ps1 down      # stop app tier (leaves the database)
+pwsh scripts/cronsole.ps1 down -All # also stop the database container
 ```
 
-Five pieces: Postgres + Redis (Docker), backend + frontend (host Node), agent (host `.exe`).
+Four pieces: Postgres (Docker), backend + frontend (host Node), agent (host `.exe`).
 The script exists so you stop wondering which part is down. **Use it before hand-rolling
 docker commands.**
 

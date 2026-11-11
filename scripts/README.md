@@ -30,7 +30,7 @@ the full details.
 
 ## 🎛️ Controlling the stack (`cronsole.ps1`)
 
-The local stack is five pieces: **Postgres + Redis** (Docker, auto-restart), the
+The local stack is four pieces: **Postgres** (Docker, auto-restart), the
 **backend** and **frontend** dev servers (host Node), and the **Windows agent**
 (host `.exe` — it needs Task Scheduler access, so it can't be containerized).
 `cronsole.ps1` controls and reports all of them at once:
@@ -40,8 +40,8 @@ The local stack is five pieces: **Postgres + Redis** (Docker, auto-restart), the
 pwsh scripts\cronsole.ps1 status     # one table: every service, and how it was checked
 pwsh scripts\cronsole.ps1 up         # start whatever's down (idempotent — safe to re-run)
 pwsh scripts\cronsole.ps1 restart    # stop the app tier, then bring it back
-pwsh scripts\cronsole.ps1 down       # stop backend + frontend + agent (leaves db/redis up)
-pwsh scripts\cronsole.ps1 down -All  # ...also stop the Docker db/redis (+ proxy) containers
+pwsh scripts\cronsole.ps1 down       # stop backend + frontend + agent (leaves the database up)
+pwsh scripts\cronsole.ps1 down -All  # ...also stop the Docker database (+ proxy) containers
 pwsh scripts\cronsole.ps1 logs       # tail the backend/frontend logs
 
 pwsh scripts\cronsole.ps1 remote on  # publish the dashboard through the proxy, and KEEP it published
@@ -60,14 +60,14 @@ A machine that has opted in grows a **`Proxy :8080`** row in `status`; one that 
 at all, because a check with nothing to measure is omitted rather than rendered as a pass.
 
 `status` prints **ALL UP**, **DEGRADED**, **PARTIAL (n/5** — n/6 once `remote` is on**)**, or **DOWN** so you can
-tell at a glance. Docker db/redis carry `restart: unless-stopped`, so they recover
+tell at a glance. The Docker database carries `restart: unless-stopped`, so it recovers
 from a crash or reboot on their own; the backend/frontend recover on the next
 auto-start self-heal (or immediately with `cronsole up`).
 
 > [!IMPORTANT]
 > **Every service is checked by asking the service, never by checking whether a port
 > is bound** — `GET /api/health` for the backend, an HTTP `GET /` for the frontend,
-> the docker healthcheck or `pg_isready` for Postgres, a RESP `PING` for Redis. The
+> the docker healthcheck or `pg_isready` for Postgres. The
 > port is corroboration only, and each row prints **the signal it used**. A port
 > check alone has been wrong in both directions here: it once reported a dead
 > container's held port as *"backend already up"* and refused to start the real one

@@ -22,6 +22,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Changed
 
+- **Redis is gone from the stack** (2026-11-11). Compose started a Redis container and `cronsole status` counted it, but nothing in Cronsole used it. It is removed from `docker-compose.yml`, the control script and the docs, so the stack is Postgres, the backend, the dashboard and the agent. **An existing install keeps its old container running until you remove it:** `docker compose up -d --remove-orphans`.
 - **Schedules default to your own timezone** (2026-11-11). A new install read and wrote cron fields in Pacific until you changed Settings > Behavior > Schedule timezone. The default is now the browser's zone. A zone you already chose is kept.
 - **A failed load no longer looks like an empty dashboard** (2026-11-11). When the task list cannot be fetched, the dashboard says so and offers **Try again**, instead of "Dashboard is empty" and a prompt to run your first sync.
 - **One broken screen no longer blanks the app** (2026-11-11). A render error now shows the message with **Reload** and **Reset preferences and reload**, and switching tabs recovers the rest of the app.

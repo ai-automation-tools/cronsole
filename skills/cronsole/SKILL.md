@@ -31,7 +31,7 @@ target offers "copy to set up manually" rather than silently no-op'ing.
 
 ## Architecture at a glance
 
-Four long-running processes plus Redis, and an on-demand `mcp-server` your AI host launches.
+Four long-running processes, and an on-demand `mcp-server` your AI host launches.
 The **agent always dials out** — the server never connects in.
 
 ```

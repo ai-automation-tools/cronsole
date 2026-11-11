@@ -102,7 +102,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 36 | **Every** Playwright E2E spec fails on a dashboard heading that plainly exists, against a stack that is healthy — `4 failed, 5 did not run` | `VITE_DEV_TOKEN` in `frontend/.env.local` is **empty**, signed with a rotated `JWT_SECRET`, or names a `User.id` that doesn't exist — so the browser sits on the login screen. The suite has no login step by design. **The tell is the page snapshot in `test-results/*/error-context.md` showing a Sign in form.** E2E is the one suite not in CI, so this disables the whole full-stack gate while everything else stays green | [→](#36-every-playwright-e2e-test-fails-on-a-heading-that-exists--the-browser-is-sitting-on-the-login-screen) |
 | 37 | The E2E suite passes 9/9 and your **real** Windows agent is offline immediately afterwards — and stays offline | [#5](#5-windows-offline-after-running-a-transient-test-agent) reached through the test suite: `mock-agent.spec.ts` takes the single per-user agent socket and clears the mapping on disconnect. The agent process stays UP, so every process-level check lies. `pwsh scripts/cronsole.ps1 restart`, then **check `/api/tasks/health` as the last step of the run** | [→](#37-running-the-e2e-suite-knocks-your-real-windows-agent-offline--and-it-stays-that-way) |
 | 1 | Backend crash-loops on startup with an opaque `[Object: null prototype] {}` uncaught exception | `ts-node` can't parse the installed TypeScript version | [→](#1-backend-crash-loops-with-object-null-prototype) |
-| 2 | Dashboard shows no tasks / `403 Invalid or expired token`; agent handshake rejected | Docker's default secrets don't match your rotated `backend/.env` | [→](#2-403-invalid-or-expired-token-or-agent-rejected) |
+| 2 | Dashboard shows no tasks / `403 Invalid or expired token`; agent handshake rejected | A root `.env` or host variable sets a secret that differs from `backend/.env` (before 2026-11-11: Docker's default secrets) | [→](#2-403-invalid-or-expired-token-or-agent-rejected) |
 | 3 | Port 3000 shows as `LISTENING` but every request returns `HTTP 000` / `EADDRINUSE` on restart | Docker's port proxy holds the port even though the app process died | [→](#3-port-listening-but-http-000--eaddrinuse) |
 | 4 | Edited backend source, but the running Docker stack still 404s the new route / serves old behavior | `tsx watch` inside the container never sees the file change (Windows→Linux bind-mount inotify) | [→](#4-backend-source-edits-not-picked-up-in-docker) |
 | 5 | After running a second/transient agent for testing, Windows shows `OFFLINE` and won't recover even though the real agent process is still running | The transient agent displaced the real agent's socket registration; the idle real agent won't re-register until its socket drops | [→](#5-windows-offline-after-running-a-transient-test-agent) |
@@ -190,6 +190,12 @@ docker compose up -d --build --force-recreate --renew-anon-volumes backend
 ---
 
 ## 2. `403 Invalid or expired token` (or agent rejected)
+
+> **Fixed at the source 2026-11-11.** Compose no longer carries default secrets. The
+> container reads the same `backend/.env` the host does (and generates the three values
+> there on first boot), so the two cannot disagree unless a root `.env` or the host
+> environment sets a *different* value, which still wins. If you hit this now, look for
+> that override. The entry below describes the older behaviour.
 
 **Symptom** — the stack is up, but the dashboard shows no tasks and API calls return
 `403 {"error":"Invalid or expired token"}`. Or the agent connects and is immediately

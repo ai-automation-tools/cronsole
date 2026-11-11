@@ -41,6 +41,10 @@ io.use(agentAuthMiddleware);
 registerUiChannel(io);
 
 const PORT = process.env.PORT || 3000;
+// Loopback unless told otherwise. This API can run commands on the machine, so it is
+// not offered to the LAN by default; the reverse proxy and the agent both reach it
+// on loopback. BIND_HOST=0.0.0.0 is the opt-in (a container, or a Linux Docker proxy).
+const BIND_HOST = process.env.BIND_HOST || '127.0.0.1';
 
 // --- WebSocket (Agent) ---
 
@@ -129,8 +133,9 @@ async function main() {
   await nativeScheduler.start();
   autoSync.start();
 
-  server.listen(PORT, () => {
-    console.log(`Cronsole Backend running on http://localhost:${PORT}`);
+  server.listen(Number(PORT), BIND_HOST, () => {
+    const reach = BIND_HOST === '127.0.0.1' ? 'this machine only' : 'reachable from the network';
+    console.log(`Cronsole Backend listening on ${BIND_HOST}:${PORT} (${reach})`);
   });
 }
 

@@ -1909,9 +1909,28 @@ of that list which have since shipped are in Part II.
 
 *Closed 2026-07-09, reopened 2026-08-13 for one gap, substantially closed again 2026-08-15, and
 **fully closed 2026-08-28** when `req.user` stopped being read out of the token's claims. Every
-item is in [Part II](#completed--p0-security). **Nothing is open here.** New security work lands
+item from those rounds is in [Part II](#completed--p0-security). New security work lands
 back in this section as it is found — a closed tier is a statement about the list, not a claim that
 the class is finished.*
+
+**Reopened 2026-11-11 by a whole-repo audit.** The token model, the signed agent channel and
+no-shell execution held up; the gaps are in defaults and deployment.
+
+- [x] **Rotate and remove the committed pairing secret** *(2026-11-11)*. `agent/test-server/index.js`
+      carried a real `AGENT_PAIRING_SECRET` as its fallback.
+- [x] **Listen on loopback by default** *(2026-11-11)*. `BIND_HOST`, default `127.0.0.1`, for the
+      backend; the Vite dev server follows.
+- [x] **Rate-limit `PATCH /api/auth/password`** *(2026-11-11)*.
+- [ ] **Generate secrets on first run and refuse the known defaults at boot.** The Docker profile
+      boots with published values for `JWT_SECRET`, `ENCRYPTION_KEY` and the pairing secret.
+- [ ] **Run only the agent elevated.** `CronsoleStack` starts the backend and the dev server at
+      RunLevel Highest, so every native job runs as administrator.
+- [ ] **Give the agent a log, and give the Quick Start a pairing secret.** A fresh install gets an
+      agent that exits silently.
+- [ ] **A password change revokes sessions and offers to revoke API tokens.**
+- [ ] **Security headers and a CSP on the proxy.**
+- [ ] **Stored webhook and preset headers are dropped when the URL changes origin.**
+- [ ] **Scan every tracked file for credentials in CI**, not only env files and the bundle.
 
 ---
 

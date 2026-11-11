@@ -147,7 +147,7 @@ const changePasswordSchema = z.object({
  * password (a stolen session alone can't lock the owner out). No email/reset
  * flow — that stays deferred with the rest of multi-tenant.
  */
-router.patch('/password', authenticateToken, validateBody(changePasswordSchema), async (req: Request, res: Response) => {
+router.patch('/password', authenticateToken, authLimiter, validateBody(changePasswordSchema), async (req: Request, res: Response) => {
   const userId = (req as AuthRequest).user!.id;
   const { currentPassword, newPassword } = req.body;
 

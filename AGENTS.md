@@ -837,6 +837,10 @@ Non-negotiable rules. **Every one has a reason recorded in
   because a GET capability link is fired by link previews and prefetchers.
 - **Exactly one account-creation path: `POST /api/auth/setup`** (first run only). **Never re-add a
   register route for a test** — an integration test pins its 404.
+- **The API listens on loopback unless `BIND_HOST` says otherwise.** It can run commands on the
+  machine, so it is not offered to the LAN by default, and the Vite dev server follows the same
+  rule. The container sets `0.0.0.0` because its published port is what is pinned to `127.0.0.1`.
+  The boot line states which interface is in use.
 - **`ALLOWED_ORIGINS` is one list gating two surfaces** (REST CORS + the Socket.IO handshake), parsed
   once in `config/origins.ts`. No `Origin` header = always allowed (non-browser callers are gated by
   auth). Empty list stays permissive but warns at boot.

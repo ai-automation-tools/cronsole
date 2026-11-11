@@ -90,6 +90,9 @@ services:
       DATABASE_URL: postgresql://taskhub:password@db:5432/taskhub
       REDIS_URL: redis://redis:6379
       PORT: 3000
+      # Inside the container loopback is the container itself; the published port
+      # is what stays pinned to 127.0.0.1 on the host.
+      BIND_HOST: 0.0.0.0
       # The backend fail-fasts without these. Values below are DEV-ONLY defaults so
       # `docker compose up` boots out of the box; override them (host env or a root
       # .env) for anything real. JWT_SECRET must be >= 16 chars, ENCRYPTION_KEY

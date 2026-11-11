@@ -111,7 +111,7 @@ $settings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew `
 # spends most of its length on the thing that is NOT visible there: that Stop/Start on a task in
 # this folder does nothing, which is the mistake this task exists to replace.
 $description = @"
-RESTARTS THE WHOLE LOCAL CRONSOLE STACK. Runs scripts\cronsole.ps1 restart - stops the Windows agent, the backend and the frontend, then brings all of them back. Takes about 15 seconds. Leaves Postgres and Redis running.
+RESTARTS THE WHOLE LOCAL CRONSOLE STACK. Runs scripts\cronsole.ps1 restart - stops the Windows agent, the backend and the frontend, then brings all of them back. Takes about 15 seconds. Leaves Postgres running.
 
 ON DEMAND ONLY - THIS TASK HAS NO TRIGGER. It never fires on logon, on a schedule, or on idle. Start it by hand (no elevation needed to START it):
     Start-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleRestart'

@@ -31,7 +31,7 @@ docker compose --profile docker up --build
 #   → backend   http://localhost:3000   (GET /api/health to verify)
 ```
 
-Keep `--profile docker` — without it only Postgres and Redis start
+Keep `--profile docker` — without it only Postgres starts
 ([why](../../setup/README.md#-docker-vs-manual)). Database migrations apply themselves on boot,
 so there is no schema step. Rather run each piece without Docker? See
 [**Run it manually**](../../setup/README.md#run-it-manually-no-docker).

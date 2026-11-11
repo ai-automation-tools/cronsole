@@ -64,7 +64,7 @@ Get a running stack first, then come back for the checks below:
   migrations): [`docs/setup/README.md` › Run it manually](docs/setup/README.md#run-it-manually-no-docker)
 
 Services: frontend `http://localhost:7373`, backend `http://localhost:3000`, Postgres
-`localhost:5432`, Redis `localhost:6379`.
+`localhost:5432`.
 
 ## Required checks before opening a PR
 

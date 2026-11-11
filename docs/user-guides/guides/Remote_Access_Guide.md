@@ -278,7 +278,7 @@ pwsh scripts/cronsole.ps1 remote on
 
 This does two things: it starts the compose `proxy` service, and it records that **this machine**
 publishes its dashboard, in `.cronsole-remote` at the repo root. From then on `cronsole up` starts
-the proxy alongside Postgres and Redis — which matters because the `\Cronsole-Stack\CronsoleStack`
+the proxy alongside Postgres — which matters because the `\Cronsole-Stack\CronsoleStack`
 task re-runs `cronsole up` every 5 minutes, so a proxy that goes down comes back on its own.
 
 **Do not skip the second half.** `docker compose --profile proxy up -d` starts the container and is

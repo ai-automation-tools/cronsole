@@ -2155,8 +2155,8 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
       `AgentManager.ts`, `Dashboard.tsx`. Do it with the structured-logging work under *Production
       operations*: levels + redaction, with full command lines behind an explicit diagnostics
       export rather than on by default.
-- [ ] **Native task follow-ups**: a `CLAUDE_PROMPT` job type, and a Redis lock before
-      multi-instance.
+- [ ] **Native task follow-ups**: a `CLAUDE_PROMPT` job type, and a lock before
+      multi-instance (Redis was removed from the stack unused on 2026-11-11; add it back with this).
 - [ ] **Template registry — optional follow-up**: index signing, beyond the per-file sha256.
 - [ ] **Cross-platform template targets — follow-up (b)**: real export artifacts (cron line,
       launchd plist, Claude scheduled task payload). Lands as connectors and the POSIX agent do.

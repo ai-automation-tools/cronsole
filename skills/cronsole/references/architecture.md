@@ -12,12 +12,11 @@ Load when touching the data model, connectors, the agent protocol, or the API su
 | **Frontend** | Vite dev server (host) | `7373` | React 19 + TS + Tailwind + TanStack Query + React Router |
 | **Backend** | Node/Express 5 (Docker or host) | `3000` | TypeScript, Socket.io, Prisma |
 | **Postgres** | Docker | `5432` | v16 |
-| **Redis** | Docker | — | Optional for MVP; required for multi-instance WebSocket |
 | **Agent** | Host `.exe` (**never** Docker) | — | .NET 10 + `Microsoft.Win32.TaskScheduler`; needs COM access |
 | **MCP server** | On-demand, **launched by your AI host** (stdio) | — | `mcp-server/dist/index.js`; a REST client with a bearer token. Not part of `cronsole.ps1`; the host starts and stops it |
 
 Control the whole stack with `pwsh scripts/cronsole.ps1 <up|down|restart|status|logs>`
-(`down -All` also stops the Docker db/redis). It exists so you stop wondering which part is
+(`down -All` also stops the Docker database). It exists so you stop wondering which part is
 down. `status` asks each service directly (`/api/health`, HTTP `GET /`, `pg_isready`, a RESP
 `PING`) and prints the signal it used; a bare port check is corroboration only, having been
 wrong in both directions ([#23](../../../docs/troubleshooting/README.md#23-network-error-after-a-reboot--the-database-system-is-starting-up)

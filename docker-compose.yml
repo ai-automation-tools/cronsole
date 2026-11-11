@@ -55,18 +55,9 @@ services:
       retries: 12
       start_period: 10s
 
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    ports:
-      # Loopback-only. This Redis has no password set at all, so publishing it on every
-      # interface is the sharpest edge in the stack — unauthenticated Redis reachable
-      # over the network is a well-known RCE path, not just a data-exposure one.
-      - "127.0.0.1:6379:6379"
-
   # NOTE: backend and frontend are OPT-IN (`profiles: [docker]`), so a plain
-  # `docker compose up -d` starts db + redis ONLY. That matches the stack's actual
-  # design (scripts/cronsole.ps1): Postgres/Redis in Docker, backend + frontend + agent
+  # `docker compose up -d` starts the database ONLY. That matches the stack's actual
+  # design (scripts/cronsole.ps1): Postgres in Docker, backend + frontend + agent
   # as host processes. Running both copies at once is what caused troubleshooting #23 —
   # the container grabbed :3000, the host backend then couldn't bind it, and when the
   # container crashed the port was held by a dead process. Run the containerized
@@ -88,7 +79,6 @@ services:
       # this half and left the service definition alone; commit 2b195c4 fixed the same
       # bug in backend/.env.example and in the healthcheck, and missed this line.
       DATABASE_URL: postgresql://taskhub:password@db:5432/taskhub
-      REDIS_URL: redis://redis:6379
       PORT: 3000
       # Inside the container loopback is the container itself; the published port
       # is what stays pinned to 127.0.0.1 on the host.
@@ -107,8 +97,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      redis:
-        condition: service_started
 
   frontend:
     profiles: ["docker"]
@@ -183,7 +171,7 @@ services:
       # Deliberately `:-` (empty default) and NOT `:?` (required). Compose
       # interpolates the WHOLE file before it selects a profile, so a required
       # variable here fails every command against this file — `docker compose up -d`
-      # for Postgres and Redis included. A tunnel credential must not be a
+      # for Postgres included. A tunnel credential must not be a
       # precondition for starting the database. Verified, not assumed: with `:?`,
       # `docker compose config --services` errored outright. See troubleshooting #54.
       #

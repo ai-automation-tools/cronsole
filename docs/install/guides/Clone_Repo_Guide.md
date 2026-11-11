@@ -26,7 +26,7 @@ cd cronsole
 | Requirement | Why you need it |
 |:---|:---|
 | [**Node.js LTS**](https://nodejs.org/) (+ npm) | Builds and runs the frontend and backend. |
-| [**Docker Desktop**](https://www.docker.com/products/docker-desktop/) *(recommended)* | Brings up Postgres + Redis + backend + frontend together with one command. Without it, you'll run a PostgreSQL 16 instance yourself. |
+| [**Docker Desktop**](https://www.docker.com/products/docker-desktop/) *(recommended)* | Brings up Postgres + backend + frontend together with one command. Without it, you'll run a PostgreSQL 16 instance yourself. |
 
 ## 3. Continue with your OS
 

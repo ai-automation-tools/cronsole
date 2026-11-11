@@ -104,8 +104,8 @@ Each source links to its own guide: how to connect it, what Cronsole can do ther
    cd cronsole
    ```
 
-2. Bring up the dev stack (Postgres + Redis + backend + frontend). Keep `--profile docker`;
-   without it only Postgres and Redis start
+2. Bring up the dev stack (Postgres + backend + frontend). Keep `--profile docker`;
+   without it only Postgres starts
    ([why](docs/setup/README.md#-docker-vs-manual)). Migrations apply themselves on boot.
 
    ```bash

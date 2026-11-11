@@ -45,7 +45,7 @@ authenticate the dashboard, and connect the agent. If you haven't installed yet,
 ## 🐳 Docker vs. manual
 
 - **Docker Compose (recommended)** — `docker compose --profile docker up --build` from the repo
-  root brings up Postgres, Redis, the backend, and the frontend with sane defaults. Best for
+  root brings up Postgres, the backend, and the frontend with sane defaults. Best for
   getting running fast. **Migrations apply themselves** on every boot (`predev`/`prestart` run
   `prisma migrate deploy`), so a fresh clone needs no schema step
   ([#90](../troubleshooting/README.md#90-a-fresh-clones-docker-quick-start-dies-with-the-table-publicuser-does-not-exist)).
@@ -56,7 +56,7 @@ authenticate the dashboard, and connect the agent. If you haven't installed yet,
 > [!IMPORTANT]
 > **`--profile docker` is not optional.** Backend and frontend sit behind an opt-in profile
 > (`profiles: ["docker"]` in `docker-compose.yml`), so a plain `docker compose up` starts
-> **Postgres and Redis only** and nothing answers on `:7373`. Omit the profile only when you
+> **Postgres only** and nothing answers on `:7373`. Omit the profile only when you
 > intend to run the backend and frontend as host processes — the manual path below. *(This is
 > the canonical copy of this warning; other docs link here rather than repeat it.)*
 
@@ -77,10 +77,10 @@ somewhere. This is the same shape `scripts/cronsole.ps1 up` runs on Windows
 start and keep everything up for you.
 
 **1. A PostgreSQL 16 database.** Either your own instance, or the one in Compose — without
-the profile, `docker compose up -d` starts just Postgres and Redis:
+the profile, `docker compose up -d` starts just Postgres:
 
 ```bash
-docker compose up -d          # db on localhost:5432 (role + database: taskhub), redis on :6379
+docker compose up -d          # db on localhost:5432 (role + database: taskhub)
 ```
 
 **2. Backend secrets.** The backend **refuses to start** without them, so this step is not
@@ -139,7 +139,7 @@ channel immediately, and **Reset** returns to the `VITE_API_URL` default.
 
 ## 🎛️ Controlling the stack (one command)
 
-The local stack is five pieces — Postgres + Redis (Docker), the backend and
+The local stack is four pieces — Postgres (Docker), the backend and
 frontend dev servers (host), and the Windows agent (host `.exe`). Rather than
 starting/checking each one, use the single control script:
 
@@ -150,7 +150,7 @@ pwsh scripts\cronsole.ps1 restart  # bounce the app tier
 pwsh scripts\cronsole.ps1 down     # stop backend + frontend + agent
 ```
 
-Postgres/Redis carry `restart: unless-stopped`, so they self-heal after a crash
+Postgres carries `restart: unless-stopped`, so it self-heals after a crash
 or reboot; the auto-start scheduled task re-runs `cronsole up` every 5 minutes to
 recover the rest. See [`scripts/README.md`](../../scripts/README.md) for details.
 

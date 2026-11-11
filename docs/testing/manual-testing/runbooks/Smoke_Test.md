@@ -17,7 +17,7 @@ assume `$H` holds your auth header.
 pwsh .\scripts\cronsole.ps1 status
 ```
 
-**Expect:** one table, every row up — Postgres, Redis, backend (`:3000`), frontend (`:7373`),
+**Expect:** one table, every row up — Postgres, backend (`:3000`), frontend (`:7373`),
 agent. The whole point of this script is that you don't have to wonder which part is down.
 
 > Anything down → `pwsh .\scripts\cronsole.ps1 up`, then re-check. Still down →

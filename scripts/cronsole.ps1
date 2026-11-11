@@ -4,7 +4,7 @@
     restart it, or see one combined status for every service.
 
 .DESCRIPTION
-    The local stack is five pieces: Postgres + Redis (Docker), the backend and
+    The local stack is four pieces: Postgres (Docker), the backend and
     frontend dev servers (host Node processes), and the Windows agent (host .exe,
     which needs Task Scheduler access so it can't be containerized). This script
     is the one place to control and inspect all of them, so you stop wondering
@@ -13,8 +13,8 @@
     Usage:
       cronsole up          Start anything that isn't already running (idempotent),
                            including the Docker engine itself if it is down
-      cronsole down        Stop the backend, frontend, and agent (leaves db/redis up)
-      cronsole down -All   Also stop the Docker db/redis + proxy containers
+      cronsole down        Stop the backend, frontend, and agent (leaves the database up)
+      cronsole down -All   Also stop the Docker database + proxy containers
       cronsole restart     down (app tier) then up
       cronsole agent       Start only the Windows agent (what the elevated
                            \Cronsole-Stack\CronsoleAgentKeeper task runs)
@@ -36,7 +36,7 @@
     repo root - per-machine and gitignored, because whether a machine publishes its
     dashboard is a property of the machine, not of the checkout.
 
-    Once recorded, `up` starts the proxy alongside db and redis, which is what makes
+    Once recorded, `up` starts the proxy alongside the database, which is what makes
     it SURVIVE. The container carries `restart: unless-stopped`, so it comes back on
     its own after a reboot or a Docker restart - but NOT after an explicit
     `docker compose stop`, which is Docker working as designed and how the tailnet
@@ -47,7 +47,7 @@
 
     Every service is probed by asking the SERVICE, not by checking whether its port
     is bound - /api/health for the backend, an HTTP GET for the frontend, pg_isready
-    for Postgres, a RESP PING for Redis. The port is corroboration only. `status`
+    for Postgres. The port is corroboration only. `status`
     prints the signal it used next to each row, and reports WARN (never a confident
     UP or DOWN) when something is clearly present but cannot be confirmed serving.
     See the Probes section below for why this matters in both directions.
@@ -162,7 +162,7 @@ if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Path $LogDir -Forc
 #   * false POSITIVE - a dead container's proxy still held :3000, so `Test-Port`
 #     reported "backend already up" and `up` refused to start the real one. That is
 #     the 12-minute outage in troubleshooting #23.
-#   * false NEGATIVE - `status` called Postgres, Redis, backend and frontend all
+#   * false NEGATIVE - `status` called Postgres, backend and frontend all
 #     DOWN while /api/health returned 200 and the frontend served 200. The listener
 #     table needs the NetTCPIP CIM provider and the container checks need a working
 #     docker CLI; when either is unavailable the probe fails, and "the probe failed"
@@ -213,25 +213,6 @@ function Get-HttpStatus([string]$Url, [int]$TimeoutSec = 3) {
     }
 }
 
-function Test-RedisPing([int]$Port = 6379, [int]$TimeoutMs = 800) {
-    # Speak RESP directly, because a port that accepts a connection is not a Redis.
-    # Doing it over the socket rather than `docker exec redis-cli` also keeps the
-    # probe working when the docker CLI is the thing that is broken.
-    $client = [System.Net.Sockets.TcpClient]::new()
-    try {
-        $async = $client.BeginConnect('127.0.0.1', $Port, $null, $null)
-        if (-not $async.AsyncWaitHandle.WaitOne($TimeoutMs)) { return $false }
-        $client.EndConnect($async)
-        $stream = $client.GetStream()
-        $stream.ReadTimeout = $TimeoutMs
-        $ping = [Text.Encoding]::ASCII.GetBytes("PING`r`n")
-        $stream.Write($ping, 0, $ping.Length)
-        $buf = New-Object byte[] 16
-        $read = $stream.Read($buf, 0, $buf.Length)
-        return ([Text.Encoding]::ASCII.GetString($buf, 0, $read) -match 'PONG')
-    } catch { return $false } finally { $client.Dispose() }
-}
-
 $script:DockerOk = $null
 function Test-DockerCli {
     # Cached: every docker call costs ~200ms, and `status` would otherwise make five.
@@ -273,7 +254,7 @@ function Start-DockerEngine {
             return $true
         }
     }
-    Write-Host "  WARNING: Docker engine not ready after ${TimeoutSeconds}s - db/redis will not start." -ForegroundColor Yellow
+    Write-Host "  WARNING: Docker engine not ready after ${TimeoutSeconds}s - the database will not start." -ForegroundColor Yellow
     return $false
 }
 
@@ -298,14 +279,6 @@ function Get-DbProbe {
             'a Postgres is reachable but pg_isready could not run (docker CLI unavailable?)' $true $false
     }
     return New-Probe 'DOWN' 'nothing on :5432' 'run: cronsole up' $false
-}
-
-function Get-RedisProbe {
-    if (Test-RedisPing) { return New-Probe 'UP' 'RESP PING -> PONG' }
-    if (Test-PortBound 6379) {
-        return New-Probe 'WARN' ':6379 bound, PING unanswered' 'something holds the port but it is not answering as Redis'
-    }
-    return New-Probe 'DOWN' 'nothing on :6379' 'run: cronsole up' $false
 }
 
 function Get-BackendProbe {
@@ -412,7 +385,6 @@ function Stop-DevServerTree {
 function Invoke-Status {
     $rows = @(
         [pscustomobject]@{ Service = 'Postgres (db)';  Where = 'docker'; Probe = (Get-DbProbe) }
-        [pscustomobject]@{ Service = 'Redis';          Where = 'docker'; Probe = (Get-RedisProbe) }
         [pscustomobject]@{ Service = 'Backend :3000';  Where = 'host';   Probe = (Get-BackendProbe) }
         [pscustomobject]@{ Service = 'Frontend :7373'; Where = 'host';   Probe = (Get-FrontendProbe) }
         [pscustomobject]@{ Service = 'Windows agent';  Where = 'host';   Probe = (Get-AgentProbe) }
@@ -578,10 +550,10 @@ function Invoke-Up {
     # 0. The engine every Docker row below sits on.
     Start-DockerEngine | Out-Null
 
-    # 1. Data services (Docker). restart: unless-stopped keeps them self-healing.
-    & $Docker compose -f $Compose up -d db redis 2>&1 | Out-Null
-    if ($LASTEXITCODE -eq 0) { Write-Host '  db + redis up (docker)' }
-    else { Write-Host '  WARNING: docker compose up for db/redis failed - is Docker running?' -ForegroundColor Yellow }
+    # 1. The database (Docker). restart: unless-stopped keeps it self-healing.
+    & $Docker compose -f $Compose up -d db 2>&1 | Out-Null
+    if ($LASTEXITCODE -eq 0) { Write-Host '  database up (docker)' }
+    else { Write-Host '  WARNING: docker compose up for the database failed - is Docker running?' -ForegroundColor Yellow }
 
     # 2. Backend - only once Postgres will actually answer (see Wait-Db).
     # The gate asks /api/health, not the port: "the port is taken" was read as
@@ -671,8 +643,8 @@ function Invoke-Down {
 
     if ($All) {
         Write-Host 'Stopping data services (docker)...'
-        & $Docker compose -f $Compose stop db redis 2>&1 | Out-Null
-        Write-Host '  db + redis stopped'
+        & $Docker compose -f $Compose stop db 2>&1 | Out-Null
+        Write-Host '  database stopped'
         if (Test-RemoteEnabled) {
             & $Docker compose -f $Compose stop proxy 2>&1 | Out-Null
             Write-Host '  proxy stopped'
@@ -683,7 +655,7 @@ function Invoke-Down {
             Write-Host '  (still opted in - the next "cronsole up" restarts it; "cronsole remote off" to opt out)'
         }
     } else {
-        Write-Host '  (db/redis left running - use "-All" to stop them too)'
+        Write-Host '  (database left running - use "-All" to stop it too)'
     }
 }
 

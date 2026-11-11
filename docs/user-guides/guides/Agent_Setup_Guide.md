@@ -46,7 +46,7 @@ The repository provides an automation script, [setup-agent-startup.ps1](../../..
 2. **Compiles Headlessly**: Publishes the C# Agent project in `Release` mode targeting `win-x64`. Since the project's `<OutputType>` is configured as `WinExe`, it runs silently in the background without opening any console/terminal window.
 3. **Retires the Legacy Task**: Scans Windows Task Scheduler for any leftover `CronsoleAgent` registration (at the root `\` or in subfolders) and unregisters it. **The agent is no longer its own scheduled task** — see the note below.
 4. **Checks the Launcher**: Confirms `\Cronsole-Stack\CronsoleStack` is registered. That task runs `cronsole.ps1 up` at logon and every 5 minutes, and starting the agent is one of the things `up` does. If it is missing, the script tells you the one elevated command that registers it.
-5. **Starts the Stack**: Runs `cronsole.ps1 up`, which brings up Docker, Postgres, Redis, the backend, the frontend and the agent — whichever of them are not already running.
+5. **Starts the Stack**: Runs `cronsole.ps1 up`, which brings up Docker, Postgres, the backend, the frontend and the agent — whichever of them are not already running.
 
 > [!IMPORTANT]
 > **The agent is not a scheduled task any more** (changed 2026-08-25); `CronsoleStack` starts it.

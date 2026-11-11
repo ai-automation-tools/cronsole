@@ -36,7 +36,7 @@ pwsh -File scripts/cronsole.ps1 status
 ```
 
 **The stack has two modes, and every fix below depends on which one is running.** The default
-(`scripts/cronsole.ps1`, which the `\Cronsole-Stack\` tasks run) keeps only Postgres, Redis and
+(`scripts/cronsole.ps1`, which the `\Cronsole-Stack\` tasks run) keeps only Postgres and
 the proxy in Docker; the **backend and frontend are host Node processes**. The containerized
 backend is an opt-in compose profile (`docker compose --profile docker up -d`). `status` prints
 `host` or `docker` beside each service — read that before running any `docker` command, because

@@ -50,7 +50,7 @@ pwsh .\scripts\cronsole.ps1 up
 pwsh .\scripts\cronsole.ps1 status
 ```
 
-`status` should show every service up: Postgres, Redis, backend (`:3000`), frontend
+`status` should show every service up: Postgres, backend (`:3000`), frontend
 (`:7373`), and the agent.
 
 ### 2. Confirm the backend is alive

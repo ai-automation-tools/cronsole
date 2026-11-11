@@ -1941,6 +1941,9 @@ no-shell execution held up; the gaps are in defaults and deployment.
 - [x] **Small hardening** *(2026-11-11)*: restore archive limits checked before inflating, a 10 MB
       response cap on HTTP jobs and checks, masking a secret cut by truncation, constant-time
       login refusal, bcrypt cost 12 with a 72-character cap.
+- [x] **Small fixes, second batch** *(2026-11-11)*: dialog focus no longer resets on a parent
+      re-render, reduced motion applies globally, three unused frontend packages removed, and the
+      agent reconnect docs match the code (a fixed 30s watchdog, no backoff).
 - [x] **Scan every commit for credentials in CI, and audit shipped dependencies** *(2026-11-11)*.
       The `security` job: gitleaks over the full history, `npm audit --omit=dev` at high.
       Reviewed false positives live in `.gitleaksignore`, each with its reason.

@@ -11,3 +11,20 @@ e58b513ee6f54ef8ced785d391b766a21226c42f:backend/src/connectors/__tests__/N8nCon
 # Docs example in a vendored skill: a short hex placeholder after sk_live_, not a Stripe key.
 62b9bd63d146fdfc89aa371c1072751b59f85ae9:.claude/skills/api-architect/SKILL.md:stripe-access-token:157
 
+
+# The same fixtures at the commits a full-history scan reports them under (2026-11-11).
+573291e8977f208d8b46232eab2da6e4804aa9e1:backend/src/connectors/__tests__/VercelCronConnector.test.ts:generic-api-key:25
+e9401e0177adee68fc60eb7fb4528076c255bfb1:backend/test/integration/task-secrets.integration.test.ts:generic-api-key:26
+62319cd0fe96301adcb9c6d4f7fe82ccd3780d36:backend/src/auth/__tests__/auth.test.ts:generic-api-key:9
+5309da89e2eae5b5e9181c2b5ba5fb17355586d7:backend/test/integration/claude-routines.integration.test.ts:generic-api-key:140
+f654704b4ba9fdc6e660397f26e5f066b68fc159:agent/TaskHub.Agent.Tests/AgentAuthenticatorTests.cs:generic-api-key:18
+f654704b4ba9fdc6e660397f26e5f066b68fc159:backend/src/ws/__tests__/agentAuth.test.ts:generic-api-key:30
+246f01e8f114b0b0db40a30e217d7eb6742d0195:.claude/skills/api-architect/SKILL.md:stripe-access-token:157
+
+# A made-up sk_live_ sample in the redaction test, never a Stripe key.
+01dd21d7050c3ef3939f4266054f8944e48bf55d:backend/src/services/__tests__/jobSecrets.test.ts:stripe-access-token:243
+
+# Two owner JWTs hardcoded in the frontend in June 2026 and removed since. Checked on
+# 2026-11-11: signed with a secret that is no longer in use, so no install accepts them.
+a025f5bcfe2dc23e94c0a05dd4ca69b393cfa6d9:frontend/src/api.ts:jwt:10
+5ede72de7dc5794f8cf24566b8bbe957b968443c:frontend/src/Dashboard.tsx:jwt:40

@@ -26,7 +26,7 @@ node -r dotenv/config -e "console.log(require('jsonwebtoken').sign({id:'cli_user
 A `403` means it was signed with a different secret than the running backend uses — trap #2.
 
 **Prefer the supported path now**: since 2026-08-15 Cronsole issues real API tokens — log in,
-then **Settings → Account**, name one, pick an expiry, copy it once. Those are **revocable**,
+then **Settings → Account → API tokens → New token**, name one, pick an expiry, copy it once. Those are **revocable**,
 which a hand-signed token is not. The command above is still fine for throwaway local work.
 *(`VITE_DEV_TOKEN` used to be suggested here and is gone: Vite inlines `VITE_*` as literals at
 build time, so it compiled a valid owner JWT into `dist/` —
@@ -281,8 +281,9 @@ cd ../frontend && npm run test:e2e                     # needs a LIVE stack; NOT
 database). `layout.spec.ts` and `mock-agent.spec.ts` are still local-only, so the paragraph below
 still applies to them. A spec CI runs must pass with zero tasks in the database.
 
-**Run the E2E suite after any dashboard change, and treat "not in CI" as a
-standing hazard rather than a footnote.** On 2026-08-16 it was found **100%
+**Run the E2E suite after any dashboard change, and treat "only half in CI" as a
+standing hazard rather than a footnote** (CI runs `smoke`, `native-job-env` and `a11y` since
+2026-11-11; `layout` and `mock-agent` still run only here). On 2026-08-16 it was found **100%
 broken — 18 of 18 tests failing** — and had been since the 2026-08-15 IA
 redesign: one shared helper waited for a heading (`Unified Task Dashboard`) that
 the redesign replaced, and three more tests drove the horizontal source *bar*

@@ -103,6 +103,12 @@ cd agent/Cronsole.Agent
 dotnet build
 ```
 
+The running agent is a published binary and never hot-reloads, so a change under `agent/` is
+not live until it is republished from an Administrator prompt: `scripts\Republish-Agent.ps1`.
+If you do that often, `scripts\startup-task\Register-RepublishTask.ps1` registers
+`\Cronsole-Stack\CronsoleRepublish`, which runs it elevated from an ordinary prompt. It is a
+development tool, not part of an install: read the notes at the top of that script first.
+
 ### MCP server
 
 Run a local build when you touch anything under `mcp-server/`.

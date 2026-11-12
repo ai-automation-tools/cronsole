@@ -39,7 +39,10 @@ Markers: `- [ ]` open, `- [-]` claimed by a run in progress, `- [x]` done, `- [!
 | **Sources** | 🟡 6 of ~9 built | Gemini usability *(A–C done, D–E open)* · POSIX agent (the big one) · Supabase observer |
 | **Go-public** | 🟢 **shipped 2026-09-13** | [**The repo is public.**](https://github.com/ai-automation-tools/cronsole) Anonymous clone verified, and branch protection plus the GitHub-owned-actions policy re-checked *after* the flip rather than assumed — a visibility change is exactly the event that silently drops them. The pre-flight scanned all 767 tracked files with the repo's own patterns and found nothing new. The whole checklist, reasons included, is in [Part II](#completed--go-public); what outlived it is [Post-launch](#post-launch). **Cancelled along the way, not deferred:** code signing, installers, and error tracking — Cronsole ships as source and phones home to nobody |
 
-**Leading the queue as of 2026-10-02:** the [2026-08-13 follow-ups](#follow-ups-2026-08-13) — the
+**Leading the queue as of 2026-11-11:** the [audit follow-ups](#audit-2026-11-11), what the 2026-11-11
+repo audit left open after releases 0.10.0 and 0.11.0, in priority order.
+
+**Before that, as of 2026-10-02:** the [2026-08-13 follow-ups](#follow-ups-2026-08-13) — the
 worst two of the unfixed remainder shipped 2026-09-25: **a `MISSING` Claude row could not be removed
 by anything**, because `untrack_task` 400s for `CLAUDE_CODE` assumed every Claude row was *declared*
 in the connection config, but OAuth mode tracks rows that never are, so `disconnect_claude_routine`
@@ -1468,6 +1471,113 @@ Nothing below blocks go-live.
 
 The short list. Everything here is small, known, and was found by hand rather than reported —
 which is why it sits first, not because it outranks the larger work below.
+
+<a id="audit-2026-11-11"></a>
+
+#### Audit follow-ups, added 2026-11-11
+
+What the 2026-11-11 repo audit left open after releases 0.10.0 and 0.11.0. Highest priority
+first. The code in brackets is the audit's own reference. Three audit items already had a line
+further down and were not repeated: registry index signing (S16), a multi-account data model
+(S18), the two browser specs CI does not run (`layout`, `mock-agent`), and splitting the four
+components over 1,000 lines.
+
+**High**
+
+- [ ] **Keep the app mounted when the session expires** [F5]. Login replaces the whole tree, so an
+      open form loses what was typed. Draw login over the mounted app and resume after sign-in.
+- [ ] **Replace the fixed owner id `cli_user_placeholder`** [S1, C8]. Give a new install a generated
+      id and neutral placeholder name and email; migrate an existing install's rows in one step.
+- [ ] **Docker images that run the built app as a non-root user** [C5, S17]. `npm ci`, `USER node`,
+      `npm start`, source not mounted read-write. The dev image stays for contributors.
+- [ ] **Install the agent and its launcher outside the clone** [A3]. A program running as the owner
+      can still edit what the elevated tasks run. `Protect-RepoFolder.ps1` does not cover that.
+
+**Medium**
+
+- [ ] **Run-history retention.** `ExecutionLog` rows go only with their task, so a per-minute job
+      grows the table without bound. A setting for how long to keep them, and a daily prune.
+- [ ] **Derive the encryption key and version the ciphertext** [S10]. The 32-character key is used
+      raw. Accept 32 random bytes, add a version prefix, migrate with `npm run rotate-key`.
+- [ ] **Generate the database password** [issue 7]. It is `password` on a loopback-only port.
+      New installs only; an existing volume keeps its password.
+- [ ] **Agent: ignore `workingDirectory` on create, or sign it** [A7]. It is honoured and unsigned.
+      Signing it is a wire change (protocol 3); ignoring it is not.
+- [ ] `small` **Agent: no handler may throw unhandled** [A8]. Two async-void handlers can end the
+      process until the self-heal restarts it.
+- [ ] `small` **Agent refuses a non-loopback `http://` server URL without an explicit override**
+      [S21], and the MCP server warns for the same in `CRONSOLE_API_URL` [B7].
+- [ ] `small` **Boot does not wait on the registry fetch** [S15]. Add a timeout and stop awaiting it
+      before `listen`.
+- [ ] `small` **Setting a task secret is one transaction** [S19]. Two parallel writes lose one.
+- [ ] `small` **Login: a second limiter keyed on email, and rehash old hashes at sign-in** [S13, S14].
+- [ ] **A read-only API token** [B1]. `CRONSOLE_MCP_READONLY` hides tools; the token itself can
+      still do everything.
+- [ ] **Tell the browser when a Windows task fails by itself** [F11]. The backend learns of it only
+      at a sync, so no desktop notification is raised.
+
+**Low: dashboard**
+
+- [ ] `small` **The mobile source drawer uses `Modal`** [F20]. It has no focus trap or restore.
+- [ ] `small` **Rail pin controls are visible on touch** [F19].
+- [ ] `small` **A Help button in the top bar** [F17], and **load the Help Center on demand** [F18].
+- [ ] `small` **An unknown path or a deleted task says so** [F23], and each route sets a page title.
+- [ ] `small` **Top-bar sections are links** [F25], and sign out sits behind a menu.
+- [ ] `small` **One word for one thing** [F22]: "source" not "platform", "scheduled task" not
+      "routine", in the app's own text and the page description.
+- [ ] **Every date and time goes through `utils/datetime`** [F21], with a 12 or 24 hour setting.
+- [ ] `small` **An unsaved-changes guard on Create**, as Edit has.
+- [ ] `small` **Settings import checks inside lists** [F10], a saved view's fields included.
+- [ ] **Keyboard: a shortcut list, then a command palette (Ctrl+K)**.
+- [ ] **Paging or virtualization for the task list** [F16]. Off-screen cards are skipped since
+      2026-11-11, but all of them still mount.
+- [ ] `small` **An About page that names the licence**, and **a "what's new" link** to the changelog.
+      An update check stays opt-in: a default install makes no outbound request.
+- [ ] **A compact density**, and remove the fixed `zoom: 1.25` on four screens. Low priority.
+
+**Low: build, CI and tooling**
+
+- [ ] `small` **CI installs with `npm ci`** [issue 5]. Needs lockfiles that carry the optional
+      platform packages.
+- [ ] **Dependabot opens major-version pull requests for security updates** [issue 6].
+- [ ] `small` **`/doctor` reports when `node_modules` lags the lockfile** [S23].
+- [ ] `small` **The secret scan catches a random string in a fallback** [A1]. gitleaks missed the
+      pairing secret that started the audit.
+- [ ] **Tests for the agent's scheduler, history reader and socket wrapper** [A10]. Move validation
+      into pure helpers first.
+- [ ] `small` **The agent test server moves off port 3000** [A11].
+- [ ] `small` **Log rotation in the launcher** [S22].
+- [ ] `small` **`Register-CronsoleStack.ps1 -Unregister`** [C9]. Removal is manual elevated steps.
+- [ ] `small` **`frontend/.env.example` stops telling you to hand-sign a token** [B3].
+- [ ] `small` **Frontend leftovers**: delete `tailwind.config.js` (unused under Tailwind v4) and
+      `utils/bulkReport.ts` (imported only by its test), make the two kanban columns one component,
+      and replace the two default-filter settings with one "Opening view" picker.
+- [ ] **The MCP server installs without a clone** [B4]: `prepare` build, `repository` and `author`
+      fields. 🔒 Needs owner to publish it to npm.
+
+**Low: docs and housekeeping**
+
+- [ ] `small` **README corrections**: a status badge that matches the version, CI and release
+      badges, issue-template links, a screenshot caption that matches the screenshots, the
+      organisation in the footer, and "English only".
+- [ ] **README: a short dashboard recording and a "Why Cronsole" comparison.** See also *Richer
+      copy for the front door* under Post-launch.
+- [ ] **Split the changelog**: `[Unreleased]` and the latest release stay in `docs/CHANGELOG.md`;
+      older entries and the two narrative appendices move to `docs/changelog/`. It is 1.1 MB.
+- [ ] **Shorten changelog entries to what the user sees.** Three exceed 4,000 characters.
+- [ ] **Trim `AGENTS.md` §9 to one-line rules that link to `DESIGN_NOTES.md`.** It is 93 KB and
+      loads into every agent session.
+- [ ] **A fresh install's Compose project and database are named `cronsole`**, with `taskhub` kept
+      by an override for an existing volume.
+- [ ] `small` **Remove what the rename left behind**: `scripts/rename-stage1.mjs`,
+      `rename-stage2.mjs`, `Migrate-ToCronsole.ps1`, the four `taskhub_*` test reports, the unused
+      logo variants and `preview.html`, and the stub folders `docs/agent-tools/` and
+      `docs/resources/`.
+- [ ] 🔒 Needs owner — **GitHub description and topics.** The description says "Claude Code
+      routines" and omits n8n. Topics to add: `windows-task-scheduler`, `cron`, `mcp`, `n8n`,
+      `self-hosted`, `local-first`.
+- [ ] 🔒 Needs owner — **Decide who may write to the clone folder on your machine.**
+      `Protect-RepoFolder.ps1 -Check` lists eight other writers; locking it removes their access.
 
 <a id="native-run-policy"></a>
 

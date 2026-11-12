@@ -154,6 +154,9 @@ scope** (`~/.claude/agents/`) since 2026-08-23. `Explore` and `Plan` are built i
 
 MCP rules that don't change: **it owns no logic** — new behavior belongs in a backend route.
 **Destructive-op gating is tiered** — only `delete_task` and `delete_template` are gated (`CRONSOLE_MCP_ALLOW_DESTRUCTIVE`),
+**`CRONSOLE_MCP_READONLY` registers only `READ_ONLY_TOOLS`**, an allowlist in `tools.ts` applied at the one
+registration door, so a new tool is hidden there until it is added to the list; it wins over the gate and
+turns on for any value that is not clearly off. The gate is tiered, not the same switch:
 and when off they are *absent* from `tools/list`. Bulk verbs are omitted deliberately: friction must
 scale with blast radius and MCP has no equivalent of the UI's typed confirmation. The tool suite
 stubs the HTTP client, so it **cannot** prove the wrapper and the API still agree — hand-drive a tool

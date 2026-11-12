@@ -14,6 +14,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **A read-only switch for the MCP server, and a plain statement of what it grants** (2026-11-11). By default an assistant connected to the MCP server can create, change and run tasks, which means running programs on your machine; only the two delete tools were behind a switch, and the docs did not say so. They do now (`mcp-server/README.md`, the MCP guide, `SECURITY.md`). Set `CRONSOLE_MCP_READONLY=true` to give the assistant only the tools that read. It hides tools; the API token can still do everything.
 - **`cronsole mode built`: run the built app instead of the dev servers** (2026-11-11). Until now the stack always ran `tsx watch` and the Vite dev server, so any change to the clone, a `git pull` included, restarted the backend under whatever native job was running. `cronsole mode built` builds the backend and the dashboard and records the choice for this machine; from the next restart `up` runs `node dist/index.js` and serves the built dashboard with `vite preview`, on the same ports. `cronsole update` rebuilds before it restarts, and `cronsole status` names the mode and says when the source is newer than the build. `cronsole mode dev` goes back. The default is unchanged, so an existing install keeps the dev servers until you switch. The Windows install guide now switches a new install to the built app.
 
 ### Fixed

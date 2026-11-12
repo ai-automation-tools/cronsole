@@ -50,6 +50,8 @@ export interface CronsoleServerConfig extends CronsoleClientConfig {
    * the human sets it, and no amount of agent reasoning reaches it.
    */
   allowDestructive: boolean;
+  /** Expose only the tools that read. See readReadOnly. */
+  readOnly: boolean;
 }
 
 /**
@@ -194,7 +196,7 @@ export function configFromEnv(): CronsoleServerConfig {
   // then hang the tool call for ever. Anything that is not a positive number is ignored.
   const parsedTimeout = Number(rawTimeout);
   const timeoutMs = rawTimeout && Number.isFinite(parsedTimeout) && parsedTimeout > 0 ? parsedTimeout : 15000;
-  return { baseUrl, token, timeoutMs, allowDestructive: readAllowDestructive() };
+  return { baseUrl, token, timeoutMs, allowDestructive: readAllowDestructive(), readOnly: readReadOnly() };
 }
 
 /**
@@ -205,6 +207,17 @@ export function configFromEnv(): CronsoleServerConfig {
  * and an obvious error message, while a false positive hands an agent a deletion
  * verb the user never meant to grant.
  */
+/**
+ * Opt in to read-only. The opposite strictness to the gate below, for the same
+ * reason: this one REMOVES power, so anything that is not clearly "off" turns it
+ * on. A typo or an unexpanded `${CRONSOLE_MCP_READONLY}` then costs missing tools
+ * and an obvious boot line, never a write the user meant to rule out.
+ */
+export function readReadOnly(raw: string | undefined = env('MCP_READONLY')): boolean {
+  const value = (raw || '').trim().toLowerCase();
+  return !(value === '' || value === 'false' || value === '0');
+}
+
 function readAllowDestructive(): boolean {
   const raw = (env('MCP_ALLOW_DESTRUCTIVE') || '').trim().toLowerCase();
   return raw === 'true' || raw === '1';

@@ -87,6 +87,11 @@ export interface ToolOptions {
    * fills it in itself. See CronsoleClientConfig.allowDestructive.
    */
   allowDestructive: boolean;
+  /**
+   * Register only the tools that read. Wins over allowDestructive. A hidden tool
+   * is absent from tools/list, the same way a gated delete is.
+   */
+  readOnly?: boolean;
 }
 
 // The platforms a bare command can be scheduled on. Claude is deliberately NOT
@@ -570,11 +575,34 @@ const compactTemplate = (t: TemplateRow) => ({
   }))
 });
 
+/**
+ * The tools that change nothing, anywhere. An allowlist, so a tool added later
+ * is hidden in read-only mode until someone decides it belongs here.
+ * export_task and convert_schedule compute and return; they write no file.
+ */
+export const READ_ONLY_TOOLS: ReadonlySet<string> = new Set([
+  'list_tasks', 'list_templates', 'list_folders', 'get_task_history', 'export_task',
+  'convert_schedule', 'list_platforms', 'get_task_health', 'get_diagnostics',
+  'list_run_history', 'list_task_archives', 'list_task_secrets', 'list_claude_routines',
+  'list_platform_runs', 'get_run_output'
+]);
+
 export function registerTools(
-  server: McpServer,
+  target: McpServer,
   client: CronsoleClient,
   options: ToolOptions = { allowDestructive: false }
 ): void {
+  // Read-only is applied here, at the one door every registration goes through,
+  // so no tool below has to remember it.
+  const server: Pick<McpServer, 'registerTool'> = options.readOnly
+    ? {
+        registerTool: ((name: string, ...rest: unknown[]) =>
+          READ_ONLY_TOOLS.has(name)
+            ? (target.registerTool as (...a: unknown[]) => unknown)(name, ...rest)
+            : undefined) as McpServer['registerTool']
+      }
+    : target;
+
   // -------------------------------------------------------------------------
   // list_tasks
   // -------------------------------------------------------------------------

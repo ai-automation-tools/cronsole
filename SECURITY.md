@@ -44,6 +44,10 @@ The most security-relevant surfaces are:
   with AES-256-GCM before it's stored.
 - **The template catalog / MCP server** — templates are untrusted, executable content that
   is schema-validated and structured no-shell before it can create a task.
+- **What the MCP server grants by default** — an assistant connected to it can create, change
+  and run tasks, so it can run programs on the machine, elevated if a Windows task asks for
+  the highest run level. Only deletes are behind a switch. `CRONSOLE_MCP_READONLY` limits it to
+  reading. Treat the API token it holds as a credential that can run code.
 
 Especially interested in: command-injection paths that reach a shell, ways to make the
 agent execute an unsigned/forged command, IDOR/authorization gaps between users, or secret

@@ -24,7 +24,7 @@ async function main(): Promise<void> {
     version: PACKAGE_VERSION
   });
 
-  registerTools(server, client, { allowDestructive: config.allowDestructive });
+  registerTools(server, client, { allowDestructive: config.allowDestructive, readOnly: config.readOnly });
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
@@ -33,9 +33,12 @@ async function main(): Promise<void> {
   // list is the kind of thing you debug for twenty minutes (troubleshooting #13
   // was exactly that shape) — so state it at boot instead.
   console.error(
-    'Cronsole MCP server running on stdio ' +
-    `(destructive tools ${config.allowDestructive ? 'ENABLED' : 'disabled'} — ` +
-    'set CRONSOLE_MCP_ALLOW_DESTRUCTIVE=true to expose delete_task + delete_template)'
+    config.readOnly
+      ? 'Cronsole MCP server running on stdio (READ-ONLY: CRONSOLE_MCP_READONLY is set, so only the ' +
+        'tools that read are exposed; unset it to create, run and change tasks)'
+      : 'Cronsole MCP server running on stdio ' +
+        `(destructive tools ${config.allowDestructive ? 'ENABLED' : 'disabled'} — ` +
+        'set CRONSOLE_MCP_ALLOW_DESTRUCTIVE=true to expose delete_task + delete_template)'
   );
 }
 

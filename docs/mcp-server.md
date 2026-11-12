@@ -36,6 +36,11 @@ Full blocks, `CRONSOLE_API_URL`, and the fresh-terminal rule are in
 **Gated** tools are registered only when `CRONSOLE_MCP_ALLOW_DESTRUCTIVE` is `true` or `1`; when it
 is off they are absent from `tools/list`. Everything else ships ungated.
 
+**Everything else includes creating and running tasks**, which means running programs on the
+machine, as administrator if a Windows task asks for `runLevel: highest`. Set
+`CRONSOLE_MCP_READONLY` (any value except empty, `false` or `0`) to register only the reading
+tools; it wins over the gate above.
+
 | Tool | Purpose |
 |:---|:---|
 | `list_tasks` | Tracked tasks with schedule, status, next run and last result |

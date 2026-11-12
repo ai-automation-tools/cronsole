@@ -236,6 +236,14 @@ writable* rather than hidden, so you get "that one's refused" instead of a confu
 >   assistant won't even see the tools. That switch is deliberately *yours* — a tool parameter
 >   like "confirm: true" would just be the assistant reassuring itself.
 
+> [!WARNING]
+> **By default this server lets the assistant run programs on your machine.** `create_task`,
+> `update_task_action`, the native script and program creators and `run_task` are always
+> available. A Windows task can be created with `runLevel: highest`, which runs it as
+> administrator. Only the two delete tools are behind a switch. That is deliberate: a scheduler
+> you cannot schedule with is not much use. If you only want the assistant to look, set
+> `CRONSOLE_MCP_READONLY=true` and it gets the reading tools and nothing else.
+
 > [!TIP]
 > **A `SUCCESS` in `get_task_history` means "Cronsole dispatched it and it reported success"** —
 > a task that hangs forever reports exactly the same thing. If you suspect a hang, check
@@ -268,6 +276,7 @@ Configuration is via environment variables (see [`mcp-server/.env.example`](../.
 | `CRONSOLE_API_URL` |  | `http://localhost:3000/api` | Backend REST base URL (include `/api`). |
 | `CRONSOLE_TIMEOUT_MS` |  | `15000` | Per-request timeout. `run_task` waits at least 2 minutes, because a native Run now answers when the job ends; past that it answers *Still running*. |
 | `CRONSOLE_MCP_ALLOW_DESTRUCTIVE` |  | `false` | Expose the **`delete_task`** and **`delete_template`** tools (the second deletes only templates you imported or saved, never the built-in catalog). It deletes **Cronsole-native tasks only** and backs each one up first, so it can't reach a Windows task — but both stay off unless you set this to `true` or `1` (anything else, including a typo, leaves them off). When off, your assistant doesn't see either tool at all. Prefer disabling a task to deleting it. |
+| `CRONSOLE_MCP_READONLY` |  | off | Expose **only the tools that read** (list, history, health, export, diagnostics). Create, run, modify and delete tools are absent from `tools/list`, whatever `CRONSOLE_MCP_ALLOW_DESTRUCTIVE` says. Any value except empty, `false` or `0` turns it on. It hides tools; the token itself can still do everything, so keep the token private. |
 
 > [!IMPORTANT]
 > The server reads its **process environment** (`CRONSOLE_TOKEN` alone also falls back to the Windows User environment, then a `.env` in `mcp-server/` or the repo root), so copying

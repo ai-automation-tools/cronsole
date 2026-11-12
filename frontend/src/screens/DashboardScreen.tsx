@@ -1175,7 +1175,7 @@ export const DashboardScreen = ({
               per task, which is where that pairing always actually lived. */}
           {/* Grid View */}
           {viewMode === 'grid' && (
-            <div data-testid="task-list" className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 pb-20">
+            <div data-testid="task-list" className="skip-offscreen grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 pb-20">
               {filteredTasks.length === 0 ? (
                 <div className="col-span-full py-20 flex flex-col items-center justify-center border-2 border-dashed border-border rounded-3xl text-subtle-foreground">
                    <Tag size={48} className="mb-4 opacity-20" />

@@ -671,6 +671,17 @@ body {
 /* Lists rise in, each item 40ms after the one before it; the element sets
    `--i` to its index (capped by the caller, so a 300-card list does not take
    twelve seconds to settle). */
+/* A long list of cards: let the browser skip layout and paint for the ones off
+   screen. Measured on 619 cards (2026-11-11, headless dev build): a scroll frame
+   went from 40 ms to 27 ms. The size is a placeholder for a card not yet drawn;
+   `auto` makes the browser remember the real one after that. Find-in-page and
+   the accessibility tree still see every card. Popovers on a card are portalled
+   to <body>, so the paint containment this implies clips nothing. */
+.skip-offscreen > * {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 250px;
+}
+
 @keyframes rise {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: none; }

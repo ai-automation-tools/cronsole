@@ -1931,6 +1931,9 @@ no-shell execution held up; the gaps are in defaults and deployment.
 - [x] **Give the agent a log, and give agent setup a pairing secret** *(2026-11-11)*. `logs/agent.*.log`;
       `setup-agent-startup.ps1` copies the secret from the backend's `.env`. Open: an install with no
       `.env` at all (the Docker quick start) still has to create one, which is the item above.
+- [x] **The agent refuses to rewrite or delete under `\Microsoft\`, and validates task names**
+      *(2026-11-11)*. Same refusal in `WindowsAgentConnector`. Open: the agent folder's ACL (an
+      elevated binary in a user-writable clone).
 - [x] **A native job timeout kills the process tree** *(2026-11-11)*. Process group on POSIX,
       `taskkill /T` on Windows, and a 5s grace timer that settles the run regardless.
 - [x] **A Host allowlist and a one-time setup code** *(2026-11-11)*. `config/hosts.ts` gates REST

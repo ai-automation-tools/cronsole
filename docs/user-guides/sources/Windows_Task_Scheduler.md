@@ -189,7 +189,9 @@ groups those leftovers as **one** partial run rather than inventing three.
   is pruned when empty — and a folder the elevated agent creates carries an administrator ACE, so
   *you* will need admin rights to delete it. A folder you create in Task Scheduler yourself appears
   in the picker with no opt-in. `\Microsoft\` is refused outright, in the backend and independently
-  in the agent — a name collision there would silently overwrite a real system task.
+  in the agent — a name collision there would silently overwrite a real system task. The same goes
+  for editing or deleting a task that already lives there; you can still run it and switch it on
+  or off.
 - **Windows' own tasks are hidden by default.** There are usually a few hundred under `\Microsoft\`,
   roughly 3:1 against yours. Every count that hides them says so.
 - **Untracking is not deleting.** *Remove from Cronsole* takes the row off your dashboard and writes

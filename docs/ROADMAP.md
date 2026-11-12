@@ -1306,6 +1306,9 @@ cover the repo and product going public, not standing up a multi-tenant cloud se
       **`0.10.0` was cut 2026-11-11** on all three trains (`app/`, `agent/`, `mcp/`), zero assets.
       The changelog's `[Unreleased]` became `[0.10.0]`. Wire protocol unchanged at 1. Suites: backend 1389 + 293 integration, frontend 1249, agent 181, mcp-server 229.
 
+      **`0.11.0` was cut 2026-11-11** on all three trains, zero assets. Wire protocol 2: breaking
+      for app and agent together, and the backend refuses an agent on another version. Suites: backend 1394 + 293 integration, frontend 1252, agent 184, mcp-server 231.
+
       **Left:** release notes generated from real commits rather than written by hand. That is the
       whole of this item now.
 - [x] **Operations — for the machine the user runs it on** *(narrowed 2026-09-11)*. The original item

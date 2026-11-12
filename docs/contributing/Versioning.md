@@ -20,9 +20,9 @@ decides everything below.
 
 | Component | Version lives in | Ships as | Tag |
 |:---|:---|:---|:---|
-| **App** — backend + frontend | `backend/package.json`, mirrored in `frontend/package.json` | The Docker stack / source | `app/v0.10.0` |
-| **Agent** | `agent/Cronsole.Agent/Cronsole.Agent.csproj` › `<Version>` | A published binary on a user's machine | `agent/v0.10.0` |
-| **MCP server** | `mcp-server/package.json` | An npm-shaped package a host runs | `mcp/v0.10.0` |
+| **App** — backend + frontend | `backend/package.json`, mirrored in `frontend/package.json` | The Docker stack / source | `app/v0.11.0` |
+| **Agent** | `agent/Cronsole.Agent/Cronsole.Agent.csproj` › `<Version>` | A published binary on a user's machine | `agent/v0.11.0` |
+| **MCP server** | `mcp-server/package.json` | An npm-shaped package a host runs | `mcp/v0.11.0` |
 | **Template registry** | `registryVersion` in the artifact | A content-addressed JSON artifact on a CDN | **none** |
 
 ### Why backend and frontend are one version

@@ -12,6 +12,19 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
+## [0.11.0] — 2026-11-11
+
+App, agent and MCP server all move to 0.11.0 (`app/v0.11.0`, `agent/v0.11.0`, `mcp/v0.11.0`).
+Upgrade with `cronsole update`, or see [Upgrading](setup/README.md#-upgrading).
+
+- **Breaking: the agent must be rebuilt with this release.** The agent wire protocol is version 2.
+  From an Administrator prompt, `cronsole update` does both halves; from an ordinary one, run
+  `scripts\Republish-Agent.ps1` as Administrator afterwards. Until then Windows tasks can be listed
+  but not run or changed, and each attempt says why
+  ([#108](troubleshooting/README.md#108-every-windows-write-is-refused-with-a-sentence-about-the-wire-protocol)).
+- **Optional:** `cronsole mode built` runs the built app in place of the dev servers, and
+  `CRONSOLE_MCP_READONLY` limits the MCP server to its reading tools.
+
 ### Changed
 
 - **Breaking: the agent wire protocol is now version 2. Rebuild the agent when you update** (2026-11-11). The backend signs every command it sends the Windows agent. The signed text used to be the command's fields joined with `|`, and a task name, description or working directory may contain a `|`, so two different commands could produce the same text and share one signature. Someone able to alter traffic between the backend and the agent could use that to change where one field ended and the next began. Each field is now written with its length in front, which leaves one reading only. **What you do:** `pwsh scripts\cronsole.ps1 update` from an Administrator prompt updates both halves. From an ordinary prompt it updates the backend and prints the agent command (`scripts\Republish-Agent.ps1`). **Until the agent is rebuilt**, Cronsole still lists and reads Windows tasks, but Run now, enable/disable, create, edit, delete and restore are refused with a sentence that names the rebuild, and the Windows source shows as degraded with the same sentence. Cronsole-native jobs and every other source are unaffected. A new agent against an old backend rejects every command, so update the backend too. The handshake nonce and the per-command nonce must now be 32 hex characters, which is what both sides already sent.

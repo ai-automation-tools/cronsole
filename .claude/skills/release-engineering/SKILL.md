@@ -33,9 +33,9 @@ the decision in full. There is no half-measure.
 
 | Component | Version lives in | Tag |
 |:---|:---|:---|
-| **App** — backend + frontend | `backend/package.json`, mirrored in `frontend/package.json` | `app/v0.10.0` |
-| **Agent** | `Cronsole.Agent.csproj` › `<Version>` | `agent/v0.10.0` |
-| **MCP server** | `mcp-server/package.json` | `mcp/v0.10.0` |
+| **App** — backend + frontend | `backend/package.json`, mirrored in `frontend/package.json` | `app/v0.11.0` |
+| **Agent** | `Cronsole.Agent.csproj` › `<Version>` | `agent/v0.11.0` |
+| **MCP server** | `mcp-server/package.json` | `mcp/v0.11.0` |
 | **Template registry** | `registryVersion` in the artifact | **none** |
 
 - **Backend and frontend are one version.** One deployable, one commit, no user runs a mismatched

@@ -45,6 +45,13 @@ export interface NativeTaskInput {
    * starts it, so a schedule of its own is a second trigger, not a requirement.
    */
   schedule?: string | null;
+  /**
+   * Allow no schedule without a chain: the task runs only when started. Set by
+   * import and archive-restore when the file says `schedule: null`, because
+   * `PATCH /:id/schedule` makes that state legal and a restore must be able to
+   * rebuild what a delete archived. The create form still requires a schedule.
+   */
+  onDemand?: boolean;
   /** Normalized by `buildNativeJob`, then checked by the executor's own `validateJob`. */
   job: unknown;
   /**
@@ -93,7 +100,7 @@ export async function createNativeTask(
 
   const schedule = input.schedule?.trim() || null;
   const nextRunTime = schedule ? computeNextRun(schedule) : null;
-  if (schedule ? !nextRunTime : !nativeJob.policy?.runAfter) {
+  if (schedule ? !nextRunTime : !(nativeJob.policy?.runAfter || input.onDemand)) {
     throw new NativeTaskCreateError(
       schedule
         ? 'Schedule must be a valid 5-field cron expression (UTC).'

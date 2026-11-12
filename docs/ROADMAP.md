@@ -1934,8 +1934,11 @@ no-shell execution held up; the gaps are in defaults and deployment.
       `setup-agent-startup.ps1` copies the secret from the backend's `.env`. Open: an install with no
       `.env` at all (the Docker quick start) still has to create one, which is the item above.
 - [x] **The agent refuses to rewrite or delete under `\Microsoft\`, and validates task names**
-      *(2026-11-11)*. Same refusal in `WindowsAgentConnector`. Open: the agent folder's ACL (an
-      elevated binary in a user-writable clone).
+      *(2026-11-11)*. Same refusal in `WindowsAgentConnector`.
+- [x] **Check and lock who can write to the clone** *(2026-11-11)*. `Protect-RepoFolder.ps1`;
+      `cronsole status` and `Register-CronsoleStack.ps1` report other writers. Open: a program
+      running as the owner can still edit what the elevated tasks run. Closing that means
+      installing the agent and its launcher outside the clone (`%ProgramFiles%`).
 - [x] **A native job timeout kills the process tree** *(2026-11-11)*. Process group on POSIX,
       `taskkill /T` on Windows, and a 5s grace timer that settles the run regardless.
 - [x] **A Host allowlist and a one-time setup code** *(2026-11-11)*. `config/hosts.ts` gates REST

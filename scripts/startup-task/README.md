@@ -37,6 +37,7 @@ Registered before 2026-11-11? Re-run `Register-CronsoleStack.ps1` (elevated), th
 | `Register-RepublishTask.ps1` | Registers **`CronsoleRepublish`**, the on-demand elevated agent rebuild. Run once, **as Administrator**. |
 | `Register-RestartTask.ps1` | Registers **`CronsoleRestart`**, the on-demand elevated stack restart. Run once, **as Administrator**. |
 | `Register-RebuildTask.ps1` | Registers **`CronsoleRebuild`**, the hourly `dist` rebuild for the phone/tailnet page. Run once, **no elevation**. `-Unregister` removes it. |
+| `Protect-RepoFolder.ps1` | Leaves write access to this clone to you, Administrators and SYSTEM, because the elevated tasks run files from it. `-Check` only lists who else can write. Run once; elevation only if you do not own the folder. Undo: `icacls <folder> /reset`. |
 | `Migrate-RepoFolder.ps1` | **The only supported way to move this checkout.** Three tasks embed the repo path twice each and fail *silently* when it moves by hand. |
 | `Migrate-ToCronsole.ps1` | **One-time machine migration** for the 2026-07-31 rename: moved the launcher tasks from `\Task-Hub\` to `\Cronsole-Stack\` and `TASKHUB_TOKEN` → `CRONSOLE_TOKEN`. Already run on this machine; kept as the record of what moved and as the template for the next such migration. |
 

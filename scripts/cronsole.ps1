@@ -435,6 +435,16 @@ function Invoke-Status {
         Write-Host '     not be running at all:  docker compose stop backend frontend' -ForegroundColor Red
     }
 
+    # Not a service, so not a row: the elevated agent task runs files from this folder,
+    # and a folder other accounts can write to is a way to become an administrator.
+    $null = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'startup-task\Protect-RepoFolder.ps1') -Check 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host ''
+        Write-Host '  !! Other accounts on this machine can write to the Cronsole folder.' -ForegroundColor Yellow
+        Write-Host '     The elevated agent task runs files from it. See who, and lock it:' -ForegroundColor Yellow
+        Write-Host '       scripts\startup-task\Protect-RepoFolder.ps1 -Check' -ForegroundColor Yellow
+    }
+
     $upCount   = ($rows | Where-Object { $_.Probe.State -eq 'UP' }).Count
     $warnCount = ($rows | Where-Object { $_.Probe.State -eq 'WARN' }).Count
     Write-Host ''

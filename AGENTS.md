@@ -512,6 +512,11 @@ Non-negotiable rules. **Every one has a reason recorded in
   a separator, or it is a second folder nothing validated.
 - **`\Cronsole-Stack\` is deliberately untracked** — it is the thing that runs Cronsole, not work
   Cronsole runs. Nothing enforces this; it is a standing choice.
+- **What an elevated task runs lives in the clone, so the clone's permissions are part of the
+  boundary.** `Protect-RepoFolder.ps1` leaves write access to the owner, Administrators and
+  SYSTEM; `cronsole status` and `Register-CronsoleStack.ps1` report when others have it. It is
+  reported, never applied: locking also removes access given to other tools. It does not cover a
+  program running as the owner (a native job can edit `cronsole.ps1`), and no doc may claim it does.
 - **Only the agent is elevated; the backend never is.** The backend runs native jobs, so an
   elevated backend makes every native job, and every package behind it, an administrator.
   `\Cronsole-Stack\CronsoleStack` runs `cronsole.ps1 up` at RunLevel **Limited** (database,

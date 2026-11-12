@@ -76,6 +76,14 @@ elevated, so a Cronsole-native job never runs as administrator: work that needs 
 powershell -ExecutionPolicy Bypass -File scripts\startup-task\Register-CronsoleStack.ps1
 ```
 
+The script ends by listing any other account that can write to the Cronsole folder. The elevated
+agent task runs files from it, so if any are listed, lock the folder (this also removes access
+you gave other tools; undo with `icacls <folder> /reset`):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\startup-task\Protect-RepoFolder.ps1
+```
+
 Two on-demand companions are worth registering at the same time — both run elevated, so
 afterwards you can rebuild or restart the stack from an ordinary prompt with no UAC prompt:
 

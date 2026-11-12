@@ -184,6 +184,17 @@ if ($RemoveAgentTask) {
     }
 }
 
+# The elevated keeper runs files from this folder, so who can write here matters as much
+# as who can run the task. Reported, not applied: locking the folder also removes access
+# other tools on the machine may have been given (a coding agent's sandbox account, say),
+# and that is the owner's call.
+Write-Host ""
+& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'Protect-RepoFolder.ps1') -Check
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "An account listed above can replace what the elevated agent task runs. Lock the folder:" -ForegroundColor Yellow
+    Write-Host "  .\scripts\startup-task\Protect-RepoFolder.ps1" -ForegroundColor Yellow
+}
+
 Write-Host ""
 Write-Host "Run CronsoleStack now with:  Start-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleStack'"
 Write-Host "Register the on-demand restart task with:  .\scripts\startup-task\Register-RestartTask.ps1"

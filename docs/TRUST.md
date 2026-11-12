@@ -69,6 +69,19 @@ start-up, and the New Task form, the diagnostics panel and `list_platforms` all 
 if it finds itself elevated. Until 2026-11-11 one elevated task started everything; if you
 installed before then, re-run `scripts\startup-task\Register-CronsoleStack.ps1` and restart.
 
+**Where that split stops.** The elevated agent, and the scripts the elevated tasks run, are files
+in your clone. Whoever can write to them can become an administrator the next time a task fires.
+
+- **Other accounts on the machine.** A folder outside your user profile usually inherits the
+  drive's permissions, which often let every signed-in account write. Check with
+  `scripts\startup-task\Protect-RepoFolder.ps1 -Check`, and run it without `-Check` to leave
+  write access to you, Administrators and SYSTEM. `cronsole status` warns until you do. It is
+  not applied for you: it also removes access you may have given other tools.
+- **Programs running as you.** Not closed, and the lock above does not change it. Anything you
+  run without elevation can edit those files, and that includes a Cronsole-native job. Running
+  the backend without elevation stops a job from *being* an administrator by accident; it does
+  not stop one that sets out to become one. Treat a native job like any other program you run.
+
 ## 2. What the agent can do — the complete list
 
 This is not a summary. **Ten** of these are the whole of the agent's scheduler interface

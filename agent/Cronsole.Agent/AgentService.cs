@@ -623,6 +623,17 @@ namespace Cronsole.Agent
                         return;
                     }
 
+                    if (TaskFolderPath.IsReserved(taskPath))
+                    {
+                        Console.WriteLine($"REFUSED task:delete for {taskPath}: under \\Microsoft\\");
+                        await _socket.EmitAsync("task:deleted", new[] { new {
+                            taskExternalId = taskPath,
+                            success = false,
+                            message = TaskFolderPath.ReservedRefusal
+                        }});
+                        return;
+                    }
+
                     Console.WriteLine($"Server command: task:delete -> {taskPath}");
 
                     // Idempotent: a task already gone is a success — the end
@@ -709,6 +720,21 @@ namespace Cronsole.Agent
                         return;
                     }
 
+                    // The folder is validated by the scheduler; the name was not, and a
+                    // name with a separator in it is a second, unvalidated folder.
+                    var nameProblem = TaskFolderPath.ValidateTaskName(name);
+                    if (nameProblem != null)
+                    {
+                        Console.WriteLine($"Task {name} refused: {nameProblem}");
+                        await _socket.EmitAsync("task:created", new[] { new {
+                            success = false,
+                            name = name,
+                            message = nameProblem,
+                            foldersCreated = new List<string>()
+                        }});
+                        return;
+                    }
+
                     Console.WriteLine($"Server command: task:create -> {name} (exe={action.Executable}, args={action.Args.Count}, trigger={(trigger?.Type ?? "none")}, folder={folder}, createFolder={createFolder})");
 
                     var result = _scheduler.CreateTask(name, schedule, action, trigger, folder, createFolder);
@@ -791,6 +817,17 @@ namespace Cronsole.Agent
                         return;
                     }
 
+                    if (TaskFolderPath.IsReserved(taskPath))
+                    {
+                        Console.WriteLine($"REFUSED task:update_schedule for {taskPath}: under \\Microsoft\\");
+                        await _socket.EmitAsync("task:schedule_updated", new[] { new {
+                            taskExternalId = taskPath,
+                            success = false,
+                            message = TaskFolderPath.ReservedRefusal
+                        }});
+                        return;
+                    }
+
                     // A null trigger is a deliberate clear, not a lost field: it is
                     // signed as `none`, so a frame stripped of its trigger in transit
                     // fails the signature above. Clearing removes only the
@@ -847,6 +884,17 @@ namespace Cronsole.Agent
                         !_auth.VerifyCommand(AgentAuthenticator.UpdateMessage(taskPath, actionCanonical, workingDir, description, runLevel, nonce, ts), ts, sig))
                     {
                         Console.WriteLine($"REJECTED unsigned/invalid task:update for {taskPath}");
+                        return;
+                    }
+
+                    if (TaskFolderPath.IsReserved(taskPath))
+                    {
+                        Console.WriteLine($"REFUSED task:update for {taskPath}: under \\Microsoft\\");
+                        await _socket.EmitAsync("task:updated", new[] { new {
+                            taskExternalId = taskPath,
+                            success = false,
+                            message = TaskFolderPath.ReservedRefusal
+                        }});
                         return;
                     }
 

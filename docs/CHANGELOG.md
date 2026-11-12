@@ -12,6 +12,10 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
+### Added
+
+- **Four Windows templates in the catalog** (2026-11-12): `sys-winget-upgrade-report`, `mon-local-admins-audit`, `mon-firewall-profile-status` and `mon-last-boot-uptime`. Each appends a dated record to a log (pending winget upgrades, Administrators group members, firewall profile state, last boot time) and changes nothing on the machine. Extended tier, in the System & Utilities and Monitoring packs.
+
 ### Fixed
 
 - **A deleted on-demand or chained native task can be restored again** (2026-11-12). A Cronsole-native task with no schedule of its own — made on-demand with *Edit schedule*, or one that only runs after another task — exported and archived as `schedule: null`, and import and archive-restore refused that as *"has no schedule in the file"*. So the archive taken before a delete could never rebuild it, and its `restorable` said so. `null` now recreates the task unscheduled; a file with the field missing or blank is still refused. Found by driving `delete_task` → `restore_task_archive` over MCP.

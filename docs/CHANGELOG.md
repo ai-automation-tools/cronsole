@@ -12,6 +12,14 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
+### Changed
+
+- **Roadmap rechecked against the org's 2026-11 requirements** (2026-11-11). The intro names the job that works the file, not a task and a time. *Stamp the demo build* and *Rename at the source* moved from Phase 4, above the release line, to Next up, where the routine looks. Four standing questions and decisions moved under Open decisions. The GitHub Actions remainder is marked 🔒 Needs owner, since only waiting or a live break can finish it. The reopened P0 items end in a `— done` note. New items: authenticate before the import and restore body parser, the dev JWT in pre-public history (🔒), and the DESIGN_NOTES tool count. The topics item now names the org's 4–5-topic vocabulary.
+
+### Removed
+
+- **Two roadmap duplicates** (2026-11-11). *ChatGPT stays quick-links-only* repeated the *Staying quick-links-only* decision. *Route-level code-splitting* is done except for the Help Center, which Next up already holds as F18.
+
 ## [0.11.0] — 2026-11-11
 
 App, agent and MCP server all move to 0.11.0 (`app/v0.11.0`, `agent/v0.11.0`, `mcp/v0.11.0`).

@@ -12,7 +12,7 @@
 
 ---
 
-The Cronsole roadmap routine (`Cronsole Weekly Roadmap`, Friday 23:00) works this file: it takes the first open item under `## After public release` that isn't `🔒 Needs owner` and isn't under **Open decisions**, builds it, ticks it, and opens a PR. **Every item above `## After public release` is a go-live gate**, and all of them closed when the repo went public on 2026-09-13; the phases up there are the record of what shipped before and around the flip. Below the line the groups run in priority order: **Next up, P0, P1, P2, Sources, P3, Post-launch**, then Open decisions (questions, not work) and two reference groups.
+The Cronsole roadmap routine (job `cronsole-roadmap`) works this file: it takes the first open item under `## After public release` that isn't `🔒 Needs owner` and isn't under **Open decisions**, builds it, ticks it, and opens a PR. **Every item above `## After public release` is a go-live gate**, and all of them closed when the repo went public on 2026-09-13; the phases up there are the record of what shipped before and around the flip. Below the line the groups run in priority order: **Next up, P0, P1, P2, Sources, P3, Post-launch**, then Open decisions (questions, not work) and two reference groups.
 
 Ticking an item appends ` — done YYYY-MM-DD: <what landed>` (older items carry their date in italics instead) and, **in the same commit**, adds the matching line to [`CHANGELOG.md`](CHANGELOG.md) and updates any doc the change made stale (AGENTS.md §11a lists them). Keep the lines short: a shipped item's design record, verification notes and post-mortem belong in the CHANGELOG under its date, the rationale behind an invariant in [`DESIGN_NOTES.md`](DESIGN_NOTES.md), and a symptom→fix write-up in [`troubleshooting/README.md`](troubleshooting/README.md). When a material decision changes scope, edit the item here *first*, then implement. Done items stay where they are, ticked; nothing moves between sections.
 
@@ -303,11 +303,6 @@ under that date.
       Gemini and OAuth-read Claude rows carry `metadata.nameSource`; sync writes `name` back and
       the rename route refuses with where to rename it. Narrows the 2026-08-12 label rule below,
       whose premise held only for Windows, declared Claude and native rows.
-- [ ] **Stamp the demo build** *(Homepage refresh, 2026-11-09)* — **What:** add a `<meta name="build" content="<sha>">` tag to the demo's page, set to the commit SHA at deploy time, as Incubate's boilerplate does. `Get-SurfaceDrift.py` finds no build stamp on https://cronsole-demo.ai-automation-tools.dev/, so a stale deploy can't be told from a current one. **Done when:** `Get-SurfaceDrift.py` shows the cronsole demo `current` after a deploy.
-- [ ] **Rename at the source where the platform allows it** — Gemini's `PATCH` takes
-      `display_name`; a connector that gains the verb drops the `nameSource` marker for its rows.
-      **Windows is not planned** *(owner's decision, 2026-10-23)*: a Cronsole rename stays a label,
-      and the real Task Scheduler path shown under the title is enough.
 - [x] **Renaming a task** *(2026-08-12)*: DB-only, every platform, `rename_task` over MCP. The
       three-way design fork turned out not to be one — a line of code is evidence that something was
       intended, not that it is reachable.
@@ -1564,6 +1559,9 @@ components over 1,000 lines.
       copy for the front door* under Post-launch.
 - [ ] **Split the changelog**: `[Unreleased]` and the latest release stay in `docs/CHANGELOG.md`;
       older entries and the two narrative appendices move to `docs/changelog/`. It is 1.1 MB.
+      **Done when** every link into `CHANGELOG.md` still resolves: this file's collapsed phases,
+      the Help panel (`docsLinks.test.ts`) and other repos' deep links, and
+      `scripts/check-doc-links.mjs` is clean.
 - [ ] **Shorten changelog entries to what the user sees.** Three exceed 4,000 characters.
 - [ ] **Trim `AGENTS.md` §9 to one-line rules that link to `DESIGN_NOTES.md`.** It is 93 KB and
       loads into every agent session.
@@ -1573,11 +1571,26 @@ components over 1,000 lines.
       `rename-stage2.mjs`, `Migrate-ToCronsole.ps1`, the four `taskhub_*` test reports, the unused
       logo variants and `preview.html`, and the stub folders `docs/agent-tools/` and
       `docs/resources/`.
+      **Done when** no link from another org repo points at a deleted path; search the org first.
+- [ ] `small` **`DESIGN_NOTES.md` counts 38 MCP tools** (37 without the gated `delete_task`),
+      matching the `registerTool(` calls in `mcp-server/src/tools.ts`. Lines 139 and 255 say 37.
 - [ ] 🔒 Needs owner — **GitHub description and topics.** The description says "Claude Code
-      routines" and omits n8n. Topics to add: `windows-task-scheduler`, `cron`, `mcp`, `n8n`,
-      `self-hosted`, `local-first`.
+      routines" (renamed "scheduled tasks" in #390) and omits n8n. The audit's six new topics
+      (`windows-task-scheduler`, `cron`, `mcp`, `n8n`, `self-hosted`, `local-first`) would make
+      eleven, and only `mcp` is in the org's shared vocabulary, which allows 4–5 per repo. Either
+      swap a current topic for `mcp`, or extend the org vocabulary first, on purpose.
 - [ ] 🔒 Needs owner — **Decide who may write to the clone folder on your machine.**
       `Protect-RepoFolder.ps1 -Check` lists eight other writers; locking it removes their access.
+
+#### Carried from Phase 4, 2026-11-11
+
+Two items left open above the release line, where the routine never looks.
+
+- [ ] **Stamp the demo build** *(Homepage refresh, 2026-11-09)* — **What:** add a `<meta name="build" content="<sha>">` tag to the demo's page, set to the commit SHA at deploy time, as Incubate's boilerplate does. `Get-SurfaceDrift.py` finds no build stamp on https://cronsole-demo.ai-automation-tools.dev/, so a stale deploy can't be told from a current one. **Done when:** `Get-SurfaceDrift.py` shows the cronsole demo `current` after a deploy.
+- [ ] **Rename at the source where the platform allows it** — Gemini's `PATCH` takes
+      `display_name`; a connector that gains the verb drops the `nameSource` marker for its rows.
+      **Windows is not planned** *(owner's decision, 2026-10-23)*: a Cronsole rename stays a label,
+      and the real Task Scheduler path shown under the title is enough.
 
 <a id="native-run-policy"></a>
 
@@ -1869,7 +1882,7 @@ was built and these are the record of why it took that shape:**
    holding tasks, and the platforms with a connection — so opting in is additive and *no source
    holding a task can be hidden*.
 
-- [ ] Partly shipped: **GitHub Actions — verified against a real repository** *(2026-08-24)*. Connected with a PAT,
+- [ ] 🔒 Needs owner — Partly shipped: **GitHub Actions — verified against a real repository** *(2026-08-24)*. Connected with a PAT,
       watched two repositories, and synced: **3 tasks**, two with their crons read UTC-for-UTC
       (`10 13 * * *`, `20 13 * * *`) and their real run outcomes, the third kept with
       `schedule: null` **and a reason** because its workflow file is genuinely malformed YAML — the
@@ -2032,61 +2045,69 @@ the class is finished.*
 **Reopened 2026-11-11 by a whole-repo audit.** The token model, the signed agent channel and
 no-shell execution held up; the gaps are in defaults and deployment.
 
-- [x] **Rotate and remove the committed pairing secret** *(2026-11-11)*. `agent/test-server/index.js`
+- [x] **Rotate and remove the committed pairing secret** — done 2026-11-11: `agent/test-server/index.js`
       carried a real `AGENT_PAIRING_SECRET` as its fallback.
-- [x] **Listen on loopback by default** *(2026-11-11)*. `BIND_HOST`, default `127.0.0.1`, for the
+- [x] **Listen on loopback by default** — done 2026-11-11: `BIND_HOST`, default `127.0.0.1`, for the
       backend; the Vite dev server follows.
-- [x] **Rate-limit `PATCH /api/auth/password`** *(2026-11-11)*.
-- [x] **Generate secrets on first run; replace the published defaults** *(2026-11-11)*.
+- [x] **Rate-limit `PATCH /api/auth/password`** — done 2026-11-11: #419.
+- [x] **Generate secrets on first run; replace the published defaults** — done 2026-11-11.
       `config/secrets.ts`. Compose carries no default values any more.
-- [x] **A re-encrypting `ENCRYPTION_KEY` rotation** *(2026-11-11)*. `npm run rotate-key`
+- [x] **A re-encrypting `ENCRYPTION_KEY` rotation** — done 2026-11-11: `npm run rotate-key`
       (`backend/scripts/rotate-encryption-key.ts`): new key to `.env` first, one transaction, then
       the swap; a rerun finishes an interrupted one. Open: the key is still used raw (no KDF,
       no ciphertext version).
-- [x] **Run only the agent elevated** *(2026-11-11)*. `CronsoleStack` is Limited; the new
+- [x] **Run only the agent elevated** — done 2026-11-11: `CronsoleStack` is Limited; the new
       `CronsoleAgentKeeper` starts the agent at Highest. The backend reports its own rights in
       `executionHost`. Admin work is a Windows Task Scheduler task, never a native job.
-- [x] **Give the agent a log, and give agent setup a pairing secret** *(2026-11-11)*. `logs/agent.*.log`;
+- [x] **Give the agent a log, and give agent setup a pairing secret** — done 2026-11-11: `logs/agent.*.log`;
       `setup-agent-startup.ps1` copies the secret from the backend's `.env`. Open: an install with no
       `.env` at all (the Docker quick start) still has to create one, which is the item above.
-- [x] **The agent refuses to rewrite or delete under `\Microsoft\`, and validates task names**
-      *(2026-11-11)*. Same refusal in `WindowsAgentConnector`.
-- [x] **Check and lock who can write to the clone** *(2026-11-11)*. `Protect-RepoFolder.ps1`;
+- [x] **The agent refuses to rewrite or delete under `\Microsoft\`, and validates task names** — done 2026-11-11:
+      same refusal in `WindowsAgentConnector`.
+- [x] **Check and lock who can write to the clone** — done 2026-11-11: `Protect-RepoFolder.ps1`;
       `cronsole status` and `Register-CronsoleStack.ps1` report other writers. Open: a program
       running as the owner can still edit what the elevated tasks run. Closing that means
       installing the agent and its launcher outside the clone (`%ProgramFiles%`).
-- [x] **`cronsole update` and an Upgrading section** *(2026-11-11)*. Pull, installs, MCP build,
+- [x] **`cronsole update` and an Upgrading section** — done 2026-11-11: Pull, installs, MCP build,
       restart, agent rebuild when stale. The Windows guide now uses the host setup throughout.
-- [x] **A built run mode** *(2026-11-11)*. `cronsole mode built` (marker `.cronsole-built`):
+- [x] **A built run mode** — done 2026-11-11: `cronsole mode built` (marker `.cronsole-built`):
       `node dist/index.js` and `vite preview` instead of `tsx watch` and Vite dev. Opt-in per
       machine; the install guide opts a new install in. Open: the default is still the dev
       servers, and the Docker images still run them.
-- [x] **A native job timeout kills the process tree** *(2026-11-11)*. Process group on POSIX,
+- [x] **A native job timeout kills the process tree** — done 2026-11-11: Process group on POSIX,
       `taskkill /T` on Windows, and a 5s grace timer that settles the run regardless.
-- [x] **A Host allowlist and a one-time setup code** *(2026-11-11)*. `config/hosts.ts` gates REST
+- [x] **A Host allowlist and a one-time setup code** — done 2026-11-11: `config/hosts.ts` gates REST
       and the Socket.IO handshake; `ALLOWED_HOSTS` adds names. `/setup` asks for a code from the
       backend log unless the request is a direct loopback one.
-- [x] **A password change revokes sessions and offers to revoke API tokens** *(2026-11-11)*.
+- [x] **A password change revokes sessions and offers to revoke API tokens** — done 2026-11-11.
       `User.passwordChangedAt`; `checkToken` refuses an older browser session. Open sockets of
       another session stay connected until they reconnect.
-- [x] **Security headers and a CSP on the proxy** *(2026-11-11)*. `script-src 'self'`; the two
+- [x] **Security headers and a CSP on the proxy** — done 2026-11-11: `script-src 'self'`; the two
       inline scripts in `index.html` became files in `frontend/public/`, held by a test.
       `:7373` and `:3000` send no CSP; they are loopback-only dev servers.
-- [x] **Stored webhook and preset headers are dropped when the URL changes origin** *(2026-11-11)*.
-- [x] **Small hardening** *(2026-11-11)*: restore archive limits checked before inflating, a 10 MB
+- [x] **Stored webhook and preset headers are dropped when the URL changes origin** — done 2026-11-11: #424.
+- [x] **Small hardening** — done 2026-11-11: restore archive limits checked before inflating, a 10 MB
       response cap on HTTP jobs and checks, masking a secret cut by truncation, constant-time
       login refusal, bcrypt cost 12 with a 72-character cap.
-- [x] **Small fixes, second batch** *(2026-11-11)*: dialog focus no longer resets on a parent
+- [x] **Small fixes, second batch** — done 2026-11-11: dialog focus no longer resets on a parent
       re-render, reduced motion applies globally, three unused frontend packages removed, and the
       agent reconnect docs match the code (a fixed 30s watchdog, no backoff).
-- [x] **Scan every commit for credentials in CI, and audit shipped dependencies** *(2026-11-11)*.
+- [x] **Scan every commit for credentials in CI, and audit shipped dependencies** — done 2026-11-11.
       The `security` job: gitleaks over the full history, `npm audit --omit=dev` at high.
       Reviewed false positives live in `.gitleaksignore`, each with its reason.
-- [x] **Wire protocol 2: signed agent commands are length-prefixed fields** *(2026-11-11)*. The
+- [x] **Wire protocol 2: signed agent commands are length-prefixed fields** — done 2026-11-11: The
       pipe-joined form let a `|` inside a name or description move a field boundary under one
       signature. The backend reads the agent's version from the handshake and refuses to sign
       for any other, naming the rebuild; reads keep working. Every agent must be rebuilt with
       the backend ([#108](troubleshooting/README.md#108-every-windows-write-is-refused-with-a-sentence-about-the-wire-protocol)).
+- [ ] `small` **Authenticate before the large-body parser on import and restore** *(security
+      sweep 2026-11-10)*. `backend/src/app.ts` mounts the 8 MB `express.json` for
+      `/api/templates/import` and `/api/tools/restore` ahead of `authenticateToken`. **Done when** a
+      test posts an unauthenticated large body to each route and gets 401 without it being parsed.
+- [ ] 🔒 Needs owner — **The dev JWT in pre-public history** *(security sweep, carried)*. Confirm
+      `JWT_SECRET` has changed since June, delete the three local branches that still hold it
+      (`chore/auto-publish-registry`, `roadmap/auto-2026-08-18`, `roadmap/auto-2026-08-21`), and
+      check the pre-org repo for the same commits.
 
 ---
 
@@ -2311,6 +2332,8 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
 - [ ] **Native task follow-ups**: a `CLAUDE_PROMPT` job type, and a lock before
       multi-instance (Redis was removed from the stack unused on 2026-11-11; add it back with this).
 - [ ] **Template registry — optional follow-up**: index signing, beyond the per-file sha256.
+      Signatures stay optional for another repo's catalog, so the gallery keeps listing Edge-Radar,
+      Edge Spectrum and AI Automation Recipes; `registry-site/README.md` › Other catalogs says so.
 - [ ] **Cross-platform template targets — follow-up (b)**: real export artifacts (cron line,
       launchd plist, Claude scheduled task payload). Lands as connectors and the POSIX agent do.
 - [ ] Partly shipped: **Per-user monitoring/notification channels — webhook shipped 2026-09-04** *(requested
@@ -2649,33 +2672,6 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
       PostgREST (no new credential, but a setup step). **That choice is the open question**, and it
       is why this is now its own item rather than half of a pair — it is not the same build twice.
 
-- [ ] **Deferred — Kubernetes CronJobs · AWS EventBridge Scheduler · Azure Functions · Google Cloud
-      Scheduler**: common in *teams*, rare for a solo developer, and each is its own auth surface,
-      rate limit and mental model for exactly one source. The gate was "revisit once the observer
-      pattern has proven itself", and GitHub Actions did that on 2026-08-23 — but the gate's
-      *second* half stands: these are common in teams and rare for a solo developer, so they wait
-      on the two cheap ones above rather than on the pattern. Kept here rather than dropped so the
-      omission stays a decision rather than an oversight.
-
-- [ ] **Staying quick-links-only — ChatGPT · Grok · Jules** *(re-checked live 2026-08-24)*: no public
-      scheduled-task API exists for any of them. A connector would render a row of `unsupported` that
-      says strictly less than the link already does. **Gemini left this line** — see the controller
-      above — which is the argument for re-checking rather than for assuming:
-
-      - **ChatGPT Tasks** — the *product* grew (a Scheduled page with edit / pause / resume landed
-        June 2026), the API did not. OpenAI's own guidance is still to run your own cron, and Agent
-        Builder is being wound down (gone 2026-11-30), so no path arrives from that direction either.
-      - **Grok Automations** — shipped as a feature in 2026 with schedules and email triggers, and
-        xAI publishes no automation API.
-      - **Jules** — the closest to flipping, and the reason this line names a date. It has a public
-        API (`jules.googleapis.com/v1alpha`, alpha) *and* Scheduled Tasks in the product, but the API
-        exposes only sources / sessions / activities / plan-approval. **There is no schedules
-        resource**, so the two halves exist and have not been joined. Worth a re-check, not a build.
-
-      The habit this establishes: **re-check before each Sources pass, not once.** Gemini sat on
-      this line for the whole of 2026 and shipped a full CRUD scheduler four weeks before anybody
-      looked again.
-
 - [ ] **Umbrella grouping for the hosted observers** *(reading (c) of the 2026-08-12 source
       decision, left open when (b) was chosen)*: group GitHub Actions / Vercel / Supabase under one
       two-level source node. A presentation question about the rail, not a data-model one — worth
@@ -2684,14 +2680,6 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
       Triggers does not move that count** even though it is hosted: it is a controller, and the
       grouping's whole appeal is that a stack of read-only rows reads better collapsed. A row you can
       act on wants its own place in the rail, not a shared drawer.
-
-- [ ] **The last unedited attribute — a question, not a task** *(reported 2026-08-12)*. Category,
-      schedule, action/command, job spec and name are all editable now. A task's **`externalId`**
-      is not, and probably should not be: it is the identity the row is keyed on and the address
-      every signed agent command uses. For Windows it is the Task Scheduler path, so "editing" it
-      means moving the task on the machine; for Claude it is the scheduled task id, which
-      `edit_claude_routine` already re-points properly. **Is there a case for it that is not one of
-      those two?**
 
 - [ ] 🔒 Needs owner — **OpenClaw cron — controller over a local CLI** *(found by the Source Scout
       2026-10-13)*. **What:** OpenClaw's built-in scheduler (`openclaw automations`, alias
@@ -2781,7 +2769,7 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
   covers only automations made through that API, not these. <https://learn.chatgpt.com/docs/automations?surface=app>.
 - **Jules** (Google; no rank found) — schedules: recurring Scheduled Tasks managed from a Scheduled
   tab in the dashboard. Missing: a schedules resource — the v1alpha reference lists only sources,
-  sessions and activities. Moved here from the quick-links-only line above so it is dated and
+  sessions and activities. Moved here from the quick-links-only line under Open decisions so it is dated and
   re-checked. Checked 2026-11-10, <https://jules.google/docs/scheduled-tasks/>,
   <https://jules.google/docs/api/reference/>.
 - **Microsoft Copilot Cowork** (no rank found this run) — schedules: natural-language scheduled
@@ -2854,9 +2842,6 @@ Shipped P3 work is in [Part II](#completed--p3-expansion).
       renderers · task mutation vs. sync/discovery routes · tools backup/restore routes · MCP task
       vs. template vs. diagnostic tools.
 
-- [ ] **Route-level code-splitting** *(optional follow-up to the frontend refactor)*: the single
-      bundle trips Vite's 500 kB hint; cheap now that the router and screen modules exist.
-
 - [ ] Partly shipped: **Template gallery site** — parts 1, 2, 4 and 5 shipped *(2026-07-14 → 2026-07-28)*.
       **Left: part 3**, the one-click "Add to my Cronsole" deep-link / protocol handoff. Download
       and Copy JSON use the shipped Import path today.
@@ -2889,26 +2874,6 @@ Shipped P3 work is in [Part II](#completed--p3-expansion).
         password while travelling is only fixable at the keyboard; and the 24h JWT lives in
         `localStorage` on a phone that can be lost, with no refresh flow. Both are acceptable behind
         Tailscale or Access, and are the first things to revisit if the gate is ever relaxed.
-
-- [ ] **ChatGPT** — stays quick-links-only unless a public automations API appears.
-
-- [ ] **Product bets — from "a better Task Scheduler UI" to "a local automation control plane"**
-      *(directions, not scheduled work — each needs its own design pass first)*. ★ = recommended
-      first. The shared constraint: this project's guardrail is reliability first, and every bet
-      below is a feature that can be confidently wrong.
-  - ★ Runbooks attached to tasks
-  - ★ Task collections / playlists *(the first slice shipped 2026-08-16 as Collections)*
-  - Task dependency graph *(manual edges only for v1; inference is a suggestion, never a fact)*
-  - Watchdog tasks
-  - Task definition versioning
-  - Schedule conflict & load map
-  - Intent labels & purpose-driven views
-  - Failure triage assistant *(explain/assist only — autonomous repair is out)*
-  - Approval gates *(the gate must be out-of-band, or an agent approves itself)*
-  - Environment profile manager *(reports present/missing, never stores values)*
-  - Calendar & quiet hours *(not cheap — deferral means rewriting triggers on the machine)*
-  - Restore & migrate wizard
-  - Automation inventory report
 
 ---
 
@@ -3046,6 +3011,59 @@ work, none of it a gate on anybody using Cronsole.
 - [ ] **Template registry — static vs. dynamic at launch** — a static JSON registry is leading;
       earn a DB-backed API + admin/submission UI later. *(Format is already decided: target-agnostic
       JSON, compiled per target.)*
+
+- [ ] **Staying quick-links-only — ChatGPT · Grok · Jules** *(re-checked live 2026-08-24)*: no public
+      scheduled-task API exists for any of them. A connector would render a row of `unsupported` that
+      says strictly less than the link already does. **Gemini left this line** — see the controller
+      above — which is the argument for re-checking rather than for assuming:
+
+      - **ChatGPT Tasks** — the *product* grew (a Scheduled page with edit / pause / resume landed
+        June 2026), the API did not. OpenAI's own guidance is still to run your own cron, and Agent
+        Builder is being wound down (gone 2026-11-30), so no path arrives from that direction either.
+      - **Grok Automations** — shipped as a feature in 2026 with schedules and email triggers, and
+        xAI publishes no automation API.
+      - **Jules** — the closest to flipping, and the reason this line names a date. It has a public
+        API (`jules.googleapis.com/v1alpha`, alpha) *and* Scheduled Tasks in the product, but the API
+        exposes only sources / sessions / activities / plan-approval. **There is no schedules
+        resource**, so the two halves exist and have not been joined. Worth a re-check, not a build.
+
+      The habit this establishes: **re-check before each Sources pass, not once.** Gemini sat on
+      this line for the whole of 2026 and shipped a full CRUD scheduler four weeks before anybody
+      looked again.
+
+- [ ] **Deferred — Kubernetes CronJobs · AWS EventBridge Scheduler · Azure Functions · Google Cloud
+      Scheduler**: common in *teams*, rare for a solo developer, and each is its own auth surface,
+      rate limit and mental model for exactly one source. The gate was "revisit once the observer
+      pattern has proven itself", and GitHub Actions did that on 2026-08-23 — but the gate's
+      *second* half stands: these are common in teams and rare for a solo developer, so they wait
+      on the two cheap ones under Sources rather than on the pattern. Kept here rather than dropped so the
+      omission stays a decision rather than an oversight.
+
+- [ ] **The last unedited attribute — a question, not a task** *(reported 2026-08-12)*. Category,
+      schedule, action/command, job spec and name are all editable now. A task's **`externalId`**
+      is not, and probably should not be: it is the identity the row is keyed on and the address
+      every signed agent command uses. For Windows it is the Task Scheduler path, so "editing" it
+      means moving the task on the machine; for Claude it is the scheduled task id, which
+      `edit_claude_routine` already re-points properly. **Is there a case for it that is not one of
+      those two?**
+
+- [ ] **Product bets — from "a better Task Scheduler UI" to "a local automation control plane"**
+      *(directions, not scheduled work — each needs its own design pass first)*. ★ = recommended
+      first. The shared constraint: this project's guardrail is reliability first, and every bet
+      below is a feature that can be confidently wrong.
+  - ★ Runbooks attached to tasks
+  - ★ Task collections / playlists *(the first slice shipped 2026-08-16 as Collections)*
+  - Task dependency graph *(manual edges only for v1; inference is a suggestion, never a fact)*
+  - Watchdog tasks
+  - Task definition versioning
+  - Schedule conflict & load map
+  - Intent labels & purpose-driven views
+  - Failure triage assistant *(explain/assist only — autonomous repair is out)*
+  - Approval gates *(the gate must be out-of-band, or an agent approves itself)*
+  - Environment profile manager *(reports present/missing, never stores values)*
+  - Calendar & quiet hours *(not cheap — deferral means rewriting triggers on the machine)*
+  - Restore & migrate wizard
+  - Automation inventory report
 
 Resolved decisions are in [Part II](#completed--resolved-decisions).
 

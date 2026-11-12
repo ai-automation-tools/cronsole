@@ -6,6 +6,14 @@ import { emitSignedCommand } from '../ws/agentAuth.js';
 import { toStructuredAction } from '../utils/commandParser.js';
 import { convertWindowsTriggerToCron, WindowsTrigger } from '../utils/scheduler-conversion.js';
 import { DEFAULT_TASK_FOLDER, normalizeWindowsTaskFolder } from '../utils/windowsTaskFolder.js';
+import { isSystemTaskPath } from '../services/bulkExport.js';
+
+/**
+ * Cronsole reads, runs and switches Windows' own tasks, but never rewrites or
+ * removes one. Refused here and again, independently, in the agent.
+ */
+const SYSTEM_TASK_REFUSAL =
+  'This task is under \\Microsoft\\, where Windows keeps its own. Cronsole will not change or delete it; use Task Scheduler itself.';
 
 /**
  * Convert an agent-supplied Windows trigger to a 5-field cron string. Only
@@ -226,6 +234,7 @@ export class WindowsAgentConnector implements PlatformConnector {
   }
 
   async deleteTask(externalId: string, config: any): Promise<{ success: boolean; message?: string }> {
+    if (isSystemTaskPath(externalId)) return { success: false, message: SYSTEM_TASK_REFUSAL };
     const userId = config.userId;
     const socket = agentManager.getSocket(userId);
 
@@ -500,6 +509,7 @@ export class WindowsAgentConnector implements PlatformConnector {
     config: any,
     options?: UpdateScheduleOptions
   ): Promise<{ success: boolean; message?: string; clientError?: boolean }> {
+    if (isSystemTaskPath(externalId)) return { success: false, message: SYSTEM_TASK_REFUSAL, clientError: true };
     // A null trigger is signed like any other (canonical `none`), so the agent
     // can tell a deliberate clear from a frame that lost its trigger in transit.
     const trigger = options?.clear ? null : options?.trigger ?? null;
@@ -535,6 +545,7 @@ export class WindowsAgentConnector implements PlatformConnector {
   }
 
   async updateActions(externalId: string, input: UpdateActionsInput, config: any): Promise<{ success: boolean; message?: string }> {
+    if (isSystemTaskPath(externalId)) return { success: false, message: SYSTEM_TASK_REFUSAL };
     const userId = config.userId;
     const socket = agentManager.getSocket(userId);
 

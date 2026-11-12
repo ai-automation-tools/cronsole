@@ -73,6 +73,21 @@ namespace Cronsole.Agent
         }
 
         /// <summary>
+        /// True for a task or folder path under \Microsoft\. Create and import refuse
+        /// it through <see cref="Validate"/>; this is the same rule for the verbs that
+        /// take a whole task path and CHANGE what is there (update, reschedule, delete).
+        /// Run and enable/disable are not covered: they change no definition.
+        /// </summary>
+        public static bool IsReserved(string? path)
+        {
+            var segments = Split(path);
+            return segments.Count > 0 && string.Equals(segments[0], ReservedRoot, StringComparison.OrdinalIgnoreCase);
+        }
+
+        public const string ReservedRefusal =
+            "Refusing to change a task under \\Microsoft\\. Windows keeps its own scheduled tasks there. Change it in Task Scheduler itself.";
+
+        /// <summary>
         /// Canonical form: leading backslash, backslash separators, no trailing
         /// separator. The root normalizes to "\". Assumes Validate passed.
         /// </summary>
@@ -136,6 +151,9 @@ namespace Cronsole.Agent
             if (string.IsNullOrWhiteSpace(name)) return "Task name is required.";
             if (name.Length > MaxSegmentLength) return $"Task name must be {MaxSegmentLength} characters or fewer.";
             if (name == "." || name == "..") return "Task name cannot be . or ..";
+            // A name is one segment. With a separator in it, the task would land in a
+            // folder nobody validated, which is how \Microsoft\ could be reached.
+            if (name.IndexOfAny(new[] { '\\', '/' }) >= 0) return "Task names cannot contain \\ or /.";
             if (name.IndexOfAny(InvalidSegmentChars) >= 0 || name.Any(char.IsControl))
                 return "Task names cannot contain : * ? \" < > | or control characters.";
             // Task Scheduler stores tasks as files, and Windows silently strips a

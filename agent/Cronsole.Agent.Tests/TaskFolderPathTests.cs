@@ -223,5 +223,25 @@ namespace Cronsole.Agent.Tests
             // you would get back — and a restore that renames tasks is not a restore.
             TaskFolderPath.ValidateTaskName(name).Should().NotBeNull();
         }
+
+        [Theory]
+        [InlineData("..\\Microsoft\\Windows\\Job")]
+        [InlineData("Sub\\Job")]
+        [InlineData("Sub/Job")]
+        public void ValidateTaskName_RefusesASeparator(string name)
+        {
+            TaskFolderPath.ValidateTaskName(name).Should().NotBeNull();
+        }
+
+        [Theory]
+        [InlineData("\\Microsoft\\Windows\\Defrag\\ScheduledDefrag", true)]
+        [InlineData("\\microsoft\\x", true)]
+        [InlineData("\\MicrosoftEdgeUpdate\\Job", false)]
+        [InlineData("\\Work\\Microsoft\\Job", false)]
+        [InlineData("\\Cronsole\\Job", false)]
+        public void IsReserved_IsTheFirstSegmentOnly(string path, bool expected)
+        {
+            TaskFolderPath.IsReserved(path).Should().Be(expected);
+        }
     }
 }

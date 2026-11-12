@@ -1348,3 +1348,27 @@ describe('an optional verb an old agent lacks is not evidence of a sick agent', 
     vi.useRealTimers();
   });
 });
+
+describe('WindowsAgentConnector: tasks under the Microsoft folder', () => {
+  it('refuses to reschedule, rewrite or delete one, without asking the agent', async () => {
+    const connector = new WindowsAgentConnector();
+    vi.mocked(agentManager.getSocket).mockClear();
+    const path = '\\Microsoft\\Windows\\Defrag\\ScheduledDefrag';
+    const config = { userId: 'u' };
+
+    const results = [
+      await connector.deleteTask(path, config),
+      await connector.updateSchedule(path, '0 3 * * *', config, { clear: true }),
+      await connector.updateActions(path, { action: { executable: 'x', args: [] } } as never, config)
+    ];
+    for (const r of results) {
+      expect(r.success).toBe(false);
+      expect(r.message).toContain('\\Microsoft\\');
+    }
+    // Refused before the agent is even looked up.
+    expect(agentManager.getSocket).not.toHaveBeenCalled();
+    // A user folder that merely starts with the same letters is not Windows' own.
+    vi.mocked(agentManager.getSocket).mockReturnValue(undefined);
+    expect((await connector.deleteTask('\\MicrosoftEdgeUpdate\\Job', config)).message).toBe('Agent offline');
+  });
+});

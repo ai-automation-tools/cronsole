@@ -123,9 +123,11 @@ Each of these is enforced in code, not by convention.
 - **It never accepts an incoming connection.** The agent always dials **out** to the backend and
   never binds a port or listens on one. Nothing on your network — or anyone else's — can connect
   *to* the agent, because there is nothing to connect to.
-- **It will not touch `\Microsoft\`.** Windows' own tasks live there and a name collision would
-  silently overwrite one. This is refused in the backend **and again, independently, in the agent**,
-  so a bug or a forged command in one does not get past the other.
+- **It will not create, rewrite or delete anything under `\Microsoft\`.** Windows' own tasks live
+  there. Creating, importing, changing a task's action or schedule, and deleting are all refused
+  in the backend **and again, independently, in the agent**, so a bug or a forged command in one
+  does not get past the other. What it *can* do there is what you can do from Task Scheduler's
+  own list without opening a task: read it, run it, and enable or disable it.
 - **It creates only `\Cronsole`.** Two exceptions exist, both off by default, both carried *inside*
   the command's signature so they cannot be added in transit: a restore recreating your own folder
   tree, and a create placing a task in a folder you named. Every folder either one creates is

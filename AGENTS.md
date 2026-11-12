@@ -506,7 +506,10 @@ Non-negotiable rules. **Every one has a reason recorded in
   ([#74](docs/troubleshooting/README.md#74-dozens-of-windows-tasks-go-missing-in-one-sync-and-the-agent-is-healthy)).
 - **Cronsole creates only `\Cronsole`.** Two carve-outs (restore's `createFolders`, create's
   `createFolder`), both `false` by default, both signed, both naming every folder they created.
-  `\Microsoft\` is refused in the backend *and* independently in the agent.
+  `\Microsoft\` is refused in the backend *and* independently in the agent, for every verb that
+  writes a definition: create, import, update, reschedule and delete. Run and enable/disable are
+  allowed there; they change no definition. A task **name** is one segment and may not contain
+  a separator, or it is a second folder nothing validated.
 - **`\Cronsole-Stack\` is deliberately untracked** — it is the thing that runs Cronsole, not work
   Cronsole runs. Nothing enforces this; it is a standing choice.
 - **Only the agent is elevated; the backend never is.** The backend runs native jobs, so an

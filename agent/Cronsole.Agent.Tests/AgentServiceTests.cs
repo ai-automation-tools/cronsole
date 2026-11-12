@@ -930,6 +930,25 @@ namespace Cronsole.Agent.Tests
         }
 
         [Fact]
+        public void TaskDelete_Event_RefusesATaskUnderMicrosoft()
+        {
+            // Correctly signed, so this is the agent's own rule and not the signature's.
+            var taskPath = "\\Microsoft\\Windows\\Defrag\\ScheduledDefrag";
+            var ts = Now();
+            var nonce = TestNonce();
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.DeleteMessage(taskPath, nonce, ts));
+
+            var mockResponse = new Mock<ISocketResponse>();
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0))
+                .Returns(Payload(new { taskPath, nonce, ts, sig }));
+
+            _socketHandlers["task:delete"].Invoke(mockResponse.Object);
+
+            _mockScheduler.Verify(s => s.DeleteTask(It.IsAny<string>()), Times.Never);
+            _mockSocket.Verify(s => s.EmitAsync("task:deleted", It.IsAny<object>()), Times.Once);
+        }
+
+        [Fact]
         public void TaskDelete_Event_NotFound_ReportsIdempotentSuccess()
         {
             // Arrange — a task already gone must still ack success (the desired

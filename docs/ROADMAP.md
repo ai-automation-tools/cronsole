@@ -1923,8 +1923,10 @@ no-shell execution held up; the gaps are in defaults and deployment.
 - [x] **Rate-limit `PATCH /api/auth/password`** *(2026-11-11)*.
 - [x] **Generate secrets on first run; replace the published defaults** *(2026-11-11)*.
       `config/secrets.ts`. Compose carries no default values any more.
-- [ ] **A re-encrypting `ENCRYPTION_KEY` rotation.** An install with data under the published
-      key keeps it and warns; nothing can move it to a private key yet.
+- [x] **A re-encrypting `ENCRYPTION_KEY` rotation** *(2026-11-11)*. `npm run rotate-key`
+      (`backend/scripts/rotate-encryption-key.ts`): new key to `.env` first, one transaction, then
+      the swap; a rerun finishes an interrupted one. Open: the key is still used raw (no KDF,
+      no ciphertext version).
 - [x] **Run only the agent elevated** *(2026-11-11)*. `CronsoleStack` is Limited; the new
       `CronsoleAgentKeeper` starts the agent at Highest. The backend reports its own rights in
       `executionHost`. Admin work is a Windows Task Scheduler task, never a native job.

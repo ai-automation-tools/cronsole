@@ -15,6 +15,7 @@
     "start": "node dist/index.js",
     "seed": "tsx src/seed.ts",
     "db:check": "tsx scripts/check-db.ts",
+    "rotate-key": "tsx scripts/rotate-encryption-key.ts",
     "registry:build": "tsx src/catalog/generate-registry.ts",
     "connectpack:build": "tsx src/tools/generate-connect-pack.ts",
     "test": "vitest run",

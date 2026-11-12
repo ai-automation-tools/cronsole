@@ -21,15 +21,17 @@ export interface OnboardingStep {
   link?: { label: string; url: string };
 }
 
-/** The 4-step getting-started walkthrough: connect → import → manage → templates. */
+/** The 4-step getting-started walkthrough: pick a source → add tasks → manage → templates. */
 export const GETTING_STARTED_STEPS: OnboardingStep[] = [
   {
     icon: '🔌',
-    title: 'Connect the Windows Agent',
+    title: 'Pick where your tasks live',
     body:
-      "Cronsole reads and runs your Windows tasks through a small agent on your machine. " +
-      "The sidebar shows its connection status — if it reads Offline, start the agent. " +
-      "First time? Follow the setup guide.",
+      "Cronsole shows tasks from several schedulers, called sources. Two need no setup: Windows Task Scheduler, " +
+      "read through a small agent on this machine, and Cronsole's own jobs, which the backend runs itself. " +
+      "The source list on the left has a dot beside each connected source; hover it for the state. " +
+      "Explore sources, at the bottom of that list, adds GitHub Actions, n8n, Claude and the rest. " +
+      "On Windows and the dot is not green? Start the agent.",
     link: { label: 'Windows Agent Setup Guide', url: `${DOCS_BASE}/docs/user-guides/guides/Agent_Setup_Guide.md` }
   },
   {
@@ -38,6 +40,7 @@ export const GETTING_STARTED_STEPS: OnboardingStep[] = [
     body:
       "Open Sync › Add tasks from this machine to see your existing Windows Task Scheduler folders and " +
       "pick which to bring in — nothing is created, those tasks already run. " +
+      "No Windows agent? New Task creates a job Cronsole runs itself. " +
       "Cronsole infers a category from each task's folder path (a task under \\Monitoring\\ becomes \"Monitoring\"); " +
       "rename a category anytime by clicking its label on a card."
   },

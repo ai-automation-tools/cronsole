@@ -347,7 +347,9 @@ jobs:
         working-directory: frontend
         env:
           PLAYWRIGHT_BASE_URL: http://127.0.0.1:7373
-        run: npx playwright test smoke native-job-env a11y
+        # One worker: the empty-dashboard test needs a moment when no other spec
+        # has a task in the database, and skips itself otherwise.
+        run: npx playwright test smoke native-job-env a11y --workers=1
 
       - name: Show server logs and failure snapshots
         if: failure()

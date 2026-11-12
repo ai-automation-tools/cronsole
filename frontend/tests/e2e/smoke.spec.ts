@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { apiGet, type ApiTask } from './helpers/api';
 
 // Smoke test: proves the whole stack renders end-to-end through a real browser —
 // the frontend boots, authenticates to the backend with the dev token, fetches
@@ -19,6 +20,18 @@ test.describe('dashboard smoke', () => {
 
     // The sidebar brand is always present.
     await expect(page.getByText('Cronsole').first()).toBeVisible();
+  });
+
+  test('an empty dashboard offers three ways in', async ({ page }) => {
+    // Only a fresh install is empty (CI is one). A machine with tasks has nothing to check.
+    test.skip((await apiGet<ApiTask[]>('/tasks')).length > 0, 'this install already tracks tasks');
+    await page.goto('/');
+
+    await expect(page.getByText('Dashboard is empty')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Add tasks from this machine' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Create a Cronsole job' })).toBeVisible();
+    await page.getByRole('main').getByRole('link', { name: 'Explore sources' }).click();
+    await expect(page).toHaveURL(/\/sources\?focus=available/);
   });
 
   test('navigates to the template library', async ({ page }) => {

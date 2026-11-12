@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { HelpButton } from './HelpButton';
@@ -136,6 +136,9 @@ const Section = ({
   </section>
 );
 
+/** The id of the enclosing Row's label, so a control inside it can be named by it. */
+const RowLabelId = createContext<string | undefined>(undefined);
+
 const Row = ({
   label,
   description,
@@ -147,15 +150,18 @@ const Row = ({
   /** An optional `?` beside the label, for a row with a rule behind it. */
   help?: React.ReactNode;
   children: React.ReactNode;
-}) => (
-  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-4">
-    <div className="min-w-0">
-      <div className="text-sm font-semibold text-foreground flex flex-wrap items-center gap-y-1">{label}{help}</div>
-      {description && <div className="text-xs text-subtle-foreground mt-0.5 max-w-md">{description}</div>}
+}) => {
+  const labelId = useId();
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-4">
+      <div className="min-w-0">
+        <div className="text-sm font-semibold text-foreground flex flex-wrap items-center gap-y-1"><span id={labelId}>{label}</span>{help}</div>
+        {description && <div className="text-xs text-subtle-foreground mt-0.5 max-w-md">{description}</div>}
+      </div>
+      <div className="shrink-0"><RowLabelId.Provider value={labelId}>{children}</RowLabelId.Provider></div>
     </div>
-    <div className="shrink-0">{children}</div>
-  </div>
-);
+  );
+};
 
 /**
  * What preference sync is doing, in words — and each of the four says a
@@ -269,8 +275,11 @@ const Select = ({
   value: string;
   options: readonly SelectOption[];
   onChange: (v: string) => void;
-}) => (
+}) => {
+  const labelledBy = useContext(RowLabelId);
+  return (
   <select
+    aria-labelledby={labelledBy}
     value={value}
     onChange={e => onChange(e.target.value)}
     className="bg-background border border-border rounded-xl px-3 py-2 text-xs font-semibold text-foreground outline-none focus:border-primary shadow-sm min-w-[140px]"
@@ -284,7 +293,8 @@ const Select = ({
       );
     })}
   </select>
-);
+  );
+};
 
 // ---- Connections (live health from GET /api/tasks/health) ------------------
 
@@ -676,25 +686,25 @@ const AccountSection = () => {
         <span className="text-xs font-mono text-muted-foreground">{user?.email ?? 'this device'}</span>
       </Row>
       <Row label="Change password" description="Requires your current password, and signs out every other device. There's no email reset on a local install.">
-        <div className="flex flex-col gap-2">
-          <input type="password" autoComplete="current-password" placeholder="Current password"
+        <form className="flex flex-col gap-2" onSubmit={e => { e.preventDefault(); void submit(); }}>
+          <input type="password" autoComplete="current-password" placeholder="Current password" aria-label="Current password"
             value={current} onChange={e => setCurrent(e.target.value)} className={inputClass} />
-          <input type="password" autoComplete="new-password" placeholder="New password (min 8)"
+          <input type="password" autoComplete="new-password" placeholder="New password (min 8)" aria-label="New password, at least 8 characters"
             value={next} onChange={e => setNext(e.target.value)} className={inputClass} />
-          <input type="password" autoComplete="new-password" placeholder="Confirm new password"
+          <input type="password" autoComplete="new-password" placeholder="Confirm new password" aria-label="Confirm new password"
             value={confirm} onChange={e => setConfirm(e.target.value)} className={inputClass} />
           <label className="flex items-start gap-2 text-xs text-muted-foreground sm:w-64">
             <input type="checkbox" className="mt-0.5" checked={revokeTokens} onChange={e => setRevokeTokens(e.target.checked)} />
             <span>Also revoke all API tokens. The MCP server and phone shortcuts stop working until you create new ones.</span>
           </label>
           <button
-            onClick={submit}
+            type="submit"
             disabled={busy || !current || !next || !confirm}
             className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:bg-primary-hover transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100"
           >
             {busy && <Loader2 size={14} className="animate-spin" />} Update password
           </button>
-        </div>
+        </form>
       </Row>
       <Row
         label="API tokens"

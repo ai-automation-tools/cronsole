@@ -347,7 +347,7 @@ jobs:
         working-directory: frontend
         env:
           PLAYWRIGHT_BASE_URL: http://127.0.0.1:7373
-        run: npx playwright test smoke native-job-env
+        run: npx playwright test smoke native-job-env a11y
 
       - name: Show server logs and failure snapshots
         if: failure()

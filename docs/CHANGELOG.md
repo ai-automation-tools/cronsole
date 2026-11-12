@@ -16,6 +16,10 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 - **`cronsole mode built`: run the built app instead of the dev servers** (2026-11-11). Until now the stack always ran `tsx watch` and the Vite dev server, so any change to the clone, a `git pull` included, restarted the backend under whatever native job was running. `cronsole mode built` builds the backend and the dashboard and records the choice for this machine; from the next restart `up` runs `node dist/index.js` and serves the built dashboard with `vite preview`, on the same ports. `cronsole update` rebuilds before it restarts, and `cronsole status` names the mode and says when the source is newer than the build. `cronsole mode dev` goes back. The default is unchanged, so an existing install keeps the dev servers until you switch. The Windows install guide now switches a new install to the built app.
 
+### Fixed
+
+- **Task rows and Settings controls work from the keyboard and have names** (2026-11-11). In the list, board and schedule views a task opened only on a mouse click; its name is now a button, as it already was on a grid card. In Settings, each dropdown takes its name from its row label, and the change-password fields are a real form with named fields, so Enter submits and a screen reader says which field is which.
+
 ## [0.10.0] — 2026-11-11
 
 App, agent and MCP server all move to 0.10.0 (`app/v0.10.0`, `agent/v0.10.0`, `mcp/v0.10.0`).

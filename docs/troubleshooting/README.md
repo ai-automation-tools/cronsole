@@ -6274,6 +6274,9 @@ one source at a time as each sync fails.
 
 **Fix.** Treat the key as part of the backup.
 
+- **Changing the key on purpose is `npm run rotate-key`** (in `backend/`, backend stopped), never an
+  edit to `.env`. It re-encrypts everything and then swaps the key. A dump made before the
+  rotation still needs the old key.
 - **Record `ENCRYPTION_KEY` somewhere that survives the disk you are protecting against** — a
   password manager, not a file next to the dump.
 - **Do not store it with the dump.** The key is the only thing that makes that ciphertext safe to

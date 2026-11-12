@@ -98,7 +98,12 @@ async function ensureSecrets(): Promise<void> {
   const file = existsSync(ENV_FILE) ? dotenv.parse(readFileSync(ENV_FILE, 'utf8')) : {};
   const plan = await planSecrets(process.env, file, async () => {
     const { prisma } = await import('../db.js');
-    return (await prisma.platformConnection.count()) > 0;
+    const [connections, secrets, channels] = await Promise.all([
+      prisma.platformConnection.count(),
+      prisma.taskSecret.count(),
+      prisma.notificationChannel.count({ where: { config: { not: null } } })
+    ]);
+    return connections + secrets + channels > 0;
   });
 
   if (plan.generated.length > 0) {
@@ -127,7 +132,8 @@ async function ensureSecrets(): Promise<void> {
     console.warn(
       '[secrets] WARNING: stored credentials are encrypted with the ENCRYPTION_KEY that Cronsole published in ' +
         'docker-compose.yml. It is kept because replacing it would make them unreadable. Anyone holding a copy ' +
-        'of the database can decrypt them.'
+        'of the database can decrypt them. To move to a private key: stop the backend, then ' +
+        '"npm run rotate-key" in backend/.'
     );
   }
   for (const name of NAMES) process.env[name] = plan.values[name];

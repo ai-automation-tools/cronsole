@@ -854,7 +854,7 @@ Non-negotiable rules. **Every one has a reason recorded in
   `JWT_SECRET`, `ENCRYPTION_KEY` or `AGENT_PAIRING_SECRET`: a value that is missing, or is one
   Compose used to ship, is generated and written to `backend/.env` (environment, then that file,
   then generated). **`ENCRYPTION_KEY` is generated only while nothing is encrypted yet**; an
-  install with data under the published key keeps it and warns at every boot. An unwritable
+  install with data under the published key keeps it and warns at every boot, until `npm run rotate-key` moves it (backend stopped; all three encrypted stores in one transaction). An unwritable
   `.env` is a refusal to start, never an in-memory secret. Never add a default back to
   `docker-compose.yml`, and keep `:-` rather than `:?` there.
 - **The API listens on loopback unless `BIND_HOST` says otherwise.** It can run commands on the

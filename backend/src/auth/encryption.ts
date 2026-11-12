@@ -14,8 +14,13 @@ if (!ENCRYPTION_KEY || ENCRYPTION_KEY.length !== 32) {
  * Encrypts a string using AES-256-GCM
  */
 export function encrypt(text: string): string {
+  return encryptWith(ENCRYPTION_KEY!, text);
+}
+
+/** The same, under a key given by the caller. Only key rotation needs this. */
+export function encryptWith(key: string, text: string): string {
   const iv = crypto.randomBytes(IV_LENGTH);
-  const cipher = crypto.createCipheriv(ALGORITHM, Buffer.from(ENCRYPTION_KEY!), iv);
+  const cipher = crypto.createCipheriv(ALGORITHM, Buffer.from(key), iv);
   
   let encrypted = cipher.update(text, 'utf8', 'hex');
   encrypted += cipher.final('hex');
@@ -30,6 +35,11 @@ export function encrypt(text: string): string {
  * Decrypts a string using AES-256-GCM
  */
 export function decrypt(encryptedText: string): string {
+  return decryptWith(ENCRYPTION_KEY!, encryptedText);
+}
+
+/** The same, under a key given by the caller. Only key rotation needs this. */
+export function decryptWith(key: string, encryptedText: string): string {
   const [ivHex, tagHex, encryptedData] = encryptedText.split(':');
   
   if (!ivHex || !tagHex || !encryptedData) {
@@ -42,7 +52,7 @@ export function decrypt(encryptedText: string): string {
   if (tag.length !== TAG_LENGTH) {
     throw new Error('Invalid encrypted text format');
   }
-  const decipher = crypto.createDecipheriv(ALGORITHM, Buffer.from(ENCRYPTION_KEY!), iv, { authTagLength: TAG_LENGTH });
+  const decipher = crypto.createDecipheriv(ALGORITHM, Buffer.from(key), iv, { authTagLength: TAG_LENGTH });
   
   decipher.setAuthTag(tag);
   

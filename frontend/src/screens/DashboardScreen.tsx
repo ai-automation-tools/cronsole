@@ -979,17 +979,34 @@ export const DashboardScreen = ({
         <div className="flex flex-col items-center justify-center h-[50vh] border-2 border-dashed border-border rounded-3xl p-10 text-center">
            <Activity size={48} className="text-subtle-foreground mb-4 animate-pulse" />
            <h3 className="text-xl font-bold text-foreground">Dashboard is empty</h3>
-           <p className="text-subtle-foreground max-w-sm mt-2 mb-6">
-              Connect systems and perform your first sync to discover and monitor scheduled tasks.
+           <p className="text-subtle-foreground max-w-md mt-2 mb-6">
+              Nothing is tracked yet. Bring in the tasks this machine already runs, create a job
+              Cronsole runs itself, or connect another scheduler.
            </p>
            {/* The machine, not a file: an empty dashboard is someone who has
                never adopted anything, and the tasks are already there. */}
-           <button
-             onClick={onAddSources}
-             className="bg-primary hover:bg-primary-hover px-6 py-3 rounded-2xl text-sm font-bold shadow-lg shadow-primary/20 transition-all active:scale-95 flex items-center gap-2"
-           >
-             <Download size={16} /> Add tasks from this machine
-           </button>
+           <div className="flex flex-wrap items-center justify-center gap-3">
+             <button
+               onClick={onAddSources}
+               className="bg-primary hover:bg-primary-hover px-6 py-3 rounded-2xl text-sm font-bold shadow-lg shadow-primary/20 transition-all active:scale-95 flex items-center gap-2"
+             >
+               <Download size={16} /> Add tasks from this machine
+             </button>
+             {/* The other two ways in. Windows is one source of several, and a
+                 machine with no agent (macOS, a container) has only these. */}
+             <button
+               onClick={onNewTask}
+               className="bg-surface border border-border hover:border-primary/40 px-6 py-3 rounded-2xl text-sm font-bold text-foreground transition-all active:scale-95 flex items-center gap-2"
+             >
+               <Zap size={16} /> Create a Cronsole job
+             </button>
+             <Link
+               to="/sources?focus=available"
+               className="bg-surface border border-border hover:border-primary/40 px-6 py-3 rounded-2xl text-sm font-bold text-foreground transition-all active:scale-95"
+             >
+               Explore sources
+             </Link>
+           </div>
         </div>
       ) : (
         <>

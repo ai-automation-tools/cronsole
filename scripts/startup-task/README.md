@@ -183,7 +183,7 @@ Each registrar takes `-Unregister` to remove its task (`Register-CronsoleStack.p
 > **The two on-demand tasks are dev tools.** A no-trigger task at RunLevel Highest that an
 > unelevated caller can start is, by construction, a way to run code elevated without a UAC
 > prompt. That is an acceptable trade here — each runs *one fixed script from this repo*, and
-> `CronsoleStack` already runs `cronsole.ps1` elevated every 5 minutes, so they add an entry
+> `CronsoleAgentKeeper` already runs `cronsole.ps1` elevated every 5 minutes, so they add an entry
 > point rather than a capability. Do not register them on a machine where the repo is
 > writable by someone who should not have admin.
 

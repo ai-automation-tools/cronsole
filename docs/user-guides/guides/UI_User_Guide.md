@@ -111,8 +111,11 @@ And one thing that applies to all four kinds: **if the job needs a credential, p
 [Secrets](#secrets) rather than in the job**. The New Task form has a Secrets section; anything you
 enter there is saved encrypted along with the task, in the same request.
 
-**Use a Windows task instead** for anything that must run as your logged-in user, or keep running
-when Cronsole is down.
+**Use a Windows task instead** for anything that must run as your logged-in user, keep running
+when Cronsole is down, or **needs administrator rights**. Native jobs never have them: the backend
+that runs them is deliberately not elevated, so a job that manages a service or writes to a
+protected folder fails with *Access is denied*. Tick *Run with highest privileges* on the Windows
+task instead.
 
 Both kinds can be changed afterwards — including an HTTP job's URL — from the task modal's
 Action panel. See [Editing a task](#editing-a-task).

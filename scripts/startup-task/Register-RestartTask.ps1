@@ -41,7 +41,7 @@
     A no-trigger task at RunLevel Highest that an unelevated caller can start is,
     by construction, a way to run code elevated without a UAC prompt. It is an
     acceptable trade here for the same three reasons: it runs ONE fixed script from
-    this repo, \Cronsole-Stack\CronsoleStack ALREADY runs that same script elevated
+    this repo, \Cronsole-Stack\CronsoleAgentKeeper ALREADY runs that same script elevated
     every 5 minutes (so this adds an entry point, not a capability), and anyone who
     can write to this repo already has elevated execution on this machine.
 

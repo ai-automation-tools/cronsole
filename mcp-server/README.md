@@ -119,7 +119,8 @@ it is the caller assuring itself it is sure — the exact deliberation that's mi
 > **By default this server lets the assistant run programs on your machine.** `create_task`,
 > `update_task_action`, the native script and program creators and `run_task` are always
 > available. A Windows task can be created with `runLevel: highest`, which runs it as
-> administrator. Only the two delete tools are behind a switch. That is deliberate: a scheduler
+> administrator. The native creators never do: native jobs run inside the backend, which has no
+> administrator rights. Only the two delete tools are behind a switch. That is deliberate: a scheduler
 > you cannot schedule with is not much use. If you only want the assistant to look, set
 > `CRONSOLE_MCP_READONLY=true` and it gets the reading tools and nothing else.
 

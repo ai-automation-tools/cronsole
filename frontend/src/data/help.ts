@@ -223,6 +223,13 @@ const sourceWindows: HelpTopic = {
         'the detail also needs an agent published on or after 2026-08-25.'
     },
     {
+      label: 'Work that needs administrator rights belongs here',
+      body:
+        'Only the agent runs as administrator; Cronsole-native jobs never do. A job that ' +
+        'manages a service, writes under C:\\Windows or C:\\Program Files, or runs Dism or ' +
+        'cleanmgr should be a Windows task with "Run with highest privileges" ticked.'
+    },
+    {
       label: 'Cronsole creates a folder only when you ask for one',
       body:
         'Pick New folder — the first row of the Task Scheduler folder box — and Cronsole makes ' +
@@ -301,6 +308,14 @@ const sourceNativeExec: HelpTopic = {
       body:
         'The program gets OS essentials plus whatever you set explicitly — not Cronsole\'s own ' +
         'variables, which include the key encrypting your stored platform credentials.'
+    },
+    {
+      label: 'It never runs as administrator',
+      body:
+        'Cronsole runs native jobs as an ordinary user. A program that needs administrator ' +
+        'rights, such as managing a service or writing to a protected folder, fails with ' +
+        '"Access is denied" here. Make it a Windows Task Scheduler task with "Run with highest ' +
+        'privileges" instead.'
     },
     {
       label: 'Use a Windows task to run as your user',
@@ -411,7 +426,8 @@ const sourceNative: HelpTopic = {
   summary:
     'Scheduled and executed by Cronsole itself — nothing in Windows Task Scheduler, no agent ' +
     'involved. Four kinds: call a URL, run a program, run a script you write here, or check ' +
-    'that something is as it should be.',
+    'that something is as it should be. They run without administrator rights; work that ' +
+    'needs them belongs in a Windows Task Scheduler task.',
   doc: { label: 'Cronsole-native › HTTP', url: sourceDoc('TASKHUB_NATIVE', '-http--call-a-url') },
   more: [
     { label: 'Cronsole-native › Scripts', url: sourceDoc('TASKHUB_NATIVE', '-scripts--write-the-body-in-cronsole') },

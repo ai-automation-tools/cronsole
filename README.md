@@ -150,7 +150,7 @@ Full documentation lives in **[`docs/`](docs/README.md)**. The main sections:
 | [**📊 Features**](docs/FEATURES.md) | Everything Cronsole does today, and what each feature actually gives you. |
 | [**🧭 Diagrams**](docs/diagrams/README.md) | The source data flow shown on the [homepage](https://cronsole.ai-automation-tools.dev/#sec-flow), interactive and linked to the code, the template catalogs the gallery reads, and how both stay in step with the code. |
 | [**📍 Status**](docs/STATUS.md) | What's supported on which platform, what's pre-1.0, and what isn't built yet. |
-| [**🛡️ Trust**](docs/TRUST.md) | Cronsole runs an elevated process on your machine. The complete list of what it can do, what it cannot, and how to remove it. |
+| [**🛡️ Trust**](docs/TRUST.md) | Cronsole runs one elevated process on your machine, the Windows agent; the backend and native jobs never are. The complete list of what it can do, what it cannot, and how to remove it. |
 | [**🔒 Privacy**](docs/PRIVACY.md) | Every outbound connection Cronsole can make — and how to verify that a default install makes none. |
 | [**⬇️ Installation**](docs/install/README.md) | Install Cronsole on Windows or macOS, or clone the repo. |
 | [**⚙️ Setup & Configuration**](docs/setup/README.md) | Environment variables, Docker vs. manual, agent pairing. |

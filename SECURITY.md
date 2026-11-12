@@ -46,7 +46,8 @@ The most security-relevant surfaces are:
   is schema-validated and structured no-shell before it can create a task.
 - **What the MCP server grants by default** — an assistant connected to it can create, change
   and run tasks, so it can run programs on the machine, elevated if a Windows task asks for
-  the highest run level. Only deletes are behind a switch. `CRONSOLE_MCP_READONLY` limits it to
+  the highest run level. Cronsole-native jobs never run elevated: the backend that runs them
+  has no administrator rights. Only deletes are behind a switch. `CRONSOLE_MCP_READONLY` limits it to
   reading. Treat the API token it holds as a credential that can run code.
 
 Especially interested in: command-injection paths that reach a shell, ways to make the
@@ -62,8 +63,9 @@ exposure.
   Cronsole directly to the public internet.** If you access it from another device, put it
   behind a private network layer (e.g. Tailscale) or an access-gated tunnel — see the
   [Remote Access Guide](docs/user-guides/guides/Remote_Access_Guide.md).
-- The agent runs with your Windows privileges; a task you create runs as you (or elevated,
-  if you configure it to). Treat template/command content you didn't author with the same
+- The agent runs with your Windows privileges, elevated, and is the only part of Cronsole that
+  is. A Windows task you create runs as you (or elevated, if you configure it to); a
+  Cronsole-native job runs inside the backend, which is never elevated. Treat template/command content you didn't author with the same
   caution as any script you'd run yourself.
 
 ## Supported versions

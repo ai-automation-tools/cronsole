@@ -37,10 +37,12 @@ The **Cronsole agent** (`agent/Cronsole.Agent.exe`) is a small .NET program that
 Windows Task Scheduler on Cronsole's behalf. It runs **as you, at the highest run level** —
 administrator.
 
-It is registered by `scripts/startup-task/Register-CronsoleStack.ps1` as:
+It is the **only** part of Cronsole that is. `scripts/startup-task/Register-CronsoleStack.ps1`
+registers two tasks, and only one is elevated:
 
 ```
-\Cronsole-Stack\CronsoleStack    interactive user · RunLevel Highest · every 5 minutes
+\Cronsole-Stack\CronsoleAgentKeeper   interactive user · RunLevel Highest · every 5 minutes · the agent only
+\Cronsole-Stack\CronsoleStack         interactive user · RunLevel Limited · every 5 minutes · database, backend, dashboard
 ```
 
 **Why elevation is genuinely required**, and not just convenient: Task Scheduler enumeration is

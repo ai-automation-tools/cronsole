@@ -12,6 +12,20 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
+## [0.10.0] — 2026-11-11
+
+App, agent and MCP server all move to 0.10.0 (`app/v0.10.0`, `agent/v0.10.0`, `mcp/v0.10.0`).
+Upgrade with `cronsole update`, or see [Upgrading](setup/README.md#-upgrading).
+
+- **The agent must be rebuilt** to get the `\Microsoft\` refusals and task-name validation. From an
+  Administrator prompt: `scripts\Republish-Agent.ps1`. The wire protocol is still version 1, so a
+  0.9.0 agent keeps working with this backend; it refuses "remove a schedule" and says why.
+- **Re-run `scripts\startup-task\Register-CronsoleStack.ps1`** (Administrator) if you installed
+  before 2026-11-11, so the backend stops running elevated.
+- **Secrets:** an install still on the old published defaults gets new `JWT_SECRET` and
+  `AGENT_PAIRING_SECRET` values at first boot, which signs every browser out once.
+- **A new name for the dashboard's address?** Add it to `ALLOWED_HOSTS` in `backend/.env`.
+
 ### Added
 
 - **CI runs browser tests** (2026-11-11). A new `e2e` job starts Postgres, the backend and the dashboard on a fresh database and runs the Playwright smoke and native-job specs in Chromium. Its first run found two specs that had gone stale: one clicked a "Favorites" button that now matches two controls, the other waited for a task list an empty install does not have. The layout and mock-agent specs are still run by hand.

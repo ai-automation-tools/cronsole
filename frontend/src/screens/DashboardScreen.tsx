@@ -70,6 +70,20 @@ import { TaskSearchBox } from '../components/TaskSearchBox';
 // Loose shape for the untyped platform-metadata JSON blob on tasks.
 type TaskMeta = { nextRunTime?: string; nextRun?: string; schedule?: string } | null | undefined;
 
+/**
+ * The task name as a button. List rows and board cards open on a click anywhere,
+ * which a keyboard cannot do; this is the same route TaskCard's title gives the grid.
+ */
+const OpenTaskName = ({ task, onOpen, className }: { task: Task; onOpen: (task: Task) => void; className: string }) => (
+  <button
+    type="button"
+    onClick={e => { e.stopPropagation(); onOpen(task); }}
+    className={`text-left rounded outline-none focus-visible:ring-2 focus-visible:ring-primary ${className}`}
+  >
+    {task.name}
+  </button>
+);
+
 export const DashboardScreen = ({
   onTaskSelect,
   onRun,
@@ -1230,7 +1244,7 @@ export const DashboardScreen = ({
                               <TaskFavoriteStar task={task} onToggle={onToggleFavorite} size={14} className="mt-0.5" />
                               <TaskCollectionMenu task={task} size={14} className="mt-0.5" />
                               <div>
-                              <span className="block truncate max-w-[240px]">{task.name}</span>
+                              <OpenTaskName task={task} onOpen={onTaskSelect} className="block truncate max-w-[240px] font-bold" />
                               <span className="block text-[10px] text-subtle-foreground font-mono font-normal truncate max-w-[240px] mt-0.5">{task.externalId}</span>
                               </div>
                             </div>
@@ -1319,7 +1333,7 @@ export const DashboardScreen = ({
                             <TaskCollectionMenu task={task} size={12} />
                           </span>
                         </div>
-                        <h4 className="font-bold text-foreground text-sm truncate">{task.name}</h4>
+                        <h4 className="font-bold text-foreground text-sm truncate"><OpenTaskName task={task} onOpen={onTaskSelect} className="block w-full truncate font-bold" /></h4>
                         <TaskSchedule task={task} size="xs" />
                         <div className="flex items-center justify-between border-t border-border pt-2 mt-1">
                           <span className="text-[9px] text-subtle-foreground font-mono">
@@ -1376,7 +1390,7 @@ export const DashboardScreen = ({
                             <TaskCollectionMenu task={task} size={12} />
                           </span>
                         </div>
-                        <h4 className="font-bold text-muted-foreground text-sm truncate">{task.name}</h4>
+                        <h4 className="font-bold text-muted-foreground text-sm truncate"><OpenTaskName task={task} onOpen={onTaskSelect} className="block w-full truncate font-bold" /></h4>
                         <TaskSchedule task={task} size="xs" />
                         <div className="flex items-center justify-between border-t border-border pt-2 mt-1">
                           <span className="text-[9px] text-subtle-foreground font-mono">
@@ -1427,7 +1441,7 @@ export const DashboardScreen = ({
                               <div className="flex items-center gap-2">
                                 <TaskFavoriteStar task={task} onToggle={onToggleFavorite} size={14} />
                                 <TaskCollectionMenu task={task} size={14} />
-                                <h4 className="font-bold text-foreground text-base">{task.name}</h4>
+                                <h4 className="font-bold text-foreground text-base"><OpenTaskName task={task} onOpen={onTaskSelect} className="font-bold" /></h4>
                                 <span className={`text-[8px] uppercase font-black px-1.5 py-0.5 rounded border ${platformBadgeClass(task.platform)}`}>
                                   {platformLabel(task.platform)}
                                 </span>

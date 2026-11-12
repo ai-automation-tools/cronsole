@@ -86,7 +86,7 @@ cd ../mcp-server && npm test
 | `frontend` | ESLint + Vitest + Vite build |
 | `windows-agent` | `dotnet build` + `dotnet test` on `windows-latest` |
 | `mcp-server` | Vitest suite + `tsc` typecheck (incl. tests) + build |
-| `e2e` | Playwright in Chromium against a real stack on a fresh database: `smoke.spec.ts` and `native-job-env.spec.ts` |
+| `e2e` | Playwright in Chromium against a real stack on a fresh database: `smoke.spec.ts`, `native-job-env.spec.ts` and `a11y.spec.ts` |
 
 > [!IMPORTANT]
 > **Half of the E2E suite is in CI.** The `e2e` job starts Postgres, the backend and the

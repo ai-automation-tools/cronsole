@@ -2,7 +2,7 @@ import type { Socket } from 'socket.io';
 import { PlatformType, HealthState } from '@prisma/client';
 import { PlatformConnector, TaskInfo, ConnectorHealth, SyncOutcome, CreateTaskOptions, UpdateActionsInput, UpdateScheduleOptions, PlatformFolder, ImportTaskResult, PlatformRun, PlatformRunOutput, PlatformRunsResult, PlatformRunOutputResult } from './platform.interface.js';
 import { agentManager } from '../ws/AgentManager.js';
-import { emitSignedCommand } from '../ws/agentAuth.js';
+import { emitSignedCommand, protocolRefusal } from '../ws/agentAuth.js';
 import { toStructuredAction } from '../utils/commandParser.js';
 import { convertWindowsTriggerToCron, WindowsTrigger } from '../utils/scheduler-conversion.js';
 import { DEFAULT_TASK_FOLDER, normalizeWindowsTaskFolder } from '../utils/windowsTaskFolder.js';
@@ -148,7 +148,13 @@ function agentRequest<T>(
     }, AGENT_REQUEST_TIMEOUT_MS);
 
     socket.on(responseEvent, handler);
-    send();
+    // A send that throws (emitSignedCommand refusing) must release the deadline,
+    // or it fires later and marks a healthy agent unresponsive.
+    try {
+      send();
+    } catch (error) {
+      settle.reject(error instanceof Error ? error : new Error(String(error)));
+    }
   });
 }
 
@@ -220,6 +226,8 @@ export class WindowsAgentConnector implements PlatformConnector {
     if (!socket) {
       return { success: false, message: 'Agent offline' };
     }
+    const wrongWire = protocolRefusal(socket);
+    if (wrongWire) return { success: false, message: wrongWire };
 
     return agentRequest<{ success: boolean; platformRunId?: string; message?: string }>(
       socket, userId, 'task:run', 'task:executed',
@@ -241,6 +249,8 @@ export class WindowsAgentConnector implements PlatformConnector {
     if (!socket) {
       return { success: false, message: 'Agent offline' };
     }
+    const wrongWire = protocolRefusal(socket);
+    if (wrongWire) return { success: false, message: wrongWire };
 
     return agentRequest<{ success: boolean; message?: string }>(
       socket, userId, 'task:delete', 'task:deleted',
@@ -443,6 +453,8 @@ export class WindowsAgentConnector implements PlatformConnector {
     if (!socket) {
       return { success: false, outcome: 'refused', message: 'Agent offline', foldersCreated: [] };
     }
+    const wrongWire = protocolRefusal(socket);
+    if (wrongWire) return { success: false, message: wrongWire, outcome: 'refused', foldersCreated: [] };
 
     return agentRequest<ImportTaskResult>(
       socket, userId, 'task:import', 'task:imported',
@@ -483,6 +495,8 @@ export class WindowsAgentConnector implements PlatformConnector {
     if (!socket) {
       return { success: false, message: 'Agent offline' };
     }
+    const wrongWire = protocolRefusal(socket);
+    if (wrongWire) return { success: false, message: wrongWire };
 
     return agentRequest<{ success: boolean; message?: string }>(
       socket, userId, 'task:set_status', 'task:status_set',
@@ -527,6 +541,8 @@ export class WindowsAgentConnector implements PlatformConnector {
     if (!socket) {
       return { success: false, message: 'Agent offline' };
     }
+    const wrongWire = protocolRefusal(socket);
+    if (wrongWire) return { success: false, message: wrongWire };
 
     return agentRequest<{ success: boolean; message?: string; clientError?: boolean }>(
       socket, userId, 'task:update_schedule', 'task:schedule_updated',
@@ -552,6 +568,8 @@ export class WindowsAgentConnector implements PlatformConnector {
     if (!socket) {
       return { success: false, message: 'Agent offline' };
     }
+    const wrongWire = protocolRefusal(socket);
+    if (wrongWire) return { success: false, message: wrongWire };
 
     return agentRequest<{ success: boolean; message?: string }>(
       socket, userId, 'task:update', 'task:updated',
@@ -645,6 +663,13 @@ export class WindowsAgentConnector implements PlatformConnector {
     // (troubleshooting #74).
     const elevated = liveness?.identity?.elevated;
 
+    // Connected and answering reads, but every write would be rejected. That is
+    // not healthy, and the reason is the whole fix.
+    const wrongWire = protocolRefusal(socket);
+    if (wrongWire) {
+      return { state: HealthState.DEGRADED, reason: wrongWire, lastContactAt, elevated };
+    }
+
     if (failedAt && (!lastContactAt || failedAt > lastContactAt)) {
       const verb = liveness?.lastFailureVerb ?? 'last request';
 
@@ -681,6 +706,8 @@ export class WindowsAgentConnector implements PlatformConnector {
     if (!socket) {
       return { success: false, message: 'Agent offline', foldersCreated: [] };
     }
+    const wrongWire = protocolRefusal(socket);
+    if (wrongWire) return { success: false, message: wrongWire, foldersCreated: [] };
 
     // Structure the command into { executable, args[] } so the agent registers
     // a direct ExecAction with no shell (closes the cmd.exe injection sink).

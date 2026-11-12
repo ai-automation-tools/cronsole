@@ -52,7 +52,7 @@ support. None of those is true yet.
 ## The protocol version is not the agent version
 
 This is the one that bites. `PROTOCOL_VERSION` — `agent/Cronsole.Agent/AgentService.cs` and
-`backend/src/ws/protocol.ts`, one value at each end — describes **the wire contract**, not the
+`backend/src/ws/agentAuth.ts`, one value at each end — describes **the wire contract**, not the
 build:
 
 - The agent can ship five releases that change nothing about the wire. Protocol stays put.
@@ -63,17 +63,26 @@ build:
 So: **a wire change is a major version of the app and the agent, together, whatever the diff looked
 like.** Semver is a promise about compatibility, not a measure of effort.
 
-### It is reported, not enforced — on purpose
+### It is enforced, since version 2
 
-The agent sends `protocolVersion` in `agent:hello`; the backend records it and diagnostics prints
-it. Nothing is refused, because **there is exactly one protocol version in existence** — a
-mismatch cannot occur, and machinery guarding an impossible state is machinery nobody has ever
-seen run.
+| Version | Since | Signed message |
+|:---|:---|:---|
+| 1 | first release | fields joined with `|` |
+| 2 | 2026-11-11 | each field as length, colon, field (`frameFields` / `AgentAuthenticator.Frame`) |
 
-**The day `PROTOCOL_VERSION` becomes `2`, the refusal is the first thing to build**, before the
-feature that needed the new shape: an agent announcing `1` should be told, in a sentence naming the
-republish, that it cannot talk to this backend. An honest refusal beats a connection that behaves
-subtly wrong — and by then the check has something real to compare.
+The agent sends `protocolVersion` in its **handshake** (and still in `agent:hello`, which
+diagnostics prints). The backend compares it with its own before signing anything
+(`protocolRefusal` in `agentAuth.ts`). On a mismatch it sends nothing and answers the caller with a
+sentence naming the rebuild; the Windows source reports degraded with the same sentence. Unsigned
+reads (list, folders, export, history) keep working, so an old agent is visible, not offline.
+
+An agent built before the handshake carried a version sends none, and is treated as older.
+The value is self-reported and unsigned: a false one can only get a command refused by the
+backend or rejected by the agent, never accepted.
+
+Until version 2 this was reported and not enforced, because one version existed and a mismatch
+could not occur. **Build the refusal before the feature that needs the new shape** was the rule
+then and is how version 2 was done; keep it for version 3.
 
 ## Cutting a release
 

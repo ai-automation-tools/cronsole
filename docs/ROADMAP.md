@@ -1285,10 +1285,10 @@ cover the repo and product going public, not standing up a multi-tenant cloud se
       to today's backend. `PROTOCOL_VERSION` is now stamped at both ends and reported in
       `agent:hello`.
 
-      It is **reported, not enforced**, deliberately — there is exactly one protocol version in
-      existence, so a mismatch cannot occur yet and refusal machinery would be guarding nothing.
-      The honest refusal is the *first* thing to build the day `SignableCommand` moves; until then a
-      version nothing can disagree with is a fact, not a gate.
+      It was **reported, not enforced** until 2026-11-11, deliberately — there was exactly one
+      protocol version in existence, so a mismatch could not occur and refusal machinery would
+      have guarded nothing. Protocol 2 arrived that day and the refusal was built with it: the
+      backend reads the version from the handshake and will not sign for an agent on another.
 
       **Two already-logged items closed with it**, both waiting on the same missing fact — the agent
       hardcoded `agentVersion = "1.0.0"`, so it was identical on a build from today and one from
@@ -1969,6 +1969,11 @@ no-shell execution held up; the gaps are in defaults and deployment.
 - [x] **Scan every commit for credentials in CI, and audit shipped dependencies** *(2026-11-11)*.
       The `security` job: gitleaks over the full history, `npm audit --omit=dev` at high.
       Reviewed false positives live in `.gitleaksignore`, each with its reason.
+- [x] **Wire protocol 2: signed agent commands are length-prefixed fields** *(2026-11-11)*. The
+      pipe-joined form let a `|` inside a name or description move a field boundary under one
+      signature. The backend reads the agent's version from the handshake and refuses to sign
+      for any other, naming the rebuild; reads keep working. Every agent must be rebuilt with
+      the backend ([#108](troubleshooting/README.md#108-every-windows-write-is-refused-with-a-sentence-about-the-wire-protocol)).
 
 ---
 

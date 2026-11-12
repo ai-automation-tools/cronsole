@@ -12,6 +12,10 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking: the agent wire protocol is now version 2. Rebuild the agent when you update** (2026-11-11). The backend signs every command it sends the Windows agent. The signed text used to be the command's fields joined with `|`, and a task name, description or working directory may contain a `|`, so two different commands could produce the same text and share one signature. Someone able to alter traffic between the backend and the agent could use that to change where one field ended and the next began. Each field is now written with its length in front, which leaves one reading only. **What you do:** `pwsh scripts\cronsole.ps1 update` from an Administrator prompt updates both halves. From an ordinary prompt it updates the backend and prints the agent command (`scripts\Republish-Agent.ps1`). **Until the agent is rebuilt**, Cronsole still lists and reads Windows tasks, but Run now, enable/disable, create, edit, delete and restore are refused with a sentence that names the rebuild, and the Windows source shows as degraded with the same sentence. Cronsole-native jobs and every other source are unaffected. A new agent against an old backend rejects every command, so update the backend too. The handshake nonce and the per-command nonce must now be 32 hex characters, which is what both sides already sent.
+
 ### Added
 
 - **A read-only switch for the MCP server, and a plain statement of what it grants** (2026-11-11). By default an assistant connected to the MCP server can create, change and run tasks, which means running programs on your machine; only the two delete tools were behind a switch, and the docs did not say so. They do now (`mcp-server/README.md`, the MCP guide, `SECURITY.md`). Set `CRONSOLE_MCP_READONLY=true` to give the assistant only the tools that read. It hides tools; the API token can still do everything.

@@ -105,7 +105,10 @@ namespace Cronsole.Agent
             }
 
             // Lowercase keys => socket.handshake.auth.{agentId,nonce,ts,hmac} server-side.
-            return new { agentId = AgentId, nonce, ts, hmac };
+            // protocolVersion rides here, unsigned, so the backend knows which
+            // wire this agent speaks before it signs anything. A false value can
+            // only get a command refused there or rejected here, never accepted.
+            return new { agentId = AgentId, nonce, ts, hmac, protocolVersion = AgentService.ProtocolVersion };
         }
 
         // Verify a command's HMAC against any currently-valid session key and the
@@ -169,44 +172,46 @@ namespace Cronsole.Agent
         // out blaming the transport (troubleshooting #16). Taking it as a required
         // parameter is the enforcement point: you cannot build a signed message
         // without one.
+        //
+        // Since wire protocol 2 every message is Frame(...): length-prefixed
+        // fields. Joined with '|', a task name, description or working directory
+        // holding one could move a field boundary under an unchanged signature.
         public static string RunMessage(string taskPath, string nonce, long ts) =>
-            $"task:run|{taskPath}|{nonce}|{ts}";
+            Frame("task:run", taskPath, nonce, N(ts));
 
         public static string DeleteMessage(string taskPath, string nonce, long ts) =>
-            $"task:delete|{taskPath}|{nonce}|{ts}";
+            Frame("task:delete", taskPath, nonce, N(ts));
 
         public static string SetStatusMessage(string taskPath, bool enabled, string nonce, long ts) =>
-            $"task:set_status|{taskPath}|{(enabled ? 1 : 0)}|{nonce}|{ts}";
+            Frame("task:set_status", taskPath, B(enabled), nonce, N(ts));
 
         // The trigger IS the change, so it's part of the signed message (mirrors
         // the task:create trigger coverage).
         public static string UpdateScheduleMessage(string taskPath, string triggerCanonical, string nonce, long ts) =>
-            $"task:update_schedule|{taskPath}|{triggerCanonical}|{nonce}|{ts}";
+            Frame("task:update_schedule", taskPath, triggerCanonical, nonce, N(ts));
 
         // The action (executable + args), working dir, description, and run level
         // ARE the change here, so all are part of the signed message. Fields are
         // pre-normalized (empty string for unset) — must match commandMessage()'s
         // 'task:update' case in agentAuth.ts byte-for-byte.
         public static string UpdateMessage(string taskPath, string actionCanonical, string workingDirectory, string description, string runLevel, string nonce, long ts) =>
-            $"task:update|{taskPath}|{actionCanonical}|{workingDirectory}|{description}|{runLevel}|{nonce}|{ts}";
+            Frame("task:update", taskPath, actionCanonical, workingDirectory, description, runLevel, nonce, N(ts));
 
         // Matches the 'task:import' case in agentAuth.ts byte-for-byte.
         //
         // The XML enters as a HASH rather than by value. It is not a size
         // optimization: the XML IS the task — its action, its trigger, and its
         // principal (including RunLevel Highest and the account it runs as) — so
-        // leaving it out of the signature would make the signature decorative,
-        // and embedding it raw would put arbitrary '|' bytes inside a
-        // pipe-delimited message. A fixed-width digest is unambiguous on both
-        // sides of the language boundary, the same reason CanonicalizeAction and
-        // CanonicalizeTrigger exist.
+        // leaving it out of the signature would make the signature decorative.
+        // It stays a hash under the framed format too: a fixed-width digest keeps
+        // the signed message small whatever the size of the definition.
         //
         // `overwrite` and `createFolders` are signed because each one widens what
         // the command is allowed to destroy or create: flipping overwrite turns a
         // refusal into an overwrite of a task the user still has, which is
         // exactly the redirection `folder` is signed to prevent.
         public static string ImportMessage(string taskPath, string xmlSha256, bool overwrite, bool createFolders, string nonce, long ts) =>
-            $"task:import|{taskPath}|{xmlSha256}|{(overwrite ? 1 : 0)}|{(createFolders ? 1 : 0)}|{nonce}|{ts}";
+            Frame("task:import", taskPath, xmlSha256, B(overwrite), B(createFolders), nonce, N(ts));
 
         /// <summary>
         /// Lowercase-hex SHA-256 over the UTF-8 bytes of <paramref name="value"/>.
@@ -230,22 +235,42 @@ namespace Cronsole.Agent
         // "that folder does not exist" refusal into a folder the user never asked
         // for and needs administrator rights to remove.
         public static string CreateMessage(string name, string schedule, string command, string actionCanonical, string triggerCanonical, string folder, bool createFolder, string nonce, long ts) =>
-            $"task:create|{name}|{schedule}|{command}|{actionCanonical}|{triggerCanonical}|{folder}|{(createFolder ? 1 : 0)}|{nonce}|{ts}";
+            Frame("task:create", name, schedule, command, actionCanonical, triggerCanonical, folder, B(createFolder), nonce, N(ts));
+
+        /// <summary>
+        /// Join fields so that no two different field lists give the same string:
+        /// each is written as length, a colon, then the field. Length is
+        /// <c>string.Length</c> (UTF-16 code units), the same count as JavaScript's
+        /// <c>String.length</c>. MUST match the backend's frameFields byte-for-byte.
+        /// </summary>
+        public static string Frame(params string[] fields)
+        {
+            var sb = new StringBuilder();
+            foreach (var f in fields)
+            {
+                var v = f ?? string.Empty;
+                sb.Append(v.Length.ToString(CultureInfo.InvariantCulture)).Append(':').Append(v);
+            }
+            return sb.ToString();
+        }
+
+        private static string N(long value) => value.ToString(CultureInfo.InvariantCulture);
+        private static string B(bool value) => value ? "1" : "0";
 
         // Canonical action string the create signature covers. MUST match the
         // backend's canonicalizeAction (utils/commandParser.ts): the executable and
-        // each argument joined by the ASCII unit separator (0x1F).
+        // each argument as framed fields.
         public static string CanonicalizeAction(string executable, IEnumerable<string> args)
         {
             var parts = new List<string> { executable };
             parts.AddRange(args);
-            return string.Join('\u001f', parts);
+            return Frame(parts.ToArray());
         }
 
         // Canonical trigger string the create signature covers. MUST match the
         // backend's canonicalizeTrigger (utils/scheduler-conversion.ts): a null
-        // trigger is the literal "none"; otherwise a fixed-order, pipe-joined
-        // form with optional fields collapsed to empty.
+        // trigger is the literal "none"; otherwise fixed-order framed fields
+        // with optional ones collapsed to empty.
         public static string CanonicalizeTrigger(TriggerSpec? trigger)
         {
             if (trigger == null) return "none";
@@ -274,7 +299,7 @@ namespace Cronsole.Agent
                     ? string.Join(",", trigger.DaysOfMonth.Select(d => d.ToString(CultureInfo.InvariantCulture)))
                     : "");
             }
-            return string.Join("|", fields);
+            return Frame(fields.ToArray());
         }
 
         public static string Hmac(string key, string message)

@@ -48,7 +48,7 @@ the decision in full. There is no half-measure.
 
 ## The protocol version is not the agent version
 
-`AgentService.ProtocolVersion` and `backend/src/ws/protocol.ts` describe **the wire contract**, not
+`AgentService.ProtocolVersion` and `PROTOCOL_VERSION` in `backend/src/ws/agentAuth.ts` describe **the wire contract**, not
 the build. They move independently: five agent releases can change nothing about the wire, while a
 three-line change to the `SignableCommand` shape is **breaking** — HMAC canonicalization must match
 byte-for-byte, so a mismatch is not a degraded feature, it is *every command rejected*.
@@ -56,10 +56,11 @@ byte-for-byte, so a mismatch is not a degraded feature, it is *every command rej
 > **Semver honestly.** If an old agent cannot talk to the new backend, that is **major** for both,
 > regardless of how small the diff looked. Ship them together.
 
-It is currently **reported, not enforced** — one protocol version exists, so a mismatch cannot
-occur. **The day it becomes `2`, build the refusal first**, before the feature that needed the new
-shape: an agent announcing `1` gets a sentence naming the republish. An honest refusal beats a
-connection that behaves subtly wrong.
+It is **enforced since version 2** (2026-11-11, length-prefixed signed fields): the agent
+announces its version in the handshake, and the backend refuses to sign for any other
+(`protocolRefusal`), answering with a sentence naming the republish while unsigned reads keep
+working. **For version 3, build the refusal first again**, before the feature that needs the new
+shape. An honest refusal beats a connection that behaves subtly wrong.
 
 ## Cutting a release
 

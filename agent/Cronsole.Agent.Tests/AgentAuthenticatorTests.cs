@@ -22,35 +22,35 @@ namespace Cronsole.Agent.Tests
         private const long Ts = 1700000000;
         private const string ExpectedHandshake = "e8e72a611dac9a8f0b3fab109adea8871b61ca31980efcba7c3ed842d94c0434";
         private const string ExpectedSessionKey = "67d80428fd79e26dd92269f97474031860185d325df6c731cda179e22b53ff14";
-        private const string ExpectedRunSig = "1b05698c29c1761cccca0831edea73ee4de990024294056f39a037819f2fbc92";
-        private const string ExpectedDeleteSig = "895b3da37ada2786afc47a0aa16404a395fd1ac9404b28f1597f451b2e76b36f";
-        private const string ExpectedStatusSig = "0ed95b89b34854fa0e99f2813d5049a542b883332a5f572e033820081ede0d2b";
+        private const string ExpectedRunSig = "40851ae88bea9f403056337d4140852cb6449a9e217533663ce5151949866412";
+        private const string ExpectedDeleteSig = "819ee6600758cf5f43fb3ab0be5a5c9f410367c85ee29c1adfb89e772414b87b";
+        private const string ExpectedStatusSig = "85f7ee5c3adc3a8d938bc5ddfee7eced0bcd07c695256523e645193e062510dd";
         // task:update_schedule signs the trigger. Golden case: Daily 03:00,
-        // daysInterval 1 -> canonical "trigger|Daily|03:00|1|||".
-        private const string ExpectedUpdateScheduleSig = "f2d3877a970941645fc82da9d1bf1e829593a7b9b73e7cc1cd3739c89859ac83";
+        // daysInterval 1 -> canonical "7:trigger5:Daily5:03:001:10:0:0:".
+        private const string ExpectedUpdateScheduleSig = "8aa21aaed0c3bf300265d1c2f8995f165bde73eb8b60ced46f961e8eb725b144";
         // task:update signs the structured action, working dir, description, and run
         // level. Golden case: action { executable: "powershell.exe", args: ["-File",
-        // "C:\\x.ps1"] } -> canonical "powershell.exe\x1f-File\x1fC:\\x.ps1",
+        // "C:\\x.ps1"] } -> canonical "14:powershell.exe5:-File8:C:\\x.ps1",
         // working dir "C:\\scripts", description "Nightly job", runLevel "highest".
-        private const string ExpectedUpdateSig = "1032132b7efe16c1f45773d628783f4a0ea82f1a73f03f891ee91359f5a7e135";
+        private const string ExpectedUpdateSig = "15e78eed13b6fb8b908070583439a5bcd8485ab564e2946c24f4fd20e7fb2c60";
         // task:create signs the structured action, the trigger, the folder AND the
         // createFolder flag. Golden action is { executable: "dir", args: [] } ->
-        // canonical "dir"; trigger null -> "none"; folder "\Cronsole";
+        // canonical "3:dir"; trigger null -> "none"; folder "\Cronsole";
         // createFolder false -> "0".
-        private const string ExpectedCreateSig = "e3c75a695f47bd2c3324cff295543b5b2b846efeb6f27e1b53939017a44ddb8c";
+        private const string ExpectedCreateSig = "1f5126aec4472b685cb1cf520a1445ce1b255c71e3d3ef3475a5ced567b26f41";
         // Same command with a Weekly trigger -> canonical
-        // "trigger|Weekly|09:30||Monday,Wednesday|PT30M|P1D".
-        private const string ExpectedCreateSigWithTrigger = "0071cff5171a0dacafaf07673b372867e7ab2e5ebaebbf66af24139b762295a9";
+        // "7:trigger6:Weekly5:09:300:16:Monday,Wednesday5:PT30M3:P1D".
+        private const string ExpectedCreateSigWithTrigger = "52ae01c77c1065ab16b46b1b745c681789ca13dca5c519bdd6162f43f369fcba";
         // Identical to ExpectedCreateSig except createFolder is TRUE. Pinned as its
         // own case on purpose: with only a false case, an implementation that
         // hard-coded "0" would pass. Two vectors differing in exactly one bit are
         // what prove the bit is genuinely inside the signature.
-        private const string ExpectedCreateSigWithFolderCreate = "d525bcc9f125bb4c77db4c53f6110946fb71884f949f5ffa7636582dfb2337fe";
+        private const string ExpectedCreateSigWithFolderCreate = "645ba49ac57da03312b45d3662c3d41bc594fc809faa3538ab533f504f30ea87";
         // task:import signs the task's whole XML BY HASH, plus both blast-radius
         // flags. Golden case: the XML below, overwrite false, createFolders true.
         private const string ImportXml = "<Task><RegistrationInfo><URI>\\Work\\Job</URI></RegistrationInfo></Task>";
         private const string ExpectedImportXmlSha256 = "dfd743c7a30868f6f2d62e3b9ceb16fb77c8a72c1509b1726dfc646072170281";
-        private const string ExpectedImportSig = "c6a8e92c11599c98dac759094220d8d6826c9a457e4f3ce9f83172b3144130a4";
+        private const string ExpectedImportSig = "2b92301b29fd6eda71f48f9672bbbfea78918bc0a2f3c00bdb0608959524ef58";
 
         [Fact]
         public void Hmac_MatchesGoldenVector_HandshakeAndSession()
@@ -139,7 +139,7 @@ namespace Cronsole.Agent.Tests
                 Type = "Daily",
                 StartBoundary = "03:00",
                 DaysInterval = 1
-            }).Should().Be("trigger|Daily|03:00|1|||");
+            }).Should().Be("7:trigger5:Daily5:03:001:10:0:0:");
 
             // Monthly appends an eighth field; every other type must NOT, or a
             // create signed by one side of this change fails against the other.
@@ -148,7 +148,24 @@ namespace Cronsole.Agent.Tests
                 Type = "Monthly",
                 StartBoundary = "09:00",
                 DaysOfMonth = new List<int> { 1, 15 }
-            }).Should().Be("trigger|Monthly|09:00|||||1,15");
+            }).Should().Be("7:trigger7:Monthly5:09:000:0:0:0:4:1,15");
+        }
+
+        [Fact]
+        public void Frame_KeepsFieldBoundaries_WhereAPipeJoinCouldNot()
+        {
+            // The literal the backend's frameFields produces for the same fields.
+            AgentAuthenticator.RunMessage("MyTask", CommandNonce, Ts)
+                .Should().Be("8:task:run6:MyTask32:d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a610:1700000000");
+
+            // Under wire protocol 1 each pair below was one pipe-joined string,
+            // so one signature covered two different commands.
+            AgentAuthenticator.UpdateMessage("T", "x", "a|b", "c", "least", CommandNonce, Ts)
+                .Should().NotBe(AgentAuthenticator.UpdateMessage("T", "x", "a", "b|c", "least", CommandNonce, Ts));
+            AgentAuthenticator.CanonicalizeAction("x", new[] { "a", "b" })
+                .Should().NotBe(AgentAuthenticator.CanonicalizeAction("x", new[] { "a\u001fb" }));
+            AgentAuthenticator.CanonicalizeAction("x", new[] { "1:a" })
+                .Should().NotBe(AgentAuthenticator.CanonicalizeAction("x", new[] { "", "a" }));
         }
 
         [Fact]
@@ -162,6 +179,16 @@ namespace Cronsole.Agent.Tests
                 .Should().Be(auth.HandshakeHmac);
             // ...and the session key must be derivable from the same nonce.
             auth.SessionKey.Should().Be(AgentAuthenticator.Hmac(Secret, $"session:{auth.Nonce}"));
+        }
+
+        [Fact]
+        public void CreateHandshakeAuth_AnnouncesTheWireVersion()
+        {
+            // The backend reads this before it signs anything, and refuses to
+            // sign for an agent that does not say the version it speaks.
+            var payload = new AgentAuthenticator(Secret, AgentId).CreateHandshakeAuth();
+            System.Text.Json.JsonSerializer.SerializeToElement(payload)
+                .GetProperty("protocolVersion").GetInt32().Should().Be(AgentService.ProtocolVersion);
         }
 
         [Fact]

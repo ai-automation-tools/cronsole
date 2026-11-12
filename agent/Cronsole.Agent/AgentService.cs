@@ -32,12 +32,13 @@ namespace Cronsole.Agent
         /// canonicalization has to match byte-for-byte and a mismatch is not a
         /// degraded feature — it is every command rejected.
         ///
-        /// The backend records this and renders it; it refuses nothing, because
-        /// there is exactly one protocol version in existence and a mismatch
-        /// cannot occur yet. The day this becomes 2, the refusal is the first
-        /// thing to build. See docs/contributing/Versioning.md.
+        /// 2 (2026-11-11): signed messages are length-prefixed fields instead of
+        /// pipe-joined text (AgentAuthenticator.Frame). The backend reads this
+        /// from the handshake and refuses to sign for an agent on another
+        /// version, naming the rebuild. Must equal PROTOCOL_VERSION in
+        /// backend/src/ws/agentAuth.ts. See docs/contributing/Versioning.md.
         /// </summary>
-        public const int ProtocolVersion = 1;
+        public const int ProtocolVersion = 2;
 
         /// <summary>
         /// The agent's own version, read off the assembly so the number written
@@ -137,7 +138,9 @@ namespace Cronsole.Agent
             if (!data.TryGetProperty("nonce", out var nonceEl) || nonceEl.ValueKind != JsonValueKind.String)
                 return false;
             nonce = nonceEl.GetString() ?? string.Empty;
-            if (nonce.Length == 0) return false;
+            // The backend sends 16 random bytes as lowercase hex. Anything else
+            // is not a command from it.
+            if (nonce.Length != 32 || !nonce.All(c => (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))) return false;
             if (!data.TryGetProperty("ts", out var tsEl) || !tsEl.TryGetInt64(out ts)) return false;
             if (!data.TryGetProperty("sig", out var sigEl) || sigEl.ValueKind != JsonValueKind.String)
                 return false;

@@ -17,8 +17,8 @@ import { Socket } from 'socket.io';
  * is a different question (troubleshooting #7).
  *
  * `protocolVersion` is the wire contract, and it moves independently of the
- * build — see `docs/contributing/Versioning.md`. Nothing refuses on it yet
- * because only one value has ever existed.
+ * build — see `docs/contributing/Versioning.md`. This copy, from `agent:hello`, is for
+ * display. The one that gates signing is read from the handshake (agentAuth.ts).
  *
  * `elevated` is `undefined` for exactly the same reason `protocolVersion` is:
  * an agent published before this field existed says nothing, and that absence

@@ -12,6 +12,10 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
+### Added
+
+- **Collections: add a whole folder, copy a link, rename from the chip** (2026-11-12). Every folder and job-type row in the source rail now has a hover **bookmark** that adds all the tasks it counts to a collection in one request (a snapshot — later arrivals don't join; pinning is still how you follow a folder). A partly-filed folder shows as mixed. Collection chips gain **copy link** (`/?collection=<id>`, stable across renames) and a **rename** pencil that opens *Manage collections* with that name in edit; the manager gains a copy-link button per row.
+
 ### Fixed
 
 - **A deleted on-demand or chained native task can be restored again** (2026-11-12). A Cronsole-native task with no schedule of its own — made on-demand with *Edit schedule*, or one that only runs after another task — exported and archived as `schedule: null`, and import and archive-restore refused that as *"has no schedule in the file"*. So the archive taken before a delete could never rebuild it, and its `restorable` said so. `null` now recreates the task unscheduled; a file with the field missing or blank is still refused. Found by driving `delete_task` → `restore_task_archive` over MCP.

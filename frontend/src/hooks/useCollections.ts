@@ -28,6 +28,14 @@ export interface Collection {
   updatedAt: string;
 }
 
+/**
+ * A collection's dashboard URL — a link you can bookmark or send. It carries the
+ * **id**, never the name, so renaming keeps every shared link working
+ * (`TaskFilters.collection`); `filtersFromParams` reads it back.
+ */
+export const collectionLink = (id: string, origin = window.location.origin) =>
+  `${origin}/?collection=${encodeURIComponent(id)}`;
+
 const KEY = ['collections'];
 
 /** Both queries a collection mutation can invalidate, in one place. */

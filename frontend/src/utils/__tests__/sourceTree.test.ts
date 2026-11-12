@@ -7,6 +7,7 @@ import {
   FAVORITES_KEY,
   UNCATEGORIZED,
   railSectionOf,
+  railNodeTasks,
   type RailNode
 } from '../sourceTree';
 import type { RailPin } from '../railPins';
@@ -581,5 +582,32 @@ describe('buildSourceTree — Windows subfolders', () => {
     });
 
     expect(find(tree, 'AI-Tools')!.children).toBeUndefined();
+  });
+});
+
+describe('railNodeTasks — what "add folder to collection" adds', () => {
+  it('returns exactly the tasks each folder row counts, at every depth and in the system group', () => {
+    const population = [
+      task({ category: 'Work', externalId: '\\Work\\a' }),
+      task({ category: 'Work', externalId: '\\Work\\Backups\\b' }),
+      task({ category: 'Work', externalId: '\\Work\\Backups\\Old\\c' }),
+      task({ category: 'Home', externalId: '\\Home\\d' }),
+      task({ category: 'Microsoft', externalId: '\\Microsoft\\Windows\\e', isSystem: true }),
+      task({ platform: 'TASKHUB_NATIVE', source: 'TASKHUB_NATIVE:SCRIPT', category: undefined })
+    ];
+    const tree = buildSourceTree({ population, filters: filters({ system: 'include' }) });
+
+    const walk = (nodes: RailNode[]): RailNode[] =>
+      nodes.flatMap(n => [n, ...walk(n.children ?? [])]);
+    const folders = walk(tree.flatMap(n => n.children ?? [])).filter(n => n.patch);
+
+    expect(folders.length).toBeGreaterThan(4);
+    for (const node of folders) {
+      expect(railNodeTasks(population, node), node.key).toHaveLength(node.count);
+    }
+    expect(railNodeTasks(population, find(tree, 'Backups')!).map(t => t.externalId)).toEqual([
+      '\\Work\\Backups\\b',
+      '\\Work\\Backups\\Old\\c'
+    ]);
   });
 });

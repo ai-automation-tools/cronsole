@@ -10,6 +10,7 @@ import authRoutes from './routes/auth.js';
 import { authenticateToken } from './auth/auth.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { corsOptions } from './config/origins.js';
+import { makeHostGate } from './config/hosts.js';
 import { createRequire } from 'node:module';
 
 /**
@@ -49,6 +50,10 @@ const IMPORT_BODY_LIMIT = '8mb';
 export function createApp(): Express {
   const app = express();
   app.disable('x-powered-by');
+
+  // First, before CORS and the body parsers: a request under a name this install
+  // does not answer to gets nothing else. See config/hosts.ts (DNS rebinding).
+  app.use(makeHostGate().hostGuard);
 
   // Who the login rate-limiter thinks it is throttling.
   //

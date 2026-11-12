@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../src/app.js';
 import { prisma } from '../../src/db.js';
@@ -281,5 +281,34 @@ describe('a password change ends other sessions', () => {
       .send({ currentPassword: creds.password, newPassword: 'a-different-passphrase', revokeApiTokens: true });
     expect(res.body.revokedApiTokens).toBe(1);
     expect((await request(app).get('/api/tasks').set(bearer(apiToken))).status).toBe(403);
+  });
+});
+
+describe('first-run setup through a proxy needs the one-time code', () => {
+  const creds = { email: 'remote-owner@example.com', password: 'correct-horse-battery' };
+  const viaProxy = { 'X-Forwarded-For': '203.0.113.9' };
+
+  it('refuses without the code, accepts with the one printed to the log', async () => {
+    const printed: string[] = [];
+    const spy = vi.spyOn(console, 'log').mockImplementation((...a) => { printed.push(a.join(' ')); });
+    try {
+      const status = await request(app).get('/api/auth/status').set(viaProxy);
+      expect(status.body).toEqual({ needsSetup: true, setupCodeRequired: true });
+      // Asked for directly on the machine, the same install wants no code.
+      expect((await request(app).get('/api/auth/status')).body.setupCodeRequired).toBe(false);
+
+      const none = await request(app).post('/api/auth/setup').set(viaProxy).send(creds);
+      expect(none.status).toBe(403);
+      const wrong = await request(app).post('/api/auth/setup').set(viaProxy).send({ ...creds, setupCode: 'deadbeef0' });
+      expect(wrong.status).toBe(403);
+
+      const code = /Setup code: ([0-9a-f]{8})/.exec(printed.join('\n'))?.[1];
+      expect(code).toBeTruthy();
+      const ok = await request(app).post('/api/auth/setup').set(viaProxy).send({ ...creds, setupCode: code });
+      expect(ok.status).toBe(200);
+      expect(ok.body.token).toBeTruthy();
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

@@ -1931,6 +1931,9 @@ no-shell execution held up; the gaps are in defaults and deployment.
 - [x] **Give the agent a log, and give agent setup a pairing secret** *(2026-11-11)*. `logs/agent.*.log`;
       `setup-agent-startup.ps1` copies the secret from the backend's `.env`. Open: an install with no
       `.env` at all (the Docker quick start) still has to create one, which is the item above.
+- [x] **A Host allowlist and a one-time setup code** *(2026-11-11)*. `config/hosts.ts` gates REST
+      and the Socket.IO handshake; `ALLOWED_HOSTS` adds names. `/setup` asks for a code from the
+      backend log unless the request is a direct loopback one.
 - [x] **A password change revokes sessions and offers to revoke API tokens** *(2026-11-11)*.
       `User.passwordChangedAt`; `checkToken` refuses an older browser session. Open sockets of
       another session stay connected until they reconnect.

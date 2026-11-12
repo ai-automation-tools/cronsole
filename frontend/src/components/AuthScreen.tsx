@@ -11,12 +11,13 @@ type Mode = 'login' | 'setup';
  * the one account); `login` mode is every visit after.
  */
 export function AuthScreen({ mode }: { mode: Mode }) {
-  const { login, setup, sessionExpired } = useAuth();
+  const { login, setup, sessionExpired, setupCodeRequired } = useAuth();
   const isSetup = mode === 'setup';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [setupCode, setSetupCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -37,7 +38,7 @@ export function AuthScreen({ mode }: { mode: Mode }) {
 
     setBusy(true);
     try {
-      if (isSetup) await setup(email.trim(), password);
+      if (isSetup) await setup(email.trim(), password, undefined, setupCode.trim() || undefined);
       else await login(email.trim(), password);
       // On success the provider flips status → the gate unmounts this screen.
     } catch (err) {
@@ -114,6 +115,25 @@ export function AuthScreen({ mode }: { mode: Mode }) {
                 className="mt-1 w-full bg-background border border-border rounded-lg px-3 py-2 text-sm outline-none focus:border-primary transition-colors"
                 placeholder="Re-enter your password"
               />
+            </label>
+          )}
+
+          {isSetup && setupCodeRequired && (
+            <label className="block">
+              <span className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Setup code</span>
+              <input
+                type="text"
+                required
+                autoComplete="off"
+                value={setupCode}
+                onChange={e => setSetupCode(e.target.value)}
+                className="mt-1 w-full bg-background border border-border rounded-lg px-3 py-2 text-sm font-mono outline-none focus:border-primary transition-colors"
+                placeholder="From the backend log"
+              />
+              <span className="mt-1.5 block text-xs text-muted-foreground">
+                Printed in the backend log, because this page was not opened directly on the machine
+                running Cronsole. Run <code>cronsole logs</code>, or <code>docker compose logs backend</code>.
+              </span>
             </label>
           )}
 

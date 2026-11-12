@@ -15,6 +15,7 @@ import { nativeScheduler } from './services/NativeScheduler.js';
 import { autoSync } from './services/AutoSync.js';
 import { startCatalogRefresh } from './catalog/catalogSync.js';
 import { parseAllowedOrigins, warnOnPermissiveCors } from './config/origins.js';
+import { makeHostGate } from './config/hosts.js';
 
 // Fail fast if the agent pairing secret is missing/weak — the socket channel is
 // remote command execution on the user's machine, so booting without it is unsafe.
@@ -31,6 +32,8 @@ const allowedOrigins = parseAllowedOrigins();
 warnOnPermissiveCors(allowedOrigins);
 
 export const io = new Server(server, {
+  // The REST layer's Host gate, on the handshake too (config/hosts.ts).
+  allowRequest: makeHostGate().hostAllowsRequest,
   cors: {
     origin: allowedOrigins.length > 0 ? allowedOrigins : false,
     methods: ["GET", "POST"]

@@ -862,6 +862,14 @@ Non-negotiable rules. **Every one has a reason recorded in
   session token lives in `localStorage`, so an inline script runs on `:7373` and is silently
   dropped on the proxied page. Boot scripts are files in `frontend/public/`
   (`noInlineScript.test.ts`). Styles keep `'unsafe-inline'`: React writes style attributes.
+- **The API answers only to hostnames it knows** (`config/hosts.ts`, one gate for REST and the
+  Socket.IO handshake). Loopback binding does not stop DNS rebinding, because that request does
+  come from this machine; the `Host` header is the one thing the page cannot forge. Allowed:
+  `localhost`, any IP literal, `host.docker.internal`, every `ALLOWED_ORIGINS` host, and
+  `ALLOWED_HOSTS`. Never widen it to "any host when the list is empty".
+- **First-run `/setup` needs the one-time code unless the request is a direct loopback one.** The
+  code is written only to the backend log. "Direct" is read from the socket and the absence of
+  forwarding headers, never from `req.ip`, so `TRUST_PROXY` cannot make a forwarded request local.
 - **`ALLOWED_ORIGINS` is one list gating two surfaces** (REST CORS + the Socket.IO handshake), parsed
   once in `config/origins.ts`. No `Origin` header = always allowed (non-browser callers are gated by
   auth). Empty list stays permissive but warns at boot.

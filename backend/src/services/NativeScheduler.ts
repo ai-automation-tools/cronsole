@@ -2,7 +2,7 @@ import { PlatformType, TaskStatus, type Task } from '@prisma/client';
 import { prisma } from '../db.js';
 import { computeNextRun } from '../utils/cron-next.js';
 import { executeJob, NativeJob, NativeRunResult } from './NativeTaskExecutor.js';
-import { notifyTasksChanged } from '../ws/uiChannel.js';
+import { notifyRunFailed, notifyTasksChanged } from '../ws/uiChannel.js';
 import { queueRunNotification } from './FailureNotificationService.js';
 import { readTaskSecrets, TaskSecretDecryptError } from './taskSecrets.js';
 
@@ -290,6 +290,7 @@ export class NativeScheduler {
       notifyTasksChanged(task.userId);
 
       if (last) {
+        if (status === 'FAILURE') notifyRunFailed(task.userId, { taskId: task.id, name: task.name, message: result.log });
         queueRunNotification({
           task,
           trigger: 'scheduled',

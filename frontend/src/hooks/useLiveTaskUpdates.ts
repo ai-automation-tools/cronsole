@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { io, type Socket } from 'socket.io-client';
 import { API_ORIGIN, subscribeApiOrigin, getAuthToken } from '../api';
@@ -12,8 +12,18 @@ import { API_ORIGIN, subscribeApiOrigin, getAuthToken } from '../api';
  * This is lighter than polling: one idle WebSocket that only carries a message
  * when something actually changed. No-op when no auth token is configured.
  */
-export function useLiveTaskUpdates(): void {
+export interface PushedRunFailure { taskId: string; name: string; message: string }
+
+/**
+ * `onRunFailed` is called for a run the backend performed by itself and that
+ * failed (a scheduled or chained Cronsole-native job). Runs started from a tab
+ * are reported by that tab and are not pushed.
+ */
+export function useLiveTaskUpdates(onRunFailed?: (failure: PushedRunFailure) => void): void {
   const queryClient = useQueryClient();
+  // Held in a ref so a new callback each render does not reconnect the socket.
+  const onRunFailedRef = useRef(onRunFailed);
+  useEffect(() => { onRunFailedRef.current = onRunFailed; });
   const [apiOrigin, setApiOriginState] = useState(API_ORIGIN);
 
   useEffect(() => subscribeApiOrigin(setApiOriginState), []);
@@ -40,9 +50,12 @@ export function useLiveTaskUpdates(): void {
     };
 
     socket.on('task:updated', refresh);
+    const failed = (failure: PushedRunFailure) => onRunFailedRef.current?.(failure);
+    socket.on('run:failed', failed);
 
     return () => {
       socket.off('task:updated', refresh);
+      socket.off('run:failed', failed);
       socket.disconnect();
     };
   }, [apiOrigin, queryClient]);

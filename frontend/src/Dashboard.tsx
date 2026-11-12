@@ -89,16 +89,18 @@ const Dashboard = () => {
     else if (onSourcesLinks && settings.showQuickLinksNav) navigate('/links', { replace: true });
   }, [section, location.search, settings.showQuickLinksNav, navigate]);
 
-  // Push-based live updates: refresh the task list when the backend signals a
-  // change (agent sync, scheduled run, another tab), instead of only polling.
-  useLiveTaskUpdates();
-
   // Raise an OS notification for a task failure when the user has opted in.
   const notifyFailure = (title: string, body: string) => {
     if (settings.desktopNotifyOnFailure && 'Notification' in window && Notification.permission === 'granted') {
       new Notification(title, { body });
     }
   };
+
+  // Push-based live updates: refresh the task list when the backend signals a
+  // change (agent sync, scheduled run, another tab), instead of only polling.
+  // A native job that fails on its schedule arrives here too, so the desktop
+  // notification is not limited to runs started in this tab.
+  useLiveTaskUpdates(failure => notifyFailure('Cronsole — scheduled run failed', `${failure.name}: ${failure.message}`));
 
   const { data: tasks, isLoading, isError: tasksFailed, error: tasksError, refetch: refetchTasks } = useQuery<Task[]>({
     queryKey: ['tasks'],

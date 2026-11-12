@@ -12,7 +12,7 @@ const db = vi.hoisted(() => ({
   executionLog: { create: vi.fn() }
 }));
 vi.mock('../../db.js', () => ({ prisma: db }));
-vi.mock('../../ws/uiChannel.js', () => ({ notifyTasksChanged: vi.fn() }));
+vi.mock('../../ws/uiChannel.js', () => ({ notifyTasksChanged: vi.fn(), notifyRunFailed: vi.fn() }));
 vi.mock('../FailureNotificationService.js', () => ({ queueRunNotification: vi.fn() }));
 vi.mock('../taskSecrets.js', () => ({
   readTaskSecrets: vi.fn(async () => ({})),
@@ -23,6 +23,7 @@ vi.mock('../NativeTaskExecutor.js', () => ({ executeJob: vi.fn() }));
 import { NativeScheduler, MISSED_RUN_GRACE_MS } from '../NativeScheduler.js';
 import { executeJob } from '../NativeTaskExecutor.js';
 import { queueRunNotification } from '../FailureNotificationService.js';
+import { notifyRunFailed } from '../../ws/uiChannel.js';
 
 const now = new Date('2026-11-06T12:00:00Z');
 const task = (id: string, job: Record<string, unknown>, nextRunTime = now) => ({
@@ -130,6 +131,18 @@ describe('NativeScheduler (ADR 0004)', () => {
     ]);
     expect(queueRunNotification).toHaveBeenCalledTimes(1);
     expect(vi.mocked(queueRunNotification).mock.calls[0][0].status).toBe('SUCCESS');
+    // A failed attempt that a retry fixed is not a failure to tell an open dashboard about.
+    expect(notifyRunFailed).not.toHaveBeenCalled();
+  });
+
+  it('tells open dashboards once when the final attempt fails', async () => {
+    vi.mocked(executeJob).mockResolvedValue(failed as any);
+    db.task.findMany.mockResolvedValue([task('t', { jobType: 'EXEC', executable: 'x', policy: { retries: 1 } })]);
+
+    await scheduler.tick(now);
+    await scheduler.idle();
+    expect(notifyRunFailed).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(notifyRunFailed).mock.calls[0][1]).toMatchObject({ taskId: 't', message: 'exit 1' });
   });
 
   it('does not retry a run that could not start, or a check', async () => {

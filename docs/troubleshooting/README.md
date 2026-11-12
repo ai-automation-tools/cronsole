@@ -1143,6 +1143,9 @@ task:run|\Cronsole\MyTask|3f9a…c2|1700000000
                          ^^^^^^ fresh 16 random bytes per emit
 ```
 
+*(That is the wire protocol 1 form. Since 2026-11-11 the same fields are length-prefixed, not
+joined with `|`; the nonce is in the same place. See [#108](#108-every-windows-write-is-refused-with-a-sentence-about-the-wire-protocol).)*
+
 That restores the property the replay guard always assumed: **a legitimate re-send is never
 byte-identical, while a replayed frame still is.** Verified live — five back-to-back `run_task`
 calls now complete in 27–60ms each, where the second used to hang 15s.
@@ -6647,5 +6650,38 @@ from a stranger, so it asks for a code that it writes only to its own log.
 
 **Fix.** Read the code from the backend log: `cronsole logs`, `logs\backend.out.log`, or
 `docker compose logs backend`. Look for `Setup code:`. A backend restart prints a new one.
+
+*First hit: 2026-11-11 (the change itself).*
+
+## 108. Every Windows write is refused with a sentence about the wire protocol
+
+**Symptom.** After an update, Run now, enable/disable, create, edit, delete and restore on a
+Windows task all fail at once with *The Windows agent speaks an older wire protocol and this
+backend speaks 2, so the agent would reject every command.* Listing and syncing Windows tasks
+still work. The Windows source shows as degraded with the same sentence. Cronsole-native jobs and
+other sources are fine.
+
+**Cause.** The backend signs each command it sends the agent, and the agent rebuilds the signed
+text itself to check it. On 2026-11-11 that text changed (wire protocol 2: each field is written
+with its length in front, where it used to be joined with `|`). An agent built before the change
+rebuilds the old text, so no signature would match and it would drop every command in silence.
+The backend reads the agent's version from the handshake and refuses to send, which is why you
+get a sentence and no 15-second timeout. The backend was updated; the agent was not, because
+rebuilding it needs administrator rights.
+
+**Fix.** From an **Administrator** PowerShell prompt in the clone:
+
+```powershell
+pwsh scripts\Republish-Agent.ps1
+```
+
+or `pwsh scripts\cronsole.ps1 update` from that prompt, which does the same after pulling. Check
+with **Diagnose**: *Agent version* should end in `(wire v2)`.
+
+**The other direction.** If the sentence says the agent speaks a *newer* protocol, the agent was
+rebuilt from newer source than the backend is running. Run `pwsh scripts\cronsole.ps1 update`.
+An agent on protocol 2 against a backend from before 2026-11-11 gets no sentence at all: that
+backend does not know to refuse, so every write times out with *Agent trigger timeout* and the
+agent log shows `REJECTED unsigned/invalid` for each one.
 
 *First hit: 2026-11-11 (the change itself).*

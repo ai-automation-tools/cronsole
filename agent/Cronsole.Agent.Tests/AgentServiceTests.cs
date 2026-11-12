@@ -479,6 +479,22 @@ namespace Cronsole.Agent.Tests
         }
 
         [Fact]
+        public void A_command_whose_nonce_is_not_32_hex_is_rejected_even_when_correctly_signed()
+        {
+            var taskPath = "MyTask";
+            var ts = Now();
+            var nonce = "not-a-backend-nonce";
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.SetStatusMessage(taskPath, false, nonce, ts));
+            var mockResponse = new Mock<ISocketResponse>();
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0))
+                .Returns(Payload(new { taskPath, enabled = false, nonce, ts, sig }));
+
+            _socketHandlers["task:set_status"].Invoke(mockResponse.Object);
+
+            _mockScheduler.Verify(s => s.SetTaskStatus(It.IsAny<string>(), It.IsAny<bool>()), Times.Never);
+        }
+
+        [Fact]
         public void TaskSetStatus_Event_NotFound_EmitsFailureAck()
         {
             // Arrange
@@ -1335,7 +1351,7 @@ namespace Cronsole.Agent.Tests
             // Bumping this constant means every published agent stops matching,
             // so it should only ever move alongside a SignableCommand change and
             // a backend that refuses the old value.
-            AgentService.ProtocolVersion.Should().Be(1);
+            AgentService.ProtocolVersion.Should().Be(2);
         }
     }
 }

@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import type { Socket } from 'socket.io';
-import { canonicalizeAction, type StructuredAction } from '../utils/commandParser.js';
+import { canonicalizeAction, frameFields, type StructuredAction } from '../utils/commandParser.js';
 import { canonicalizeTrigger, type WindowsTrigger } from '../utils/scheduler-conversion.js';
 
 /**
@@ -24,6 +24,21 @@ import { canonicalizeTrigger, type WindowsTrigger } from '../utils/scheduler-con
  * The C# counterpart is agent/Cronsole.Agent/AgentAuthenticator.cs — the HMAC
  * message strings below MUST stay byte-for-byte identical on both sides.
  */
+
+/**
+ * The wire contract this backend speaks. Not the build version: it moves only
+ * when the signed-command shape does. Must equal AgentService.ProtocolVersion.
+ *
+ * 2 (2026-11-11): every signed message is length-prefixed fields (frameFields)
+ * instead of pipe-joined text. An agent on 1 would reject every command, so the
+ * backend refuses to sign for one and says so - see protocolRefusal.
+ */
+export const PROTOCOL_VERSION = 2;
+
+// The agent's handshake nonce is Guid "N": 32 lowercase hex. Requiring that
+// shape leaves the pipe-joined handshake message with one reading only (the
+// timestamp is numeric), so a boundary cannot move between agentId and nonce.
+const HANDSHAKE_NONCE = /^[0-9a-f]{32}$/;
 
 // Clock-skew / replay tolerance, seconds. Handshake and commands share it.
 const MAX_SKEW_SEC = 120;
@@ -109,6 +124,13 @@ export interface AgentIdentity {
   agentId: string;
   /** Per-session HMAC key used to sign commands back to this socket. */
   sessionKey: string;
+  /**
+   * The wire version the agent announced in its handshake. Undefined for an
+   * agent built before it announced one there, which is older than 2.
+   * Self-reported and unsigned: a false value can only get a command refused
+   * here or rejected by the agent, never accepted.
+   */
+  protocolVersion?: number;
 }
 
 /**
@@ -119,7 +141,7 @@ export function verifyHandshake(auth: unknown): AgentIdentity {
   if (!auth || typeof auth !== 'object') {
     throw new Error('missing handshake auth');
   }
-  const { agentId, nonce, ts, hmac } = auth as Record<string, unknown>;
+  const { agentId, nonce, ts, hmac, protocolVersion } = auth as Record<string, unknown>;
 
   if (
     typeof agentId !== 'string' ||
@@ -128,6 +150,9 @@ export function verifyHandshake(auth: unknown): AgentIdentity {
     (typeof ts !== 'number' && typeof ts !== 'string')
   ) {
     throw new Error('malformed handshake auth');
+  }
+  if (!HANDSHAKE_NONCE.test(nonce)) {
+    throw new Error('malformed handshake nonce');
   }
 
   const tsNum = Number(ts);
@@ -152,7 +177,12 @@ export function verifyHandshake(auth: unknown): AgentIdentity {
   }
 
   const sessionKey = hmacHex(secret, `session:${nonce}`);
-  return { userId: MVP_USER_ID, agentId, sessionKey };
+  return {
+    userId: MVP_USER_ID,
+    agentId,
+    sessionKey,
+    protocolVersion: typeof protocolVersion === 'number' ? protocolVersion : undefined
+  };
 }
 
 /**
@@ -168,6 +198,7 @@ export function agentAuthMiddleware(
     socket.data.userId = identity.userId;
     socket.data.agentId = identity.agentId;
     socket.data.sessionKey = identity.sessionKey;
+    socket.data.protocolVersion = identity.protocolVersion;
     next();
   } catch (err) {
     // Log the reason server-side; hand the client an opaque error.
@@ -247,39 +278,42 @@ export type SignableCommand =
  * `nonce` sits immediately before `ts` in every message and makes each command
  * instance unique — see signCommand for why that's a correctness fix, not just
  * hygiene.
+ *
+ * Every message is frameFields([...]): length-prefixed, so a '|' (or anything
+ * else) inside a task name, description or working directory cannot move a
+ * field boundary. The action and trigger are framed lists nested as one field.
  */
 function commandMessage(cmd: SignableCommand, nonce: string, ts: number): string {
   switch (cmd.event) {
     case 'task:run':
-      return `task:run|${cmd.taskPath}|${nonce}|${ts}`;
+      return frameFields(['task:run', cmd.taskPath, nonce, ts]);
     case 'task:delete':
-      return `task:delete|${cmd.taskPath}|${nonce}|${ts}`;
+      return frameFields(['task:delete', cmd.taskPath, nonce, ts]);
     case 'task:set_status':
-      return `task:set_status|${cmd.taskPath}|${cmd.enabled ? 1 : 0}|${nonce}|${ts}`;
+      return frameFields(['task:set_status', cmd.taskPath, cmd.enabled ? 1 : 0, nonce, ts]);
     case 'task:update_schedule':
       // The trigger IS the change here, so it's signed — an on-path attacker on
       // a plaintext link mustn't be able to rewrite the schedule in flight.
-      return `task:update_schedule|${cmd.taskPath}|${canonicalizeTrigger(cmd.trigger)}|${nonce}|${ts}`;
+      return frameFields(['task:update_schedule', cmd.taskPath, canonicalizeTrigger(cmd.trigger), nonce, ts]);
     case 'task:update':
       // The action (executable + args), working dir, description, and run level
       // are all the change here, so all are signed — an on-path attacker on a
       // plaintext link mustn't be able to rewrite what the task runs (or with
       // what privileges) in flight. Fields are pre-normalized (empty string for
       // unset) so this matches AgentAuthenticator.UpdateMessage byte-for-byte.
-      return `task:update|${cmd.taskPath}|${canonicalizeAction(cmd.action)}|${cmd.workingDirectory}|${cmd.description}|${cmd.runLevel}|${nonce}|${ts}`;
+      return frameFields(['task:update', cmd.taskPath, canonicalizeAction(cmd.action), cmd.workingDirectory, cmd.description, cmd.runLevel, nonce, ts]);
     case 'task:import':
       // The XML enters as a HASH, not by value. It is not a size optimization:
       // the XML IS the task — its action, its trigger, and its principal
       // (including RunLevel Highest and the account it runs as) — so leaving it
-      // unsigned would make this signature decorative, while embedding it raw
-      // would put arbitrary '|' bytes inside a pipe-delimited message. A
-      // fixed-width digest is unambiguous on both sides of the language
-      // boundary, the same reason canonicalizeAction/canonicalizeTrigger exist.
+      // unsigned would make this signature decorative. It stays a hash under
+      // the framed format too: a fixed-width digest keeps the signed message
+      // small whatever the size of the definition.
       //
       // `overwrite` and `createFolders` are signed because each widens what the
       // command may destroy or create: flipping overwrite turns a refusal into
       // the replacement of a task the user still has.
-      return `task:import|${cmd.taskPath}|${sha256Hex(cmd.xml)}|${cmd.overwrite ? 1 : 0}|${cmd.createFolders ? 1 : 0}|${nonce}|${ts}`;
+      return frameFields(['task:import', cmd.taskPath, sha256Hex(cmd.xml), cmd.overwrite ? 1 : 0, cmd.createFolders ? 1 : 0, nonce, ts]);
     case 'task:create':
       // `folder` is signed and sits last among the payload fields: it decides
       // WHERE the task is registered, and RegisterTaskDefinition silently
@@ -289,7 +323,7 @@ function commandMessage(cmd: SignableCommand, nonce: string, ts: number): string
       // the matching reason: it decides whether that folder may be brought into
       // existence, and an unsigned flag could turn an honest refusal into a
       // folder the user never asked for and cannot remove without elevation.
-      return `task:create|${cmd.name}|${cmd.schedule}|${cmd.command}|${canonicalizeAction(cmd.action)}|${canonicalizeTrigger(cmd.trigger)}|${cmd.folder}|${cmd.createFolder ? 1 : 0}|${nonce}|${ts}`;
+      return frameFields(['task:create', cmd.name, cmd.schedule, cmd.command, canonicalizeAction(cmd.action), canonicalizeTrigger(cmd.trigger), cmd.folder, cmd.createFolder ? 1 : 0, nonce, ts]);
   }
 }
 
@@ -329,6 +363,26 @@ export function signCommand(
 }
 
 /**
+ * Why no command can be signed for this agent, or null when one can.
+ *
+ * An agent on another wire version rebuilds a different message and rejects
+ * every command in silence, which the backend would report fifteen seconds
+ * later as a timeout. Refusing here says what is wrong and what fixes it.
+ * Reading tasks, folders and history is unsigned and keeps working.
+ */
+export function protocolRefusal(socket: Socket): string | null {
+  const theirs = socket.data?.protocolVersion as number | undefined;
+  if (theirs === PROTOCOL_VERSION) return null;
+  const said = theirs === undefined ? 'an older wire protocol' : `wire protocol ${theirs}`;
+  return (
+    `The Windows agent speaks ${said} and this backend speaks ${PROTOCOL_VERSION}, so the agent would reject every command. ` +
+    (theirs !== undefined && theirs > PROTOCOL_VERSION
+      ? 'Update Cronsole to match the agent: pwsh scripts/cronsole.ps1 update.'
+      : 'Rebuild the agent from an elevated PowerShell prompt: pwsh scripts/Republish-Agent.ps1. Reading tasks still works until then.')
+  );
+}
+
+/**
  * Emit a signed command to an authenticated agent socket. Every field the agent
  * acts on is part of the SignableCommand (and thus covered by the signature),
  * so the whole command minus `event` goes on the wire alongside
@@ -339,6 +393,10 @@ export function emitSignedCommand(socket: Socket, cmd: SignableCommand): void {
   if (!sessionKey) {
     throw new Error('cannot sign command: socket not authenticated');
   }
+  // Callers check protocolRefusal first and answer with the sentence; this is
+  // the backstop for a verb that forgot.
+  const refusal = protocolRefusal(socket);
+  if (refusal) throw new Error(refusal);
   const ts = Math.floor(Date.now() / 1000);
   const nonce = newCommandNonce();
   const { sig } = signCommand(sessionKey, cmd, ts, nonce);

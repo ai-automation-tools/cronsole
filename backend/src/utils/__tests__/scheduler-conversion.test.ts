@@ -14,9 +14,9 @@ describe('canonicalizeTrigger', () => {
   });
 
   it('collapses optional fields to empty in a fixed order', () => {
-    // 7 fields: trigger|type|start|daysInterval|daysOfWeek|repInterval|repDuration
+    // 7 fields, each length-prefixed: trigger, type, start, daysInterval, daysOfWeek, repInterval, repDuration
     expect(canonicalizeTrigger({ type: 'Daily', startBoundary: '03:00', daysInterval: 1 }))
-      .toBe('trigger|Daily|03:00|1|||');
+      .toBe('7:trigger5:Daily5:03:001:10:0:0:');
   });
 
   it('serializes a full weekly trigger deterministically', () => {
@@ -27,7 +27,7 @@ describe('canonicalizeTrigger', () => {
         daysOfWeek: ['Monday', 'Wednesday'],
         repetition: { interval: 'PT30M', duration: 'P1D' }
       })
-    ).toBe('trigger|Weekly|09:30||Monday,Wednesday|PT30M|P1D');
+    ).toBe('7:trigger6:Weekly5:09:300:16:Monday,Wednesday5:PT30M3:P1D');
   });
 
   it('appends daysOfMonth for a Monthly trigger only', () => {
@@ -37,15 +37,15 @@ describe('canonicalizeTrigger', () => {
     // pins the same two strings on the C# side.
     expect(
       canonicalizeTrigger({ type: 'Monthly', startBoundary: '09:00', daysOfMonth: [1, 15] })
-    ).toBe('trigger|Monthly|09:00|||||1,15');
+    ).toBe('7:trigger7:Monthly5:09:000:0:0:0:4:1,15');
     expect(canonicalizeTrigger({ type: 'Daily', startBoundary: '09:00', daysInterval: 1 }))
-      .toBe('trigger|Daily|09:00|1|||');
+      .toBe('7:trigger5:Daily5:09:001:10:0:0:');
   });
 
   it('round-trips a real converted trigger through the canonical form', () => {
     const { trigger } = convertCronToWindowsTrigger('0 3 * * *');
     // Daily 03:00 → no days/repetition, so trailing fields are empty.
-    expect(canonicalizeTrigger(trigger)).toBe('trigger|Daily|03:00|1|||');
+    expect(canonicalizeTrigger(trigger)).toBe('7:trigger5:Daily5:03:001:10:0:0:');
   });
 });
 

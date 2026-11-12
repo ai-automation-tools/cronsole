@@ -1,4 +1,5 @@
 import { PlatformType, OsTarget } from '@prisma/client';
+import { frameFields } from './commandParser.js';
 
 export interface WindowsTrigger {
   type: 'Daily' | 'Weekly' | 'Monthly' | 'Time';
@@ -78,7 +79,9 @@ export function canonicalizeTrigger(trigger: WindowsTrigger | null | undefined):
   if (trigger.type === 'Monthly') {
     fields.push((trigger.daysOfMonth ?? []).join(','));
   }
-  return fields.join('|');
+  // Length-prefixed, not pipe-joined: `type` and `startBoundary` are read back
+  // off the wire by the agent, so a separator inside one could move a boundary.
+  return frameFields(fields);
 }
 
 export interface ReverseResult {

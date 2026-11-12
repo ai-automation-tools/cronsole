@@ -219,8 +219,9 @@ is. See [troubleshooting #45](../../../docs/troubleshooting/README.md#45-cronsol
 - **`task:import` (restore, 2026-07-28) is the export verb's write twin, and is signed** —
   including the task's whole XML, folded in as a **sha256 of its UTF-8 bytes** rather than by
   value. The XML *is* the task (action, trigger, and the account it runs as), so leaving it out
-  would make the signature decorative; embedding it raw would put arbitrary `|` bytes inside a
-  pipe-delimited message. Its two flags — `overwrite` and `createFolders` — are signed for the
+  would make the signature decorative; a fixed-width digest keeps the signed message small.
+  (Signed messages are length-prefixed fields since wire protocol 2, 2026-11-11, so a `|` in a
+  field is no longer a hazard; see Versioning.md.) Its two flags — `overwrite` and `createFolders` — are signed for the
   same reason `folder` is: each widens what the command may destroy or create. It answers
   `task:imported` with a **four-state** outcome (`created` / `replaced` / `exists` / `refused`),
   because `exists` is neither a success nor a failure and collapsing it lies both ways.

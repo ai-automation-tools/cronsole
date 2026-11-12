@@ -500,6 +500,15 @@ Non-negotiable rules. **Every one has a reason recorded in
 - Envelope `{ type, payload }`, `noun:verb` types. Ping 30s; a watchdog retries a dropped connection every 30s (fixed, no backoff).
 - Run commands are **HMAC-signed per session**. Anything that widens blast radius rides *inside* the
   signature (`folder`, `overwrite`, `createFolders`, and the restore XML's sha256).
+- **A signed message is length-prefixed fields, never joined text** (wire protocol 2,
+  `frameFields` / `AgentAuthenticator.Frame`). A separator can occur inside a name or description, and
+  then one signature covers two commands. A new signed field is one more entry in the list; the
+  action and trigger are framed lists nested as one field.
+- **The backend will not sign for an agent on another wire version.** The agent announces
+  `protocolVersion` in the handshake; `protocolRefusal` answers every write with a sentence naming the
+  rebuild and `getHealth` reports degraded with it. Unsigned reads keep working. A wire change
+  bumps the version at both ends and regenerates the golden vectors in both suites
+  ([#108](docs/troubleshooting/README.md#108-every-windows-write-is-refused-with-a-sentence-about-the-wire-protocol)).
 - **The agent gets no file-write verb** — it is elevated and local, so that would be a general
   arbitrary-file-write primitive reachable from the backend.
 - **A retirement verb requires a reader that could have seen everything.** The agent's enumeration is

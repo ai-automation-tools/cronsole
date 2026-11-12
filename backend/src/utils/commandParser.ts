@@ -18,9 +18,19 @@
  * shell command as a single argument to cmd rather than an implicit wrapper.
  */
 
-// ASCII unit separator (0x1F): the field delimiter for HMAC canonicalization. It
-// can't appear in a normal command line, so field boundaries are unambiguous.
-const UNIT_SEP = String.fromCharCode(0x1f);
+/**
+ * Join fields for an HMAC so that no two different field lists produce the same
+ * string: each field is written as `<length>:<field>`, where length is the
+ * field's UTF-16 code-unit count (`String.length` here, `string.Length` in C#).
+ *
+ * A separator cannot do this. Until wire protocol 2 the fields were joined with
+ * `|`, and a task name, description or working directory may contain one, so
+ * `a|b` + `c` and `a` + `b|c` signed identically: one signature, two meanings.
+ * MUST match `AgentAuthenticator.Frame` byte-for-byte.
+ */
+export function frameFields(fields: Array<string | number>): string {
+  return fields.map(f => `${String(f).length}:${f}`).join('');
+}
 
 export interface StructuredAction {
   executable: string;
@@ -86,5 +96,5 @@ export function toStructuredAction(command: string): StructuredAction {
  * `AgentAuthenticator.CanonicalizeAction` byte-for-byte.
  */
 export function canonicalizeAction(action: StructuredAction): string {
-  return [action.executable, ...action.args].join(UNIT_SEP);
+  return frameFields([action.executable, ...action.args]);
 }

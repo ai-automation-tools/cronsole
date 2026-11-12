@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import crypto from 'crypto';
 
 // Must be set before the module reads it (getPairingSecret is lazy, so setting
@@ -12,6 +12,8 @@ import {
   emitSignedCommand,
   getPairingSecret,
   sha256Hex,
+  protocolRefusal,
+  PROTOCOL_VERSION,
   _resetNonceCache,
   type SignableCommand,
 } from '../agentAuth.js';
@@ -24,6 +26,11 @@ const hmac = (key: string, msg: string) =>
 // Cross-language golden vector — the C# AgentAuthenticatorTests asserts these
 // exact hex strings. If either side changes the HMAC message format, BOTH test
 // suites break, which is the point.
+//
+// Regenerated 2026-11-11 for wire protocol 2: every message is length-prefixed
+// fields (frameFields) instead of pipe-joined text. The generator first
+// reproduced the committed v1 vectors from the v1 format, then both suites
+// recomputed these independently.
 //
 // Regenerated 2026-07-15 for the per-command nonce, which sits immediately
 // before `ts` in every message. The regeneration was validated by first
@@ -43,27 +50,27 @@ const VEC = {
   commandNonce: 'd1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6',
   ts: 1700000000,
   sessionKey: '67d80428fd79e26dd92269f97474031860185d325df6c731cda179e22b53ff14',
-  runSig: '1b05698c29c1761cccca0831edea73ee4de990024294056f39a037819f2fbc92',
-  deleteSig: '895b3da37ada2786afc47a0aa16404a395fd1ac9404b28f1597f451b2e76b36f',
-  statusSig: '0ed95b89b34854fa0e99f2813d5049a542b883332a5f572e033820081ede0d2b',
+  runSig: '40851ae88bea9f403056337d4140852cb6449a9e217533663ce5151949866412',
+  deleteSig: '819ee6600758cf5f43fb3ab0be5a5c9f410367c85ee29c1adfb89e772414b87b',
+  statusSig: '85f7ee5c3adc3a8d938bc5ddfee7eced0bcd07c695256523e645193e062510dd',
   // task:update_schedule signs the trigger. Golden case: Daily 03:00,
-  // daysInterval 1 -> canonical 'trigger|Daily|03:00|1|||'.
-  updateScheduleSig: 'f2d3877a970941645fc82da9d1bf1e829593a7b9b73e7cc1cd3739c89859ac83',
+  // daysInterval 1 -> canonical '7:trigger5:Daily5:03:001:10:0:0:'.
+  updateScheduleSig: '8aa21aaed0c3bf300265d1c2f8995f165bde73eb8b60ced46f961e8eb725b144',
   // task:update signs the structured action, working dir, description, and run
   // level. Golden case: action { executable: 'powershell.exe', args: ['-File',
-  // 'C:\\x.ps1'] } -> canonical 'powershell.exe\x1f-File\x1fC:\\x.ps1', working
+  // 'C:\\x.ps1'] } -> canonical '14:powershell.exe5:-File8:C:\\x.ps1', working
   // dir 'C:\\scripts', description 'Nightly job', runLevel 'highest'.
-  updateSig: '1032132b7efe16c1f45773d628783f4a0ea82f1a73f03f891ee91359f5a7e135',
+  updateSig: '15e78eed13b6fb8b908070583439a5bcd8485ab564e2946c24f4fd20e7fb2c60',
   // task:create signs the structured action, the trigger, the destination
   // folder, AND the createFolder flag. Golden case: command 'dir', action
-  // { executable: 'dir', args: [] } -> canonical 'dir', trigger null ->
+  // { executable: 'dir', args: [] } -> canonical '3:dir', trigger null ->
   // canonical 'none', folder '\Cronsole', createFolder false -> '0'.
   //
-  // This constant has changed exactly twice, both times because the signed INPUT
-  // changed: on 2026-07-31 the fixture's folder moved '\TaskHub' -> '\Cronsole'
-  // with the rename, and on 2026-08-04 the createFolder flag joined the message
-  // after `folder`. **Those are the only circumstances in which it may be
-  // updated.** Both regenerations were validated by first reproducing the
+  // This constant has changed three times, each because the signed INPUT or
+  // FORMAT changed: on 2026-07-31 the fixture's folder moved '\TaskHub' ->
+  // '\Cronsole' with the rename, on 2026-08-04 the createFolder flag joined the
+  // message after `folder`, and on 2026-11-11 wire protocol 2 framed every
+  // field. **Those are the only circumstances in which it may be updated.** Both regenerations were validated by first reproducing the
   // PREVIOUS committed vectors from the previous format — a generator that
   // can't reproduce what's already in the repo emits new values that are
   // confidently wrong and then get pinned by both suites, i.e. a lie agreed on
@@ -72,24 +79,28 @@ const VEC = {
   // languages, which is exactly what this vector exists to distinguish. Never
   // "fix" a mismatch here by pasting in whatever one side currently emits — a
   // divergence between C# and TypeScript is the bug it is built to catch.
-  createSig: 'e3c75a695f47bd2c3324cff295543b5b2b846efeb6f27e1b53939017a44ddb8c',
+  createSig: '1f5126aec4472b685cb1cf520a1445ce1b255c71e3d3ef3475a5ced567b26f41',
   // Same command with a Weekly trigger -> canonical
-  // 'trigger|Weekly|09:30||Monday,Wednesday|PT30M|P1D'.
-  createSigWithTrigger: '0071cff5171a0dacafaf07673b372867e7ab2e5ebaebbf66af24139b762295a9',
+  // '7:trigger6:Weekly5:09:300:16:Monday,Wednesday5:PT30M3:P1D'.
+  createSigWithTrigger: '52ae01c77c1065ab16b46b1b745c681789ca13dca5c519bdd6162f43f369fcba',
   // Same command as createSig but with createFolder TRUE. Pinned separately and
   // deliberately: with only a false case, an implementation that hard-coded '0'
   // — or dropped the field entirely and happened to match — would pass. Two
   // cases differing in exactly one bit are what prove the bit is actually signed.
-  createSigWithFolderCreate: 'd525bcc9f125bb4c77db4c53f6110946fb71884f949f5ffa7636582dfb2337fe',
+  createSigWithFolderCreate: '645ba49ac57da03312b45d3662c3d41bc594fc809faa3538ab533f504f30ea87',
   // task:import signs the XML BY HASH, plus both blast-radius flags. Golden
   // case: the XML below, overwrite false, createFolders true.
   importXml: '<Task><RegistrationInfo><URI>\\Work\\Job</URI></RegistrationInfo></Task>',
   importXmlSha256: 'dfd743c7a30868f6f2d62e3b9ceb16fb77c8a72c1509b1726dfc646072170281',
-  importSig: 'c6a8e92c11599c98dac759094220d8d6826c9a457e4f3ce9f83172b3144130a4',
+  importSig: '2b92301b29fd6eda71f48f9672bbbfea78918bc0a2f3c00bdb0608959524ef58',
 };
 
 /** Build a valid, fresh handshake auth payload for the given nonce. */
-function freshHandshake(nonce = 'nonce-1', agentId = 'agent-1') {
+// A handshake nonce must be 32 lowercase hex, as the agent's Guid "N" is.
+const hexNonce = (label: string) => crypto.createHash('sha256').update(label).digest('hex').slice(0, 32);
+
+function freshHandshake(label = 'nonce-1', agentId = 'agent-1') {
+  const nonce = hexNonce(label);
   const ts = Math.floor(Date.now() / 1000);
   return { agentId, nonce, ts, hmac: hmac(SECRET, `${agentId}|${nonce}|${ts}`) };
 }
@@ -259,7 +270,7 @@ describe('emitSignedCommand', () => {
     return {
       sent,
       socket: {
-        data: { sessionKey: VEC.sessionKey },
+        data: { sessionKey: VEC.sessionKey, protocolVersion: PROTOCOL_VERSION },
         emit: (event: string, payload: any) => sent.push({ event, payload }),
       } as any,
     };
@@ -289,7 +300,9 @@ describe('emitSignedCommand', () => {
     const { socket, sent } = fakeSocket();
     emitSignedCommand(socket, { event: 'task:run', taskPath: 'MyTask' });
     const { nonce, ts, sig } = sent[0].payload;
-    expect(hmac(VEC.sessionKey, `task:run|MyTask|${nonce}|${ts}`)).toBe(sig);
+    // Written out by hand, not through frameFields: length, colon, field.
+    expect(String(ts)).toHaveLength(10);
+    expect(hmac(VEC.sessionKey, `8:task:run6:MyTask32:${nonce}10:${ts}`)).toBe(sig);
   });
 
   it('uses a DIFFERENT nonce for each emit, even within the same second', () => {
@@ -310,14 +323,63 @@ describe('emitSignedCommand', () => {
       })
     ).toThrow(/not authenticated/);
   });
+
+  it('refuses to sign for an agent on another wire version, and names the fix', () => {
+    // An agent on v1 rebuilds a pipe-joined message and rejects every command
+    // in silence. A sentence now beats a timeout fifteen seconds later.
+    for (const protocolVersion of [1, undefined]) {
+      const emit = vi.fn();
+      const socket = { data: { sessionKey: VEC.sessionKey, protocolVersion }, emit } as any;
+      expect(protocolRefusal(socket)).toMatch(/Republish-Agent\.ps1/);
+      expect(() => emitSignedCommand(socket, { event: 'task:run', taskPath: 'MyTask' })).toThrow(/wire protocol/);
+      expect(emit).not.toHaveBeenCalled();
+    }
+    const newer = { data: { sessionKey: VEC.sessionKey, protocolVersion: PROTOCOL_VERSION + 1 }, emit: vi.fn() } as any;
+    expect(protocolRefusal(newer)).toMatch(/cronsole\.ps1 update/);
+    expect(protocolRefusal({ data: { protocolVersion: PROTOCOL_VERSION } } as any)).toBeNull();
+  });
+});
+
+describe('field boundaries (wire protocol 2)', () => {
+  const sign = (cmd: SignableCommand) => signCommand(VEC.sessionKey, cmd, VEC.ts, VEC.commandNonce).sig;
+
+  it('gives two commands that differ only in where a field ends different signatures', () => {
+    // Under v1 both of each pair were the same pipe-joined string, so one
+    // signature covered two different commands.
+    const update = { event: 'task:update' as const, taskPath: 'T', action: { executable: 'x', args: [] }, runLevel: 'least' as const };
+    expect(sign({ ...update, workingDirectory: 'a|b', description: 'c' }))
+      .not.toBe(sign({ ...update, workingDirectory: 'a', description: 'b|c' }));
+
+    const create = { event: 'task:create' as const, command: 'dir', action: { executable: 'dir', args: [] }, trigger: null, folder: '\\Cronsole', createFolder: false };
+    expect(sign({ ...create, name: 'a|b', schedule: 'c' })).not.toBe(sign({ ...create, name: 'a', schedule: 'b|c' }));
+
+    // Inside the nested lists too: one argument is not two.
+    const run = (args: string[]) => sign({ ...update, workingDirectory: '', description: '', action: { executable: 'x', args } });
+    expect(run(['a', 'b'])).not.toBe(run(['a\x1fb']));
+    expect(run(['1:a'])).not.toBe(run(['', 'a']));
+  });
 });
 
 describe('verifyHandshake', () => {
   it('accepts a valid handshake and returns identity + session key', () => {
-    const identity = verifyHandshake(freshHandshake('n-abc', 'agent-x'));
+    const auth = freshHandshake('n-abc', 'agent-x');
+    const identity = verifyHandshake(auth);
     expect(identity.userId).toBe('cli_user_placeholder');
     expect(identity.agentId).toBe('agent-x');
-    expect(identity.sessionKey).toBe(hmac(SECRET, 'session:n-abc'));
+    expect(identity.sessionKey).toBe(hmac(SECRET, `session:${auth.nonce}`));
+    // An agent built before the handshake carried a version says nothing.
+    expect(identity.protocolVersion).toBeUndefined();
+    expect(verifyHandshake({ ...freshHandshake('n-v2'), protocolVersion: 2 }).protocolVersion).toBe(2);
+  });
+
+  it('rejects a nonce that is not 32 lowercase hex, even correctly signed', () => {
+    // The handshake message is still pipe-joined. With the nonce held to this
+    // shape and a numeric timestamp it has one reading only: agentId 'a|b' with
+    // nonce N cannot also be agentId 'a' with nonce 'b|N'.
+    const ts = Math.floor(Date.now() / 1000);
+    const nonce = `b|${hexNonce('x')}`;
+    expect(() => verifyHandshake({ agentId: 'a', nonce, ts, hmac: hmac(SECRET, `a|${nonce}|${ts}`) }))
+      .toThrow(/nonce/);
   });
 
   it('rejects a bad signature', () => {
@@ -333,7 +395,7 @@ describe('verifyHandshake', () => {
 
   it('rejects a stale timestamp', () => {
     const agentId = 'a';
-    const nonce = 'n';
+    const nonce = hexNonce('n');
     const ts = Math.floor(Date.now() / 1000) - 10_000;
     expect(() =>
       verifyHandshake({ agentId, nonce, ts, hmac: hmac(SECRET, `${agentId}|${nonce}|${ts}`) })
@@ -348,7 +410,7 @@ describe('verifyHandshake', () => {
 
   it('accepts a string timestamp equal to a number one', () => {
     const agentId = 'a';
-    const nonce = 'n';
+    const nonce = hexNonce('n');
     const ts = Math.floor(Date.now() / 1000);
     const sig = hmac(SECRET, `${agentId}|${nonce}|${ts}`);
     expect(() => verifyHandshake({ agentId, nonce, ts: String(ts), hmac: sig })).not.toThrow();

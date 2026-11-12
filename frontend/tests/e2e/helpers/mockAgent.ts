@@ -94,7 +94,9 @@ function authPayload(agentId: string, secret: string) {
     agentId,
     nonce,
     ts,
-    hmac: hmacHex(secret, `${agentId}|${nonce}|${ts}`)
+    hmac: hmacHex(secret, `${agentId}|${nonce}|${ts}`),
+    // The wire version the backend must see before it signs a command.
+    protocolVersion: 2
   };
 }
 

@@ -53,7 +53,7 @@ describe('WindowsAgentConnector', () => {
       emit: vi.fn(),
       on: vi.fn(),
       off: vi.fn(),
-      data: { sessionKey: SESSION_KEY }
+      data: { sessionKey: SESSION_KEY, protocolVersion: 2 }
     };
   });
 
@@ -1114,7 +1114,7 @@ describe('a successful agent request cancels its own deadline', () => {
         if (event === responseEvent) setTimeout(() => handler(payload), 10);
       }),
       off: vi.fn(),
-      data: { sessionKey: SESSION_KEY }
+      data: { sessionKey: SESSION_KEY, protocolVersion: 2 }
     };
     vi.mocked(agentManager.getSocket).mockReturnValue(socket as never);
 
@@ -1139,7 +1139,7 @@ describe('platform run history — the detail Windows publishes nowhere else', (
 
   beforeEach(() => {
     connector = new WindowsAgentConnector();
-    socket = { emit: vi.fn(), on: vi.fn(), off: vi.fn(), data: { sessionKey: SESSION_KEY } };
+    socket = { emit: vi.fn(), on: vi.fn(), off: vi.fn(), data: { sessionKey: SESSION_KEY, protocolVersion: 2 } };
     vi.mocked(agentManager.getSocket).mockReturnValue(socket);
   });
 
@@ -1335,7 +1335,7 @@ describe('an optional verb an old agent lacks is not evidence of a sick agent', 
     // tab — #62's shape, manufactured by something that is not a health check.
     vi.useFakeTimers();
     const connector = new WindowsAgentConnector();
-    const socket = { emit: vi.fn(), on: vi.fn(), off: vi.fn(), data: { sessionKey: SESSION_KEY } };
+    const socket = { emit: vi.fn(), on: vi.fn(), off: vi.fn(), data: { sessionKey: SESSION_KEY, protocolVersion: 2 } };
     vi.mocked(agentManager.getSocket).mockReturnValue(socket as any);
 
     const pending = connector.listPlatformRuns!('\Folder\Task', { userId: 'test_user' });
@@ -1370,5 +1370,33 @@ describe('WindowsAgentConnector: tasks under the Microsoft folder', () => {
     // A user folder that merely starts with the same letters is not Windows' own.
     vi.mocked(agentManager.getSocket).mockReturnValue(undefined);
     expect((await connector.deleteTask('\\MicrosoftEdgeUpdate\\Job', config)).message).toBe('Agent offline');
+  });
+});
+
+describe('an agent on another wire version', () => {
+  const config = { userId: 'test_user' };
+
+  it('answers every write with the rebuild sentence, sends nothing and records no timeout', async () => {
+    const connector = new WindowsAgentConnector();
+    // No protocolVersion in the handshake: an agent built before wire protocol 2.
+    const socket: any = { emit: vi.fn(), on: vi.fn(), off: vi.fn(), data: { sessionKey: SESSION_KEY } };
+    vi.mocked(agentManager.getSocket).mockReturnValue(socket);
+
+    const results = [
+      await connector.runTask('\\Cronsole\\Job', config),
+      await connector.deleteTask('\\Cronsole\\Job', config),
+      await connector.setTaskStatus('\\Cronsole\\Job', false, config),
+      await connector.createTask('Job', '0 3 * * *', 'dir', config)
+    ];
+    for (const r of results) {
+      expect(r.success).toBe(false);
+      expect(r.message).toMatch(/Republish-Agent\.ps1/);
+    }
+    expect(socket.emit).not.toHaveBeenCalled();
+    expect(agentManager.markUnresponsive).not.toHaveBeenCalled();
+
+    const health = await connector.getHealth(config);
+    expect(health.state).toBe('DEGRADED');
+    expect(health.reason).toMatch(/wire protocol/);
   });
 });

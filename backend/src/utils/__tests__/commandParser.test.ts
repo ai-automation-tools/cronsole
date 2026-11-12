@@ -59,13 +59,13 @@ describe('toStructuredAction', () => {
 });
 
 describe('canonicalizeAction', () => {
-  it('joins executable + args with the unit separator', () => {
-    expect(canonicalizeAction({ executable: 'python', args: ['a b', 'c'] })).toBe(
-      `python${US}a b${US}c`
-    );
+  it('frames executable + args, each with its length', () => {
+    expect(canonicalizeAction({ executable: 'python', args: ['a b', 'c'] })).toBe('6:python3:a b1:c');
+    // The old separator inside an argument is just a character now.
+    expect(canonicalizeAction({ executable: 'x', args: [`a${US}b`] })).toBe(`1:x3:a${US}b`);
   });
 
   it('is just the executable when there are no args', () => {
-    expect(canonicalizeAction({ executable: 'dir', args: [] })).toBe('dir');
+    expect(canonicalizeAction({ executable: 'dir', args: [] })).toBe('3:dir');
   });
 });

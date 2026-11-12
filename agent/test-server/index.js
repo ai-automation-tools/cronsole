@@ -48,8 +48,9 @@ io.use((socket, next) => {
   }
 });
 
-// Sign and emit a command the same way emitSignedCommand does. `message` is the
-// canonical string minus the trailing |nonce|ts (added here).
+// Sign and emit a command the same way emitSignedCommand does. `signed` is the
+// list of signed fields minus the trailing nonce and ts (added here). Since wire
+// protocol 2 the message is each field as length, colon, field (frame below).
 //
 // The per-command nonce is REQUIRED and must be both signed and sent: the agent
 // rebuilds the message locally and rejects anything it can't verify — silently,
@@ -57,10 +58,12 @@ io.use((socket, next) => {
 // responding. It exists because `ts` is second-granular, so two identical
 // commands in one second would otherwise sign identically and the agent's replay
 // guard would drop the second (docs/troubleshooting/README.md #16).
-function emitSigned(socket, event, fields, message) {
+const frame = (fields) => fields.map((f) => `${String(f).length}:${f}`).join("");
+
+function emitSigned(socket, event, fields, signed) {
   const ts = Math.floor(Date.now() / 1000);
   const nonce = crypto.randomBytes(16).toString("hex");
-  const sig = hmac(socket.data.sessionKey, `${message}|${nonce}|${ts}`);
+  const sig = hmac(socket.data.sessionKey, frame([...signed, nonce, ts]));
   socket.emit(event, { ...fields, nonce, ts, sig });
 }
 
@@ -77,7 +80,7 @@ io.on("connection", (socket) => {
   });
 
   // Example: uncomment to drive a signed run.
-  // emitSigned(socket, "task:run", { taskPath: "\\SomeTask" }, "task:run|\\SomeTask");
+  // emitSigned(socket, "task:run", { taskPath: "\\SomeTask" }, ["task:run", "\\SomeTask"]);
 
   socket.on("disconnect", () => console.log("Agent disconnected."));
 });

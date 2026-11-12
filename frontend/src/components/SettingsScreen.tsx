@@ -34,6 +34,7 @@ import { ThemeToggle } from './ThemeToggle';
 import {
   useSettings,
   DEFAULT_SETTINGS,
+  checkImportedSettings,
   type Settings,
   type DashboardView,
   type SettingsSyncStatus
@@ -805,9 +806,17 @@ export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const parsed = JSON.parse(String(reader.result)) as Partial<Settings>;
-        replaceAll(parsed);
-        toast('Settings imported.', 'success');
+        const checked = checkImportedSettings(JSON.parse(String(reader.result)));
+        if (!checked) {
+          toast('That file has no Cronsole settings in it. Nothing was changed.', 'error');
+          return;
+        }
+        replaceAll(checked.settings);
+        if (checked.dropped.length > 0) {
+          toast(`Settings imported. Skipped ${checked.dropped.length} that this version does not understand: ${checked.dropped.slice(0, 5).join(', ')}${checked.dropped.length > 5 ? ', ...' : ''}.`, 'error');
+        } else {
+          toast('Settings imported.', 'success');
+        }
       } catch {
         toast('Could not parse that file — expected Cronsole settings JSON.', 'error');
       }

@@ -19,6 +19,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 ### Fixed
 
 - **Task rows and Settings controls work from the keyboard and have names** (2026-11-11). In the list, board and schedule views a task opened only on a mouse click; its name is now a button, as it already was on a grid card. In Settings, each dropdown takes its name from its row label, and the change-password fields are a real form with named fields, so Enter submits and a screen reader says which field is which.
+- **Importing settings checks the file first** (2026-11-11). Settings > Data > Import used to accept any JSON and write it over your settings on every device. A wrong file (a task export, say) or a wrong value (a list where a switch belongs, a view that does not exist) could leave the dashboard unable to render. The import now keeps only settings it knows, with values of the right kind, tells you which ones it skipped, and changes nothing when the file has no settings in it.
 
 ## [0.10.0] — 2026-11-11
 

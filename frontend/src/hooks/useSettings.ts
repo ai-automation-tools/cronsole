@@ -203,6 +203,39 @@ export const DEFAULT_SETTINGS: Settings = {
 };
 
 
+/** The two settings whose value picks a branch of the UI; anything else there renders nothing. */
+const ALLOWED_VALUES: Partial<Record<keyof Settings, readonly string[]>> = {
+  defaultView: ['grid', 'list', 'kanban', 'schedule', 'calendar'],
+  templateView: ['grid', 'list', 'kanban'],
+};
+
+const kindOf = (v: unknown) => (v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v);
+
+/**
+ * Check a settings file someone chose before it replaces this account's settings
+ * on every device. Keeps a key only when it is one we know and its value is the
+ * same kind as the default's; reports the rest. Null when the file is not a
+ * settings object at all, or has nothing usable in it.
+ *
+ * ponytail: checks the kind of each value, not the inside of an array (a saved
+ * view's fields). Add a schema per key if a bad element ever breaks a screen.
+ */
+export function checkImportedSettings(raw: unknown): { settings: Partial<Settings>; dropped: string[] } | null {
+  if (kindOf(raw) !== 'object') return null;
+  const settings: Record<string, unknown> = {};
+  const dropped: string[] = [];
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    const known = Object.prototype.hasOwnProperty.call(DEFAULT_SETTINGS, key);
+    const fallback = known ? DEFAULT_SETTINGS[key as keyof Settings] : undefined;
+    // `lastImportCategories` is null until the first import, then a list.
+    const kindOk = fallback === null ? ['null', 'array'].includes(kindOf(value)) : kindOf(value) === kindOf(fallback);
+    const allowed = ALLOWED_VALUES[key as keyof Settings];
+    if (known && kindOk && (!allowed || allowed.includes(value as string))) settings[key] = value;
+    else dropped.push(key);
+  }
+  return Object.keys(settings).length > 0 ? { settings: settings as Partial<Settings>, dropped } : null;
+}
+
 const STORAGE_KEY = 'cronsole.settings';
 
 /** Where the account's copy lives. One blob, opaque to the server. */

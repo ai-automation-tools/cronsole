@@ -86,11 +86,15 @@ cd ../mcp-server && npm test
 | `frontend` | ESLint + Vitest + Vite build |
 | `windows-agent` | `dotnet build` + `dotnet test` on `windows-latest` |
 | `mcp-server` | Vitest suite + `tsc` typecheck (incl. tests) + build |
+| `e2e` | Playwright in Chromium against a real stack on a fresh database: `smoke.spec.ts` and `native-job-env.spec.ts` |
 
 > [!IMPORTANT]
-> **The E2E suite is not in CI.** Playwright needs a live stack (backend, frontend, and the
-> mock agent), which CI doesn't stand up. E2E is a **local gate you have to run by hand** —
-> which means it's the suite most likely to rot unnoticed. Run it before any release.
+> **Half of the E2E suite is in CI.** The `e2e` job starts Postgres, the backend and the
+> dashboard on a fresh database and runs `smoke.spec.ts` and `native-job-env.spec.ts`. The other
+> two specs are still a **local gate you run by hand**: `layout.spec.ts` (its screenshots are
+> Windows baselines) and `mock-agent.spec.ts` (it expects a Windows connection that a fresh
+> database does not have). Run those before any release. A spec that CI runs must pass on an
+> empty database, so it may not lean on this machine's tasks.
 
 ### ⚠️ E2E preflight — two things that will waste your afternoon
 
@@ -136,7 +140,7 @@ Honest list. These are real holes, not aspirational polish:
 
 | Gap | Impact | Tracked |
 |:---|:---|:---|
-| **E2E not wired into CI** | Regressions in full-stack flows only surface if someone runs it locally — **and it can fail to run at all without failing loudly** (see the E2E preflight above). **This stopped being hypothetical on 2026-08-16**: the suite was found 18/18 broken and had been since the previous day's redesign, while every other suite stayed green. It is also the only layer that renders CSS — jsdom does not evaluate media queries, so the frontend unit tests pass whether a responsive class is right or wrong | [ROADMAP](../ROADMAP.md) › P1 |
+| **E2E only half wired into CI** *(smoke and native-job specs run since 2026-11-11; layout and mock-agent do not)* | Regressions in full-stack flows only surface if someone runs it locally — **and it can fail to run at all without failing loudly** (see the E2E preflight above). **This stopped being hypothetical on 2026-08-16**: the suite was found 18/18 broken and had been since the previous day's redesign, while every other suite stayed green. It is also the only layer that renders CSS — jsdom does not evaluate media queries, so the frontend unit tests pass whether a responsive class is right or wrong | [ROADMAP](../ROADMAP.md) › P1 |
 | **MCP tools are never exercised against a real backend** | The suite stubs the HTTP client, so it pins what the wrapper *does* — not that the wrapper and the API still **agree**. If a route's response shape moves (`conversion.warnings`, `task`, `score`), the stub keeps passing while the real tool breaks. This is the [#9](../troubleshooting/README.md#9-agent-payload-arrives-with-every-field-empty) failure mode one layer up: *both sides green while disagreeing about the wire.* Covered only by driving the tools by hand — which had **no procedure** until 2026-08-17, when this row's own pointer turned out to name a runbook that did not exist. It does now: [MCP Tools](manual-testing/runbooks/MCP_Tools.md) | This doc |
 | **The sync route's exclusion wiring has no suite** | `TaskService.excludedExternalIds` / `filterExcluded` / `clearExclusionsForCategories` are unit-tested, and the untrack route is integration-tested — but the **order they run in inside `POST /tasks/sync`** (clear before read, so an import isn't skipped for one more cycle) is proven only by the live round-trip done at ship time. A reordering would pass every suite and make untrack look broken one sync later | This doc |
 | **~~The `<375px` mobile layout is unverified in a browser~~** *(closed 2026-08-12, silently reopened by the IA redesign, re-closed 2026-08-16)* | Rendered and asserted at 375px by `frontend/tests/e2e/layout.spec.ts`: no horizontal overflow (walking every ancestor for a deliberate `overflow-x` scroller), the rail hidden below `md` with its drawer opening from beside the heading and closing on a pick or Escape, all five toolbar sections on one row with their accessible names intact, the native job types as two rows of two, collections reachable, and a 44px FAB. **The blocker was the tool, not the effort** — a browser-driven window resize reports success while `innerWidth` stays 2124; Playwright's `page.setViewportSize` actually applies. **This row was false for a day and read as true**: the 2026-08-15 redesign moved a heading the suite's shared helper waited on, so all 18 tests failed and nothing on this page changed to say so ([#61](../troubleshooting/README.md#61-the-whole-e2e-suite-fails-and-every-other-suite-is-green)) — which is the *concrete* cost of the "E2E not wired into CI" row above, not a hypothetical one. A real *device* check (touch, iOS Safari) is still not done | Closed |

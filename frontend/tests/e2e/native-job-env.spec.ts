@@ -17,7 +17,8 @@ import { apiGet, apiPost, apiDelete, type ApiTask } from './helpers/api';
 
 async function dashboardReady(page: Page) {
   await expect(page.getByTestId('task-count-line')).toBeVisible();
-  await expect(page.getByTestId('task-list')).toBeVisible();
+  // A fresh database (CI) has no tasks, so there is no list to wait for.
+  await expect(page.getByTestId('task-list').or(page.getByText('Dashboard is empty'))).toBeVisible();
 }
 
 const CREATE_NAME = 'e2e env editor probe';

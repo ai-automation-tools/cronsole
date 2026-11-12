@@ -2063,6 +2063,10 @@ see [Part II](#completed--p1-correctness--honesty).
       supports. **Doing it hastily is worse than not doing it** — a flaky visual job gets disabled,
       and a disabled suite is what produced this item. Until then, `workflows.md` states the
       obligation to run it after any dashboard change.
+      **Partly done 2026-11-11:** the `e2e` job runs `smoke.spec.ts` and `native-job-env.spec.ts`
+      on a fresh database (backend, dashboard and Postgres on the runner). Its first run found two
+      stale specs. Still open: (b) `mock-agent.spec.ts`, which expects a Windows connection a
+      fresh database lacks, and (c) Linux baselines for `layout.spec.ts`.
 
 - [ ] **System-status honesty — the standing review** *(the mechanisms shipped 2026-07-08; this
       item is deliberately never closed)*. Periodically check that no status surface has drifted

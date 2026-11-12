@@ -47,11 +47,12 @@ test.describe('dashboard smoke', () => {
     await expect(card.getByTitle('Remove from favorites')).toBeVisible();
 
     // The Favorites filter shows only favorited templates; our card survives it.
-    await page.getByRole('button', { name: /Favorites/ }).click();
+    // By title: the source rail has a Favorites button too, so the name alone matches two.
+    await page.getByTitle('Show favorites only').click();
     await expect(page.getByRole('heading', { name: 'PowerShell Script' })).toBeVisible();
 
     // Turn the filter off, then unfavorite to keep the shared dev user clean.
-    await page.getByRole('button', { name: /Favorites/ }).click();
+    await page.getByTitle('Show all templates').click();
     await card.getByTitle('Remove from favorites').click();
     await expect(card.getByTitle('Add to favorites')).toBeVisible();
   });

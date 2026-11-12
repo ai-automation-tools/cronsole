@@ -22,25 +22,34 @@ syncs your Windows Task Scheduler into Cronsole and lets you trigger tasks remot
 ## Prerequisites
 
 - **Windows 10/11**
+- **Node.js LTS** (with npm): runs the backend and the dashboard
 - **Docker Desktop** *(recommended)* — or a self-managed PostgreSQL 16 instance
 - **.NET 10 SDK** — compiles the agent
 - **Administrator rights** — required to register the `\Cronsole-Stack\` launcher tasks
 
 ## 1. Bring up the stack
 
-From the repo root:
+From the repo root, in an **ordinary** PowerShell (not Administrator):
 
-```bash
-docker compose --profile docker up --build
+```powershell
+Copy-Item backend\.env.example backend\.env    # the three secrets generate themselves on first start
+cd backend;  npm install; cd ..
+cd frontend; npm install; cd ..
+powershell -ExecutionPolicy Bypass -File scripts\cronsole.ps1 up
 #   → frontend  http://localhost:7373
 #   → backend   http://localhost:3000   (GET /api/health to verify)
-#   The first-run form asks for a setup code here: docker compose logs backend
 ```
 
-Keep `--profile docker` — without it only Postgres starts
-([why](../../setup/README.md#-docker-vs-manual)). Database migrations apply themselves on boot,
-so there is no schema step. Rather run each piece without Docker? See
-[**Run it manually**](../../setup/README.md#run-it-manually-no-docker).
+`up` starts Postgres in Docker and runs the backend and the dashboard as ordinary programs on
+this machine. That is the same way the scheduled tasks in step 3 run them, so every step of
+this guide uses one setup. Database migrations apply when the backend starts. `up` warns that
+the agent is not built yet; that is step 2.
+
+> [!NOTE]
+> **Only want a look at the dashboard, everything in containers, no agent?** Use
+> `docker compose --profile docker up --build`
+> ([Docker vs. manual](../../setup/README.md#-docker-vs-manual)) and stop there. Do not follow
+> steps 2 and 3 on top of it: both setups want port 3000.
 
 ## 2. Install and start the Windows agent
 
@@ -84,15 +93,14 @@ you gave other tools; undo with `icacls <folder> /reset`):
 powershell -ExecutionPolicy Bypass -File scripts\startup-task\Protect-RepoFolder.ps1
 ```
 
-Two on-demand companions are worth registering at the same time — both run elevated, so
-afterwards you can rebuild or restart the stack from an ordinary prompt with no UAC prompt:
+One on-demand companion is worth registering at the same time. It runs elevated, so afterwards
+`cronsole restart` and `cronsole update` work from an ordinary prompt with no UAC prompt:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\startup-task\Register-RepublishTask.ps1
 powershell -ExecutionPolicy Bypass -File scripts\startup-task\Register-RestartTask.ps1
 ```
 
-Details, the security trade behind those two, and how to verify are in the
+Details, the security trade behind it, and how to verify are in the
 [**🔧 launcher tasks guide**](../../../scripts/startup-task/README.md).
 
 ## 4. Verify
@@ -103,6 +111,15 @@ Details, the security trade behind those two, and how to verify are in the
 
 - Backend healthy: `GET http://localhost:3000/api/health` → `{ "status": "ok", ... }`.
 - Your real Task Scheduler tasks appear on the dashboard.
+
+## 5. Updating later
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\cronsole.ps1 update
+```
+
+It pulls, installs, rebuilds and restarts. What it does, and what it cannot do without an
+Administrator prompt, is in [**Upgrading**](../../setup/README.md#-upgrading).
 
 Next: tune environment variables and options in
 [**⚙️ Setup & Configuration**](../../setup/README.md).

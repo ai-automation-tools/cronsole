@@ -16,6 +16,12 @@
       cronsole down        Stop the backend, frontend, and agent (leaves the database up)
       cronsole down -All   Also stop the Docker database + proxy containers
       cronsole restart     down (app tier) then up
+      cronsole update      git pull, then everything a pull leaves stale: npm
+                           install, the MCP build, a restart (which applies
+                           database migrations), the proxied bundle and, when
+                           its source changed, the agent
+      cronsole update -NoRestart   Pull, install and build only; say what is
+                           still waiting for a restart
       cronsole agent       Start only the Windows agent (what the elevated
                            \Cronsole-Stack\CronsoleAgentKeeper task runs)
       cronsole status      One table showing every service (default)
@@ -72,7 +78,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('up', 'down', 'restart', 'status', 'logs', 'remote', 'rebuild', 'agent')]
+    [ValidateSet('up', 'down', 'restart', 'status', 'logs', 'remote', 'rebuild', 'agent', 'update')]
     [string]$Command = 'status',
 
     # Only meaningful for `remote`. Defaults to reporting rather than changing:
@@ -81,7 +87,10 @@ param(
     [ValidateSet('on', 'off', 'status')]
     [string]$Mode = 'status',
 
-    [switch]$All
+    [switch]$All,
+
+    # Only meaningful for `update`: a restart ends any native job that is running.
+    [switch]$NoRestart
 )
 
 $ErrorActionPreference = 'Continue'
@@ -748,6 +757,105 @@ function Invoke-Rebuild {
     else { Write-Host "  BUILD FAILED (exit $LASTEXITCODE) - the old bundle is still being served. See $log" -ForegroundColor Red; exit 1 }
 }
 
+function Invoke-Restart {
+    # Stopping the agent needs elevation. From an ordinary shell, hand the whole
+    # restart to the elevated task instead of half-doing it here.
+    if (-not (Test-Elevated) -and (Get-StackTask 'CronsoleRestart') -and (Start-StackTask 'CronsoleRestart')) {
+        Write-Host 'Restart handed to \Cronsole-Stack\CronsoleRestart (stopping the agent needs elevation).'
+        Write-Host 'It takes about 30 seconds - check with: cronsole status'
+    } else {
+        Invoke-Down; Start-Sleep -Seconds 2; Invoke-Up
+    }
+}
+
+# True when the agent's source is newer than the published binary. File times, the way
+# a build tool decides: a pull writes every file it changes, whoever ran the pull.
+function Test-AgentStale {
+    $dll = Join-Path $RepoRoot 'agent\publish\Cronsole.Agent.dll'
+    if (-not (Test-Path $dll)) { return $false }   # never published: installing it is not an update
+    $built  = (Get-Item $dll).LastWriteTimeUtc
+    $newest = Get-ChildItem (Join-Path $RepoRoot 'agent\Cronsole.Agent') -Recurse -File -Include '*.cs', '*.csproj' -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName -notmatch '\\(bin|obj)\\' } |
+        Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+    return [bool]($newest -and $newest.LastWriteTimeUtc -gt $built)
+}
+
+# Everything a `git pull` leaves stale, in one command (AGENTS.md: the five things that
+# run stale). Each step stops the update when it fails, and every failure before the
+# restart leaves the running stack alone. This function is the copy that was on disk
+# when the command started: a pull that changes this script takes effect next time.
+function Invoke-Update {
+    $git = (Get-Command git -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1).Source
+    if (-not $git) { Write-Host 'git is not on PATH.' -ForegroundColor Red; exit 1 }
+
+    Write-Host 'Updating Cronsole...'
+    $before = & $git -C $RepoRoot rev-parse --short HEAD
+    # --ff-only: an update never merges or rebases. Local commits or a conflict stop it here.
+    & $git -C $RepoRoot pull --ff-only | Out-Host
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host '  git pull --ff-only failed, so nothing was changed. Resolve it with git, then run this again.' -ForegroundColor Red
+        exit 1
+    }
+    $after = & $git -C $RepoRoot rev-parse --short HEAD
+    if ($before -eq $after) { Write-Host "  source already at $after; checking the rest anyway" }
+    else { Write-Host "  source $before -> $after" }
+
+    $log = Join-Path $LogDir 'update.log'
+    Set-Content -Encoding utf8 -Path $log -Value "=== cronsole update $before -> $after ==="
+    foreach ($step in @(
+        @{ Dir = 'backend';    Args = @('install', '--no-audit', '--no-fund') },   # postinstall: prisma generate
+        @{ Dir = 'frontend';   Args = @('install', '--no-audit', '--no-fund') },
+        @{ Dir = 'mcp-server'; Args = @('install', '--no-audit', '--no-fund') },
+        @{ Dir = 'mcp-server'; Args = @('run', 'build') }
+    )) {
+        $label = "npm $($step.Args[0..1] -join ' ') ($($step.Dir))" -replace ' --no-audit', ''
+        Write-Host "  $label..."
+        Push-Location (Join-Path $RepoRoot $step.Dir)
+        try { & $Npm @($step.Args) 2>&1 | ForEach-Object { "$_" } | Out-File -FilePath $log -Append -Encoding utf8 } finally { Pop-Location }
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "  FAILED: $label (exit $LASTEXITCODE). The stack was not restarted. See $log" -ForegroundColor Red
+            exit 1
+        }
+    }
+
+    $agentStale = Test-AgentStale
+    $republish  = Join-Path $PSScriptRoot 'Republish-Agent.ps1'
+
+    if ($NoRestart) {
+        Write-Host ''
+        Write-Host '  Installed and built. Still waiting:'
+        Write-Host '    backend restart (applies database migrations):  cronsole restart'
+        if ($agentStale) { Write-Host "    agent rebuild, from an Administrator prompt:  $republish" }
+        if (Test-RemoteEnabled) { Write-Host '    proxied dashboard:  cronsole rebuild' }
+        return
+    }
+
+    if ($agentStale -and (Test-Elevated)) {
+        Write-Host '  agent source is newer than the published agent: rebuilding it'
+        Invoke-Down
+        & powershell -NoProfile -ExecutionPolicy Bypass -File $republish | Out-Host   # ends with `up`
+    } elseif ($agentStale -and (Get-StackTask 'CronsoleRepublish')) {
+        Write-Host '  agent source is newer than the published agent: rebuilding it'
+        Stop-Port 3000 'backend'; Stop-Port 7373 'frontend'; Stop-DevServerTree
+        if (Start-StackTask 'CronsoleRepublish') {
+            Write-Host '  handed to \Cronsole-Stack\CronsoleRepublish, which rebuilds the agent and starts the stack.'
+            Write-Host "  It takes about a minute. Check with: cronsole status   (log: $env:TEMP\cronsole-republish.log)"
+        } else {
+            Write-Host '  WARNING: could not start \Cronsole-Stack\CronsoleRepublish. Starting the stack with the old agent.' -ForegroundColor Yellow
+            Invoke-Up
+        }
+    } else {
+        Invoke-Restart
+        if ($agentStale) {
+            Write-Host ''
+            Write-Host '  !! The agent source is newer than the published agent, and nothing here can rebuild it.' -ForegroundColor Yellow
+            Write-Host "     From an Administrator prompt:  $republish" -ForegroundColor Yellow
+        }
+    }
+
+    if (Test-RemoteEnabled) { Invoke-Rebuild }
+}
+
 function Invoke-Logs {
     $files = Get-ChildItem $LogDir -Filter '*.log' -ErrorAction SilentlyContinue
     if (-not $files) { Write-Host "No logs in $LogDir yet."; return }
@@ -759,16 +867,8 @@ function Invoke-Logs {
 switch ($Command) {
     'up'      { Invoke-Up }
     'down'    { Invoke-Down }
-    'restart' {
-        # Stopping the agent needs elevation. From an ordinary shell, hand the whole
-        # restart to the elevated task instead of half-doing it here.
-        if (-not (Test-Elevated) -and (Get-StackTask 'CronsoleRestart') -and (Start-StackTask 'CronsoleRestart')) {
-            Write-Host 'Restart handed to \Cronsole-Stack\CronsoleRestart (stopping the agent needs elevation).'
-            Write-Host 'It takes about 30 seconds - check with: cronsole status'
-        } else {
-            Invoke-Down; Start-Sleep -Seconds 2; Invoke-Up
-        }
-    }
+    'restart' { Invoke-Restart }
+    'update'  { Invoke-Update }
     'agent'   { Start-Agent }
     'status'  { Invoke-Status }
     'logs'    { Invoke-Logs }

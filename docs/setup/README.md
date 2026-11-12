@@ -147,12 +147,50 @@ starting/checking each one, use the single control script:
 pwsh scripts\cronsole.ps1 status   # one table: every service + API health, ALL UP / PARTIAL / DOWN
 pwsh scripts\cronsole.ps1 up       # start whatever's down (idempotent)
 pwsh scripts\cronsole.ps1 restart  # bounce the app tier
+pwsh scripts\cronsole.ps1 update   # git pull, then everything a pull leaves stale (see Upgrading)
 pwsh scripts\cronsole.ps1 down     # stop backend + frontend + agent
 ```
 
 Postgres carries `restart: unless-stopped`, so it self-heals after a crash
 or reboot; the auto-start scheduled task re-runs `cronsole up` every 5 minutes to
 recover the rest. See [`scripts/README.md`](../../scripts/README.md) for details.
+
+## ⏫ Upgrading
+
+Read the [changelog](../CHANGELOG.md) first; it says when an upgrade needs something from you.
+
+**Windows, the stack `cronsole.ps1` runs:**
+
+```powershell
+pwsh scripts\cronsole.ps1 update
+```
+
+| Step | What it does |
+|:---|:---|
+| 1 | `git pull --ff-only`. It never merges; local commits or a conflict stop the update before anything changes. |
+| 2 | `npm install` in `backend`, `frontend` and `mcp-server`, then builds `mcp-server/dist`. A failure stops here and the running stack is left alone. Output goes to `logs\update.log`. |
+| 3 | Restarts the stack. Database migrations apply when the backend starts. |
+| 4 | Rebuilds the agent, only when its source is newer than the published agent. |
+| 5 | Rebuilds the proxied dashboard, only where `cronsole remote on` was run. |
+
+- **A restart ends any Cronsole-native job that is running.** `cronsole update -NoRestart` does
+  steps 1 and 2 and lists what is still waiting, so you can restart at a quiet time.
+- **Rebuilding the agent needs administrator rights.** From an Administrator prompt, `update`
+  does it. From an ordinary prompt it prints the command to run
+  (`scripts\Republish-Agent.ps1`) and restarts everything else with the old agent. Where a
+  developer registered `CronsoleRepublish`, it uses that task instead.
+- An MCP host (Claude Code, Cursor) keeps the old `mcp-server` until you restart that host.
+
+**Everything in containers** (`--profile docker`):
+
+```bash
+git pull --ff-only
+docker compose --profile docker up --build -d
+```
+
+**By hand** (macOS, Linux, or your own process manager): `git pull --ff-only`; `npm install` in
+`backend`, `frontend` and `mcp-server`; `npm run build` in `mcp-server`; then restart the backend
+and the frontend. Migrations apply when the backend starts.
 
 ## 🤝 Agent connection & pairing
 

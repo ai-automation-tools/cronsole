@@ -41,8 +41,17 @@ describe('parseTaskBundle', () => {
       name: 'Nightly digest',
       category: 'Reports',
       schedule: '0 4 * * *',
+      onDemand: false,
       job: { jobType: 'HTTP', url: 'https://example.com/hook', method: 'POST' }
     });
+  });
+
+  it('rebuilds an unscheduled task (on-demand or chained) as unscheduled', () => {
+    // Export writes `schedule: null` for both; refusing it made a deleted
+    // on-demand task unrestorable from the archive taken before the delete.
+    const parsed = parseTaskBundle(buildNativeTaskBundle(task({ schedule: null })));
+    expect(parsed.schedule).toBeNull();
+    expect(parsed.onDemand).toBe(true);
   });
 
   it('unwraps the archive detail shape, so a caller can hand back what it was given', () => {
@@ -112,8 +121,11 @@ describe('parseTaskBundle', () => {
       expectRefusal({ ...nulled, task: { ...nulled.task, job: 'powershell.exe' } }, /no readable job spec/);
     });
 
-    it('a bundle with no schedule, since native has no default to fall back on', () => {
-      expectRefusal(buildNativeTaskBundle(task({ schedule: null })), /no schedule/);
+    it('a bundle whose schedule field is missing or blank, since native has no default to fall back on', () => {
+      const bundle = buildNativeTaskBundle(task());
+      const { schedule: _omit, ...noSchedule } = bundle.task as Record<string, unknown>;
+      expectRefusal({ ...bundle, task: noSchedule }, /no schedule/);
+      expectRefusal(buildNativeTaskBundle(task({ schedule: '  ' })), /no schedule/);
     });
 
     it('a bundle with no name', () => {

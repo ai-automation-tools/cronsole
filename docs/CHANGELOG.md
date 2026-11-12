@@ -12,6 +12,10 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
+### Fixed
+
+- **A deleted on-demand or chained native task can be restored again** (2026-11-12). A Cronsole-native task with no schedule of its own — made on-demand with *Edit schedule*, or one that only runs after another task — exported and archived as `schedule: null`, and import and archive-restore refused that as *"has no schedule in the file"*. So the archive taken before a delete could never rebuild it, and its `restorable` said so. `null` now recreates the task unscheduled; a file with the field missing or blank is still refused. Found by driving `delete_task` → `restore_task_archive` over MCP.
+
 ### Changed
 
 - **Roadmap rechecked against the org's 2026-11 requirements** (2026-11-11). The intro names the job that works the file, not a task and a time. *Stamp the demo build* and *Rename at the source* moved from Phase 4, above the release line, to Next up, where the routine looks. Four standing questions and decisions moved under Open decisions. The GitHub Actions remainder is marked 🔒 Needs owner, since only waiting or a live break can finish it. The reopened P0 items end in a `— done` note. New items: authenticate before the import and restore body parser, the dev JWT in pre-public history (🔒), and the DESIGN_NOTES tool count. The topics item now names the org's 4–5-topic vocabulary.

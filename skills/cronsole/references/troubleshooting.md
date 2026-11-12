@@ -14,7 +14,7 @@ them faster than the error text does.
 | Tell | It's this |
 |:---|:---|
 | Compiled build works (`npm run build && npm start`), dev crash-loops with `[Object: null prototype]` | **#1** — the dev *runner*. `ts-node` can't parse TS 6. Already fixed: dev runs on **`tsx`**. |
-| `403 Invalid or expired token`, or agent rejected at handshake | **#2** — Docker's **dev-only default secrets** vs. your rotated `backend/.env`. |
+| `403 Invalid or expired token`, or agent rejected at handshake | **#2** — a root `.env` or host variable overriding `backend/.env` with a different secret. Compose ships **no** default secrets since 2026-11-11; the backend generates them in `backend/.env` on first boot. |
 | Port `LISTENING` but `curl` returns `HTTP 000`; or `EADDRINUSE` on local start | **#3** — Docker's port proxy holds the port while the app inside crashed. **Don't chase the port; read `docker logs`.** |
 | `npm run build` passes and offline suites are green, but a live request disagrees with the source | **#4** — `tsx watch` never saw your edit (Windows→Linux bind mount, no inotify). |
 | Windows `OFFLINE` forever after you stopped a transient/dogfood agent, though the real agent runs | **#5** — the transient agent displaced the real one's socket registration. |

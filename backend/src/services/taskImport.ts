@@ -134,8 +134,13 @@ export function parseTaskBundle(input: unknown): NativeTaskInput {
     throw new TaskImportError('That bundle has no task name.');
   }
 
+  // `null` is what Export writes for a task with no schedule of its own — an
+  // on-demand task, or one that runs after another — so it is recreated that
+  // way. A *missing* or blank field is a malformed file, and is refused: there
+  // is no default schedule to fall back on.
+  const onDemand = task.schedule === null;
   const schedule = typeof task.schedule === 'string' ? task.schedule.trim() : '';
-  if (!schedule) {
+  if (!schedule && !onDemand) {
     throw new TaskImportError(
       `"${name}" has no schedule in the file. A Cronsole-native task is scheduled by the backend, so ` +
         'there is no default to fall back on.'
@@ -161,7 +166,8 @@ export function parseTaskBundle(input: unknown): NativeTaskInput {
     // The platform owns neither of these, so the file is the only source — but a
     // missing category is a label, not a definition, and has a real default.
     category: typeof task.category === 'string' && task.category.trim() ? task.category.trim() : undefined,
-    schedule,
+    schedule: onDemand ? null : schedule,
+    onDemand,
     job: task.job
   };
 }

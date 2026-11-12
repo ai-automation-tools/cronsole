@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "1.0",
+  "id": "sys-winget-upgrade-report",
+  "name": "Report Pending winget Upgrades",
+  "description": "List every installed application that has a newer version available through winget and append the list to a log on a schedule. It only reports and never installs anything, so you can review what is outdated before deciding to upgrade.",
+  "runtime": "powershell",
+  "os": "windows",
+  "category": "system",
+  "tags": [
+    "system",
+    "windows",
+    "winget",
+    "updates"
+  ],
+  "icon": "PackageSearch",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 8 * * 1"
+  },
+  "commandTemplate": "powershell.exe -NoProfile -Command \"winget upgrade | Out-File -Append '{{logPath}}'\"",
+  "parameters": [
+    {
+      "key": "logPath",
+      "label": "Log file path",
+      "type": "path",
+      "default": "C:\\logs\\winget-upgrades.log",
+      "required": true,
+      "help": "Where to append each weekly list of upgradable applications. The winget tool must be installed, which it is by default on current Windows 10 and 11."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

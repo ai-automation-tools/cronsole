@@ -1,6 +1,6 @@
 {
   "registryVersion": "1.0",
-  "updatedAt": "2026-11-06T21:20:54.791Z",
+  "updatedAt": "2026-11-12T22:02:12.881Z",
   "templates": [
     {
       "id": "tpl_daily_database_backup",
@@ -1840,6 +1840,82 @@
       "sha256": "fc86e8a9673cc53ef7e293aedb737a80c5a47046f69fb24a8dc8dfefa975aeae"
     },
     {
+      "id": "sys-winget-upgrade-report",
+      "name": "Report Pending winget Upgrades",
+      "description": "List every installed application that has a newer version available through winget and append the list to a log on a schedule. It only reports and never installs anything, so you can review what is outdated before deciding to upgrade.",
+      "category": "system",
+      "tags": [
+        "system",
+        "windows",
+        "winget",
+        "updates"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/sys-winget-upgrade-report.json",
+      "sha256": "ea946e38aa560803f4d8fed333d4f9b09f41ad7190f1ba68e821420e3b51a820"
+    },
+    {
+      "id": "mon-local-admins-audit",
+      "name": "Audit Local Administrators Group",
+      "description": "Record the current members of the local Administrators group to a log on a schedule. Comparing entries over time shows when an account was added to the group, which is a common sign of a mistake or a compromise.",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "security",
+        "audit"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/mon-local-admins-audit.json",
+      "sha256": "387ac9caddd6aa055658648b0f6d3984e6409cbcb562e8cb25c894e8a6cd535c"
+    },
+    {
+      "id": "mon-firewall-profile-status",
+      "name": "Log Windows Firewall Profile Status",
+      "description": "Append the on or off state of the Domain, Private and Public Windows Firewall profiles to a log on a schedule, so a firewall that was switched off by an installer, a script or a person leaves a dated record.",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "security",
+        "firewall"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/mon-firewall-profile-status.json",
+      "sha256": "da864f4a036e771501406efc3f06b95969ca29e7a7b4a599e96fdbffa8c790cf"
+    },
+    {
+      "id": "mon-last-boot-uptime",
+      "name": "Log Last Boot Time",
+      "description": "Append the time the machine last started to a log on a schedule. A boot time that jumps between entries reveals an unexpected reboot or crash that nothing else recorded, which matters most on an unattended machine.",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "uptime",
+        "reboot"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/mon-last-boot-uptime.json",
+      "sha256": "4319e325ccb8ddc7015719bce3a6be88d5ddd4c67a2e79172969fcdc1cc7d53e"
+    },
+    {
       "id": "native-run-program",
       "name": "Run a Program (Cronsole)",
       "description": "Run any executable with arguments on the machine hosting Cronsole — no agent, no Task Scheduler entry. Cronsole schedules and runs it itself.",
@@ -2687,6 +2763,9 @@
         "mon-macos-time-machine-status",
         "mon-dns-resolution-check",
         "mon-listening-ports-snapshot",
+        "mon-local-admins-audit",
+        "mon-firewall-profile-status",
+        "mon-last-boot-uptime",
         "native-check-healthchecks-badge",
         "native-script-content-freshness",
         "native-script-domain-expiry",
@@ -2695,7 +2774,7 @@
         "tpl_starter_webhook_macos"
       ],
       "path": "packs/monitoring.json",
-      "sha256": "a54ef99ec423a9cf0507cb0af946cacd33178e04c98cfc4f7adcd3108bba51c2"
+      "sha256": "014f812d1eda51719348b9d79d371fd79d86f3f76fcd7e0d3bbae0c36b9acc90"
     },
     {
       "id": "cronsole-native",
@@ -2790,10 +2869,11 @@
         "data-rsync-folder-sync",
         "sys-installed-software-inventory",
         "sys-windows-time-resync",
-        "sys-dism-health-check"
+        "sys-dism-health-check",
+        "sys-winget-upgrade-report"
       ],
       "path": "packs/system-utilities.json",
-      "sha256": "432d2025d9c4b78d8afc06317032c4ec453e4fe8f12de2b992bf30d6d471cc01"
+      "sha256": "a0070d889c3dbc39e3f767001731e4da753a4db9859e50c0a819b9ef2251e1c9"
     }
   ]
 }

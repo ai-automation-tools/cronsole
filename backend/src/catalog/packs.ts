@@ -159,6 +159,9 @@ export const bundledPacks: BundledPack[] = [
       'mon-macos-time-machine-status',
       'mon-dns-resolution-check',
       'mon-listening-ports-snapshot',
+      'mon-local-admins-audit',
+      'mon-firewall-profile-status',
+      'mon-last-boot-uptime',
       'native-check-healthchecks-badge',
       'native-script-content-freshness',
       'native-script-domain-expiry',
@@ -290,7 +293,8 @@ export const bundledPacks: BundledPack[] = [
       'data-rsync-folder-sync',
       'sys-installed-software-inventory',
       'sys-windows-time-resync',
-      'sys-dism-health-check'
+      'sys-dism-health-check',
+      'sys-winget-upgrade-report'
     ]
   }
 ];

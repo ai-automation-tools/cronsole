@@ -35,6 +35,7 @@ From the repo root, in an **ordinary** PowerShell (not Administrator):
 Copy-Item backend\.env.example backend\.env    # the three secrets generate themselves on first start
 cd backend;  npm install; cd ..
 cd frontend; npm install; cd ..
+powershell -ExecutionPolicy Bypass -File scripts\cronsole.ps1 mode built   # build once; run the built app
 powershell -ExecutionPolicy Bypass -File scripts\cronsole.ps1 up
 #   → frontend  http://localhost:7373
 #   → backend   http://localhost:3000   (GET /api/health to verify)
@@ -44,6 +45,11 @@ powershell -ExecutionPolicy Bypass -File scripts\cronsole.ps1 up
 this machine. That is the same way the scheduled tasks in step 3 run them, so every step of
 this guide uses one setup. Database migrations apply when the backend starts. `up` warns that
 the agent is not built yet; that is step 2.
+
+`mode built` makes this machine run the compiled backend and the built dashboard. Without it
+you get the development servers, which restart whenever a file in the clone changes, a
+`git pull` included. Keep them only if you are working on Cronsole itself
+([Run mode](../../setup/README.md#-run-mode-built-app-or-dev-servers)).
 
 > [!NOTE]
 > **Only want a look at the dashboard, everything in containers, no agent?** Use

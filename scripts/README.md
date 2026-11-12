@@ -41,6 +41,7 @@ pwsh scripts\cronsole.ps1 status     # one table: every service, and how it was 
 pwsh scripts\cronsole.ps1 up         # start whatever's down (idempotent — safe to re-run)
 pwsh scripts\cronsole.ps1 restart    # stop the app tier, then bring it back
 pwsh scripts\cronsole.ps1 update     # git pull, npm install, MCP build, restart; rebuilds the agent when its source changed
+pwsh scripts\cronsole.ps1 mode built # run the built app instead of the dev servers (mode dev to go back)
 pwsh scripts\cronsole.ps1 down       # stop backend + frontend + agent (leaves the database up)
 pwsh scripts\cronsole.ps1 down -All  # ...also stop the Docker database (+ proxy) containers
 pwsh scripts\cronsole.ps1 logs       # tail the backend/frontend logs

@@ -28,10 +28,28 @@
       cronsole logs        Tail the backend/frontend logs
       cronsole rebuild     Rebuild frontend\dist if the proxy is serving a stale
                            one (no-op unless remote access is on)
+      cronsole mode built  Run the built app instead of the dev servers, on this
+                           machine (see Run mode below)
+      cronsole mode dev    Go back to the dev servers
+      cronsole mode        Say which one this machine runs
       cronsole remote on   Publish the dashboard through the reverse proxy, and
                            keep it published (see Remote access below)
       cronsole remote off  Stop publishing it
       cronsole remote      Say whether this machine publishes it
+
+    RUN MODE
+
+    By default the backend and the dashboard run as DEV servers (tsx watch, Vite):
+    they reload when a source file changes. That suits working on Cronsole. It does
+    not suit only using it, because any change to the checkout - a git pull, a
+    branch switch - restarts the backend under whatever native job is running.
+
+    `cronsole mode built` builds both and records the choice in `.cronsole-built`
+    (per-machine, gitignored, a file for the same reason as remote access). From the
+    next restart, `up` runs the compiled backend (npm start) and serves the built
+    dashboard (vite preview) on the same two ports. Source changes then do nothing
+    until `cronsole update`, which rebuilds before it restarts. `status` says when
+    the source is newer than the build.
 
     REMOTE ACCESS
 
@@ -78,13 +96,13 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('up', 'down', 'restart', 'status', 'logs', 'remote', 'rebuild', 'agent', 'update')]
+    [ValidateSet('up', 'down', 'restart', 'status', 'logs', 'remote', 'rebuild', 'agent', 'update', 'mode')]
     [string]$Command = 'status',
 
     # Only meaningful for `remote`. Defaults to reporting rather than changing:
     # a bare `cronsole remote` should never turn remote access on by accident.
     [Parameter(Position = 1)]
-    [ValidateSet('on', 'off', 'status')]
+    [ValidateSet('on', 'off', 'status', 'built', 'dev')]
     [string]$Mode = 'status',
 
     [switch]$All,
@@ -112,6 +130,27 @@ $RemoteMarker = Join-Path $RepoRoot '.cronsole-remote'
 $ProxyPort    = 8080
 
 function Test-RemoteEnabled { Test-Path $RemoteMarker }
+
+# Per-machine opt-in for running the built app. Same reasoning as the marker above.
+$BuiltMarker = Join-Path $RepoRoot '.cronsole-built'
+function Test-BuiltMode { Test-Path $BuiltMarker }
+
+# The two build outputs built mode runs, and the source each is made from.
+$BuiltParts = @(
+    @{ Name = 'backend';  Output = (Join-Path $BackendDir  'dist\index.js');   Source = (Join-Path $BackendDir  'src') },
+    @{ Name = 'frontend'; Output = (Join-Path $FrontendDir 'dist\index.html'); Source = (Join-Path $FrontendDir 'src') }
+)
+
+# Names of the parts whose source is newer than their build (or that were never built).
+function Get-StaleBuilds {
+    foreach ($part in $BuiltParts) {
+        if (-not (Test-Path $part.Output)) { $part.Name; continue }
+        $built  = (Get-Item $part.Output).LastWriteTimeUtc
+        $newest = Get-ChildItem $part.Source -Recurse -File -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+        if ($newest -and $newest.LastWriteTimeUtc -gt $built) { $part.Name }
+    }
+}
 
 # The agent exe was renamed TaskHub.Agent -> Cronsole.Agent on 2026-07-31. A process
 # that STARTED before that rename is still named TaskHub.Agent, and it holds every
@@ -408,7 +447,7 @@ function Invoke-Status {
     }
 
     Write-Host ''
-    Write-Host '  Cronsole stack' -ForegroundColor Cyan
+    Write-Host ('  Cronsole stack ({0})' -f $(if (Test-BuiltMode) { 'built app' } else { 'dev servers' })) -ForegroundColor Cyan
     Write-Host '  -------------'
     foreach ($r in $rows) {
         switch ($r.Probe.State) {
@@ -452,6 +491,15 @@ function Invoke-Status {
         Write-Host '  !! Other accounts on this machine can write to the Cronsole folder.' -ForegroundColor Yellow
         Write-Host '     The elevated agent task runs files from it. See who, and lock it:' -ForegroundColor Yellow
         Write-Host '       scripts\startup-task\Protect-RepoFolder.ps1 -Check' -ForegroundColor Yellow
+    }
+
+    if (Test-BuiltMode) {
+        $staleBuilds = @(Get-StaleBuilds)
+        if ($staleBuilds.Count -gt 0) {
+            Write-Host ''
+            Write-Host ("  !! Source is newer than the build ({0}). What is running is the older build." -f ($staleBuilds -join ', ')) -ForegroundColor Yellow
+            Write-Host '     Rebuild and restart:  cronsole update' -ForegroundColor Yellow
+        }
     }
 
     $upCount   = ($rows | Where-Object { $_.Probe.State -eq 'UP' }).Count
@@ -499,7 +547,18 @@ function Wait-Db([int]$TimeoutSec = 90) {
 function Start-HostService([string]$Name, [string]$WorkDir) {
     $out = Join-Path $LogDir "$Name.out.log"
     $err = Join-Path $LogDir "$Name.err.log"
-    Start-Process -FilePath $Npm -ArgumentList @('run', 'dev') -WorkingDirectory $WorkDir `
+    # Dev servers by default; the built app where this machine asked for it.
+    # backend: `npm start` (its prestart applies migrations, as predev does).
+    $npmArgs = @('run', 'dev')
+    if (Test-BuiltMode) {
+        $part = $BuiltParts | Where-Object { $_.Name -eq $Name }
+        if (-not (Test-Path $part.Output)) {
+            Write-Host "  ERROR: $Name is not built ($($part.Output) is missing). Run: cronsole mode built" -ForegroundColor Red
+            return
+        }
+        $npmArgs = if ($Name -eq 'backend') { @('start') } else { @('run', 'preview') }
+    }
+    Start-Process -FilePath $Npm -ArgumentList $npmArgs -WorkingDirectory $WorkDir `
         -WindowStyle Hidden -RedirectStandardOutput $out -RedirectStandardError $err | Out-Null
     Write-Host "  started $Name (logs: $LogDir\$Name.*.log)"
 }
@@ -807,7 +866,10 @@ function Invoke-Update {
         @{ Dir = 'frontend';   Args = @('install', '--no-audit', '--no-fund') },
         @{ Dir = 'mcp-server'; Args = @('install', '--no-audit', '--no-fund') },
         @{ Dir = 'mcp-server'; Args = @('run', 'build') }
-    )) {
+    ) + $(if (Test-BuiltMode) { @(
+        @{ Dir = 'backend';  Args = @('run', 'build') },
+        @{ Dir = 'frontend'; Args = @('run', 'build') }
+    ) } else { @() })) {
         $label = "npm $($step.Args[0..1] -join ' ') ($($step.Dir))" -replace ' --no-audit', ''
         Write-Host "  $label..."
         Push-Location (Join-Path $RepoRoot $step.Dir)
@@ -856,6 +918,40 @@ function Invoke-Update {
     if (Test-RemoteEnabled) { Invoke-Rebuild }
 }
 
+function Invoke-Mode {
+    switch ($Mode) {
+        'built' {
+            # Build first: the marker is written only once there is something to run.
+            foreach ($dir in @($BackendDir, $FrontendDir)) {
+                Write-Host "Building $(Split-Path -Leaf $dir)..."
+                Push-Location $dir
+                try { & $Npm run build | Out-Host } finally { Pop-Location }
+                if ($LASTEXITCODE -ne 0) {
+                    Write-Host '  BUILD FAILED. Nothing was changed; this machine still runs the dev servers.' -ForegroundColor Red
+                    exit 1
+                }
+            }
+            Set-Content -Path $BuiltMarker -Encoding ASCII -Value @(
+                '# Cronsole: this machine runs the built app, not the dev servers.',
+                '# Created by: cronsole mode built',
+                ('# On: {0}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')),
+                '# Remove with: cronsole mode dev'
+            )
+            Write-Host 'Built. This machine now runs the built app.' -ForegroundColor Green
+            Write-Host 'What is running was not touched. Switch over with:  cronsole restart'
+            Write-Host 'After a git pull, use:  cronsole update   (it rebuilds before it restarts)'
+        }
+        'dev' {
+            if (Test-BuiltMode) { Remove-Item $BuiltMarker -Force }
+            Write-Host 'This machine runs the dev servers. Switch over with:  cronsole restart'
+        }
+        default {
+            if (Test-BuiltMode) { Write-Host 'Run mode: built app (cronsole mode dev to change).' }
+            else { Write-Host 'Run mode: dev servers (cronsole mode built to change).' }
+        }
+    }
+}
+
 function Invoke-Logs {
     $files = Get-ChildItem $LogDir -Filter '*.log' -ErrorAction SilentlyContinue
     if (-not $files) { Write-Host "No logs in $LogDir yet."; return }
@@ -873,5 +969,6 @@ switch ($Command) {
     'status'  { Invoke-Status }
     'logs'    { Invoke-Logs }
     'remote'  { Invoke-Remote }
+    'mode'    { Invoke-Mode }
     'rebuild' { Invoke-Rebuild }
 }

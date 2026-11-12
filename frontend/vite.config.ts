@@ -64,4 +64,16 @@ export default defineConfig(({ mode }) => ({
       clientFiles: ['./src/main.tsx'],
     },
   },
+  // `vite preview` serves the built bundle for `cronsole mode built`. A build calls
+  // the API same-origin, so this forwards the two API paths to the backend, the same
+  // two the Caddy proxy forwards (proxy/Caddyfile).
+  preview: {
+    host: '127.0.0.1',
+    port: 7373,
+    strictPort: true,
+    proxy: {
+      '/api': 'http://127.0.0.1:3000',
+      '/socket.io': { target: 'http://127.0.0.1:3000', ws: true },
+    },
+  },
 }))

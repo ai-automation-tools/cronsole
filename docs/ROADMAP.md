@@ -1944,8 +1944,10 @@ no-shell execution held up; the gaps are in defaults and deployment.
       installing the agent and its launcher outside the clone (`%ProgramFiles%`).
 - [x] **`cronsole update` and an Upgrading section** *(2026-11-11)*. Pull, installs, MCP build,
       restart, agent rebuild when stale. The Windows guide now uses the host setup throughout.
-      Open: the stack still runs dev servers (`tsx watch`, Vite dev), so a hand `git pull`
-      reloads the backend mid-job.
+- [x] **A built run mode** *(2026-11-11)*. `cronsole mode built` (marker `.cronsole-built`):
+      `node dist/index.js` and `vite preview` instead of `tsx watch` and Vite dev. Opt-in per
+      machine; the install guide opts a new install in. Open: the default is still the dev
+      servers, and the Docker images still run them.
 - [x] **A native job timeout kills the process tree** *(2026-11-11)*. Process group on POSIX,
       `taskkill /T` on Windows, and a 5s grace timer that settles the run regardless.
 - [x] **A Host allowlist and a one-time setup code** *(2026-11-11)*. `config/hosts.ts` gates REST

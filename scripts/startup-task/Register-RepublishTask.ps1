@@ -32,7 +32,7 @@
     Why it is an acceptable trade HERE:
       * It runs ONE fixed script from this repo (scripts\Republish-Agent.ps1),
         not arbitrary input.
-      * Cronsole ALREADY does this. \Cronsole-Stack\CronsoleStack runs scripts\cronsole.ps1
+      * Cronsole ALREADY does this. \Cronsole-Stack\CronsoleAgentKeeper runs scripts\cronsole.ps1
         elevated on a recurring trigger. Anyone who can write to this repo already
         has elevated code execution on this machine; this adds no new capability,
         it just adds a second entry point to the same one.

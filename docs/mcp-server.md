@@ -37,7 +37,8 @@ Full blocks, `CRONSOLE_API_URL`, and the fresh-terminal rule are in
 is off they are absent from `tools/list`. Everything else ships ungated.
 
 **Everything else includes creating and running tasks**, which means running programs on the
-machine, as administrator if a Windows task asks for `runLevel: highest`. Set
+machine, as administrator if a Windows task asks for `runLevel: highest` (a native job never
+runs as administrator). Set
 `CRONSOLE_MCP_READONLY` (any value except empty, `false` or `0`) to register only the reading
 tools; it wins over the gate above.
 

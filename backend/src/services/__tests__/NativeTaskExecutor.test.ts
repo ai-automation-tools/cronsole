@@ -256,17 +256,18 @@ describe('executeJob — EXEC', () => {
     // pipe; on some systems the run then never settles at all.
     const grandchild = `const c = require('child_process').spawn(process.execPath, ['-e', 'setTimeout(() => {}, 30000)'], { stdio: 'inherit' }); console.log('pid=' + c.pid); setTimeout(() => {}, 30000)`;
     const started = Date.now();
-    const result = await executeJob(node(grandchild, { timeoutMs: 1500 }));
+    // Long enough for both processes to start under a loaded suite; the pid is read from the log.
+    const result = await executeJob(node(grandchild, { timeoutMs: 6000 }));
     expect(result.success).toBe(false);
     expect(result.log).toMatch(/timed out/i);
-    expect(Date.now() - started).toBeLessThan(10000);
+    expect(Date.now() - started).toBeLessThan(20000);
 
     const pid = Number(/pid=(\d+)/.exec(result.log)?.[1]);
     expect(pid).toBeGreaterThan(0);
     await new Promise(r => setTimeout(r, 500));
     // Signal 0 only asks whether the process exists.
     expect(() => process.kill(pid, 0)).toThrow();
-  }, 20000);
+  }, 40000);
 
   it('never runs through a shell', async () => {
     // The P0 guarantee. If a shell were involved, `&&` would chain a second

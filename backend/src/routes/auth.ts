@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcrypt';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { prisma } from '../db.js';
 import {
@@ -12,6 +13,7 @@ import {
 } from '../auth/auth.js';
 import { HttpError } from '../middleware/errorHandler.js';
 import { validateBody } from '../middleware/validate.js';
+import { isDirectLoopback } from '../config/hosts.js';
 import { makeAuthLimiter } from '../middleware/authLimiter.js';
 
 const router = Router();
@@ -31,8 +33,36 @@ const DUMMY_HASH = bcrypt.hashSync('cronsole-no-such-account', BCRYPT_COST);
 const credentialsSchema = z.object({
   email: z.email('A valid email is required'),
   password: z.string().min(8, 'Password must be at least 8 characters').max(MAX_PASSWORD, TOO_LONG),
-  name: z.string().trim().min(1).optional()
+  name: z.string().trim().min(1).optional(),
+  setupCode: z.string().trim().max(64).optional()
 });
+
+/**
+ * The one-time setup code.
+ *
+ * Until an owner exists, whoever reaches `/setup` first owns the install. From
+ * this machine that is the person installing it, so a direct loopback request
+ * needs nothing extra. Through a proxy, a tunnel or a published container port it
+ * could be anyone who got there first, so those requests must also present a code
+ * that is only ever written to the backend's own log.
+ *
+ * Made on first need and kept in memory: a restart prints a new one, and it is
+ * meaningless once an owner exists.
+ */
+let setupCode: string | null = null;
+function currentSetupCode(): string {
+  if (!setupCode) {
+    setupCode = randomBytes(4).toString('hex');
+    console.log(
+      `\n  Setup code: ${setupCode}\n` +
+      '  Enter it on the "Create your account" screen. It is asked for because that\n' +
+      '  screen was opened through a proxy or from another machine.\n'
+    );
+  }
+  return setupCode;
+}
+const SETUP_CODE_HELP =
+  'Enter the setup code from the backend log (run "cronsole logs", or "docker compose logs backend").';
 
 // A "real" owner account is one with a non-empty password. The boot seed always
 // upserts a PASSWORD-LESS placeholder user (`cli_user_placeholder`, password '')
@@ -46,9 +76,13 @@ const OWNER_FILTER = { AND: [{ password: { not: null } }, { password: { not: '' 
  * to show the "create your account" (setup) screen or the login screen. Public
  * and unthrottled — a boolean derived from a count, nothing sensitive.
  */
-router.get('/status', async (_req: Request, res: Response) => {
+router.get('/status', async (req: Request, res: Response) => {
   const ownerCount = await prisma.user.count({ where: OWNER_FILTER });
-  res.json({ needsSetup: ownerCount === 0 });
+  const needsSetup = ownerCount === 0;
+  const setupCodeRequired = needsSetup && !isDirectLoopback(req);
+  // Printed now, so the code is already in the log when the form asks for it.
+  if (setupCodeRequired) currentSetupCode();
+  res.json({ needsSetup, setupCodeRequired });
 });
 
 /**
@@ -66,7 +100,7 @@ router.get('/status', async (_req: Request, res: Response) => {
  * setup logs you straight in.
  */
 router.post('/setup', authLimiter, validateBody(credentialsSchema), async (req: Request, res: Response) => {
-  const { email, password, name } = req.body;
+  const { email, password, name, setupCode: offered } = req.body;
 
   // Guard first: never let setup run once a real account exists. (On a
   // single-user local app the tiny check-then-write race is immaterial, and the
@@ -74,6 +108,14 @@ router.post('/setup', authLimiter, validateBody(credentialsSchema), async (req: 
   const owner = await prisma.user.findFirst({ where: OWNER_FILTER });
   if (owner) {
     throw new HttpError(409, 'An account already exists on this instance. Log in instead.');
+  }
+
+  if (!isDirectLoopback(req)) {
+    const expected = Buffer.from(currentSetupCode());
+    const given = Buffer.from(String(offered ?? '').toLowerCase());
+    if (given.length !== expected.length || !timingSafeEqual(given, expected)) {
+      throw new HttpError(403, offered ? `That setup code is not right. ${SETUP_CODE_HELP}` : SETUP_CODE_HELP);
+    }
   }
 
   const hashedPassword = await bcrypt.hash(password, BCRYPT_COST);

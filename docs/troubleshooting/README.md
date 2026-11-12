@@ -45,6 +45,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 104 | **A native job that runs `ssh` exits 255 with no output** — the same script works from your shell and from Task Scheduler | Win32-OpenSSH needs `PROGRAMDATA` (its system config lives there), and the native child environment did not include it | [→](#104-a-native-job-that-runs-ssh-exits-255-and-prints-nothing) |
 | 105 | **MCP `run_task` says the backend is unreachable, and the native job ran fine** | Run now answers when the job ends; a job past the client's 15s timeout read as *"Could not reach"* | [→](#105-mcp-run_task-says-the-backend-is-unreachable-and-the-job-ran-fine) |
 | 106 | **A native job fails with *Access is denied* after an update** — it manages a service, writes to a protected folder, or runs `Dism` / `cleanmgr`, and it used to work | The backend no longer runs as administrator, so native jobs do not either. Move the job to a Windows task with *Run with highest privileges* | [→](#106-a-native-job-fails-with-access-is-denied-after-an-update) |
+| 107 | **The API answers 403 *Host "…" is not allowed*, or first-run asks for a setup code** | The hostname you used is not one the API knows (add it to `ALLOWED_HOSTS`); the setup code is in the backend log | [→](#107-the-api-answers-403-host-is-not-allowed-or-first-run-asks-for-a-setup-code) |
 | 93 | **A restored backup succeeds and every platform connection is unreadable** — `pg_restore` exits 0, every row count matches, your tasks are all there, and every source is broken | **The credentials in the dump are ciphertext and the key is not in the dump.** `PlatformConnection.config` and `TaskSecret` are AES-256-GCM encrypted with `ENCRYPTION_KEY`, which lives in `.env`. A restore onto a stack with a different key genuinely succeeds and leaves every value permanently unreadable, discovered one failing sync at a time | [→](#93-a-restore-succeeds-and-every-platform-connection-is-unreadable) |
 | 92 | **A restore verification says the data does not match, and the restore was perfect** — the *restored* copy reports more rows than the original it came from | **The check is reading an estimate, not a count.** `pg_stat_user_tables.n_live_tup` is a planner input maintained by autovacuum: stale (often zero) on a database not analysed recently, accurate on a freshly-restored one. It can be wrong in **both** directions, so it can also report a match over a restore that dropped rows. Generate real `count(*)` queries | [→](#92-a-restored-database-reports-different-row-counts-and-the-restore-was-perfect) |
 | 91 | **A second clone of the repo is not a second install** — `docker compose up` from a fresh checkout adopts the first one's database, or fails with `port is already allocated`. Shifting the ports in a `docker-compose.override.yml` does not help | **The Compose project name is pinned in the file, not derived from the folder** (`name: taskhub`, deliberately — it is what stops a renamed checkout orphaning the Postgres volume). Every clone on the machine is therefore the *same* project. And a plain override **appends** to `ports:` rather than replacing it, so both bindings are attempted and the old one still collides. Use `docker compose -p <name>` **and** the `!override` tag on every port list | [→](#91-a-second-clone-of-the-repo-shares-the-first-ones-database-and-ports) |
@@ -6615,3 +6616,33 @@ old registration is still in place. Over MCP it is the native row of `list_platf
 `\Cronsole-Stack\CronsoleRestart` once.
 
 *First hit: 2026-11-11 (the change itself; no job was reported broken).*
+
+
+## 107. The API answers 403 Host is not allowed, or first-run asks for a setup code
+
+**Symptom (hostname).** The dashboard loads at some address but shows nothing, and every API
+call returns `403` with *Host "name" is not allowed. Add it to ALLOWED_HOSTS in backend/.env and
+restart the backend.* The same install works at `localhost`.
+
+**Cause.** Since 2026-11-11 the API checks the `Host` header of every request and of the
+live-update connection. A web page can point its own DNS name at `127.0.0.1` and reach a
+loopback-only API from your browser; the name in `Host` is the one thing it cannot fake. Allowed
+without configuration: `localhost`, any IP address, `host.docker.internal`, and the host of every
+`ALLOWED_ORIGINS` entry.
+
+**Fix.** Add the hostname, without a port, to `ALLOWED_HOSTS` in `backend/.env` (comma-separated)
+and restart the backend. If it is the address of your dashboard, put the full origin in
+`ALLOWED_ORIGINS` instead; that covers both. The backend log names each refused host once.
+
+**Symptom (setup code).** On a fresh install the *Create your account* form has a **Setup code**
+field, or `POST /api/auth/setup` returns `403` asking for one.
+
+**Cause.** Until an account exists, whoever reaches that form first owns the install. Opened
+directly on the machine running Cronsole, nothing extra is asked. Through the reverse proxy, a
+tunnel, or a container's published port (the Docker quick start), the backend cannot tell you
+from a stranger, so it asks for a code that it writes only to its own log.
+
+**Fix.** Read the code from the backend log: `cronsole logs`, `logs\backend.out.log`, or
+`docker compose logs backend`. Look for `Setup code:`. A backend restart prints a new one.
+
+*First hit: 2026-11-11 (the change itself).*

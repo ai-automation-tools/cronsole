@@ -28,6 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<'loading' | 'needsSetup' | 'unauthed' | 'authed'>('loading');
   const [user, setUser] = useState<AuthUser | null>(readStoredUser());
   const [sessionExpired, setSessionExpired] = useState(false);
+  const [setupCodeRequired, setSetupCodeRequired] = useState(false);
 
   // Decide the initial screen once. A stored login token is trusted here — if
   // it's actually expired, the first protected request 401s and the auth-failure
@@ -40,8 +41,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       try {
-        const { data } = await api.get<{ needsSetup: boolean }>('/auth/status');
+        const { data } = await api.get<{ needsSetup: boolean; setupCodeRequired?: boolean }>('/auth/status');
         if (cancelled) return;
+        setSetupCodeRequired(!!data.setupCodeRequired);
         if (data.needsSetup) setStatus('needsSetup');
         else setStatus(getAuthToken() ? 'authed' : 'unauthed'); // dev token = bypass
       } catch {
@@ -94,11 +96,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     applyAuth(data.token, data.user);
   }, [applyAuth]);
 
-  const setup = useCallback(async (email: string, password: string, name?: string) => {
+  const setup = useCallback(async (email: string, password: string, name?: string, setupCode?: string) => {
     const { data } = await api.post<{ token: string; user: AuthUser }>('/auth/setup', {
       email,
       password,
-      ...(name ? { name } : {})
+      ...(name ? { name } : {}),
+      ...(setupCode ? { setupCode } : {})
     });
     applyAuth(data.token, data.user);
   }, [applyAuth]);
@@ -118,7 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ status, user, login, setup, logout, changePassword, sessionExpired }}>
+    <AuthContext.Provider value={{ status, user, login, setup, logout, changePassword, sessionExpired, setupCodeRequired }}>
       {children}
     </AuthContext.Provider>
   );

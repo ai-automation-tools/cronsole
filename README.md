@@ -112,6 +112,7 @@ Each source links to its own guide: how to connect it, what Cronsole can do ther
    docker compose --profile docker up --build
    #   → frontend  http://localhost:7373
    #   → backend   http://localhost:3000   (GET /api/health to verify)
+   #   The first-run form asks for a setup code here: docker compose logs backend
    ```
 
 3. Start the Windows agent so your real Task Scheduler tasks appear (PowerShell **as Administrator**; must run on the Windows host, not in Docker):

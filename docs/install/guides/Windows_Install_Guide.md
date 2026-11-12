@@ -34,6 +34,7 @@ From the repo root:
 docker compose --profile docker up --build
 #   → frontend  http://localhost:7373
 #   → backend   http://localhost:3000   (GET /api/health to verify)
+#   The first-run form asks for a setup code here: docker compose logs backend
 ```
 
 Keep `--profile docker` — without it only Postgres starts

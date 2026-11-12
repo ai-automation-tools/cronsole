@@ -11,7 +11,7 @@
          hardcoded "1.0.0" was identical on a build from today and one published
          in June — which is why the backend captured it and refused to render it.
          See docs/contributing/Versioning.md. -->
-    <Version>0.9.0</Version>
+    <Version>0.10.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

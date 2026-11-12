@@ -1303,6 +1303,9 @@ cover the repo and product going public, not standing up a multi-tenant cloud se
       backend 1192 + 267 integration, frontend 1166 + lint, agent 164, mcp-server 211 — ~2,800
       tests — plus all five hygiene scripts and the registry drift check.
 
+      **`0.10.0` was cut 2026-11-11** on all three trains (`app/`, `agent/`, `mcp/`), zero assets.
+      The changelog's `[Unreleased]` became `[0.10.0]`. Wire protocol unchanged at 1. Suites: backend 1389 + 293 integration, frontend 1249, agent 181, mcp-server 229.
+
       **Left:** release notes generated from real commits rather than written by hand. That is the
       whole of this item now.
 - [x] **Operations — for the machine the user runs it on** *(narrowed 2026-09-11)*. The original item

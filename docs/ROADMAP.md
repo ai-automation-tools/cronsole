@@ -1479,7 +1479,8 @@ which is why it sits first, not because it outranks the larger work below.
 What the 2026-11-11 repo audit left open after releases 0.10.0 and 0.11.0. Highest priority
 first. The code in brackets is the audit's own reference. Three audit items already had a line
 further down and were not repeated: registry index signing (S16), a multi-account data model
-(S18), and the two browser specs CI does not run (`layout`, `mock-agent`).
+(S18), the two browser specs CI does not run (`layout`, `mock-agent`), and splitting the four
+components over 1,000 lines.
 
 **High**
 
@@ -1548,6 +1549,9 @@ further down and were not repeated: registry index signing (S16), a multi-accoun
 - [ ] `small` **Log rotation in the launcher** [S22].
 - [ ] `small` **`Register-CronsoleStack.ps1 -Unregister`** [C9]. Removal is manual elevated steps.
 - [ ] `small` **`frontend/.env.example` stops telling you to hand-sign a token** [B3].
+- [ ] `small` **Frontend leftovers**: delete `tailwind.config.js` (unused under Tailwind v4) and
+      `utils/bulkReport.ts` (imported only by its test), make the two kanban columns one component,
+      and replace the two default-filter settings with one "Opening view" picker.
 - [ ] **The MCP server installs without a clone** [B4]: `prepare` build, `repository` and `author`
       fields. 🔒 Needs owner to publish it to npm.
 

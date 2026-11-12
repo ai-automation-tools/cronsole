@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { spawn } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 import { connect } from 'node:net';
 import { mkdtemp, writeFile, rm, stat, statfs } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -766,6 +766,29 @@ interface ProcessSpec {
  * and truncation — is identical, and a second copy of it is how one job type
  * quietly stops honouring `childEnv`.
  */
+const POSIX = process.platform !== 'win32';
+/** How long a timed-out run waits for its output to close before settling anyway. */
+const KILL_GRACE_MS = 5000;
+
+/**
+ * End a job and everything it started. A process that deliberately leaves the
+ * group (setsid, a double fork) or the tree is out of reach; the grace timer in
+ * runProcess is what still settles the run then.
+ */
+function killTree(child: ChildProcess): void {
+  if (!child.pid) return;
+  try {
+    if (POSIX) {
+      process.kill(-child.pid, 'SIGKILL');
+    } else {
+      spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' })
+        .on('error', () => child.kill());
+    }
+  } catch {
+    child.kill('SIGKILL');
+  }
+}
+
 function runProcess(spec: ProcessSpec): Promise<ExecutedRunResult> {
   const startedAt = Date.now();
   const args = spec.args;
@@ -813,7 +836,10 @@ function runProcess(spec: ProcessSpec): Promise<ExecutedRunResult> {
         // entries, so a value cannot be re-parsed into another command.
         shell: false,
         windowsHide: true,
-        timeout: timeoutMs
+        // Its own process group on POSIX, so a timeout can end everything the job
+        // started and not only the job (see killTree). Windows has no groups;
+        // taskkill /T walks the tree there.
+        detached: POSIX
       });
     } catch (error: any) {
       // spawn can throw synchronously on a malformed executable path.
@@ -840,17 +866,17 @@ function runProcess(spec: ProcessSpec): Promise<ExecutedRunResult> {
       });
     });
 
+    const timedOutResult = (): ExecutedRunResult => ({
+      success: false,
+      log: `${label} timed out after ${Math.round(timeoutMs / 1000)}s and was killed${tail()}`,
+      durationMs: Date.now() - startedAt
+    });
+
     child.on('close', (code, signal) => {
-      // Node reports a timeout kill as a signal, not as a distinct event, so the
-      // two are told apart here — "killed after 5m" and "died on SIGTERM" are
-      // different facts and only one of them is Cronsole's doing.
-      if (signal && timedOut) {
-        return done({
-          success: false,
-          log: `${label} timed out after ${Math.round(timeoutMs / 1000)}s and was killed${tail()}`,
-          durationMs: Date.now() - startedAt
-        });
-      }
+      // "Killed after 5m" and "died on SIGTERM" are different facts and only one of
+      // them is Cronsole's doing. Asked of `timedOut` alone: taskkill ends a
+      // process with an exit code, not a signal.
+      if (timedOut) return done(timedOutResult());
       if (signal) {
         return done({
           success: false,
@@ -865,9 +891,15 @@ function runProcess(spec: ProcessSpec): Promise<ExecutedRunResult> {
       });
     });
 
-    // `timeout` on spawn fires the kill; this only records *why* the signal came,
-    // so the close handler above can say "timed out" instead of "terminated".
-    const timer = setTimeout(() => { timedOut = true; }, timeoutMs);
+    // Not spawn's own `timeout`: that signals the direct child only. A process the
+    // job started keeps running and keeps the output pipe open, so `close` never
+    // fires, the run never settles and the task is skipped until a restart.
+    const timer = setTimeout(() => {
+      timedOut = true;
+      killTree(child);
+      // Whatever survived (a process that left the group), the run still ends.
+      setTimeout(() => done(timedOutResult()), KILL_GRACE_MS).unref?.();
+    }, timeoutMs);
     timer.unref?.();
     child.on('close', () => clearTimeout(timer));
   });

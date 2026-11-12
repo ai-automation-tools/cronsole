@@ -115,6 +115,14 @@ it is the caller assuring itself it is sure — the exact deliberation that's mi
 
 ## Configuration
 
+> [!WARNING]
+> **By default this server lets the assistant run programs on your machine.** `create_task`,
+> `update_task_action`, the native script and program creators and `run_task` are always
+> available. A Windows task can be created with `runLevel: highest`, which runs it as
+> administrator. Only the two delete tools are behind a switch. That is deliberate: a scheduler
+> you cannot schedule with is not much use. If you only want the assistant to look, set
+> `CRONSOLE_MCP_READONLY=true` and it gets the reading tools and nothing else.
+
 Set via environment (see [`.env.example`](.env.example)):
 
 | Var | Required | Default | Notes |
@@ -123,6 +131,7 @@ Set via environment (see [`.env.example`](.env.example)):
 | `CRONSOLE_API_URL` |  | `http://localhost:3000/api` | Backend REST base URL (include `/api`). |
 | `CRONSOLE_TIMEOUT_MS` |  | `15000` | Per-request timeout. `run_task` waits at least 2 minutes, because a native Run now answers when the job ends; past that it answers *Still running*. |
 | `CRONSOLE_MCP_ALLOW_DESTRUCTIVE` |  | `false` | Register `delete_task` (**Cronsole-native tasks only**, archived before deletion) and `delete_template` (imported / saved templates only). Only an exact `true`/`1` opens it — a typo, an empty value, or an unexpanded `${…}` literal all fail **closed**, because a false negative costs one missing tool while a false positive hands an agent a deletion verb you never granted. When off, both are **absent** from `tools/list`. |
+| `CRONSOLE_MCP_READONLY` |  | off | Expose **only the tools that read** (list, history, health, export, diagnostics). Create, run, modify and delete tools are absent from `tools/list`, whatever `CRONSOLE_MCP_ALLOW_DESTRUCTIVE` says. Any value except empty, `false` or `0` turns it on. It hides tools; the token itself can still do everything, so keep the token private. |
 
 The server reads its **process environment**. `CRONSOLE_TOKEN` alone has two fallbacks for a stale host environment: the Windows User environment, then a `.env` in `mcp-server/` or the repo root (never the working directory the host was launched in). Getting a token,
 exporting it, and the Windows fresh-terminal rule are user setup, covered in the

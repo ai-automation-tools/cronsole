@@ -112,6 +112,8 @@ for it. `untrack_task` (2026-07-28) is the same argument applied to *removal*: g
 only honest once a **safe** way to remove a task from the dashboard exists ungated — otherwise an
 agent asked to "clean this up" has one tool for the job and it's the irreversible one.
 
+**Read-only mode** (`CRONSOLE_MCP_READONLY`, 2026-11-11): only the tools in `READ_ONLY_TOOLS` (`mcp-server/src/tools.ts`) are registered, whatever the destructive gate says. It is an allowlist applied where every tool registers, so **a new reading tool must be added to that set** or it is missing in read-only mode. It turns on for any value except empty, `false` or `0` (the opposite strictness to the destructive gate, because it removes power). It hides tools; the token is still full-power.
+
 **Still REST-only:** template import/export, save-as-template, sync, agent pairing, **favorites**
 (`POST` / `DELETE /api/tasks/:id/favorite`). If a user asks for one over MCP, say the tool doesn't
 exist and offer the REST call or the UI — **never improvise a substitute.**

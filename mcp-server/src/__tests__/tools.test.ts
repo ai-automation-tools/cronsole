@@ -3,8 +3,8 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { McpServer } from '@modelcontextprotocol/server';
 import { Client } from '@modelcontextprotocol/client';
 import { InMemoryTransport } from '@modelcontextprotocol/server';
-import { registerTools } from '../tools.js';
-import { CronsoleClient, CronsoleApiError } from '../client.js';
+import { registerTools, READ_ONLY_TOOLS } from '../tools.js';
+import { CronsoleClient, CronsoleApiError, readReadOnly } from '../client.js';
 
 /**
  * These drive the REAL registered tools through a REAL MCP client over an
@@ -2990,5 +2990,27 @@ describe('export_task — format', () => {
     expect(schema).toMatch(/agent offline/);
     expect(schema).toMatch(/DROPS platform-specific settings/);
     expect(schema).toMatch(/not a faithful backup/);
+  });
+});
+
+describe('read-only mode', () => {
+  it('exposes exactly the reading tools, even with the destructive gate open', async () => {
+    const { client } = stubClient({});
+    const server = new McpServer({ name: 'cronsole-test', version: '0.0.0' });
+    registerTools(server, client, { allowDestructive: true, readOnly: true });
+    const mcp = new Client({ name: 'test-client', version: '0.0.0' });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    await Promise.all([server.connect(serverTransport), mcp.connect(clientTransport)]);
+
+    const names = (await mcp.listTools()).tools.map(tool => tool.name).sort();
+    expect(names).toEqual([...READ_ONLY_TOOLS].sort());
+    for (const writer of ['run_task', 'create_task', 'set_task_status', 'delete_task', 'sync_tasks']) {
+      expect(names, writer).not.toContain(writer);
+    }
+  });
+
+  it('turns on for anything that is not clearly off', () => {
+    for (const off of [undefined, '', ' ', 'false', 'FALSE', '0']) expect(readReadOnly(off), String(off)).toBe(false);
+    for (const on of ['true', '1', 'yes', 'ture', '${CRONSOLE_MCP_READONLY}']) expect(readReadOnly(on), on).toBe(true);
   });
 });

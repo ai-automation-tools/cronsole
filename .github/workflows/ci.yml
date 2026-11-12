@@ -269,3 +269,89 @@ jobs:
 
       - name: Build MCP server
         run: npm run build
+
+  e2e:
+    name: Browser tests (Playwright, real stack)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: taskhub
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: taskhub
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U taskhub"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://taskhub:password@localhost:5432/taskhub
+      JWT_SECRET: 'ci-jwt-secret-not-for-production-use'
+      ENCRYPTION_KEY: '12345678901234567890123456789012'
+      AGENT_PAIRING_SECRET: 'ci-agent-pairing-secret-not-real'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm install
+
+      # `predev` applies the migrations; boot creates the placeholder user and the catalog.
+      - name: Start the backend
+        working-directory: backend
+        run: nohup npm run dev > ../backend.log 2>&1 &
+
+      - name: Install frontend dependencies and the browser
+        working-directory: frontend
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+
+      # A fresh database shows the first-run screen whatever token the page holds, so
+      # create the owner first. The request is a direct loopback one: no setup code.
+      # The token is minted afterwards, because a password change ends older sessions.
+      - name: Create the owner and mint the page's token
+        working-directory: backend
+        run: |
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:3000/api/health > /dev/null && break; sleep 2; done
+          curl -sf -o /dev/null -X POST http://127.0.0.1:3000/api/auth/setup \
+            -H 'Content-Type: application/json' \
+            -d '{"email":"ci@example.com","password":"ci-password-not-real"}'
+          sleep 1
+          TOKEN=$(node --input-type=module -e "import jwt from 'jsonwebtoken'; console.log(jwt.sign({ id: 'cli_user_placeholder', email: 'ci@example.com' }, process.env.JWT_SECRET, { expiresIn: '1h' }))")
+          echo "::add-mask::$TOKEN"
+          echo "VITE_DEV_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+
+      - name: Start the dashboard
+        working-directory: frontend
+        run: |
+          nohup npm run dev > ../frontend.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:7373/ > /dev/null && break; sleep 2; done
+
+      # Left out: layout.spec.ts (its screenshots are Windows baselines) and
+      # mock-agent.spec.ts (it expects a Windows connection a fresh database does not have).
+      - name: Run the browser tests
+        working-directory: frontend
+        env:
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:7373
+        run: npx playwright test smoke native-job-env
+
+      - name: Show server logs and failure snapshots
+        if: failure()
+        run: |
+          echo "--- backend ---";  tail -n 80 backend.log || true
+          echo "--- frontend ---"; tail -n 40 frontend.log || true
+          find frontend/test-results -name 'error-context.md' -exec sh -c 'echo "--- $1 ---"; head -c 4000 "$1"' _ {} \; || true

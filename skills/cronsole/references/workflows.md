@@ -277,6 +277,10 @@ cd ../agent  && dotnet test
 cd ../frontend && npm run test:e2e                     # needs a LIVE stack; NOT IN CI
 ```
 
+**CI runs two of the four specs since 2026-11-11** (`smoke`, `native-job-env`, job `e2e`, fresh
+database). `layout.spec.ts` and `mock-agent.spec.ts` are still local-only, so the paragraph below
+still applies to them. A spec CI runs must pass with zero tasks in the database.
+
 **Run the E2E suite after any dashboard change, and treat "not in CI" as a
 standing hazard rather than a footnote.** On 2026-08-16 it was found **100%
 broken — 18 of 18 tests failing** — and had been since the 2026-08-15 IA

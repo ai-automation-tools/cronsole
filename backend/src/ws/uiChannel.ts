@@ -59,6 +59,23 @@ export function registerUiChannel(io: Server): void {
  * Ping a user's open dashboards that their task list changed. Safe no-op if the
  * channel isn't registered (e.g. in tests) so callers never have to guard.
  */
+/** What an open dashboard is told about a run that failed with nobody watching it. */
+export interface RunFailedEvent {
+  taskId: string;
+  name: string;
+  /** First 200 characters of the run log, which executeJob has already redacted. */
+  message: string;
+}
+
+/**
+ * Tell a user's open dashboards that a run Cronsole performed by itself failed.
+ * A run started from a tab is reported by that tab; this is for the rest.
+ */
+export function notifyRunFailed(userId: string, event: RunFailedEvent): void {
+  if (!ioRef || !userId) return;
+  ioRef.of(NS).to(room(userId)).emit('run:failed', { ...event, message: event.message.slice(0, 200) });
+}
+
 export function notifyTasksChanged(userId: string): void {
   if (!ioRef || !userId) return;
   ioRef.of(NS).to(room(userId)).emit('task:updated');

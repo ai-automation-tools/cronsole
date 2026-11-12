@@ -974,7 +974,7 @@ export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
                 <Row label="Toast on failure" description="Show a toast when a task run or sync fails.">
                   <Toggle checked={settings.toastOnFailure} onChange={v => update('toastOnFailure', v)} label="Toast on failure" />
                 </Row>
-                <Row label="Desktop notification on failure" description="Also raise an OS notification when a task fails.">
+                <Row label="Desktop notification on failure" description="Also raise an OS notification when a run you start here fails, or a Cronsole-native job fails on its schedule while this dashboard is open. A Windows task that fails by itself is not included; use the run-outcome webhook for those.">
                   <Toggle
                     checked={settings.desktopNotifyOnFailure}
                     onChange={requestDesktopNotifications}

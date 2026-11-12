@@ -102,6 +102,9 @@ including reads, while `schema.prisma`, the generated client and the whole test 
 value — only the DB does not, so nothing reddens
 (`node scripts/check-migrations-applied.mjs`,
 [#81](docs/troubleshooting/README.md#81-a-brand-new-source-returns-internal-server-error-the-moment-you-open-it)).
+A machine that ran **`cronsole mode built`** (marker `.cronsole-built`) runs `node dist/index.js` and
+`vite preview` instead of the dev servers: there the backend does **not** hot-reload, `backend/dist`
+is one more thing that runs stale, and `cronsole status` says when source is newer than the build.
 After a pull, **`cronsole update`** refreshes all five (`-NoRestart` to install and build only);
 it rebuilds the agent only from an elevated prompt and otherwise prints the command.
 Run **`/doctor`** before debugging your own code.

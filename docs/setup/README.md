@@ -148,12 +148,34 @@ pwsh scripts\cronsole.ps1 status   # one table: every service + API health, ALL 
 pwsh scripts\cronsole.ps1 up       # start whatever's down (idempotent)
 pwsh scripts\cronsole.ps1 restart  # bounce the app tier
 pwsh scripts\cronsole.ps1 update   # git pull, then everything a pull leaves stale (see Upgrading)
+pwsh scripts\cronsole.ps1 mode     # built app or dev servers? (mode built \ mode dev to change)
 pwsh scripts\cronsole.ps1 down     # stop backend + frontend + agent
 ```
 
 Postgres carries `restart: unless-stopped`, so it self-heals after a crash
 or reboot; the auto-start scheduled task re-runs `cronsole up` every 5 minutes to
 recover the rest. See [`scripts/README.md`](../../scripts/README.md) for details.
+
+## 🏗️ Run mode: built app or dev servers
+
+`cronsole.ps1` can run the backend and the dashboard two ways. The choice is per machine.
+
+| | Dev servers (default) | Built app |
+|:---|:---|:---|
+| Backend | `tsx watch` on the source | `node dist/index.js` |
+| Dashboard | Vite dev server | the built bundle, served by `vite preview` |
+| A file in the clone changes | Both reload at once, under any running native job | Nothing happens until `cronsole update` |
+| For | Working on Cronsole | Only using it |
+
+```powershell
+pwsh scripts\cronsole.ps1 mode built   # builds both, then records the choice in .cronsole-built
+pwsh scripts\cronsole.ps1 restart      # switch over
+pwsh scripts\cronsole.ps1 mode dev     # back to the dev servers (restart again)
+```
+
+Ports and addresses are the same in both. In built mode `cronsole update` rebuilds before it
+restarts, and `cronsole status` says when the source is newer than the build. A hand `git pull`
+changes nothing that is running, so remember the update.
 
 ## ⏫ Upgrading
 
@@ -168,7 +190,7 @@ pwsh scripts\cronsole.ps1 update
 | Step | What it does |
 |:---|:---|
 | 1 | `git pull --ff-only`. It never merges; local commits or a conflict stop the update before anything changes. |
-| 2 | `npm install` in `backend`, `frontend` and `mcp-server`, then builds `mcp-server/dist`. A failure stops here and the running stack is left alone. Output goes to `logs\update.log`. |
+| 2 | `npm install` in `backend`, `frontend` and `mcp-server`, then builds `mcp-server/dist`, and the backend and dashboard too in [built mode](#-run-mode-built-app-or-dev-servers). A failure stops here and the running stack is left alone. Output goes to `logs\update.log`. |
 | 3 | Restarts the stack. Database migrations apply when the backend starts. |
 | 4 | Rebuilds the agent, only when its source is newer than the published agent. |
 | 5 | Rebuilds the proxied dashboard, only where `cronsole remote on` was run. |

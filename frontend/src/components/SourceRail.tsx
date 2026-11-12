@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router';
 import {
   ChevronRight, Layers, Monitor, EyeOff, Star,
   PanelLeftClose, PanelLeftOpen, Bookmark, Plus, Pin, X,
-  Compass, SlidersHorizontal, Search
+  Compass, SlidersHorizontal, Search, Link2, Pencil
 } from 'lucide-react';
+import { useToast } from '../hooks/useToast';
+import { TaskCollectionMenu } from './TaskCollectionMenu';
 import { useConnections, healthMeta } from '../hooks/useConnections';
 import { usePlatformMatrix } from '../hooks/usePlatformMatrix';
 import { useSettings } from '../hooks/useSettings';
@@ -17,6 +19,8 @@ import {
   expandedSourceFor,
   isRailNodeSelected,
   railSectionOf,
+  railNodeTasks,
+  collectionIdFromKey,
   ALL_SOURCES,
   FAVORITES_KEY,
   type RailNode,
@@ -25,7 +29,7 @@ import {
 import { filterRailNodes, capRows } from '../utils/railFilter';
 import { pinForNode, type RailPin } from '../utils/railPins';
 import { moveKey } from '../utils/railOrder';
-import { useCollections } from '../hooks/useCollections';
+import { useCollections, collectionLink } from '../hooks/useCollections';
 import type { Task } from '../types';
 import type { TaskFilters } from '../utils/taskFilters';
 
@@ -224,9 +228,10 @@ interface SourceRailProps {
   /**
    * Open the collection manager. Optional so the rail still renders in tests and
    * in any caller that has no manager wired — a missing handler hides the "+"
-   * rather than rendering a button that does nothing.
+   * rather than rendering a button that does nothing. `renameId` opens it with
+   * that collection's name already in edit — the chip's pencil.
    */
-  onManageCollections?: () => void;
+  onManageCollections?: (renameId?: string) => void;
   /**
    * Pinned rail locations. See `utils/railPins.ts` for why these are not
    * collections: a collection's membership is declared, a pinned folder's is
@@ -528,7 +533,7 @@ export const SourceRail = ({
   const toggle = (key: string) =>
     setOverrides(prev => new Map(prev).set(key, !isOpen(key)));
 
-  const rowProps = { isOpen, onToggle: toggle, onSelect, filters, pins, onTogglePin, isUncapped, uncap };
+  const rowProps = { isOpen, onToggle: toggle, onSelect, filters, pins, onTogglePin, isUncapped, uncap, population };
 
   return (
     <nav
@@ -663,7 +668,7 @@ export const SourceRail = ({
             !collapsed && onManageCollections ? (
               <button
                 type="button"
-                onClick={onManageCollections}
+                onClick={() => onManageCollections()}
                 aria-label={collections?.length ? 'Manage collections' : 'New collection'}
                 title={collections?.length ? 'Manage collections' : 'New collection'}
                 className="flex h-[18px] w-[18px] items-center justify-center rounded text-subtle-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
@@ -672,6 +677,9 @@ export const SourceRail = ({
               </button>
             ) : undefined
           }
+          chipAction={node => (
+            <CollectionChipActions node={node} onRename={onManageCollections} />
+          )}
         />
 
         {/*
@@ -702,9 +710,9 @@ export const SourceRail = ({
             mirrors. It is the surface you are looking at when you decide a pin
             has served its purpose — and the only one that still works once the
             folder is gone, which is exactly when a `0` row you cannot remove
-            would be worst. Collections carry no equivalent: removing one
-            destroys a set you built, and that belongs in the manager behind a
-            confirmation.
+            would be worst. Collections carry no `x`: removing one destroys a
+            set you built, and that belongs in the manager behind a
+            confirmation. (They carry copy-link and rename instead.)
           */
           chipAction={node => <UnpinButton node={node} onTogglePin={onTogglePin} />}
         />
@@ -884,6 +892,8 @@ interface RowContext {
   onTogglePin?: (node: RailNode) => void;
   isUncapped: (key: string) => boolean;
   uncap: (key: string) => void;
+  /** The rail population — what a folder's "add to collection" draws its tasks from. */
+  population: Task[];
 }
 
 /**
@@ -1258,7 +1268,21 @@ const ChildRow = ({ node, ...ctx }: RowContext & { node: RailNode }) => {
         open={open}
         onToggle={() => ctx.onToggle(node.key)}
         onSelect={ctx.onSelect}
-        action={<PinButton node={node} pins={ctx.pins} onTogglePin={ctx.onTogglePin} />}
+        action={
+          <>
+            {/* Whole folder → a collection, as a snapshot of what the row counts.
+                Hover-revealed like the pin's `+`; absent on a disclosure or an
+                empty folder, where there is nothing to add. */}
+            {!isGroup && node.count > 0 && (
+              <TaskCollectionMenu
+                folder={{ label: node.label, tasks: railNodeTasks(ctx.population, node) }}
+                size={12}
+                className="h-[18px] w-[18px] justify-center rounded opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:bg-muted"
+              />
+            )}
+            <PinButton node={node} pins={ctx.pins} onTogglePin={ctx.onTogglePin} />
+          </>
+        }
       />
       {open && node.children && (
         <ChildList nodes={node.children} listKey={node.key} {...ctx} />
@@ -1294,6 +1318,50 @@ const UnpinButton = ({
     >
       <X size={11} />
     </button>
+  );
+};
+
+/**
+ * Copy a link to this collection, and rename it — on the chip, because the chip
+ * is what you are looking at when you want either. Rename opens the manager in
+ * edit mode rather than editing inline: a text field inside a 25px chip is a
+ * control nobody can hit on a phone. Deleting stays in the manager only (see
+ * the Pinned band's note on why collections carry no `x`).
+ */
+const CollectionChipActions = ({
+  node,
+  onRename
+}: {
+  node: RailNode;
+  onRename?: (id: string) => void;
+}) => {
+  const { toast } = useToast();
+  const id = collectionIdFromKey(node.key);
+  if (!id) return null;
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(collectionLink(id));
+      toast(`Link to “${node.label}” copied.`, 'success');
+    } catch {
+      toast('Could not copy the link.', 'error');
+    }
+  };
+
+  const btn =
+    'flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full text-subtle-foreground opacity-0 transition-all hover:bg-muted hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60';
+
+  return (
+    <>
+      <button type="button" onClick={copy} aria-label={`Copy link to ${node.label}`} title="Copy link" className={btn}>
+        <Link2 size={11} />
+      </button>
+      {onRename && (
+        <button type="button" onClick={() => onRename(id)} aria-label={`Rename ${node.label}`} title="Rename" className={btn}>
+          <Pencil size={10} />
+        </button>
+      )}
+    </>
   );
 };
 

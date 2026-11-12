@@ -253,7 +253,7 @@ export const DashboardScreen = ({
   // a bookmark reproduces *which tasks you are looking at*, and a link that also
   // reopened a drawer would make two URLs that mean the same thing.
   const [railOpen, setRailOpen] = useState(false);
-  const [managingCollections, setManagingCollections] = useState(false);
+  const [managingCollections, setManagingCollections] = useState<false | { renameId?: string }>(false);
   const { data: collections } = useCollections();
 
   /**
@@ -748,7 +748,7 @@ export const DashboardScreen = ({
           onSelect={applyRailPatch}
           collapsed={railCollapsed}
           onToggleCollapsed={() => update('railCollapsed', !railCollapsed)}
-          onManageCollections={() => setManagingCollections(true)}
+          onManageCollections={renameId => setManagingCollections({ renameId })}
           pins={prefs.railPins}
           onTogglePin={togglePin}
           collectionsCollapsed={prefs.collectionsCollapsed}
@@ -798,9 +798,9 @@ export const DashboardScreen = ({
               }}
               // Closes the drawer with it: the manager is a modal, and leaving
               // the drawer open behind it stacks two overlays on a phone.
-              onManageCollections={() => {
+              onManageCollections={renameId => {
                 setRailOpen(false);
-                setManagingCollections(true);
+                setManagingCollections({ renameId });
               }}
               // Pinning is not navigation, so it does NOT close the drawer:
               // pinning two folders in a row is one errand, and a panel that
@@ -1530,7 +1530,10 @@ export const DashboardScreen = ({
       </button>
 
       {managingCollections && (
-        <ManageCollectionsModal onClose={() => setManagingCollections(false)} />
+        <ManageCollectionsModal
+          renameId={managingCollections.renameId}
+          onClose={() => setManagingCollections(false)}
+        />
       )}
       </div>
     </div>

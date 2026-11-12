@@ -1,5 +1,5 @@
 import type { Task } from '../types';
-import { subfolderPath, type TaskFilters } from './taskFilters';
+import { subfolderPath, matchesSource, matchesFolderPath, type TaskFilters } from './taskFilters';
 import { sourceLabel, sourceSubtypeLabel, sourcePlatform, platformSourceLabel } from '../platform';
 import { pinKey, pinIdFromKey, type RailPin } from './railPins';
 import { byStoredOrder } from './railOrder';
@@ -578,6 +578,26 @@ function systemGroup(platform: string, system: Task[], showsSystem: boolean): Ra
         })
       }))
   };
+}
+
+/**
+ * The tasks a folder-level node counts — what "add this folder to a collection"
+ * adds. The same split the tree counts by (personal folders hold personal tasks,
+ * `system: 'include'` folders hold system ones), so the list's length is the
+ * row's `count`. A snapshot: a collection is declared, so tasks that land in the
+ * folder later do not join it — pinning is the derived alternative.
+ */
+export function railNodeTasks(population: Task[], node: RailNode): Task[] {
+  const p = node.patch;
+  if (!p) return [];
+  const category = p.category ?? 'All';
+  return population.filter(
+    t =>
+      (p.system === 'include' ? t.isSystem === true : t.isSystem !== true) &&
+      matchesSource(t, p.source ?? ALL_SOURCES) &&
+      (category === 'All' || (t.category || UNCATEGORIZED) === category) &&
+      matchesFolderPath(t, p.folderPath ?? 'All')
+  );
 }
 
 /**

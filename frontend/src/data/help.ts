@@ -1192,6 +1192,19 @@ const collections: HelpTopic = {
         'a number once the task is in something.'
     },
     {
+      label: 'Add a whole folder',
+      body:
+        'Hover a folder in the source rail and click its bookmark to add every task it counts in ' +
+        'one go. It is a snapshot — tasks that land in the folder later do not join; pin the ' +
+        'folder if you want it followed. A collection holding part of the folder shows a –.'
+    },
+    {
+      label: 'Link, rename',
+      body:
+        'Hover a collection chip for a link icon, which copies a URL that opens the dashboard on ' +
+        'that collection and keeps working after a rename, and a pencil that renames it.'
+    },
+    {
       label: 'It composes with your view',
       body:
         'Failures + your collection is the failing tasks in it. Picking one does clear any ' +

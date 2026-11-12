@@ -1062,6 +1062,11 @@ verification pass — is still open above, narrowed to the half that needs a tok
       reads that node's own count rather than a second tally, stores no foreign key, and survives
       its target at `0`. One `Band` component renders both, so "these are the same kind of place"
       cannot drift into a lie *(2026-08-19, [DESIGN_NOTES](DESIGN_NOTES.md))*.
+- [x] **Collections: whole folders, links, rename on the chip** — a folder row's bookmark adds
+      every task it counts (`railNodeTasks`, the same split the tree counts by) as a one-time
+      snapshot, so membership stays declared and pinning stays the derived alternative. Chips copy
+      `/?collection=<id>` (id, so a rename keeps links) and open the manager in rename mode
+      *(2026-11-12)*.
 - [x] **A schedule can be picked, not only typed** — one `ScheduleBuilder` on all four cron
       surfaces (Edit task, New task, Apply template, Schedule tester): five shapes, a clock
       control and weekday toggles, with the cron it compiles to on screen and the Cron tab beside

@@ -14,6 +14,9 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Changed
 
+- **Sidebar scopes are one list; Collections and Pinned open in the main area** (2026-11-13). The two sliders are gone: *All tasks*, *Favorites*, *Collections* and *Pinned* sit together under **Scopes**, one row each with its count. Clicking **Collections** or **Pinned** shows them as boxes in the main content area instead of listing them in the sidebar — collections with **Copy link** and **Rename**, pins with **Copy link** and **Unpin** — labelled, colour-coded buttons along the bottom of each box — plus *New or manage collections*; both drag to reorder. Click a box to open its tasks. The sidebar's filter box now searches sources and folders only.
+- **Task cards show their last 7 runs** (2026-11-13). A strip of seven bars beside the next run — green succeeded, red failed, amber running, an empty outline where nothing is recorded; a task with no recorded run shows no strip. It counts the runs Cronsole records: every run of a native task, but only Run-now runs elsewhere (the tooltip says which). `GET /api/tasks` gains `recentRuns`.
+- **Task cards are redesigned** (2026-11-13). Source icon and folder as a breadcrumb, the name, the schedule, then the **next run** (*In 1h 32m (3:00 PM)*) beside the status word, and a footer with the last run time, **clone**, **enable/disable** and a labelled **▶ Run**. The platform id moved to the title's tooltip; the task's detail view still shows it.
 - **The sidebar is redesigned** (2026-11-13). **Two sliders sit under the filter box** — *All sources · Favorites*, which show those tasks straight away, then *Collections · Pinned*, which open underneath — and **Sources sit on their own below them**, always visible, instead of three stacked sections that folded separately. Everything is about a quarter shorter than before. The sidebar remembers which list you left open (synced to your account, replacing the three fold settings), and every segment keeps its count on screen. Sources are cards with their health in words, opening to the same folder rows as before; collections and pins are compact tiles, two to a row — a collection's with link and rename, a pin's with link and unpin. While you filter, the list badges become match counts and the list slider opens the list that has matches, without forgetting the one you chose. The filter box, drag-to-reorder (and Alt+↑/↓), the ten-row caps and collapse-to-icons all stay; collapsed, the sidebar shows the two scopes and your sources.
 
 ### Added
@@ -24,6 +27,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Fixed
 
+- **Native tasks showed no next run, and never counted as *Due today*** (2026-11-13). The dashboard read a task's next run only from platform metadata, which some sources never fill, and ignored the `nextRunTime` value Cronsole stores for every task. It now reads that first.
 - **A deleted on-demand or chained native task can be restored again** (2026-11-12). A Cronsole-native task with no schedule of its own — made on-demand with *Edit schedule*, or one that only runs after another task — exported and archived as `schedule: null`, and import and archive-restore refused that as *"has no schedule in the file"*. So the archive taken before a delete could never rebuild it, and its `restorable` said so. `null` now recreates the task unscheduled; a file with the field missing or blank is still refused. Found by driving `delete_task` → `restore_task_archive` over MCP.
 
 ### Changed

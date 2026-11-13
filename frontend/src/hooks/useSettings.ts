@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { api, subscribeAuthToken } from '../api';
 import type { SavedView } from '../utils/savedViews';
 import type { RailPin } from '../utils/railPins';
-import { RAIL_TABS, DEFAULT_RAIL_TAB, type RailTab } from '../utils/railTabs';
 import type { PlatformLink } from '../types';
 import { DEFAULT_QUICK_LINKS, readLegacyQuickLinks, withNewDefaults } from '../utils/quickLinks';
 
@@ -95,18 +94,6 @@ export interface Settings {
    */
   railPins: RailPin[];
   /**
-   * Which list the rail's list slider has open — Collections or Pinned
-   * (`utils/railTabs.ts`). The scope slider stores nothing: it shows the
-   * selection. Sources are always shown, below. Replaced the three per-band folds
-   * (`collectionsCollapsed`, `pinnedCollapsed`, `sourcesCollapsed`) when the
-   * rail moved to tabs on 2026-11-13; a stored blob still carrying those keys
-   * is harmless — nothing reads them.
-   *
-   * Separate from `railCollapsed` because they answer different questions —
-   * how wide the rail is, versus which of your things is on screen.
-   */
-  railTab: RailTab;
-  /**
    * Platform keys in the order the rail draws them, when the user has dragged
    * one. Empty means alphabetical, which is the order it always had.
    *
@@ -188,7 +175,6 @@ export const DEFAULT_SETTINGS: Settings = {
   savedViews: [],
   railCollapsed: false,
   railPins: [],
-  railTab: DEFAULT_RAIL_TAB,
   sourceOrder: [],
   shownSources: DEFAULT_SHOWN_SOURCES,
   quickLinks: DEFAULT_QUICK_LINKS,
@@ -201,7 +187,6 @@ export const DEFAULT_SETTINGS: Settings = {
 const ALLOWED_VALUES: Partial<Record<keyof Settings, readonly string[]>> = {
   defaultView: ['grid', 'list', 'kanban', 'schedule', 'calendar'],
   templateView: ['grid', 'list', 'kanban'],
-  railTab: RAIL_TABS,
 };
 
 const kindOf = (v: unknown) => (v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v);

@@ -276,14 +276,23 @@ export function matchesOutcome(
   }
 }
 
-/** The task's next scheduled run, or null when nothing is scheduled. */
+/**
+ * The task's next scheduled run, or null when nothing is scheduled.
+ *
+ * The `nextRunTime` **column** first — it is what every connector writes on
+ * sync and what the native scheduler advances. Reading only `metadata` (which
+ * only some agents populate) left every native task with "no next run" and out
+ * of *Due today*. The metadata spellings stay as the fallback for old rows.
+ */
 export function nextRunOf(task: Task): Date | null {
   const meta = (task.metadata ?? {}) as Record<string, unknown>;
-  const raw = typeof meta.nextRunTime === 'string'
-    ? meta.nextRunTime
-    : typeof meta.nextRun === 'string'
-      ? meta.nextRun
-      : null;
+  const raw = typeof task.nextRunTime === 'string'
+    ? task.nextRunTime
+    : typeof meta.nextRunTime === 'string'
+      ? meta.nextRunTime
+      : typeof meta.nextRun === 'string'
+        ? meta.nextRun
+        : null;
   if (!raw) return null;
   const d = new Date(raw);
   // An unparseable stamp is "no known next run", not epoch zero — which would

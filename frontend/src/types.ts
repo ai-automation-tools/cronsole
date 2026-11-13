@@ -7,6 +7,8 @@ export interface Task {
   externalId: string;
   updatedAt: string;
   schedule?: string;
+  /** The `Task.nextRunTime` column every connector writes on sync. */
+  nextRunTime?: string | null;
   metadata?: Record<string, unknown>;
   /**
    * Is this task owned by the OS rather than the user? Decided **server-side**
@@ -45,6 +47,12 @@ export interface Task {
   lastRunStatus?: string | null;
   lastRunAt?: string | null;
   lastRunDurationMs?: number | null;
+  /**
+   * Up to 7 of Cronsole's own execution records, newest first — the card's run
+   * strip. Runs Cronsole performed only, never every run that happened (§9).
+   * Optional so an older backend degrades to an empty strip.
+   */
+  recentRuns?: { status: string; triggeredAt: string }[];
 }
 
 export interface ExecutionLogEntry {

@@ -1075,6 +1075,13 @@ verification pass — is still open above, narrowed to the half that needs a tok
       dashboard heading already counts the tasks. Folders stay rows inside source cards; "a fold may not swallow a hit"
       became `shownRailTab`. Kept: filter, reorder + keyboard twin, caps, collapse-to-icons
       *(2026-11-13)*.
+- [x] **Scopes as one list; Collections and Pinned in the main area; new task cards** — the two
+      sliders were replaced the same day by one **Scopes** list (*All tasks · Favorites ·
+      Collections · Pinned*); `railTabs.ts` and `Settings.railTab` deleted. Collections and Pinned
+      open galleries in the main area (`ScopeGallery.tsx`, `?lens=collections|pinned`, outside
+      `FILTER_PARAM_KEYS`). Task cards
+      became breadcrumb · name · schedule · next run + status · footer (clone, power, labelled Run)
+      *(2026-11-13)*.
 - [x] **Pinned chips copy a link; the sidebar resizes** — a pin's link names the folder
       (`railNodeLink`, through `filtersToParams`), never the pin, and a pin gets no rename because it
       shows the real folder's name. The rail's right edge drags (208–560px, `max-w-[50vw]`), with a

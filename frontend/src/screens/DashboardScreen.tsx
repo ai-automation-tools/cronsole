@@ -30,7 +30,9 @@ import { HealthStrip } from '../components/HealthStrip';
 import { SyncMenu } from '../components/SyncMenu';
 import { SourceRail } from '../components/SourceRail';
 import type { RailNode, RailSection } from '../utils/sourceTree';
-import { collectionIdFromKey } from '../utils/sourceTree';
+import { collectionIdFromKey, buildSourceTree, railSectionOf } from '../utils/sourceTree';
+import { CollectionsGallery, PinnedGallery } from '../components/ScopeGallery';
+import type { RailLens } from '../components/SourceRail';
 import { pinForNode, pinFromNode, pinIdFromKey, pinKey } from '../utils/railPins';
 import { orderBy } from '../utils/railOrder';
 import { HelpButton } from '../components/HelpButton';
@@ -45,6 +47,7 @@ import {
   DEFAULT_FILTERS,
   effectiveFilters,
   needsHealthData,
+  nextRunOf,
   type FilterDimension,
   type TaskFilters
 } from '../utils/taskFilters';
@@ -69,8 +72,6 @@ import { TaskSearchBox } from '../components/TaskSearchBox';
 import { RailResizeHandle } from '../components/RailResizeHandle';
 import { readRailWidth, writeRailWidth } from '../utils/railWidth';
 
-// Loose shape for the untyped platform-metadata JSON blob on tasks.
-type TaskMeta = { nextRunTime?: string; nextRun?: string; schedule?: string } | null | undefined;
 
 /**
  * The task name as a button. List rows and board cards open on a click anywhere,
@@ -251,6 +252,25 @@ export const DashboardScreen = ({
    * rule the caller has to remember.
    */
   const applyRailPatch = (patch: Partial<TaskFilters>) => setFilters({ ...filters, ...patch });
+
+  /**
+   * The rail's **Collections** and **Pinned** scopes show a gallery here, in
+   * place of the task list. `?lens=collections|pinned` rather than a
+   * `TaskFilters` field: a gallery is not a slice of tasks, and `lens` is not in
+   * `FILTER_PARAM_KEYS`, so a bare URL plus the lens still opens on the user's
+   * default filters. Every filter write goes through `setFilters`, which
+   * rebuilds the query from the filters alone — so picking a card, a scope or a
+   * source leaves the gallery with no extra rule. Opening one pushes history, so
+   * Back returns to the list it was opened from.
+   */
+  const lensParam = searchParams.get('lens');
+  const lens: RailLens | null =
+    lensParam === 'collections' || lensParam === 'pinned' ? lensParam : null;
+  const showLens = (next: RailLens) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('lens', next);
+    setSearchParams(params);
+  };
 
   const [viewMode, setViewMode] = useState<DashboardView>(settings.defaultView);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -519,6 +539,25 @@ export const DashboardScreen = ({
   );
 
   /**
+   * The collections and pins as the galleries draw them — the same
+   * `buildSourceTree` pass the rail runs, so a pin's count is its folder's and a
+   * collection's is its members', by construction. Connected-but-empty
+   * platforms are left out: no pin can point into a platform with no folders.
+   */
+  const galleryNodes = useMemo(() => {
+    const tree = buildSourceTree({
+      population: railPopulation,
+      filters,
+      collections: collections ?? [],
+      pins: prefs.railPins
+    });
+    return {
+      collections: tree.filter(n => railSectionOf(n.key) === 'collection'),
+      pinned: tree.filter(n => railSectionOf(n.key) === 'pinned')
+    };
+  }, [railPopulation, filters, collections, prefs.railPins]);
+
+  /**
    * How many rows the **system lens** is holding back from *this list* — the
    * number on the "N system hidden" chip.
    *
@@ -662,9 +701,9 @@ export const DashboardScreen = ({
 
   const scheduledTasks = useMemo(() => {
     return [...filteredTasks].sort((a, b) => {
-      const aTime = (a.metadata as TaskMeta)?.nextRunTime || (a.metadata as TaskMeta)?.nextRun || a.updatedAt;
-      const bTime = (b.metadata as TaskMeta)?.nextRunTime || (b.metadata as TaskMeta)?.nextRun || b.updatedAt;
-      return new Date(aTime).getTime() - new Date(bTime).getTime();
+      const aTime = nextRunOf(a)?.getTime() ?? new Date(a.updatedAt).getTime();
+      const bTime = nextRunOf(b)?.getTime() ?? new Date(b.updatedAt).getTime();
+      return aTime - bTime;
     });
   }, [filteredTasks]);
 
@@ -771,11 +810,10 @@ export const DashboardScreen = ({
           onSelect={applyRailPatch}
           collapsed={railCollapsed}
           onToggleCollapsed={() => update('railCollapsed', !railCollapsed)}
-          onManageCollections={renameId => setManagingCollections({ renameId })}
           pins={prefs.railPins}
           onTogglePin={togglePin}
-          tab={prefs.railTab}
-          onTabChange={t => update('railTab', t)}
+          lens={lens}
+          onShowLens={showLens}
           sourceOrder={prefs.sourceOrder}
           onReorder={reorderRail}
         />
@@ -814,19 +852,17 @@ export const DashboardScreen = ({
                 applyRailPatch(patch);
                 setRailOpen(false);
               }}
-              // Closes the drawer with it: the manager is a modal, and leaving
-              // the drawer open behind it stacks two overlays on a phone.
-              onManageCollections={renameId => {
-                setRailOpen(false);
-                setManagingCollections({ renameId });
-              }}
               // Pinning is not navigation, so it does NOT close the drawer:
               // pinning two folders in a row is one errand, and a panel that
               // shut after each would make it three gestures per pin.
               pins={prefs.railPins}
               onTogglePin={togglePin}
-              tab={prefs.railTab}
-              onTabChange={t => update('railTab', t)}
+              lens={lens}
+              // Opening a gallery is navigation, so it closes the drawer.
+              onShowLens={next => {
+                showLens(next);
+                setRailOpen(false);
+              }}
               sourceOrder={prefs.sourceOrder}
               // Reordering is not navigation, so the drawer stays open — the
               // same rule as pinning, and arranging a rail is several drags.
@@ -859,7 +895,7 @@ export const DashboardScreen = ({
             >
               <PanelLeft size={18} />
             </button>
-            {scopeHeading}
+            {lens === 'pinned' ? 'Pinned' : lens === 'collections' ? 'Collections' : scopeHeading}
             <HelpButton topic="dashboard" size="md" />
           </h2>
           {/*
@@ -872,7 +908,11 @@ export const DashboardScreen = ({
             longer see.
           */}
           <p className="text-muted-foreground" data-testid="task-count-line">
-            {scopeTrail ?? `Manage ${tasks?.length || 0} tasks across your ecosystem.`}
+            {lens === 'pinned'
+              ? `${galleryNodes.pinned.length} pinned folder${galleryNodes.pinned.length === 1 ? '' : 's'} — pick one to open its tasks.`
+              : lens === 'collections'
+                ? `${galleryNodes.collections.length} collection${galleryNodes.collections.length === 1 ? '' : 's'} — pick one to open its tasks.`
+                : scopeTrail ?? `Manage ${tasks?.length || 0} tasks across your ecosystem.`}
           </p>
           {/*
             What the selected source *is*, in one line.
@@ -888,7 +928,7 @@ export const DashboardScreen = ({
             read. The `?` beside it opens the matching help topic, which is what
             keeps this a summary rather than the documentation.
           */}
-          {scopeDescription && (
+          {scopeDescription && !lens && (
             <p
               className="text-sm text-subtle-foreground mt-2 max-w-2xl flex items-start gap-1.5"
               data-testid="source-description"
@@ -987,7 +1027,21 @@ export const DashboardScreen = ({
       */}
       <HealthStrip />
 
-      {isEmpty ? (
+      {lens === 'pinned' ? (
+        <PinnedGallery
+          nodes={galleryNodes.pinned}
+          onSelect={applyRailPatch}
+          onTogglePin={togglePin}
+          onReorder={reorderRail}
+        />
+      ) : lens === 'collections' ? (
+        <CollectionsGallery
+          nodes={galleryNodes.collections}
+          onSelect={applyRailPatch}
+          onReorder={reorderRail}
+          onManage={renameId => setManagingCollections({ renameId })}
+        />
+      ) : isEmpty ? (
         <div className="flex flex-col items-center justify-center h-[50vh] border-2 border-dashed border-border rounded-3xl p-10 text-center">
            <Activity size={48} className="text-subtle-foreground mb-4 animate-pulse" />
            <h3 className="text-xl font-bold text-foreground">Dashboard is empty</h3>
@@ -1455,7 +1509,7 @@ export const DashboardScreen = ({
                   <p className="text-sm text-subtle-foreground italic">No scheduled tasks found in this category.</p>
                 ) : (
                   scheduledTasks.map(task => {
-                    const nextRun = (task.metadata as TaskMeta)?.nextRunTime || (task.metadata as TaskMeta)?.nextRun || null;
+                    const nextRun = nextRunOf(task)?.toISOString() ?? null;
                     return (
                       <div key={task.id} className="relative group">
                         {/* Timeline node */}

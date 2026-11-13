@@ -15,6 +15,7 @@ import {
   Undo2
 } from 'lucide-react';
 import { api } from '../../api';
+import { OUTCOME_STYLE, runBulk, type BulkReport } from '../../utils/bulkRun';
 import { platformLabel } from '../../platform';
 import type { Task } from '../../types';
 import type { HealthTier } from '../../utils/taskFilters';
@@ -69,57 +70,6 @@ import { ToolCard } from './ToolCard';
  */
 
 type Phase = 'idle' | 'running' | 'done';
-
-interface BulkItem {
-  taskId: string;
-  name: string;
-  platform: string;
-  outcome: 'updated' | 'unchanged' | 'refused' | 'failed' | 'skipped';
-  message?: string;
-}
-
-interface BulkReport {
-  requested: number;
-  updated: number;
-  unchanged: number;
-  refused: number;
-  failed: number;
-  skipped: number;
-  haltedReason?: string;
-  items: BulkItem[];
-}
-
-const EMPTY_REPORT: BulkReport = {
-  requested: 0,
-  updated: 0,
-  unchanged: 0,
-  refused: 0,
-  failed: 0,
-  skipped: 0,
-  items: []
-};
-
-/** Fold one batch's report into the run's running total. */
-function mergeReports(a: BulkReport, b: BulkReport): BulkReport {
-  return {
-    requested: a.requested + b.requested,
-    updated: a.updated + b.updated,
-    unchanged: a.unchanged + b.unchanged,
-    refused: a.refused + b.refused,
-    failed: a.failed + b.failed,
-    skipped: a.skipped + b.skipped,
-    haltedReason: a.haltedReason ?? b.haltedReason,
-    items: [...a.items, ...b.items]
-  };
-}
-
-const OUTCOME_STYLE: Record<BulkItem['outcome'], { label: string; className: string }> = {
-  updated: { label: 'Done', className: 'text-success-text' },
-  unchanged: { label: 'No change', className: 'text-subtle-foreground' },
-  refused: { label: 'Refused', className: 'text-warning-text' },
-  failed: { label: 'Failed', className: 'text-danger-text' },
-  skipped: { label: 'Not attempted', className: 'text-neutral-text' }
-};
 
 /**
  * The verbs this console runs.
@@ -263,52 +213,17 @@ export const MassActionsTool = () => {
    */
   const execute = useMutation({
     mutationFn: async ({ verb, targets, category }: { verb: MassVerb; targets: Task[]; category?: string }) => {
-      const batches = chunk(targets);
+      // Not a verb this console offers (Bulk export owns it); narrows the type.
+      if (verb === 'export') throw new Error('Export runs from the Bulk export tool.');
       setPhase('running');
       setProgress({ done: 0, total: targets.length });
-
-      let total: BulkReport = { ...EMPTY_REPORT };
-
-      for (const batch of batches) {
-        const ids = batch.map(t => t.id);
-        let res: BulkReport;
-
-        if (verb === 'enable' || verb === 'disable') {
-          res = (await api.post('/tools/tasks/status', {
-            taskIds: ids,
-            status: verb === 'enable' ? 'ACTIVE' : 'DISABLED'
-          })).data;
-        } else if (verb === 'categorize') {
-          res = (await api.post('/tools/tasks/category', { taskIds: ids, category })).data;
-        } else {
-          res = (await api.post('/tools/tasks/untrack', { taskIds: ids })).data;
+      const total = await runBulk(verb, targets, {
+        category,
+        onBatch: (report, done) => {
+          setReport(report);
+          setProgress(p => ({ ...p, done }));
         }
-
-        total = mergeReports(total, res);
-        setProgress(p => ({ ...p, done: p.done + batch.length }));
-        setReport(total);
-
-        if (res.haltedReason) {
-          // Name every task the halt cost, rather than letting them vanish from
-          // a run that reported fewer items than it was asked for.
-          const attempted = new Set(total.items.map(i => i.taskId));
-          const remaining = targets.filter(t => !attempted.has(t.id));
-          total = mergeReports(total, {
-            ...EMPTY_REPORT,
-            requested: remaining.length,
-            skipped: remaining.length,
-            items: remaining.map(t => ({
-              taskId: t.id,
-              name: t.name,
-              platform: t.platform,
-              outcome: 'skipped' as const,
-              message: res.haltedReason
-            }))
-          });
-          setReport(total);
-          break;
-        }
-      }
+      });
 
       return { verb, total };
     },

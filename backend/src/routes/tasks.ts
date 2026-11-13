@@ -65,7 +65,7 @@ const RECENT_RUNS = 7;
 // List all tasks (with a flattened last-run summary for the dashboard)
 router.get('/', async (req: Request, res: Response) => {
   const userId = (req as AuthRequest).user!.id;
-  const [tasks, favorites, memberships] = await Promise.all([
+  const [tasks, favorites, memberships, hidden] = await Promise.all([
     prisma.task.findMany({
       where: { userId },
       orderBy: { updatedAt: 'desc' },
@@ -84,9 +84,11 @@ router.get('/', async (req: Request, res: Response) => {
     prisma.taskCollectionMember.findMany({
       where: { collection: { userId } },
       select: { taskId: true, collectionId: true }
-    })
+    }),
+    prisma.taskHidden.findMany({ where: { userId }, select: { taskId: true } })
   ]);
   const favoriteIds = new Set(favorites.map(f => f.taskId));
+  const hiddenIds = new Set(hidden.map(h => h.taskId));
   const collectionsByTask = new Map<string, string[]>();
   for (const m of memberships) {
     const list = collectionsByTask.get(m.taskId);
@@ -116,7 +118,11 @@ router.get('/', async (req: Request, res: Response) => {
     // summarizeUntracked uses), and a second copy in the frontend is the shape
     // that let a renamed category silently stop syncing (#20a). The dashboard
     // gets the answer; it never gets the predicate.
-    isSystem: TaskService.isSystemTask(task.externalId, task.platform),
+    isSystem: TaskService.isSystemTask(task.externalId, task.platform, hiddenIds.has(task.id)),
+    // Which of the two ways in it took: true when *you* filed it under system
+    // tasks (and so can take it back out); an OS-owned task is `isSystem`
+    // without it, and there is nothing to undo.
+    hiddenByUser: hiddenIds.has(task.id),
     // Which source bar entry this task belongs to. Server-derived for the same
     // reason `isSystem` is: it reads `metadata.job.jobType`, and a second copy of
     // "what kind of native task is this" in the browser is the drift shape of
@@ -234,6 +240,43 @@ router.delete('/:id/favorite', async (req: Request, res: Response) => {
 
   await prisma.taskFavorite.deleteMany({ where: { userId, taskId } });
   res.json({ id: taskId, isFavorite: false });
+});
+
+// File a task under **system tasks** for the current user, or take it back out.
+// The same shape and the same rules as the favorite routes above: owner-checked
+// on the way in (a row may never point at another tenant's task), idempotent
+// both ways, and Cronsole-side only — nothing on the platform changes, so it
+// works with the agent offline. An OS-owned task is already a system task and
+// is refused, because "move it out" would then be a control that cannot work.
+router.post('/:id/hidden', async (req: Request, res: Response) => {
+  const taskId = req.params.id as string;
+  const userId = (req as AuthRequest).user!.id;
+
+  const owned = await prisma.task.findFirst({
+    where: { id: taskId, userId },
+    select: { id: true, externalId: true, platform: true }
+  });
+  if (!owned) {
+    throw new HttpError(404, 'Task not found');
+  }
+  if (TaskService.isSystemTask(owned.externalId, owned.platform)) {
+    throw new HttpError(400, 'This task is already a system task — the operating system owns it.');
+  }
+
+  await prisma.taskHidden.upsert({
+    where: { userId_taskId: { userId, taskId } },
+    update: {},
+    create: { userId, taskId }
+  });
+  res.json({ id: taskId, hiddenByUser: true });
+});
+
+router.delete('/:id/hidden', async (req: Request, res: Response) => {
+  const taskId = req.params.id as string;
+  const userId = (req as AuthRequest).user!.id;
+
+  await prisma.taskHidden.deleteMany({ where: { userId, taskId } });
+  res.json({ id: taskId, hiddenByUser: false });
 });
 
 const patchTaskStatusSchema = z.object({

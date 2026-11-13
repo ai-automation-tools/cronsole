@@ -693,6 +693,14 @@ Non-negotiable rules. **Every one has a reason recorded in
   second half is empty reads as *"it stopped running"*.
 - **A count beside a control describes the population that control governs** —
   `applyTaskFiltersExcept`, with the hidden count derived, not counted separately.
+- **`isSystem` has two ways in, and both are the server's.** A Windows task under `\Microsoft\` (the
+  folder rule), or a task **you** filed there with *Move to system tasks* — a per-user `TaskHidden`
+  join, `TaskFavorite`'s shape, never a column. `TaskService.isSystemTask(externalId, platform,
+  hiddenByUser)` is the one verdict, and **every surface that applies the system lens passes the
+  third argument** (task list, task health, the idle report, calendar occurrences): a task hidden
+  on the dashboard and shown in the calendar would be two answers to one question. The list sends
+  `hiddenByUser` beside `isSystem` only so the modal can offer *Move out*; an OS-owned task is
+  refused (400) — there is nothing to move.
 - **A judgement has one definition and it is the server's** — `isSystem`, health tier, task source
   (`services/taskSource.ts`), creatability and **deletability** (`usePlatformCreatability` /
   `usePlatformDeletability` over one `verbSupport`, three answers incl. `unknown`). Re-deriving one
@@ -716,8 +724,17 @@ Non-negotiable rules. **Every one has a reason recorded in
   (`updated` / `unchanged` / `refused` / `failed` / `skipped`). The **halt** rule is separate and
   belongs only to agent-touching verbs; a per-task refusal must not halt.
 - **Friction scales with blast radius**: past 25 tasks the confirmation costs a typed count, and the
-  dialog states the scope in words. Row selection was removed from the dashboard — relocating a
-  control is not a safety measure.
+  dialog states the scope in words. Relocating a control is not a safety measure.
+- **Dashboard selection came back (2026-11-13) under the rules that removed it** (2026-08-12).
+  `SelectionBar` (grid and list only) runs the **same routes through the same runner** as Mass
+  Actions (`utils/bulkRun.ts`: chunked at 100, halts, per-item report), so a selection and a scope
+  cannot disagree about a run. It acts **only on what is on screen** — the selection is intersected
+  with `filteredTasks`, so a filter change never leaves an invisible task in the batch and *Select
+  all* means *all shown*. The console's four verbs go through `MassActionConfirm` with the
+  selection **named** (`describeSelection`) and the typed count past 25; per-user labels
+  (favorite, collection, system tasks — `POST /api/tools/tasks/favorite|hidden`) touch no platform
+  and run on the click with Undo. Every button states how many tasks it would change, never the
+  selection size. Selection is presentation state, never the URL.
 - **Restore plans before it writes**, from read-only agent verbs, so `dryRun` is a real preview. An
   offline agent is a `502`, never a blind restore. Restoring does not track.
 - **Bulk untrack is one transaction** (a row removed without its exclusion returns on next sync) and

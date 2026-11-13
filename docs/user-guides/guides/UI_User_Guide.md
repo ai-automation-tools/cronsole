@@ -270,7 +270,7 @@ rebuilt from scratch on every visit. Seven ship built in:
 | **Failures** | Tasks the health check rates *critical* or *needs attention*. |
 | **Due today** | Tasks whose next run falls on today's date, in your **schedule timezone** (Settings › Schedule timezone) so it agrees with the times printed on the cards. |
 | **Disabled** | Only the tasks you've parked. Note this **isolates** them — it is not the same as *Filters › Status › All statuses*, which merely stops hiding them. |
-| **System** | Only the tasks Windows itself owns under `\Microsoft\`, which the dashboard hides by default. |
+| **System** | Only system tasks — the ones Windows itself owns under `\Microsoft\`, plus any you moved there yourself — which the dashboard hides by default. |
 
 > **System tasks are hidden by default.** On a real machine `\Microsoft\…` is most of what Task
 > Scheduler holds — 257 of 352 on the box this was built against — so leaving them in makes every
@@ -278,6 +278,12 @@ rebuilt from scratch on every visit. Seven ship built in:
 > with the number and a link to **Settings › Dashboard defaults › Show system tasks**, which is the
 > switch that changes it for good. The `N system hidden` chip beside **Filters** still reveals them
 > for the current session, and the **System** view still isolates them.
+>
+> **You can file any task there yourself.** Open it and click **Move to system tasks** — useful for
+> an updater or a vendor's housekeeping job that isn't under `\Microsoft\` but that you never want
+> to see. It is hidden everywhere system tasks are (the list, the calendar, task health) and keeps
+> running; it now sits in its source's *System tasks* group in the sidebar. **Move out of system
+> tasks** in the same place puts it back. Tasks Windows itself owns can't be moved out.
 
 - **Saving your own:** change any filters and the row shows a **Custom** chip plus **Save view**. Name it and it becomes a chip of its own, with a count, kept between visits. Delete one with the `×` on its chip — that only removes the name; the tasks and the filters you're currently looking at are untouched.
 - **Every view is a link.** The URL carries the view (`?view=failures`) or the individual filters, so you can bookmark one or paste it to another machine. A link to a saved view *someone else* made falls back to the normal dashboard rather than showing you nothing.
@@ -509,11 +515,21 @@ the full walkthrough is the [Phone Shortcuts Guide](Phone_Shortcuts_Guide.md).
 
 ## Changing many tasks at once
 
-Bulk changes live in one place: **Mass actions**, on the [Tools tab](#mass-actions). There are no
-checkboxes on the dashboard — a selection can't be checked once it's more than a handful of rows
-(*"254 selected"* tells you nothing you can verify), and it couldn't act on more than 100 tasks
-anyway. Mass actions works the other way round: you say *what* you want to change, then *which*
-tasks, and you see exactly which ones before anything happens.
+There are two ways, and they run the same changes:
+
+- **Select tasks on the dashboard.** In the Grid or List view, click **Select**, then click the
+  tasks you want (or **Select all *N* shown**). A bar at the bottom offers **Add to collection**
+  (or start a new one from the selection), **Favorite**, **Move to system tasks** (and back out),
+  **Enable**, **Disable**, **Move to category** and **Remove from Cronsole**. Each button shows how
+  many of the selected tasks it would actually change. Favorites, collections and system tasks
+  happen on the click, with **Undo** in the message; the rest ask first, naming the tasks, and
+  past 25 tasks you type the count. Only tasks you can see are acted on — change a filter and the
+  ones it hides drop out of the selection. **Esc** or **Done** stops selecting.
+- **Mass actions**, on the [Tools tab](#mass-actions), for a set chosen by a rule rather than by
+  hand: you say *what* you want to change, then *which* tasks (a category, a source, every
+  disabled task…), and you see exactly which ones before anything happens.
+
+Either way, anything that wasn't done is listed with its reason.
 
 To change a single task, open it and use the buttons in the task modal.
 

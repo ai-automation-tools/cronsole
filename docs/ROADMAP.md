@@ -1075,6 +1075,13 @@ verification pass — is still open above, narrowed to the half that needs a tok
       dashboard heading already counts the tasks. Folders stay rows inside source cards; "a fold may not swallow a hit"
       became `shownRailTab`. Kept: filter, reorder + keyboard twin, caps, collapse-to-icons
       *(2026-11-13)*.
+- [x] **Dashboard multi-select** — `SelectionBar` over the Mass Actions runner (`utils/bulkRun.ts`),
+      bulk favorite / system-task routes, collection add; reverses the 2026-08-12 removal under its
+      own rules (acts only on shown tasks, names the selection, typed count past 25) *(2026-11-13)*.
+- [x] **Move any task to system tasks** — a per-user `TaskHidden` join (TaskFavorite's shape) and
+      a third argument to `TaskService.isSystemTask`, passed by every surface that applies the
+      system lens (task list, task health, idle report, calendar occurrences). Modal button; an
+      OS-owned task is refused. Also: the list sorts by next run *(2026-11-13)*.
 - [x] **Scopes as one list; Collections and Pinned in the main area; new task cards** — the two
       sliders were replaced the same day by one **Scopes** list (*All tasks · Favorites ·
       Collections · Pinned*); `railTabs.ts` and `Settings.railTab` deleted. Collections and Pinned

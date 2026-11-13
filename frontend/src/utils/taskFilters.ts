@@ -301,6 +301,27 @@ export function nextRunOf(task: Task): Date | null {
 }
 
 /**
+ * The dashboard's order: **what runs next comes first.**
+ *
+ * Active tasks with an upcoming run, soonest first; then everything else —
+ * no schedule, disabled, or a next run already in the past (usually a stamp
+ * the platform has not refreshed yet, which would otherwise pin stale rows to
+ * the top) — in the order it arrived, which is most recently updated first.
+ * `Array.prototype.sort` is stable, so that tail keeps the server's order.
+ */
+export function sortByNextRun(tasks: Task[], now: Date): Task[] {
+  const key = (t: Task) => {
+    const next = t.status === 'ACTIVE' ? nextRunOf(t) : null;
+    return next && next.getTime() >= now.getTime() ? next.getTime() : Infinity;
+  };
+  return [...tasks].sort((a, b) => {
+    const ka = key(a);
+    const kb = key(b);
+    return ka === kb ? 0 : ka < kb ? -1 : 1;
+  });
+}
+
+/**
  * Next-run window.
  *
  * "Today" is the calendar date **in the user's schedule timezone**, not UTC and

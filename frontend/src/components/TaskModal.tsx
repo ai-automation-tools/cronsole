@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { XCircle, Folder, Play, History, Info, Loader2, CheckCircle2, XOctagon, Clock, Trash2, CalendarClock, Terminal, SlidersHorizontal, Pencil, BookmarkPlus, EyeOff, Wrench, RefreshCw, Copy, Smartphone, MoreHorizontal } from 'lucide-react';
+import { XCircle, Folder, Play, History, Info, Loader2, CheckCircle2, XOctagon, Clock, Trash2, CalendarClock, Terminal, SlidersHorizontal, Pencil, BookmarkPlus, EyeOff, Wrench, RefreshCw, Copy, Smartphone, MoreHorizontal, Archive, ArchiveRestore } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Task, ExecutionLogEntry } from '../types';
 import { PlatformRunHistory } from './PlatformRunHistory';
@@ -376,6 +376,29 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
     onError: (error: unknown) => {
       const err = error as Error & { response?: { data?: { error?: string } } };
       toast(`Remove failed: ${err.response?.data?.error || err.message}`, 'error');
+    }
+  });
+
+  /**
+   * File the task under **system tasks**, or take it back out — a Cronsole-side
+   * label like the star, so it touches nothing on the platform. The verdict
+   * stays the server's: the list's `isSystem` comes back already including it.
+   */
+  const hiddenMutation = useMutation({
+    mutationFn: async (hide: boolean) =>
+      hide ? api.post(`/tasks/${task!.id}/hidden`) : api.delete(`/tasks/${task!.id}/hidden`),
+    onSuccess: (_res, hide) => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      toast(
+        hide
+          ? `"${task!.name}" moved to system tasks. It is hidden wherever system tasks are hidden, and keeps running.`
+          : `"${task!.name}" moved out of system tasks.`,
+        'success'
+      );
+    },
+    onError: (error: unknown) => {
+      const err = error as Error & { response?: { data?: { error?: string } } };
+      toast(`Couldn't move it: ${err.response?.data?.error || err.message}`, 'error');
     }
   });
 
@@ -838,6 +861,31 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
               title="Forget this Claude scheduled task's id and token. The scheduled task keeps running at claude.ai."
             >
               {disconnectRoutineMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <EyeOff size={16} />} Disconnect scheduled task
+            </button>
+          )}
+          {/*
+            Move to / out of system tasks. Absent on an OS-owned task: it is a
+            system task by the folder rule and there is nothing to move.
+          */}
+          {(!task.isSystem || task.hiddenByUser) && (
+            <button
+              onClick={() => hiddenMutation.mutate(!task.hiddenByUser)}
+              disabled={hiddenMutation.isPending}
+              className="bg-muted hover:bg-muted/80 text-foreground px-4 py-3 rounded-xl font-bold transition-all border border-border active:scale-95 text-sm flex items-center gap-2 disabled:opacity-50"
+              title={
+                task.hiddenByUser
+                  ? 'Show this task with your own tasks again.'
+                  : 'File this task with the system tasks, so it is hidden whenever system tasks are. It keeps running and stays in Cronsole.'
+              }
+            >
+              {hiddenMutation.isPending ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : task.hiddenByUser ? (
+                <ArchiveRestore size={16} />
+              ) : (
+                <Archive size={16} />
+              )}
+              {task.hiddenByUser ? 'Move out of system tasks' : 'Move to system tasks'}
             </button>
           )}
           {task.platform !== 'TASKHUB_NATIVE' && task.platform !== 'CLAUDE_CODE' && (

@@ -1067,6 +1067,14 @@ verification pass — is still open above, narrowed to the half that needs a tok
       snapshot, so membership stays declared and pinning stays the derived alternative. Chips copy
       `/?collection=<id>` (id, so a rename keeps links) and open the manager in rename mode
       *(2026-11-12)*.
+- [x] **The sidebar redesign** — chosen from three mockups (A command list · B overview + tabs ·
+      C dock + panel; B won, then trimmed): **a scope slider (All sources · Favorites) and a list
+      slider (Collections · Pinned**, `utils/railTabs.ts`, `Settings.railTab` replacing the three fold
+      flags; both lists as two-per-row tiles), **Sources on their own below**, never in a slider;
+      everything ~25% shorter. B's overview card was dropped — the
+      dashboard heading already counts the tasks. Folders stay rows inside source cards; "a fold may not swallow a hit"
+      became `shownRailTab`. Kept: filter, reorder + keyboard twin, caps, collapse-to-icons
+      *(2026-11-13)*.
 - [x] **Pinned chips copy a link; the sidebar resizes** — a pin's link names the folder
       (`railNodeLink`, through `filtersToParams`), never the pin, and a pin gets no rename because it
       shows the real folder's name. The rail's right edge drags (208–560px, `max-w-[50vw]`), with a

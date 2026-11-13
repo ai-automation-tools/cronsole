@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api, subscribeAuthToken } from '../api';
 import type { SavedView } from '../utils/savedViews';
 import type { RailPin } from '../utils/railPins';
+import { RAIL_TABS, DEFAULT_RAIL_TAB, type RailTab } from '../utils/railTabs';
 import type { PlatformLink } from '../types';
 import { DEFAULT_QUICK_LINKS, readLegacyQuickLinks, withNewDefaults } from '../utils/quickLinks';
 
@@ -94,22 +95,17 @@ export interface Settings {
    */
   railPins: RailPin[];
   /**
-   * Is the Collections band folded shut?
+   * Which list the rail's list slider has open — Collections or Pinned
+   * (`utils/railTabs.ts`). The scope slider stores nothing: it shows the
+   * selection. Sources are always shown, below. Replaced the three per-band folds
+   * (`collectionsCollapsed`, `pinnedCollapsed`, `sourcesCollapsed`) when the
+   * rail moved to tabs on 2026-11-13; a stored blob still carrying those keys
+   * is harmless — nothing reads them.
    *
    * Separate from `railCollapsed` because they answer different questions —
-   * how wide the rail is, versus how much of your own stuff is on screen — and
-   * someone with fifteen collections and three platforms wants opposite answers
-   * to the two.
+   * how wide the rail is, versus which of your things is on screen.
    */
-  collectionsCollapsed: boolean;
-  /**
-   * Is the Pinned band folded shut? Separate from `collectionsCollapsed` for the
-   * same reason that one is separate from `railCollapsed` — two sections that
-   * fold independently need two flags, or each chevron misreports the other.
-   */
-  pinnedCollapsed: boolean;
-  /** Is the Sources tree folded shut? Independent of the two bands above it. */
-  sourcesCollapsed: boolean;
+  railTab: RailTab;
   /**
    * Platform keys in the order the rail draws them, when the user has dragged
    * one. Empty means alphabetical, which is the order it always had.
@@ -192,9 +188,7 @@ export const DEFAULT_SETTINGS: Settings = {
   savedViews: [],
   railCollapsed: false,
   railPins: [],
-  collectionsCollapsed: false,
-  pinnedCollapsed: false,
-  sourcesCollapsed: false,
+  railTab: DEFAULT_RAIL_TAB,
   sourceOrder: [],
   shownSources: DEFAULT_SHOWN_SOURCES,
   quickLinks: DEFAULT_QUICK_LINKS,
@@ -207,6 +201,7 @@ export const DEFAULT_SETTINGS: Settings = {
 const ALLOWED_VALUES: Partial<Record<keyof Settings, readonly string[]>> = {
   defaultView: ['grid', 'list', 'kanban', 'schedule', 'calendar'],
   templateView: ['grid', 'list', 'kanban'],
+  railTab: RAIL_TABS,
 };
 
 const kindOf = (v: unknown) => (v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v);

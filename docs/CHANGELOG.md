@@ -12,6 +12,10 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
+### Changed
+
+- **The sidebar is redesigned** (2026-11-13). **Two sliders sit under the filter box** — *All sources · Favorites*, which show those tasks straight away, then *Collections · Pinned*, which open underneath — and **Sources sit on their own below them**, always visible, instead of three stacked sections that folded separately. Everything is about a quarter shorter than before. The sidebar remembers which list you left open (synced to your account, replacing the three fold settings), and every segment keeps its count on screen. Sources are cards with their health in words, opening to the same folder rows as before; collections and pins are compact tiles, two to a row — a collection's with link and rename, a pin's with link and unpin. While you filter, the list badges become match counts and the list slider opens the list that has matches, without forgetting the one you chose. The filter box, drag-to-reorder (and Alt+↑/↓), the ten-row caps and collapse-to-icons all stay; collapsed, the sidebar shows the two scopes and your sources.
+
 ### Added
 
 - **Resizable sidebar** (2026-11-13). Drag the source rail's right edge to set its width (208–560px, never past half the window); double-click the edge to reset. Keyboard: Tab to the edge, ←/→ (Shift for bigger steps), Home/End, Enter to reset. Remembered per browser rather than synced, since a pixel width depends on the screen.

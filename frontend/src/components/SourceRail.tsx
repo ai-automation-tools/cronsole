@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode } from 'react';
+import { useId, useMemo, useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import {
   ChevronRight, Layers, Monitor, EyeOff, Star,
@@ -11,7 +11,7 @@ import { useConnections, healthMeta } from '../hooks/useConnections';
 import { usePlatformMatrix } from '../hooks/usePlatformMatrix';
 import { useSettings } from '../hooks/useSettings';
 import { railListedPlatforms } from '../utils/sourceVisibility';
-import { sourceIcon, sourceAccentGlyph, platformSourceLabel } from '../platform';
+import { sourceIcon, sourceAccentGlyph, platformSourceLabel, platformAccent, sourcePlatform } from '../platform';
 import { HelpButton } from './HelpButton';
 import { sourceTopicId } from '../data/help';
 import {
@@ -29,6 +29,14 @@ import {
 import { filterRailNodes, capRows } from '../utils/railFilter';
 import { pinForNode, type RailPin } from '../utils/railPins';
 import { moveKey } from '../utils/railOrder';
+import {
+  RAIL_TABS,
+  RAIL_TAB_LABEL,
+  DEFAULT_RAIL_TAB,
+  asRailTab,
+  shownRailTab,
+  type RailTab
+} from '../utils/railTabs';
 import { useCollections, collectionLink } from '../hooks/useCollections';
 import { railNodeLink } from '../utils/savedViews';
 import type { Task } from '../types';
@@ -83,6 +91,21 @@ import type { TaskFilters } from '../utils/taskFilters';
  * help `?` live in a footer bar pinned to the bottom of the panel, so four
  * controls that used to compete with the tree are always exactly where they were
  * last time.
+ *
+ * ## The 2026-11 pass: a slider and the sources
+ *
+ * Chosen from three mockups, then trimmed. Under the filter box, **a scope
+ * slider** (All sources · Favorites) and **a list slider** (Collections ·
+ * Pinned, `utils/railTabs.ts`, two-per-row tiles), and **Sources stand alone
+ * below** — the tree is what you navigate by, so it is never behind a segment.
+ * Then everything shrank ~25% in height. The three fold flags went with the bands: a
+ * tab bar is a fold that can only leave one list open, and its badges keep the
+ * closed one's count on screen the way a folded heading did. Sources became
+ * cards with their **folders still rows** inside — they nest, and their counts
+ * scan as a column — and the identity tile came back on the card, with health
+ * beside it as a dot *and* a word. "A fold may not swallow a hit" survives as
+ * `shownRailTab`. An overview card (task total + per-source bar) was built and
+ * removed: the dashboard heading already counts the tasks.
  *
  * And one thing was **deliberately not** done, having been drawn and rejected:
  * hiding the health dot on a healthy platform. Six green dots really are six
@@ -198,7 +221,7 @@ function useBandReorder(
         e.preventDefault();
         move(key, keys[j]);
       },
-      className: `cursor-grab active:cursor-grabbing rounded-full ${
+      className: `cursor-grab active:cursor-grabbing rounded-xl ${
         over === key ? 'ring-1 ring-ring/60' : ''
       }`
     };
@@ -220,17 +243,17 @@ interface SourceRailProps {
    * The folder level is **dropped**, not shrunk. At 72px a Task Scheduler folder
    * name has nowhere to go, and a tree whose second level is a column of
    * tooltips is worse than one that admits it needs width — so collapsing keeps
-   * exactly what survives without text: the platforms, their health, and their
-   * counts. Picking one expands the rail again, because the folder you were
-   * heading for is the reason you clicked.
+   * exactly what survives without text: the two scopes, the platforms, their
+   * health, and their counts. Collections and pins are named things with no
+   * glyph of their own, so they wait for the rail to widen.
    */
   collapsed?: boolean;
   onToggleCollapsed?: () => void;
   /**
    * Open the collection manager. Optional so the rail still renders in tests and
-   * in any caller that has no manager wired — a missing handler hides the "+"
-   * rather than rendering a button that does nothing. `renameId` opens it with
-   * that collection's name already in edit — the chip's pencil.
+   * in any caller that has no manager wired — a missing handler hides the
+   * button rather than rendering one that does nothing. `renameId` opens it
+   * with that collection's name already in edit — the card's pencil.
    */
   onManageCollections?: (renameId?: string) => void;
   /**
@@ -245,36 +268,12 @@ interface SourceRailProps {
    */
   onTogglePin?: (node: RailNode) => void;
   /**
-   * Is the Collections band folded shut?
-   *
-   * Its own preference rather than a piece of `collapsed`: folding the band is
-   * about *how much of your own stuff you want on screen*, while `collapsed` is
-   * about the width of the whole rail. Someone with fifteen collections and
-   * three platforms wants the first shut and the second open, and one flag
-   * cannot say that.
+   * Which section is showing. See `utils/railTabs.ts` — a synced preference,
+   * so it is the caller's to store. Uncontrolled (local state) when no
+   * `onTabChange` is given, which is what the tests use.
    */
-  collectionsCollapsed?: boolean;
-  onToggleCollectionsCollapsed?: () => void;
-  /**
-   * Is the Pinned band folded shut?
-   *
-   * Its own flag rather than sharing the Collections one: the reason to shut
-   * fifteen collections has nothing to do with the reason to shut three pins,
-   * and a single toggle over two sections would make each one's chevron lie
-   * about the other.
-   */
-  pinnedCollapsed?: boolean;
-  onTogglePinnedCollapsed?: () => void;
-  /**
-   * Is the Sources tree folded shut?
-   *
-   * A third independent flag, for the same reason as the second. Someone who
-   * works out of two collections and one pinned folder has no use for a dozen
-   * platform rows underneath them, and no reason to lose the rail's width to
-   * hide them.
-   */
-  sourcesCollapsed?: boolean;
-  onToggleSourcesCollapsed?: () => void;
+  tab?: RailTab;
+  onTabChange?: (tab: RailTab) => void;
   /**
    * The order the user dragged the source rows into. See
    * `SourceTreeInput.sourceOrder` — empty means alphabetical.
@@ -307,12 +306,8 @@ export const SourceRail = ({
   onManageCollections,
   pins = [],
   onTogglePin,
-  collectionsCollapsed = false,
-  onToggleCollectionsCollapsed,
-  pinnedCollapsed = false,
-  onTogglePinnedCollapsed,
-  sourcesCollapsed = false,
-  onToggleSourcesCollapsed,
+  tab: tabProp,
+  onTabChange,
   sourceOrder = [],
   onReorder
 }: SourceRailProps) => {
@@ -321,6 +316,9 @@ export const SourceRail = ({
   const { data: collections } = useCollections();
   const { data: matrix } = usePlatformMatrix();
   const { settings } = useSettings();
+  // The rail renders twice at once (desktop panel + phone drawer), so tab ids
+  // need a per-instance prefix or `aria-controls` points at the wrong panel.
+  const idBase = useId();
 
   /**
    * What you typed into the filter field.
@@ -332,6 +330,10 @@ export const SourceRail = ({
    */
   const [query, setQuery] = useState('');
   const filtering = query.trim().length > 0;
+  const changeQuery = (q: string) => {
+    setQuery(q);
+    setPickedThisQuery(null);
+  };
 
   /**
    * Narrowing the rail and narrowing the *panel* do not compose, so one clears
@@ -366,10 +368,6 @@ export const SourceRail = ({
    * Sources-tab card has to be answering this same question. A second copy here
    * is how "connected but hidden" starts meaning two things.
    *
-   * Note the Sources tab's three *views* do **not** read this: they split on
-   * `configured`. Listed and connected are different facts, and only this one
-   * decides whether the rail draws a row.
-   *
    * Connections are still read directly: they arrive on their own query, and a
    * rail that waits for the matrix would drop every empty-but-connected row for
    * the first paint after login.
@@ -397,13 +395,7 @@ export const SourceRail = ({
   );
 
   /**
-   * The rail in four bands.
-   *
-   * Partitioned here rather than rendered from one flat list with dividers
-   * computed per row, which is what this did before: the rule was "rule under
-   * the last scope row, wherever that is", and every new row type meant
-   * re-deriving where the boundary had moved. Four arrays cannot put a
-   * separator in the wrong place.
+   * The rail in four groups — two scopes, then the three tabs' contents.
    *
    * **Scopes are never filtered.** *All sources* and *Favorites* are not search
    * results — they are the two places that mean "stop narrowing", and the moment
@@ -439,6 +431,8 @@ export const SourceRail = ({
 
     return {
       scope: bands.scope,
+      /** Every source, unfiltered — what the overview card's bar is drawn from. */
+      allSources: bands.source,
       collection: filtered.collection.nodes,
       pinned: filtered.pinned.nodes,
       source: filtered.source.nodes,
@@ -454,10 +448,6 @@ export const SourceRail = ({
        * synced preference. The cap never had this problem — hidden rows stay in
        * the key list and only the rendering is trimmed — and this restores the
        * same shape for the filter.
-       *
-       * Dropping A on B still means "A takes B's index", now resolved against
-       * the full band, which is the right answer when rows between them are
-       * hidden: the two visible chips end up in the order you dragged them into.
        */
       allKeys: {
         collection: bands.collection.map(n => n.key),
@@ -474,13 +464,12 @@ export const SourceRail = ({
    * one layer up in the UI.
    */
   const coverage = useMemo(() => {
-    const all = tree.filter(n => railSectionOf(n.key) === 'source');
     const kept = new Set(sections.source.map(n => n.key));
     return {
-      searched: all.length,
-      missed: all.filter(n => !kept.has(n.key)).map(n => platformSourceLabel(n.key))
+      searched: sections.allSources.length,
+      missed: sections.allSources.filter(n => !kept.has(n.key)).map(n => platformSourceLabel(n.key))
     };
-  }, [tree, sections.source]);
+  }, [sections]);
 
   /**
    * Is this list drawn in full? Either you opened it, or its rows are matches —
@@ -499,10 +488,37 @@ export const SourceRail = ({
     [connections]
   );
 
-  // The source band reorders here rather than inside `Band` because these rows
-  // are not `Band` rows — they expand into folders and carry health dots. Same
-  // hook, same gesture, one level up.
+  // One reorder hook per band, called unconditionally: the hidden tabs' hooks
+  // still run, so switching tabs never changes the hook order.
   const sourceDrag = useBandReorder('source', sections.allKeys.source, onReorder);
+  const collectionDrag = useBandReorder('collection', sections.allKeys.collection, onReorder);
+  const pinDrag = useBandReorder('pinned', sections.allKeys.pinned, onReorder);
+
+  /**
+   * Which tab is drawn. Chosen by the user, except that a running filter may
+   * show another one rather than an empty panel — see `shownRailTab`. The
+   * badges become match counts at the same moment, so the reader can see where
+   * the other hits are.
+   */
+  const [localTab, setLocalTab] = useState<RailTab>(DEFAULT_RAIL_TAB);
+  const chosenTab = asRailTab(tabProp ?? localTab);
+  /*
+    A tab clicked *while filtering* is shown even when it holds no matches —
+    the auto-switch is for landing on a query, never for overruling a click
+    (a tab that ignores you reads as broken). Cleared with the query, so the
+    next search starts from the rule again.
+  */
+  const [pickedThisQuery, setPickedThisQuery] = useState<RailTab | null>(null);
+  const chooseTab = (t: RailTab) => {
+    if (filtering) setPickedThisQuery(t);
+    if (onTabChange) onTabChange(t);
+    else setLocalTab(t);
+  };
+  const hits: Record<RailTab, number> = {
+    collections: sections.collection.length,
+    pinned: sections.pinned.length
+  };
+  const tab = (filtering && pickedThisQuery) || shownRailTab(chosenTab, hits, filtering);
 
   /**
    * Which branches are open.
@@ -514,10 +530,6 @@ export const SourceRail = ({
    * is new on every poll and invalidation (troubleshooting #52), so the effect's
    * dependency had to be a hand-picked string to avoid re-running forever. There
    * is no dependency to pick if there is no effect.
-   *
-   * The override also carries a meaning the additive version could not express:
-   * `false` is *"I closed this on purpose"*, which now survives a re-render
-   * instead of being immediately undone by the auto-open.
    *
    * **A filter opens everything**, overrides included: you asked for these rows
    * by name, and delivering them folded shut would hide the answer inside the
@@ -536,6 +548,9 @@ export const SourceRail = ({
 
   const rowProps = { isOpen, onToggle: toggle, onSelect, filters, pins, onTogglePin, isUncapped, uncap, population };
 
+  const collectionCap = capRows(sections.collection, isUncapped('band:collection'));
+  const pinCap = capRows(sections.pinned, isUncapped('band:pinned'));
+
   return (
     <nav
       aria-label="Task sources"
@@ -548,275 +563,312 @@ export const SourceRail = ({
     >
       {/*
         Everything that scrolls. The footer below does not, which is the point of
-        splitting them: the four controls down there are the ones you reach for
-        from anywhere in the tree, and under 350 tasks they were off screen.
+        splitting them: the controls down there are the ones you reach for from
+        anywhere in the tree.
       */}
       <div
         className={`min-h-0 flex-1 overflow-y-auto ${collapsed ? 'px-2 py-3' : 'px-3 py-3'}`}
       >
-        {/*
-          **Filter the rail by name.** Sources, folders, collections and pins —
-          not tasks, which the view bar above the list already filters. The
-          placeholder says which, because that is the one confusion this control
-          can cause.
-        */}
         {collapsed ? (
-          // Only where there is a rail to expand. Without a toggle this would be
-          // a search button that cannot search and cannot widen — a control
-          // promising something it has no way to do.
-          onToggleCollapsed && <button
-            onClick={toggleCollapsed}
-            aria-label="Filter sources — expands the sidebar"
-            title="Filter sources and folders"
-            className="mb-3 flex h-8 w-full items-center justify-center rounded-lg border border-border bg-muted/40 text-subtle-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-          >
-            <Search size={15} />
-          </button>
-        ) : (
-          <div className="relative mb-3">
-            <Search
-              size={13}
-              aria-hidden
-              className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-subtle-foreground"
-            />
-            <input
-              type="search"
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              // Escape clears rather than blurring: the field is a lens over the
-              // rail, and leaving it focused-but-full is the state nobody wants.
-              onKeyDown={e => {
-                if (e.key !== 'Escape' || !filtering) return;
-                e.preventDefault();
-                // The mobile drawer closes on a document-level Escape. Without
-                // this, one press clears the field AND dismisses the sidebar
-                // the field lives in — and only while `filtering`, so an empty
-                // field still lets Escape shut the drawer.
-                e.stopPropagation();
-                setQuery('');
-              }}
-              aria-label="Filter sources and folders"
-              placeholder="Filter sources and folders"
-              className="h-8 w-full rounded-lg border border-border bg-muted/40 pl-8 pr-7 text-[12.5px] text-foreground placeholder:text-subtle-foreground focus:border-ring/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 [&::-webkit-search-cancel-button]:hidden"
-            />
-            {filtering && (
+          <>
+            {/* Only where there is a rail to expand. Without a toggle this would
+                be a search button that cannot search and cannot widen. */}
+            {onToggleCollapsed && (
               <button
-                onClick={() => setQuery('')}
-                aria-label="Clear filter"
-                className="absolute right-1.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-subtle-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                onClick={toggleCollapsed}
+                aria-label="Filter sources — expands the sidebar"
+                title="Filter sources and folders"
+                className="mb-2 flex h-6 w-full items-center justify-center rounded-md border border-border bg-muted/40 text-subtle-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
               >
-                <X size={12} />
+                <Search size={15} />
               </button>
             )}
-          </div>
-        )}
-
-        {/* Scopes: everything, and starred. Two rows that name a slice of every
-            system rather than one system — which is why they lead the rail and
-            never take part in the filter. */}
-        <ul className="space-y-0.5">
-          {sections.scope.map(node => (
-            <li key={node.key}>
-              <Row
-                node={node}
-                selected={isRailNodeSelected(node, filters)}
-                collapsed={collapsed}
-                Icon={node.key === ALL_SOURCES ? Layers : Star}
-                iconTone={node.key === FAVORITES_KEY ? 'warning' : undefined}
-                dot={null}
-                expandable={false}
-                open={false}
-                onToggle={() => {}}
-                onSelect={onSelect}
-              />
-            </li>
-          ))}
-        </ul>
-
-        {/*
-          **Collections, then Pinned — two bands of chips.**
-
-          Two bands, because one list wearing two glyphs asks the reader to hold
-          "some of these hold what I put in them, some track a folder" in their
-          head. Chips, because both lists are flat, named and short: nine of them
-          cost two wrapped lines against nine 32px rows, and neither has children
-          to nest or a column of counts to scan.
-        */}
-        <ChipBand
-          testId="collections-band"
-          title="Collections"
-          section="collection"
-          onReorder={onReorder}
-          Icon={Bookmark}
-          rows={sections.collection}
-          reorderKeys={sections.allKeys.collection}
-          filtering={filtering}
-          railCollapsed={collapsed}
-          folded={collectionsCollapsed}
-          onToggleFolded={onToggleCollectionsCollapsed}
-          filters={filters}
-          onSelect={onSelect}
-          isUncapped={isUncapped}
-          uncap={uncap}
-          /*
-            Collections keep their empty state: the `+` in the header is how the
-            first one gets made, so the band has to be there before you have any.
-            While the filter is running it goes — an empty band under a query is
-            a result, and "no collections match" is said once, at the bottom.
-          */
-          keepWhenEmpty={!filtering}
-          headerAction={
-            !collapsed && onManageCollections ? (
-              <button
-                type="button"
-                onClick={() => onManageCollections()}
-                aria-label={collections?.length ? 'Manage collections' : 'New collection'}
-                title={collections?.length ? 'Manage collections' : 'New collection'}
-                className="flex h-[18px] w-[18px] items-center justify-center rounded text-subtle-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-              >
-                <Plus size={13} />
-              </button>
-            ) : undefined
-          }
-          chipAction={node => (
-            <CollectionChipActions node={node} onRename={onManageCollections} />
-          )}
-        />
-
-        {/*
-          Pinned has **no** empty state, unlike Collections, and the asymmetry is
-          the point rather than an oversight. A band earns permanent chrome when
-          its empty state can teach you something you can act on *there* — which
-          "New collection" does. Pinning happens on a folder in the tree, so an
-          empty Pinned band could only point somewhere else.
-        */}
-        <ChipBand
-          testId="pinned-band"
-          title="Pinned"
-          section="pinned"
-          onReorder={onReorder}
-          Icon={Pin}
-          chipIcon={false}
-          rows={sections.pinned}
-          reorderKeys={sections.allKeys.pinned}
-          filtering={filtering}
-          railCollapsed={collapsed}
-          folded={pinnedCollapsed}
-          onToggleFolded={onTogglePinnedCollapsed}
-          filters={filters}
-          onSelect={onSelect}
-          isUncapped={isUncapped}
-          uncap={uncap}
-          /*
-            Unpin from the pinned chip itself, not only from the tree row it
-            mirrors. It is the surface you are looking at when you decide a pin
-            has served its purpose — and the only one that still works once the
-            folder is gone, which is exactly when a `0` row you cannot remove
-            would be worst. Collections carry no `x`: removing one destroys a
-            set you built, and that belongs in the manager behind a
-            confirmation. (They carry copy-link and rename instead.) A pin
-            carries copy-link too, but never rename: it shows the real folder's
-            name.
-          */
-          chipAction={node => <PinnedChipActions node={node} onTogglePin={onTogglePin} />}
-        />
-
-        {/* The source tree: rows, because these nest and carry counts. */}
-        <div data-testid="sources-band" className="mt-3">
-          {!collapsed && (
-            <BandHeader
-              title="Sources"
-              Icon={Layers}
-              /* A fold may not swallow a hit — see `ChipBand`. Someone who
-                 folded Sources and then types `backups` would otherwise get a
-                 header, a coverage note, and no results at all. */
-              folded={sourcesCollapsed && !filtering}
-              onToggleFolded={onToggleSourcesCollapsed}
-              count={sections.source.length}
-            />
-          )}
-          {(collapsed || !sourcesCollapsed || filtering) && (
             <ul className="space-y-0.5">
-              {(() => {
-                // Never capped: the user chose which sources to show (Manage
-                // sources), so folding the last ones away hid platforms they
-                // had asked for — Gemini and n8n, sorted last, on a real rail.
+              {sections.scope.map(node => (
+                <li key={node.key}>
+                  <Row
+                    node={node}
+                    selected={isRailNodeSelected(node, filters)}
+                    collapsed
+                    Icon={node.key === ALL_SOURCES ? Layers : Star}
+                    iconTone={node.key === FAVORITES_KEY ? 'warning' : undefined}
+                    dot={null}
+                    expandable={false}
+                    open={false}
+                    onToggle={() => {}}
+                    onSelect={onSelect}
+                  />
+                </li>
+              ))}
+            </ul>
+            <span aria-hidden className="mx-auto my-2 block h-px w-8 bg-border" />
+            <ul data-testid="sources-band" className="space-y-0.5">
+              {sections.source.map(node => {
+                const conn = health.get(node.key);
                 return (
-                  <>
+                  <li key={node.key}>
+                    <Row
+                      node={node}
+                      selected={isRailNodeSelected(node, filters)}
+                      collapsed
+                      Icon={iconFor(node.key)}
+                      iconClass={sourceAccentGlyph(node.key)}
+                      dot={conn ? healthMeta(conn.state) : null}
+                      expandable={false}
+                      open={false}
+                      onToggle={() => {}}
+                      onSelect={onSelect}
+                    />
+                  </li>
+                );
+              })}
+            </ul>
+          </>
+        ) : (
+          <>
+
+            {/*
+              **Filter the rail by name.** Sources, folders, collections and pins —
+              not tasks, which the view bar above the list already filters. The
+              placeholder says which, because that is the one confusion this
+              control can cause.
+            */}
+            <div className="relative">
+              <Search
+                size={13}
+                aria-hidden
+                className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-subtle-foreground"
+              />
+              <input
+                type="search"
+                value={query}
+                onChange={e => changeQuery(e.target.value)}
+                // Escape clears rather than blurring: the field is a lens over
+                // the rail, and leaving it focused-but-full is the state nobody
+                // wants.
+                onKeyDown={e => {
+                  if (e.key !== 'Escape' || !filtering) return;
+                  e.preventDefault();
+                  // The mobile drawer closes on a document-level Escape.
+                  // Without this, one press clears the field AND dismisses the
+                  // sidebar the field lives in — and only while `filtering`, so
+                  // an empty field still lets Escape shut the drawer.
+                  e.stopPropagation();
+                  setQuery('');
+                }}
+                aria-label="Filter sources and folders"
+                placeholder="Filter sources and folders"
+                className="h-7 w-full rounded-lg border border-border bg-background/60 pl-8 pr-7 text-[12.5px] text-foreground placeholder:text-subtle-foreground focus:border-ring/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 [&::-webkit-search-cancel-button]:hidden"
+              />
+              {filtering && (
+                <button
+                  onClick={() => setQuery('')}
+                  aria-label="Clear filter"
+                  className="absolute right-1 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-md text-subtle-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+
+            {/*
+              **Two sliders.** The first holds the two scopes — All sources and
+              Favorites select on click, and are lit while they are the
+              selection. The second holds the two lists — Collections and
+              Pinned open underneath, one at a time. Sources are in neither: the
+              tree is what you navigate by, so it stands alone below.
+            */}
+            <Segmented
+              idBase={`${idBase}-scope`}
+              label="Scope"
+              className="mt-2"
+              segments={sections.scope.map(node => {
+                const fav = node.key === FAVORITES_KEY;
+                const active = isRailNodeSelected(node, filters);
+                return {
+                  key: node.key,
+                  label: node.label,
+                  icon: fav
+                    ? <Star size={13} aria-hidden className="shrink-0 text-warning-text" fill="currentColor" />
+                    : <Layers size={13} aria-hidden className="shrink-0 text-primary-text" />,
+                  count: node.count,
+                  active,
+                  ariaLabel: `${node.label}, ${node.count} task${node.count === 1 ? '' : 's'}`,
+                  ariaState: { 'aria-current': active ? ('true' as const) : undefined },
+                  onClick: () => node.patch && onSelect(node.patch)
+                };
+              })}
+            />
+            <Segmented
+              idBase={`${idBase}-list`}
+              label="Your lists"
+              className="mt-1.5"
+              segments={RAIL_TABS.map(t => ({
+                key: t,
+                label: RAIL_TAB_LABEL[t],
+                count: hits[t],
+                active: tab === t,
+                ariaLabel: `${RAIL_TAB_LABEL[t]}, ${hits[t]}${filtering ? ` match${hits[t] === 1 ? '' : 'es'}` : ''}`,
+                ariaState: { 'aria-expanded': tab === t, 'aria-controls': `${idBase}-panel` },
+                onClick: () => chooseTab(t)
+              }))}
+            />
+
+            {nothingMatched ? (
+              <div className="mt-3 px-1">
+                <p className="text-[12.5px] font-semibold text-muted-foreground">
+                  Nothing here is called &ldquo;{query.trim()}&rdquo;
+                </p>
+                <p className="mt-1.5 text-[11px] leading-relaxed text-subtle-foreground">
+                  Searched {coverage.searched} source{coverage.searched === 1 ? '' : 's'}, your
+                  collections and your pins, by name. This filters the sidebar, not your tasks — to
+                  search task names, use the filters above the list.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setQuery('')}
+                  className="mt-2.5 flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-[11px] font-bold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                >
+                  <X size={12} />
+                  Clear filter
+                </button>
+              </div>
+            ) : (
+              <>
+                <div
+                  role="region"
+                  id={`${idBase}-panel`}
+                  aria-label={RAIL_TAB_LABEL[tab]}
+                  className="mt-2"
+                >
+                  {tab === 'collections' ? (
+                  <div data-testid="collections-band">
+                    {sections.collection.length === 0 && (
+                      <p className="px-1 pb-2 text-[11.5px] leading-relaxed text-subtle-foreground">
+                        {filtering
+                          ? `No collection is called “${query.trim()}”.`
+                          : 'A collection holds exactly the tasks you put in it, from any source.'}
+                      </p>
+                    )}
+                    <ul className="grid grid-cols-2 gap-1.5">
+                      {collectionCap.shown.map(node => (
+                        <li key={node.key} {...withClass(collectionDrag(node.key), 'min-w-0')}>
+                          <CollectionCard
+                            node={node}
+                            selected={isRailNodeSelected(node, filters)}
+                            onSelect={onSelect}
+                            onRename={onManageCollections}
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                    {collectionCap.hidden > 0 && (
+                      <MoreButton
+                        label={`Show ${collectionCap.hidden} more collection${collectionCap.hidden === 1 ? '' : 's'}`}
+                        onClick={() => uncap('band:collection')}
+                      />
+                    )}
+                    {!filtering && onManageCollections && (
+                      <button
+                        type="button"
+                        onClick={() => onManageCollections()}
+                        aria-label={collections?.length ? 'Manage collections' : 'New collection'}
+                        className="mt-1.5 flex h-7 w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border text-[12px] font-semibold text-muted-foreground hover:text-foreground hover:border-ring/50 hover:bg-muted/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                      >
+                        <Plus size={14} />
+                        {collections?.length ? 'New or manage collections' : 'New collection'}
+                      </button>
+                    )}
+                  </div>
+                  ) : (
+                  <div data-testid="pinned-band">
+                    {sections.pinned.length === 0 && filtering && (
+                      <p className="px-1 text-[11.5px] leading-relaxed text-subtle-foreground">
+                        No pin is called &ldquo;{query.trim()}&rdquo;.
+                      </p>
+                    )}
+                    {sections.pinned.length === 0 && !filtering && (
+                      <p className="px-1 text-[11.5px] leading-relaxed text-subtle-foreground">
+                        Pin a folder to keep it one click away. Under <strong className="font-semibold text-muted-foreground">Sources</strong> below,
+                        open a source, hover a folder and press <strong className="font-semibold text-muted-foreground">+</strong>.
+                        A pin keeps tracking the folder as tasks come and go.
+                      </p>
+                    )}
+                    <ul className="grid grid-cols-2 gap-1.5">
+                      {pinCap.shown.map(node => (
+                        <li key={node.key} {...withClass(pinDrag(node.key), 'min-w-0')}>
+                          <PinTile
+                            node={node}
+                            SourceIcon={node.patch?.source ? iconFor(node.patch.source) : null}
+                            selected={isRailNodeSelected(node, filters)}
+                            onSelect={onSelect}
+                            onTogglePin={onTogglePin}
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                    {pinCap.hidden > 0 && (
+                      <MoreButton
+                        label={`Show ${pinCap.hidden} more pin${pinCap.hidden === 1 ? '' : 's'}`}
+                        onClick={() => uncap('band:pinned')}
+                      />
+                    )}
+                  </div>
+                  )}
+                </div>
+
+                <section aria-label="Sources" data-testid="sources-band" className="mt-4">
+                  <h3 className="flex items-center gap-1.5 px-1 pb-1.5 text-[10.5px] font-bold uppercase tracking-[0.12em] text-subtle-foreground">
+                    Sources
+                    <span className="tabular-nums font-semibold">{sections.source.length}</span>
+                  </h3>
+                  {/* Never capped: the user chose which sources to show (Manage
+                      sources), so folding the last ones away hid platforms they
+                      had asked for. */}
+                  {filtering && sections.source.length === 0 && (
+                    <p className="px-1 text-[11.5px] leading-relaxed text-subtle-foreground">
+                      No source or folder is called &ldquo;{query.trim()}&rdquo;.
+                    </p>
+                  )}
+                  <ul className="space-y-1">
                     {sections.source.map(node => {
                       const open = isOpen(node.key);
                       const conn = health.get(node.key);
-
                       return (
                         <li key={node.key} {...sourceDrag(node.key)}>
-                          <Row
+                          <SourceCard
                             node={node}
-                            selected={isRailNodeSelected(node, filters)}
-                            collapsed={collapsed}
                             Icon={iconFor(node.key)}
-                            iconClass={sourceAccentGlyph(node.key)}
-                            dot={conn ? healthMeta(conn.state) : null}
-                            expandable={!collapsed && !!node.children?.length}
+                            selected={isRailNodeSelected(node, filters)}
+                            health={conn ? healthMeta(conn.state) : null}
                             open={open}
                             onToggle={() => toggle(node.key)}
                             onSelect={onSelect}
-                          />
-
-                          {!collapsed && open && node.children && (
-                            /*
-                              The guide rail. Depth was expressed only as left
-                              padding, so fifteen folders under Windows read as a
-                              flat list that happened to start further right. A
-                              hairline down the group is what makes it a tree.
-                            */
-                            <ChildList
-                              nodes={node.children}
-                              listKey={node.key}
-                              {...rowProps}
-                            />
-                          )}
+                          >
+                            {node.children && (
+                              <ChildList nodes={node.children} listKey={node.key} {...rowProps} />
+                            )}
+                          </SourceCard>
                         </li>
                       );
                     })}
-                  </>
-                );
-              })()}
-            </ul>
-          )}
-
-          {/*
-            What the filter looked at. Rendered whenever a query is running and
-            something was left out, because "no matches in Vercel" and "Vercel
-            was never searched" are different facts and they render identically
-            as an absence.
-          */}
-          {!collapsed && filtering && coverage.missed.length > 0 && !nothingMatched && (
-            <p className="mt-2 px-2 text-[10.5px] leading-relaxed text-subtle-foreground">
-              Searched {coverage.searched} source{coverage.searched === 1 ? '' : 's'}. No match in{' '}
-              {coverage.missed.join(', ')}.
-            </p>
-          )}
-        </div>
-
-        {nothingMatched && !collapsed && (
-          <div className="mt-6 px-2">
-            <p className="text-[12.5px] font-semibold text-muted-foreground">
-              Nothing here is called &ldquo;{query.trim()}&rdquo;
-            </p>
-            <p className="mt-1.5 text-[11px] leading-relaxed text-subtle-foreground">
-              Searched {coverage.searched} source{coverage.searched === 1 ? '' : 's'}, your
-              collections and your pins, by name. This filters the sidebar, not your tasks — to
-              search task names, use the filters above the list.
-            </p>
-            <button
-              type="button"
-              onClick={() => setQuery('')}
-              className="mt-2.5 flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-[11px] font-bold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-            >
-              <X size={12} />
-              Clear filter
-            </button>
-          </div>
+                  </ul>
+                  {/*
+                    What the filter looked at. Rendered whenever a query is
+                    running and something was left out, because "no matches in
+                    Vercel" and "Vercel was never searched" are different facts
+                    and they render identically as an absence.
+                  */}
+                  {filtering && coverage.missed.length > 0 && (
+                    <p className="mt-2 px-1 text-[10.5px] leading-relaxed text-subtle-foreground">
+                      Searched {coverage.searched} source{coverage.searched === 1 ? '' : 's'}. No match in{' '}
+                      {coverage.missed.join(', ')}.
+                    </p>
+                  )}
+                </section>
+              </>
+            )}
+          </>
         )}
       </div>
 
@@ -825,26 +877,20 @@ export const SourceRail = ({
         rail's own controls rather than destinations inside your tasks, and the
         two source routes are the only way to reach a platform you have *not*
         added — which is what makes an opt-in default set safe rather than
-        indistinguishable from a missing platform. Below fifteen folders they
-        were off screen on every real machine.
+        indistinguishable from a missing platform.
       */}
       <div
         className={`flex shrink-0 items-center gap-1 border-t border-border ${
-          collapsed ? 'flex-col px-2 py-2' : 'px-2 py-1.5'
+          collapsed ? 'flex-col px-2 py-1.5' : 'px-3 py-1.5'
         }`}
       >
         {onToggleCollapsed && (
           <button
             onClick={toggleCollapsed}
-            /* "sidebar", not "sources". This narrows the whole rail — scopes,
-               Collections and Pinned included — and the word only meant the
-               tree back when the tree was all there was. It would also collide
-               with the Sources section's own fold, leaving two different
-               controls sharing one accessible name. */
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             aria-expanded={!collapsed}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-subtle-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-subtle-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
           >
             {collapsed ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
           </button>
@@ -855,8 +901,10 @@ export const SourceRail = ({
           onClick={() => navigate('/sources?focus=available')}
           aria-label="Explore sources"
           title="Everything Cronsole can connect to, including what you have not added"
-          className={`flex items-center justify-center gap-1.5 rounded-lg text-[11px] font-bold text-subtle-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
-            collapsed ? 'h-7 w-7 shrink-0' : 'h-7 min-w-0 flex-1 px-2'
+          className={`flex items-center justify-center gap-1.5 rounded-md text-[11.5px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
+            collapsed
+              ? 'h-6 w-6 shrink-0 text-subtle-foreground hover:text-foreground hover:bg-muted'
+              : 'h-6 min-w-0 flex-1 border border-border bg-raised px-2 text-muted-foreground hover:text-foreground hover:border-ring/50'
           }`}
         >
           <Compass size={14} className="shrink-0" />
@@ -870,7 +918,7 @@ export const SourceRail = ({
               onClick={() => navigate('/sources?focus=connected')}
               aria-label="Manage sources"
               title="Connect, disconnect, and choose which sources this sidebar lists"
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-subtle-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-subtle-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
             >
               <SlidersHorizontal size={14} />
             </button>
@@ -883,6 +931,187 @@ export const SourceRail = ({
         )}
       </div>
     </nav>
+  );
+};
+
+/** One segment of a `Segmented` slider. */
+interface Segment {
+  key: string;
+  label: string;
+  icon?: ReactNode;
+  count: number;
+  active: boolean;
+  ariaLabel: string;
+  /** `aria-current` for a scope, `aria-expanded` + `aria-controls` for a list. */
+  ariaState: Record<string, string | boolean | undefined>;
+  onClick: () => void;
+}
+
+/**
+ * A slider of segments — the rail has two (scopes, then lists).
+ *
+ * A `toolbar` rather than a `tablist`, because the scope slider's segments
+ * select instead of switching a panel, and the two sliders should behave the
+ * same: arrows move focus, Enter or a click acts — an arrow that acted would
+ * re-filter the dashboard on every keypress.
+ */
+const Segmented = ({
+  idBase,
+  label,
+  segments,
+  className = ''
+}: {
+  idBase: string;
+  label: string;
+  segments: Segment[];
+  className?: string;
+}) => {
+  const focusable = segments.find(sg => sg.active)?.key ?? segments[0]?.key;
+  const idFor = (key: string) => `${idBase}-${key.replace(/[^a-z0-9_-]/gi, '_')}`;
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const current = segments.findIndex(sg => document.getElementById(idFor(sg.key)) === document.activeElement);
+    if (current < 0) return;
+    const n = segments.length;
+    const next =
+      e.key === 'ArrowRight' ? (current + 1) % n
+      : e.key === 'ArrowLeft' ? (current + n - 1) % n
+      : e.key === 'Home' ? 0
+      : e.key === 'End' ? n - 1
+      : -1;
+    if (next < 0) return;
+    e.preventDefault();
+    document.getElementById(idFor(segments[next].key))?.focus();
+  };
+
+  return (
+    <div
+      role="toolbar"
+      aria-label={label}
+      onKeyDown={onKeyDown}
+      className={`grid grid-cols-2 gap-0.5 rounded-lg border border-border bg-background/60 p-[2px] ${className}`}
+    >
+      {segments.map(sg => (
+        <button
+          key={sg.key}
+          type="button"
+          id={idFor(sg.key)}
+          tabIndex={sg.key === focusable ? 0 : -1}
+          onClick={sg.onClick}
+          aria-label={sg.ariaLabel}
+          title={sg.label}
+          {...sg.ariaState}
+          className={`flex h-6 min-w-0 items-center justify-center gap-1 rounded-md px-1.5 text-[11.5px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
+            sg.active ? 'bg-raised text-foreground shadow-sm' : 'text-subtle-foreground hover:text-foreground'
+          }`}
+        >
+          {sg.icon}
+          <span className="truncate">{sg.label}</span>
+          <span
+            aria-hidden
+            className={`shrink-0 rounded-full px-1 text-[10px] font-medium tabular-nums ${
+              sg.active ? 'bg-primary/20 text-primary-text' : 'bg-muted text-subtle-foreground'
+            }`}
+          >
+            {sg.count}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+};
+
+/**
+ * One platform, as a card: identity tile, name, health in words, count — and
+ * its folders as **rows** inside, because they nest and their counts scan as a
+ * column (§9: an observed tree is rows).
+ *
+ * Selecting and expanding stay two controls, as on the old row: the card's body
+ * picks the source, the chevron opens it. Health keeps its own dot beside a
+ * label rather than tinting the tile, so *which source* and *how it is doing*
+ * are never read off one colour; a source with no connection says so instead
+ * of drawing nothing, so "fine" and "unknown" cannot share a pixel.
+ */
+const SourceCard = ({
+  node,
+  Icon,
+  selected,
+  health,
+  open,
+  onToggle,
+  onSelect,
+  children
+}: {
+  node: RailNode;
+  /** `iconFor(node.key)`, passed in so the component is not chosen during render. */
+  Icon: typeof Monitor;
+  selected: boolean;
+  health: { label: string; dot: string; text: string } | null;
+  open: boolean;
+  onToggle: () => void;
+  onSelect: (patch: Partial<TaskFilters>) => void;
+  children?: ReactNode;
+}) => {
+  const expandable = !!node.children?.length;
+  return (
+    <div
+      className={`rounded-xl border transition-colors ${
+        selected ? 'border-primary/50 bg-primary/10' : 'border-border bg-raised hover:border-ring/40'
+      }`}
+    >
+      <div className="flex items-center gap-1 p-1">
+        <button
+          type="button"
+          onClick={() => node.patch && onSelect(node.patch)}
+          aria-current={selected ? 'true' : undefined}
+          aria-label={`${node.label}, ${node.count} task${node.count === 1 ? '' : 's'}`}
+          title={health ? `${node.label} — ${health.label}` : node.label}
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-0.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+        >
+          <span
+            aria-hidden
+            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${platformAccent(sourcePlatform(node.key)).tile}`}
+          >
+            <Icon size={13} className={sourceAccentGlyph(node.key)} />
+          </span>
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className={`truncate text-[12.5px] leading-tight ${selected ? 'font-bold' : 'font-semibold'}`}>{node.label}</span>
+            <span className="flex items-center gap-1.5 text-[10.5px] leading-tight text-subtle-foreground">
+              {health ? (
+                <>
+                  <span aria-hidden className={`h-1.5 w-1.5 shrink-0 rounded-full ${health.dot}`} />
+                  {health.label}
+                </>
+              ) : (
+                'No health reported'
+              )}
+            </span>
+          </span>
+          <span
+            className={`shrink-0 pl-1 tabular-nums text-[12px] font-semibold ${
+              selected ? 'text-primary-text' : 'text-muted-foreground'
+            }`}
+          >
+            {node.count}
+          </span>
+        </button>
+        {expandable ? (
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-expanded={open}
+            aria-label={`${open ? 'Collapse' : 'Expand'} ${node.label}`}
+            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-subtle-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          >
+            <ChevronRight size={13} className={`transition-transform duration-200 ${open ? 'rotate-90' : ''}`} />
+          </button>
+        ) : (
+          <span className="w-5 shrink-0" aria-hidden />
+        )}
+      </div>
+      {open && expandable && children && (
+        <div className="border-t border-border/60 px-1 pb-1 pt-0.5">{children}</div>
+      )}
+    </div>
   );
 };
 
@@ -962,293 +1191,11 @@ const MoreButton = ({ label, onClick }: { label: string; onClick: () => void }) 
   <button
     type="button"
     onClick={onClick}
-    className="flex w-full items-center gap-1.5 rounded-md py-1 pl-1.5 pr-2 text-[11px] font-semibold text-subtle-foreground hover:text-foreground hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+    className="flex w-full items-center gap-1.5 rounded-md py-0.5 pl-1.5 pr-2 text-[11px] font-semibold text-subtle-foreground hover:text-foreground hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
   >
     <ChevronRight size={11} className="shrink-0 rotate-90" />
     <span className="truncate">{label}</span>
   </button>
-);
-
-/**
- * A section heading: chevron, name, and — while folded — its tally.
- *
- * Shared by all three of the rail's named sections, because they are meant to
- * read as the same kind of thing. *Sources* is the odd one out structurally (its
- * rows are expandable trees, not chips, so it cannot use `ChipBand`), and that
- * is exactly why the heading had to come out on its own: without this, the one
- * section that could not share the component would have been the one that
- * drifted.
- *
- * The tally shows **only while folded**. Open, you can count the rows yourself;
- * shut, it is the one thing you cannot see — and a chevron that hid twelve rows
- * with no hint of them is the "silently hides 200 rows" problem in miniature.
- */
-const BandHeader = ({
-  title,
-  Icon,
-  folded,
-  onToggleFolded,
-  count,
-  trailing
-}: {
-  title: string;
-  /** Shown beside the name when the section cannot fold (no handler given). */
-  Icon: typeof Monitor;
-  folded: boolean;
-  onToggleFolded?: () => void;
-  count: number;
-  /** An extra control docked to the right of the heading. */
-  trailing?: ReactNode;
-}) => (
-  <div className="flex items-center gap-1 px-2 pb-1.5">
-    {onToggleFolded ? (
-      <button
-        type="button"
-        onClick={onToggleFolded}
-        aria-expanded={!folded}
-        aria-label={`${folded ? 'Expand' : 'Collapse'} ${title.toLowerCase()}`}
-        className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md py-0.5 text-subtle-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-      >
-        <ChevronRight
-          size={11}
-          className={`shrink-0 transition-transform duration-200 ${folded ? '' : 'rotate-90'}`}
-        />
-        <span className="text-[10px] font-black uppercase tracking-[0.14em]">{title}</span>
-        {folded && count > 0 && (
-          <span className="ml-auto tabular-nums text-[10px] font-semibold">{count}</span>
-        )}
-      </button>
-    ) : (
-      <>
-        <Icon size={11} className="text-subtle-foreground shrink-0" />
-        <span className="flex-1 text-[10px] font-black uppercase tracking-[0.14em] text-subtle-foreground">
-          {title}
-        </span>
-      </>
-    )}
-    {trailing && <span className="flex shrink-0 items-center">{trailing}</span>}
-  </div>
-);
-
-/**
- * One of the rail's two chip bands — *Collections* and *Pinned*.
- *
- * One component rather than two blocks of near-identical JSX, because the two
- * sections are supposed to look and behave the same: same heading weight, same
- * fold, same tally when shut, same cap. Two copies would drift on the first
- * change made to only one of them, and the drift would be the "these are the
- * same kind of place" claim quietly becoming false.
- *
- * At icon width there is nowhere to put a chip's label, so the band falls back
- * to the same stacked cells the source rows use — a chip without its name is a
- * coloured pill that means nothing.
- */
-const ChipBand = ({
-  testId,
-  title,
-  Icon,
-  chipIcon = true,
-  rows,
-  reorderKeys,
-  railCollapsed,
-  folded,
-  onToggleFolded,
-  filtering,
-  filters,
-  onSelect,
-  keepWhenEmpty = false,
-  headerAction,
-  chipAction,
-  section,
-  onReorder,
-  isUncapped,
-  uncap
-}: {
-  testId: string;
-  title: string;
-  /** Shown beside the heading when the band cannot be folded (no handler). */
-  Icon: typeof Monitor;
-  /**
-   * Repeat `Icon` on every chip? Off for Pinned: the heading already says
-   * every chip under it is a pin, so a pin glyph per chip only costs width.
-   * The icons-only rail keeps it regardless — there is no heading there, and
-   * the glyph is the whole row.
-   */
-  chipIcon?: boolean;
-  rows: RailNode[];
-  /**
-   * The **whole** band's keys, filter or no filter — what a reorder reports.
-   * See `sections.allKeys`: reporting only the visible rows destroys the rest.
-   */
-  reorderKeys: string[];
-  /** A query is running, so a fold may not hide a hit. */
-  filtering: boolean;
-  /** The whole rail is icons-only. Distinct from `folded`, which is this band. */
-  railCollapsed: boolean;
-  folded: boolean;
-  onToggleFolded?: () => void;
-  filters: TaskFilters;
-  onSelect: (patch: Partial<TaskFilters>) => void;
-  /** Render the band even with no rows — for a band whose header creates them. */
-  keepWhenEmpty?: boolean;
-  headerAction?: ReactNode;
-  chipAction?: (node: RailNode) => ReactNode;
-  /** Which band these rows belong to — passed straight back to `onReorder`. */
-  section: RailSection;
-  onReorder?: (section: RailSection, keys: string[]) => void;
-  isUncapped: (key: string) => boolean;
-  uncap: (key: string) => void;
-}) => {
-  const drag = useBandReorder(section, reorderKeys, onReorder);
-
-  /*
-    Nothing to show and nothing to offer: render nothing at all. A band that is
-    empty *and* has no way to fill itself from here is a heading over a gap —
-    and at 72px, where the heading is dropped, that is what every empty band
-    would be.
-  */
-  if (rows.length === 0 && (!keepWhenEmpty || railCollapsed)) return null;
-
-  /*
-    **A fold may not swallow a hit.** The three band folds are persisted
-    preferences, so someone who shut Collections months ago and then types a
-    collection's name would get a `COLLECTIONS 3` heading, a coverage note, and
-    nothing on screen — with `nothingMatched` false, so even the empty state
-    that would explain it never renders. The branch-level `isOpen` already had
-    this override; the band-level fold was missed.
-
-    The chevron follows, rather than claiming shut over an open band.
-  */
-  const effectivelyFolded = folded && !filtering;
-  const open = railCollapsed || !effectivelyFolded;
-  const { shown, hidden } = capRows(rows, isUncapped(`band:${section}`) || railCollapsed);
-
-  return (
-    <div data-testid={testId} className="mt-3">
-      {/* Icons-only drops the heading: 72px has no room for a label, and a
-          disclosure you cannot read is one you cannot use. The band is simply
-          always open there. */}
-      {!railCollapsed && (
-        <BandHeader
-          title={title}
-          Icon={Icon}
-          folded={effectivelyFolded}
-          onToggleFolded={onToggleFolded}
-          count={rows.length}
-          trailing={headerAction}
-        />
-      )}
-
-      {open &&
-        (railCollapsed ? (
-          <ul className="space-y-0.5">
-            {shown.map(node => (
-              <li key={node.key}>
-                <Row
-                  node={node}
-                  selected={isRailNodeSelected(node, filters)}
-                  collapsed
-                  Icon={Icon}
-                  dot={null}
-                  expandable={false}
-                  open={false}
-                  onToggle={() => {}}
-                  onSelect={onSelect}
-                />
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <ul className="flex flex-wrap gap-1.5 px-1">
-            {shown.map(node => (
-              // The drag props carry a `className` (grab cursor, drop-target
-              // ring), so this has to merge rather than replace — a literal
-              // after the spread wins, and the affordance vanishes silently.
-              <li
-                key={node.key}
-                {...(() => {
-                  const p = drag(node.key);
-                  return { ...p, className: `max-w-full ${p.className ?? ''}` };
-                })()}
-              >
-                <Chip
-                  node={node}
-                  selected={isRailNodeSelected(node, filters)}
-                  Icon={chipIcon ? Icon : null}
-                  onSelect={onSelect}
-                  action={chipAction?.(node)}
-                />
-              </li>
-            ))}
-            {hidden > 0 && (
-              <li>
-                <button
-                  type="button"
-                  onClick={() => uncap(`band:${section}`)}
-                  aria-label={`Show ${hidden} more ${title.toLowerCase()}`}
-                  className="flex h-[25px] items-center rounded-full border border-dashed border-border px-2.5 text-[11px] font-semibold text-subtle-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                >
-                  +{hidden}
-                </button>
-              </li>
-            )}
-          </ul>
-        ))}
-    </div>
-  );
-};
-
-/**
- * A collection or a pin, as a chip.
- *
- * It keeps everything the row it replaced carried and drops nothing: the name,
- * the **count** (which is what says whether a destination is worth clicking),
- * the selected state, and — on a pin — the control that takes it away. What it
- * loses is the 32px of rail height per entry, and a column of counts nobody
- * scanned down because these lists are three items long.
- */
-const Chip = ({
-  node,
-  selected,
-  Icon,
-  onSelect,
-  action
-}: {
-  node: RailNode;
-  selected: boolean;
-  Icon: typeof Monitor | null;
-  onSelect: (patch: Partial<TaskFilters>) => void;
-  action?: ReactNode;
-}) => (
-  <span
-    className={`group flex h-[25px] max-w-full items-center rounded-full border pl-2 pr-1 transition-colors ${
-      selected
-        ? 'border-primary/50 bg-primary/15 text-foreground'
-        : 'border-border bg-muted/40 text-muted-foreground hover:text-foreground hover:bg-muted'
-    }`}
-  >
-    <button
-      type="button"
-      onClick={() => node.patch && onSelect(node.patch)}
-      aria-current={selected ? 'true' : undefined}
-      // Named explicitly rather than left to the content: a collection called
-      // "2" would otherwise be indistinguishable from its own tally.
-      aria-label={`${node.label}, ${node.count} task${node.count === 1 ? '' : 's'}`}
-      title={node.label}
-      className="flex min-w-0 items-center gap-1.5 pr-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 rounded-full"
-    >
-      {Icon && <Icon size={11} className="shrink-0" />}
-      <span className="truncate text-[11.5px] font-semibold">{node.label}</span>
-      <span
-        className={`shrink-0 tabular-nums text-[10.5px] font-medium ${
-          selected ? 'text-primary-text' : 'text-subtle-foreground'
-        }`}
-      >
-        {node.count}
-      </span>
-    </button>
-    {action ?? <span className="w-1" aria-hidden />}
-  </span>
 );
 
 /**
@@ -1303,24 +1250,17 @@ const ChildRow = ({ node, ...ctx }: RowContext & { node: RailNode }) => {
   );
 };
 
-/*
-  A chip's trailing controls: full-height segments, always visible, divided
-  from the name by a rule — the chip reads as a small split button rather than
-  a pill with hidden corners, and works on a touch screen. `-mr-1` cancels the
-  chip's right padding and `rounded-r-full` clips the last segment's hover fill
-  to the chip's curve. Shared by both bands so a collection chip and a pinned
-  chip cannot drift into two different shapes.
-*/
-const CHIP_SEGMENT =
-  'flex h-full w-7 shrink-0 items-center justify-center border-l border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60';
+/** Merge a reorder hook's props with a row's own class, rather than letting one replace the other. */
+const withClass = (props: DragProps, cls: string): DragProps => ({
+  ...props,
+  className: `${cls} ${props.className ?? ''}`
+});
 
-const ChipSegments = ({ children }: { children: ReactNode }) => (
-  <span className="-mr-1 ml-0.5 flex shrink-0 self-stretch overflow-hidden rounded-r-full">
-    {children}
-  </span>
-);
+/** A square icon button on a card — copy link, rename, unpin. Always visible, so it works by touch. */
+const CARD_ACTION =
+  'flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded text-subtle-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60';
 
-const CopyLinkSegment = ({ label, url }: { label: string; url: string }) => {
+const CopyLinkButton = ({ label, url }: { label: string; url: string }) => {
   const { toast } = useToast();
   const copy = async () => {
     try {
@@ -1331,78 +1271,165 @@ const CopyLinkSegment = ({ label, url }: { label: string; url: string }) => {
     }
   };
   return (
-    <button type="button" onClick={copy} aria-label={`Copy link to ${label}`} title="Copy link" className={CHIP_SEGMENT}>
-      <Link2 size={13} />
+    <button type="button" onClick={copy} aria-label={`Copy link to ${label}`} title="Copy link" className={CARD_ACTION}>
+      <Link2 size={11} />
     </button>
   );
 };
 
 /**
- * Copy a link to this pinned folder, and take the pin back off the band.
+ * The compact two-per-row tile both lists use: name and count on top, a small
+ * mark (a bookmark, or the pin's source glyph) and the actions underneath.
  *
- * The link names the **folder** (`railNodeLink`), not the pin — see there.
- * There is deliberately **no rename**, unlike a collection: a pin mirrors a
- * real folder and shows that folder's name as it reads today, so a label of
- * your own would be a second name for a place that already has one.
- *
- * Unpin is a separate control from `PinButton` rather than a mode of it: that
- * one is asked *about a folder* and has to work out whether it is pinned, while
- * this one is on a chip that is a pin by construction.
+ * The whole tile selects; the actions sit beside the select button rather than
+ * inside it, so a button never nests in a button and a click means one thing.
  */
-const PinnedChipActions = ({
+const CompactTile = ({
   node,
-  onTogglePin
+  selected,
+  onSelect,
+  mark,
+  actions
 }: {
   node: RailNode;
-  onTogglePin?: (node: RailNode) => void;
+  selected: boolean;
+  onSelect: (patch: Partial<TaskFilters>) => void;
+  mark: ReactNode;
+  actions: ReactNode;
 }) => (
-  <ChipSegments>
-    {node.patch && <CopyLinkSegment label={node.label} url={railNodeLink(node.patch)} />}
-    {onTogglePin && (
-      <button
-        type="button"
-        onClick={() => onTogglePin(node)}
-        aria-label={`Unpin ${node.label} from collections`}
-        title={`Unpin ${node.label} — the folder itself is untouched`}
-        className={CHIP_SEGMENT}
-      >
-        <X size={13} />
-      </button>
-    )}
-  </ChipSegments>
+  <div
+    className={`relative h-full rounded-xl border transition-colors ${
+      selected ? 'border-primary/50 bg-primary/10' : 'border-border bg-raised hover:border-ring/40'
+    }`}
+  >
+    <button
+      type="button"
+      onClick={() => node.patch && onSelect(node.patch)}
+      aria-current={selected ? 'true' : undefined}
+      // Named explicitly rather than left to the content: a collection called
+      // "2" would otherwise be indistinguishable from its own tally.
+      aria-label={`${node.label}, ${node.count} task${node.count === 1 ? '' : 's'}`}
+      title={node.label}
+      className="flex w-full min-w-0 flex-col gap-0.5 rounded-xl px-2 pb-1 pt-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+    >
+      <span className="flex w-full items-baseline gap-1.5">
+        <span className={`min-w-0 flex-1 truncate text-[12.5px] leading-tight ${selected ? 'font-bold' : 'font-semibold'}`}>
+          {node.label}
+        </span>
+        <span className={`shrink-0 text-[12px] font-bold leading-tight tabular-nums ${selected ? 'text-primary-text' : 'text-muted-foreground'}`}>
+          {node.count}
+        </span>
+      </span>
+      {/* Leaves room on the right for the actions, which sit over this line. */}
+      <span className="flex h-4 items-center pr-10">{mark}</span>
+    </button>
+    <span className="absolute bottom-1 right-1 flex gap-0.5">{actions}</span>
+  </div>
 );
 
 /**
- * Copy a link to this collection, and rename it — on the chip, because the chip
- * is what you are looking at when you want either. Rename opens the manager in
- * edit mode rather than editing inline: a text field inside a 25px chip is a
- * control nobody can hit on a phone. Deleting stays in the manager only (see
- * the Pinned band's note on why collections carry no `x`).
+ * A collection, as a compact tile: name, size, and its two actions — copy a
+ * link and rename. Rename opens the manager in edit mode rather than editing
+ * inline: a text field inside a tile is a control nobody can hit on a phone.
+ * Deleting stays in the manager only, behind a confirmation, because it
+ * destroys a set you built (a pin's unpin does not).
  */
-const CollectionChipActions = ({
+const CollectionCard = ({
   node,
+  selected,
+  onSelect,
   onRename
 }: {
   node: RailNode;
+  selected: boolean;
+  onSelect: (patch: Partial<TaskFilters>) => void;
   onRename?: (id: string) => void;
 }) => {
   const id = collectionIdFromKey(node.key);
-  if (!id) return null;
-
   return (
-    <ChipSegments>
-      <CopyLinkSegment label={node.label} url={collectionLink(id)} />
-      {onRename && (
-        <button type="button" onClick={() => onRename(id)} aria-label={`Rename ${node.label}`} title="Rename" className={CHIP_SEGMENT}>
-          <Pencil size={12} />
-        </button>
-      )}
-    </ChipSegments>
+    <CompactTile
+      node={node}
+      selected={selected}
+      onSelect={onSelect}
+      mark={<Bookmark size={11} aria-hidden className="text-primary-text" />}
+      actions={
+        <>
+          {id && <CopyLinkButton label={node.label} url={collectionLink(id)} />}
+          {id && onRename && (
+            <button type="button" onClick={() => onRename(id)} aria-label={`Rename ${node.label}`} title="Rename" className={CARD_ACTION}>
+              <Pencil size={10} />
+            </button>
+          )}
+        </>
+      }
+    />
   );
 };
 
 /**
- * Pin this folder to the Pinned band, or take it back off.
+ * A pinned folder, as a tile in a two-column grid: which source it lives in,
+ * its count large, its name — then copy-link and unpin.
+ *
+ * The link names the **folder** (`railNodeLink`), not the pin. There is
+ * deliberately **no rename**: a pin mirrors a real folder and shows that
+ * folder's name as it reads today, so a label of your own would be a second
+ * name for a place that already has one.
+ *
+ * Unpin lives on the tile as well as on the folder row it mirrors: it is the
+ * surface you are looking at when you decide a pin has served its purpose, and
+ * the only one that still works once the folder is gone — exactly when a `0`
+ * tile you could not remove would be worst.
+ */
+const PinTile = ({
+  node,
+  SourceIcon,
+  selected,
+  onSelect,
+  onTogglePin
+}: {
+  node: RailNode;
+  /** The pinned folder's source glyph, passed in so it is not chosen during render. */
+  SourceIcon: typeof Monitor | null;
+  selected: boolean;
+  onSelect: (patch: Partial<TaskFilters>) => void;
+  onTogglePin?: (node: RailNode) => void;
+}) => {
+  const source = node.patch?.source;
+  return (
+    <CompactTile
+      node={node}
+      selected={selected}
+      onSelect={onSelect}
+      mark={
+        /* The source as its glyph alone, named on hover: at half the rail's
+           width "Windows Task Scheduler" truncates to nothing useful, and the
+           glyph is the same identity the Sources section draws. */
+        <span title={source ? platformSourceLabel(source) : undefined} className="flex items-center">
+          {SourceIcon && source && <SourceIcon size={11} aria-hidden className={sourceAccentGlyph(source)} />}
+        </span>
+      }
+      actions={
+        <>
+          {node.patch && <CopyLinkButton label={node.label} url={railNodeLink(node.patch)} />}
+          {onTogglePin && (
+            <button
+              type="button"
+              onClick={() => onTogglePin(node)}
+              aria-label={`Unpin ${node.label} from collections`}
+              title={`Unpin ${node.label} — the folder itself is untouched`}
+              className={CARD_ACTION}
+            >
+              <X size={11} />
+            </button>
+          )}
+        </>
+      }
+    />
+  );
+};
+
+/**
+ * Pin this folder to the Pinned tab, or take it back off.
  *
  * **One control, both directions.** A `+` that only added would leave removal to
  * some other surface, and the row that shows you a folder is pinned is exactly
@@ -1527,7 +1554,7 @@ const Row = ({
           glyph beside it; stacked, three digits fit and the column of counts
           still scans vertically the way the expanded rail's does.
         */
-        className={`group relative flex h-12 w-full flex-col items-center justify-center gap-0.5 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
+        className={`group relative flex h-9 w-full flex-col items-center justify-center gap-0.5 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
           selected ? 'bg-primary/15' : 'hover:bg-muted/60'
         }`}
       >
@@ -1574,7 +1601,7 @@ const Row = ({
     */
     <div
       className={`group relative flex items-center rounded-lg pr-1.5 transition-colors duration-100 ${
-        child ? 'h-[26px]' : 'h-8'
+        child ? 'h-5' : 'h-6'
       } ${selected ? 'bg-primary/15 text-foreground' : 'hover:bg-muted/50'}`}
     >
       <span
@@ -1669,7 +1696,7 @@ const Row = ({
         )}
 
         <span
-          className={`truncate text-[13px] tracking-[-0.01em] ${
+          className={`truncate text-[12px] tracking-[-0.01em] ${
             selected ? 'font-bold' : child ? 'font-medium' : 'font-semibold'
           }`}
         >

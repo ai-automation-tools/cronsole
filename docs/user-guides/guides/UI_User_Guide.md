@@ -122,41 +122,46 @@ Action panel. See [Editing a task](#editing-a-task).
 
 ### Source — where a task comes from
 
-The **rail down the left of the dashboard** is where you navigate. It is a tree, two levels deep,
-and it answers *where a task lives* before anything else asks *which slice of it you want*:
+The **rail down the left of the dashboard** is where you navigate. It answers *where a task lives*
+before anything else asks *which slice of it you want*:
 
 ```
   🔍 Filter sources and folders
-    All sources                403
-  ★ Favorites                   12
+  [ ≡ All sources 403 │ ★ Favorites 12 ]
+  [ Collections 4     │ Pinned 2       ]
+  ┌ Nightly checks 6 ┐ ┌ Deploys      4 ┐
+  └ 🔖          🔗 ✎ ┘ └ 🔖        🔗 ✎ ┘
+  ┆ + New or manage collections        ┆
 
-COLLECTIONS                      +
-  ( AI-Lab 24 ) ( Prompt Library 9 )
-  ( Nightly 6 ) ( Deploys 4 ) ( +2 )
-
-PINNED
-  ( \Cronsole 14 ) ( \AI_Agents 31 )
-
-SOURCES
-▾ ● Windows Task Scheduler     357
-     AI-Maintenance             12
-     AI-Tools                    8
-     Backups                     4
-     Claude                      5
-     …
-     ▸ Show 5 more folders
-   ⃠ System tasks     HIDDEN    300
-▸ ● Cronsole (Native)           12
-▸ ● Claude Code                  3
-  ─────────────────────────────
-  ◧  🔍 Explore sources   ⚙  ?
+  SOURCES 3
+  ┌────────────────────────────────┐
+  │ ▣ Windows Task Scheduler  357 ▾│
+  │   ● Online                     │
+  │   AI-Maintenance            12 │
+  │   AI-Tools                   8 │
+  │   …                            │
+  │   ▸ Show 5 more folders        │
+  │   ⃠ System tasks  HIDDEN   300  │
+  └────────────────────────────────┘
+  ┌ ▣ Cronsole (Native)      12  ▸ ┐
+  ┌ ▣ Claude Code             3  ▸ ┐
+  ─────────────────────────────────
+  ◧  [ Explore sources ]   ⚙  ?
 ```
 
-**Level 1 is the system.** *All sources* and **Favorites** lead, separated by a rule from the
-platforms below — those two are scopes over everything rather than one system each. Then one row per
-platform you have tasks from **or are
-connected to**. The coloured dot is that platform's connection health — this is the same reading the
-old sidebar's "System Status" panel used to give, moved next to the thing it describes.
+Under the filter box are **two sliders**. The first holds the two *scopes*, **All sources** and
+**Favorites** — clicking one shows those tasks straight away, and it stays lit while it is your
+selection. The second holds your two *lists*, **Collections** and **Pinned** — one is open at a
+time, underneath, and you pick a collection or a pin from there (the diagram shows Collections
+open). Every segment carries its count, so the list you have closed still tells you its size, and
+the sidebar remembers which list you left open — it follows your account like your other sidebar
+settings. **Sources sit
+on their own below the slider**, always on screen — they are what you navigate by.
+
+**Level 1 is the system.** The *Sources* section has one card per platform you have tasks from **or are
+connected to**: its icon, its name, its connection health in words beside a coloured dot — the
+same reading the old sidebar's "System Status" panel used to give — and its count. Click the card to
+pick the source; click the chevron to open it.
 
 **Level 2 is whatever that system groups by**, which is genuinely different per platform:
 
@@ -183,14 +188,15 @@ old sidebar's "System Status" panel used to give, moved next to the thing it des
   so in its own label and states the count, so nothing is quietly fenced off. Open it and pick a
   folder to look inside one. The group itself only expands — it is a disclosure, not a filter.
 
-**Collections and Pinned are chips**, not rows — two separate bands, each with its own heading and
-its own fold, because a collection holds what you put in it and a pin tracks a folder. A chip keeps
-everything a row carried: its name, its count, whether it is selected, and its own buttons — a
-collection's **link** and **rename**, a pin's **link** and the `×` that takes it off. Six of them cost two lines instead of six.
+**Collections and Pinned are separate tabs**, because a collection holds what you put in it and a
+pin tracks a folder. Both show as compact tiles, two to a row: the name and count on top, then a
+mark — a bookmark on a collection, the source's icon on a pin — and two buttons. A collection's are
+**link** and **rename**; a pin's are **link** and the `×` that takes it off.
 
 **Collapse the rail** with the leftmost button in the bottom bar. Collapsed, it becomes a narrow column of
-icons — each system with its health dot and its count, names on hover — and the folder level is
-**dropped rather than shrunk**, because a Task Scheduler folder name has nowhere to go at that
+icons — *All sources*, *Favorites*, then each system with its health dot and its count, names on
+hover. Collections and pins wait for the full width, since they have no icon of their own, and the
+folder level is **dropped rather than shrunk**, because a Task Scheduler folder name has nowhere to go at that
 width and a column of tooltips is worse than admitting the tree needs room. The choice is
 remembered between visits.
 
@@ -222,8 +228,10 @@ empty sidebar.
 #### Filtering the sidebar
 
 The box at the top narrows **the rail itself** — sources, folders, collections and pins, by name.
-Matching folders open so you can see the hit — as does a folded band, so a section you shut months
-ago cannot quietly answer "no results". **Escape** clears it, and collapsing the sidebar clears it
+Matching folders open so you can see the hit, and the Collections and Pinned badges turn into
+their number of **matches**. If the list you have open holds no match and the other does, the sidebar
+opens that one instead — without forgetting your choice, so clearing the box puts you back. Clicking a list while
+filtering always opens it, even one with nothing in it, and it says so. **Escape** clears the box, and collapsing the sidebar clears it
 too, since at icon width there would be nothing on screen to say the rail was still narrowed.
 
 It filters the sidebar, **not your tasks**. To search task names, use the search box and *Filters*
@@ -236,7 +244,7 @@ would otherwise look identical.
 
 #### Long lists stop at ten
 
-Every band and every folder list draws ten rows, then a **Show 5 more folders** control stating
+Every list — collections, pins, and every folder list — draws ten rows, then a **Show 5 more folders** control stating
 exactly how many are behind it. One platform with fifteen Task Scheduler folders cannot take over
 the whole sidebar, and nothing is ever hidden without its count beside it. **The list of sources
 itself is never shortened** — you chose which sources to show, so every one of them is drawn. Filter matches are never
@@ -303,11 +311,8 @@ platform, so starring works fine with the agent offline.
 
 ### Collections
 A **collection** is a set of tasks you pick by hand and give a name — "Morning checks", "Client
-work", "View2". It appears in the **Collections** section of the source rail — its own band between
-*Favorites* and your platforms, ruled off top and bottom — with its own count. The band **folds
-shut** from the chevron beside its heading, which keeps its tally visible while it is closed so a
-fold can never quietly hide twelve rows. **Pinned** is a second band just like it, directly below;
-the two fold independently.
+work", "View2". It appears on the **Collections** list of the source rail as a tile with its own count, and the
+tab's badge says how many collections you have. **Pinned** is the tab beside it.
 
 **A collection is not a saved filter, and that distinction is the whole feature.** A view stores
 *conditions* (active, failing, due today) and shows whatever matches them right now. A collection
@@ -333,12 +338,12 @@ there is no shared property to filter on.
   It is a snapshot — tasks that land in the folder later do not join. To follow a folder as it
   changes, pin it instead (below). A collection that holds some of the folder shows a **–**;
   clicking it adds the rest, and clicking a fully ticked one takes the whole folder back out.
-- **Link to a collection.** Click the **link** button on its chip (or use the link button in
+- **Link to a collection.** Click the **link** button on its tile (or use the link button in
   *Manage collections*) to copy a URL like `…/?collection=<id>`. It opens the dashboard on that
   collection, survives a rename, and works for anyone signed in to the same Cronsole account.
-- **Rename** from the **pencil** button on the chip, or **manage, rename and delete** from *Manage collections*,
-  at the foot of the Collections section itself — the control that makes a collection sits in the
-  band it makes into.
+- **Rename** from the **pencil** button on the tile, or **manage, rename and delete** from *Manage
+  collections*, the dashed button at the foot of the Collections tab — the control that makes a
+  collection sits where collections are.
 - **Deleting a collection never deletes tasks.** It removes the grouping; the tasks stay in Cronsole
   and keep running, and the confirmation says so with the count.
 - **Removing a task from Cronsole takes it out of any collection holding it** — the same rule as the
@@ -346,10 +351,10 @@ there is no shared property to filter on.
 - Collections are yours alone, change nothing on any platform, and work with the agent offline.
 
 ### Pinned
-A folder you use constantly can be lifted out of the tree and parked in its own **Pinned** section,
-directly below Collections. Hover a folder or job type in the source rail and click the **+** beside
-its name; it appears above with a **pin** icon. Click the pin again — on the folder in the tree, or
-on the pinned row — to take it back off. Nothing about the folder changes; the tree keeps it either
+A folder you use constantly can be lifted out of the tree and parked on the **Pinned** tab. Hover a
+folder or job type in the source rail and click the **+** beside its name; it turns into a **pin**
+icon, and the folder appears on Pinned as a tile. Click the pin again on the folder in the tree, or
+the `×` on its tile, to take it back off. Nothing about the folder changes; the tree keeps it either
 way.
 
 **Pinned is a separate section from Collections because they are separate kinds of thing.** A
@@ -359,26 +364,25 @@ day, with no action from you. That is the reason pinning does not simply build a
 the folder's current contents: a set named after a folder that had quietly stopped matching it would
 be worse than no shortcut at all.
 
-The sidebar has **four sections**, top to bottom: the two scopes (*All sources*, *Favorites*), then
-**Collections**, **Pinned**, and **Sources** — the platform tree. The last three each carry a
-heading with a chevron and **fold independently**; a folded section keeps its count on screen, so
-folding one never hides how much is in it. They look and behave alike on purpose.
+**Collections** and **Pinned** share the second slider at the top, under *All sources* and
+*Favorites* — one list opens at a time, and each badge keeps its count on screen — and **Sources**
+(the platform tree) sit on their own below, always visible.
 
-**Pinned appears only once you have pinned something**, and goes when you unpin the last one; unlike
-Collections it carries no *New…* button, because pinning happens on a folder in the tree rather than
-from the band. The button at the very top of the sidebar collapses the **whole** rail to icons,
-which is a different thing from folding a section.
+**An empty Pinned list tells you how to pin**, since pinning happens on a folder under Sources
+rather than from Pinned itself; unlike Collections it carries no *New…* button. The leftmost button
+in the bottom bar collapses the **whole** rail to icons, which is a different thing from switching
+segments.
 
 Two consequences worth knowing:
 
-- **A pinned row and its folder in the tree always print the same number**, because they are the
+- **A pin and its folder in the tree always print the same number**, because they are the
   same row shown twice — the pin reads the folder's count rather than tallying its own. Selecting
   either lights both.
 - **A pin outlives what it points at.** Rename the folder and the pin follows it. Empty the folder,
   disconnect the platform, or remove its last task, and the pin stays where it is reading `0` — it
   is a place you declared, so it does not vanish out from under you, and you can still click it to
   remove it.
-- **Link to a pinned folder.** Click the **link** button on its chip to copy a URL like
+- **Link to a pinned folder.** Click the **link** button on its tile to copy a URL like
   `…/?source=…&category=…`. It names the folder itself, not your pin, so it keeps working if you
   unpin and opens the same place for anyone signed in to the same Cronsole account. There is no
   rename: a pin always shows the real folder's name.

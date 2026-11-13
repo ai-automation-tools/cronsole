@@ -1201,7 +1201,7 @@ const collections: HelpTopic = {
     {
       label: 'Link, rename',
       body:
-        'Hover a collection chip for a link icon, which copies a URL that opens the dashboard on ' +
+        'Each collection chip has a link button, which copies a URL that opens the dashboard on ' +
         'that collection and keeps working after a rename, and a pencil that renames it.'
     },
     {

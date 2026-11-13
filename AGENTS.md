@@ -602,10 +602,12 @@ Non-negotiable rules. **Every one has a reason recorded in
   **searched** beside what it found, `SyncOutcome.notes`' rule in the UI. Two things it may
   **never** narrow: **a reorder still reports the whole band** — `orderBy` drops every record the
   reported list does not name, so reporting the filtered rows destroys the rest (five pins, a query
-  matching two, one drag, three pins gone from a synced preference); and **a fold may not swallow a
-  hit** — the three band folds are persisted, so a query must open them the way it opens a branch,
-  or a shut band answers with a heading, a coverage note and nothing at all.
-- **No rail list draws unbounded, and none truncates silently.** Every band and every folder list
+  matching two, one drag, three pins gone from a synced preference); and **a tab may not swallow a
+  hit** — the chosen tab is a persisted preference, so while a query runs and that tab holds no
+  match, the first tab that does is *shown* (never written back: `shownRailTab`), and every badge
+  becomes a match count. A tab the user **clicks** mid-query is shown anyway, with a sentence saying
+  it holds nothing — the rule is for landing on a query, never for overruling a click.
+- **No rail list draws unbounded, and none truncates silently.** Every collection, pin and folder list
   stops at `RAIL_ROW_CAP` (10) and states the remainder (*Show 5 more folders*). **The source list
   is exempt**: which sources appear is already the user's choice (`shownSources`), so capping it
   hid sources they had asked for — Gemini and n8n, sorted last, at the old cap of 4. One definition in
@@ -615,19 +617,26 @@ Non-negotiable rules. **Every one has a reason recorded in
   eight of its subfolders (`FilteredRail.liftedLists`). **A disclosure is never capped either** —
   the `\Microsoft\` group sorts last and exists to say what is held back, so a plain cap would hide
   it first on the machines with most to disclose, and behind a fold is most of the way to fenced.
-  *Show more* is one-way — the band's own fold already puts the whole thing away.
-- **A declared list is chips; an observed tree is rows.** Collections and Pinned are flat, named and
-  short, so they render as wrapping chips — but they stay **two bands with two headings and two
-  independent folds**, because a pin is not a collection and the shape may not blur what the type
-  split exists to state. A chip keeps everything its row carried: name, count, selected state, and
-  the unpin control. The source tree stays rows because it nests and its counts scan as a column.
-- **A rail row states its platform on the glyph, and only its identity** (`sourceAccentGlyph`, the
-  same `PLATFORM_ACCENT` table the Sources cards read). The tile that used to carry identity in its
-  *background* is gone, so the colour moved onto the icon; health stays a dot in its own gutter,
-  because reading *which source* and *how it is doing* off one colour is what the two-token split
-  exists to stop. **Health is not exception-only**: a platform with no connection already draws no
-  dot, so suppressing the healthy one makes *connected and fine* and *not connected* the same
-  absence — drawn, rejected, and pinned by a test.
+  *Show more* is one-way — a list you opened is a list you went looking in.
+- **Two sliders, then Sources on their own** (since 2026-11-13). The **scope slider** (*All
+  sources · Favorites*) selects on click and stores nothing — a segment is lit only while its scope
+  is *actually selected*, so picking a source card unlights it. The **list slider** (*Collections ·
+  Pinned*, `utils/railTabs.ts`) opens one list underneath, as compact two-per-row tiles; which one
+  is a synced preference (`Settings.railTab`), replacing the three per-band folds. Both are
+  `toolbar`s, not `tablist`s — arrows move focus and never act, or each keypress on the scope slider
+  would re-filter the dashboard. Every badge keeps its count on screen. Sources are **never** in a
+  slider — the platform tree is what you navigate by. Collections and Pinned stay **two tabs**, because a pin is
+  not a collection and the layout may not blur what the type split exists to state. **An observed
+  tree is rows**: a source is a card, but its folders inside it stay rows, because they nest and
+  their counts scan as a column. The rail carries **no** task total, sync time or online summary:
+  the dashboard heading counts the tasks and `HealthStrip` is the one surface for sync state
+  ([#66](docs/troubleshooting/README.md#66-two-cronsole-surfaces-disagree-about-the-agent-in-the-same-second)).
+- **A source card states its platform on its tile, and health beside it in words** (`platformAccent`
+  tile + `sourceAccentGlyph`, the same `PLATFORM_ACCENT` table the Sources tab reads); health is a
+  dot *and* a label, never a tint on the identity colour, because reading *which source* and *how it
+  is doing* off one colour is what the two-token split exists to stop. **Health is not
+  exception-only**: a healthy source says *Online*, and one with no connection says *No health
+  reported* — suppressing either makes *connected and fine* and *not connected* the same absence.
 - **The rail's own controls leave the scroll.** The collapse toggle, *Explore sources*, *Manage
   sources* and the help `?` live in a bar pinned to the bottom of the panel. They used to sit under
   the tree and fold with it, which put the only route to a platform you have **not** added off
@@ -642,7 +651,7 @@ Non-negotiable rules. **Every one has a reason recorded in
   are per-user joins keyed on `Task` with a cascade — never columns. `TaskExclusion` is the opposite
   shape, keyed on `(platform, externalId)`, because it must outlive the row. **A pinned folder is
   therefore not a collection** — it is derived, so it is a `RailPin` preference (`utils/railPins.ts`)
-  shown in its **own** rail band (Pinned, beside Collections — one `Band` component draws both),
+  shown on its **own** rail tab (Pinned, beside Collections in one slider),
   storing no foreign key, reading its target node's count rather than re-deriving one, and
   surviving its target's disappearance at `0`.
 - **The rail reorders per band, and each band's order is written where that band's record already
@@ -652,7 +661,7 @@ Non-negotiable rules. **Every one has a reason recorded in
   and the disagreement would show only as a rail that reshuffles itself on reload. The rail reports
   the move and never the store: `onReorder(section, keys)` hands back **the whole band** in its new
   order, because a `(from, to)` pair applied to an empty `sourceOrder` would name two platforms and
-  leave every other row unordered beneath them. A row may not cross bands (three bands, three kinds
+  leave every other row unordered beneath them. A row may not cross sections (three sections, three kinds
   of record), sources stay alphabetical until dragged so a later-shipped platform lands at the
   bottom rather than reshuffling an arranged rail, and folders *inside* a source are never hand
   ordered — they come and go with the tasks. **Drag has a keyboard twin** (`Alt+↑/↓`, one step of

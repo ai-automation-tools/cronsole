@@ -774,14 +774,8 @@ export const DashboardScreen = ({
           onManageCollections={renameId => setManagingCollections({ renameId })}
           pins={prefs.railPins}
           onTogglePin={togglePin}
-          collectionsCollapsed={prefs.collectionsCollapsed}
-          onToggleCollectionsCollapsed={() =>
-            update('collectionsCollapsed', !prefs.collectionsCollapsed)
-          }
-          pinnedCollapsed={prefs.pinnedCollapsed}
-          onTogglePinnedCollapsed={() => update('pinnedCollapsed', !prefs.pinnedCollapsed)}
-          sourcesCollapsed={prefs.sourcesCollapsed}
-          onToggleSourcesCollapsed={() => update('sourcesCollapsed', !prefs.sourcesCollapsed)}
+          tab={prefs.railTab}
+          onTabChange={t => update('railTab', t)}
           sourceOrder={prefs.sourceOrder}
           onReorder={reorderRail}
         />
@@ -831,14 +825,8 @@ export const DashboardScreen = ({
               // shut after each would make it three gestures per pin.
               pins={prefs.railPins}
               onTogglePin={togglePin}
-              collectionsCollapsed={prefs.collectionsCollapsed}
-              onToggleCollectionsCollapsed={() =>
-                update('collectionsCollapsed', !prefs.collectionsCollapsed)
-              }
-              pinnedCollapsed={prefs.pinnedCollapsed}
-              onTogglePinnedCollapsed={() => update('pinnedCollapsed', !prefs.pinnedCollapsed)}
-              sourcesCollapsed={prefs.sourcesCollapsed}
-              onToggleSourcesCollapsed={() => update('sourcesCollapsed', !prefs.sourcesCollapsed)}
+              tab={prefs.railTab}
+              onTabChange={t => update('railTab', t)}
               sourceOrder={prefs.sourceOrder}
               // Reordering is not navigation, so the drawer stays open — the
               // same rule as pinning, and arranging a rail is several drags.

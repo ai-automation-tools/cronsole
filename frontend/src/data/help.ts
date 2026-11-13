@@ -112,8 +112,9 @@ const sources: HelpTopic = {
       label: 'The filter box narrows the sidebar, not your tasks',
       body:
         'Type in the box at the top to narrow the rail itself — sources, folders, collections ' +
-        'and pins, by name. Matching folders open so you can see the hit. Escape clears it. To ' +
-        'search task names instead, use the search and filters above the task list.'
+        'and pins, by name. Matching folders open, and Collections and Pinned show their number ' +
+        'of matches; if your open list has none, the other one opens. Escape clears it. To search task ' +
+        'names instead, use the search and filters above the task list.'
     },
     {
       label: 'Long lists stop at ten and say what is left',
@@ -1208,7 +1209,7 @@ const collections: HelpTopic = {
     {
       label: 'Link, rename',
       body:
-        'Each collection chip has a link button, which copies a URL that opens the dashboard on ' +
+        'Each collection card has a link button, which copies a URL that opens the dashboard on ' +
         'that collection and keeps working after a rename, and a pencil that renames it.'
     },
     {
@@ -1227,20 +1228,20 @@ const collections: HelpTopic = {
     {
       label: 'Pinned is a separate section',
       body:
-        'Hover a folder in the source rail and click + to park it in Pinned, the band just below ' +
-        'this one. A pin is not a collection: it keeps tracking the folder, so a task added there ' +
+        'Hover a folder in the source rail and click + to park it on the Pinned tab, beside this ' +
+        'one. A pin is not a collection: it keeps tracking the folder, so a task added there ' +
         'tomorrow is counted the same day. It always prints the same number as the folder in the ' +
         'tree, and it stays — reading 0 — if the folder empties, so you can still click it to ' +
         'remove it. Its link button copies a URL to the folder itself (no rename — a pin shows ' +
-        'the real folder name). Pinned appears only once you have pinned something.'
+        'the real folder name). An empty Pinned tab says how to pin.'
     },
     {
-      label: 'Fold any section',
+      label: 'Two sliders at the top',
       body:
-        'Collections, Pinned and Sources each have a heading with a chevron, and each folds ' +
-        'independently. A folded section keeps its count, so folding never hides how much is in ' +
-        'there. Manage collections sits at the foot of the Collections section itself. The button ' +
-        'at the top of the sidebar is different — it narrows the whole rail to icons.'
+        'The first holds All sources and Favorites, which show those tasks straight away. The ' +
+        'second holds Collections and Pinned, which open as tiles underneath, two to a row. Every ' +
+        'segment keeps its count, and the sidebar remembers which list you left open. Sources sit ' +
+        'on their own below. The leftmost button in the bottom bar narrows the whole rail to icons.'
     },
     {
       label: 'Drag a row to reorder it',

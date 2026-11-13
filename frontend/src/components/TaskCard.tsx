@@ -1,6 +1,6 @@
 import { memo, useState } from 'react';
 import type { CSSProperties } from 'react';
-import { ChevronRight, XOctagon } from 'lucide-react';
+import { Check, ChevronRight, XOctagon } from 'lucide-react';
 import type { Task } from '../types';
 import { platformLabel, sourceIcon, sourceAccentGlyph } from '../platform';
 import { nextRunOf } from '../utils/taskFilters';
@@ -30,6 +30,14 @@ interface TaskCardProps {
    * own rises at once.
    */
   index?: number;
+  /**
+   * Selection mode: a click anywhere on the card toggles it instead of opening
+   * it, and a checkbox leads the header (the keyboard's route to the same).
+   * `onToggleSelected` must be stable, like the handlers above, or the memo is lost.
+   */
+  selecting?: boolean;
+  selected?: boolean;
+  onToggleSelected?: (task: Task) => void;
 }
 
 /**
@@ -52,12 +60,16 @@ export const TaskCard = memo(({
   onToggleFavorite,
   isTogglingStatus,
   index = 0,
+  selecting = false,
+  selected = false,
+  onToggleSelected,
 }: TaskCardProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [tempCat, setTempCat] = useState(task.category || 'Uncategorized');
   const onPointerMove = useSpotlight();
   const { settings } = useSettings();
 
+  const activate = () => (selecting ? onToggleSelected?.(task) : onSelect(task));
   const next = nextRunOf(task);
   const SourceIcon = sourceIcon(task.source ?? task.platform);
   const statusWord = task.status.charAt(0) + task.status.slice(1).toLowerCase();
@@ -75,12 +87,24 @@ export const TaskCard = memo(({
       beside the status word, then the actions under a rule.
     */
     <div
-      className="spot rise flex flex-col bg-surface border border-border rounded-xl p-4 focus-within:border-primary/50 cursor-pointer transition-[transform,box-shadow,border-color] duration-300 group hover:-translate-y-0.5 hover:shadow-xl active:scale-[0.99]"
+      className={`spot rise flex flex-col bg-surface border rounded-xl p-4 focus-within:border-primary/50 cursor-pointer transition-[transform,box-shadow,border-color] duration-300 group hover:-translate-y-0.5 hover:shadow-xl active:scale-[0.99] ${selected ? 'border-primary ring-2 ring-primary/40' : 'border-border'}`}
       style={{ '--i': Math.min(index, 12) } as CSSProperties}
       onPointerMove={onPointerMove}
-      onClick={() => !isEditing && onSelect(task)}
+      onClick={() => !isEditing && activate()}
     >
       <div className="flex items-center gap-2 min-w-0">
+        {selecting && (
+          <button
+            type="button"
+            role="checkbox"
+            aria-checked={selected}
+            aria-label={`Select ${task.name}`}
+            onClick={e => { e.stopPropagation(); onToggleSelected?.(task); }}
+            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${selected ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background'}`}
+          >
+            {selected && <Check size={13} strokeWidth={3} />}
+          </button>
+        )}
         <div className="flex min-w-0 flex-1 items-center gap-1.5 text-xs">
           <SourceIcon size={14} aria-hidden className={`shrink-0 ${sourceAccentGlyph(task.source ?? task.platform)}`} />
           <span className="shrink-0 font-semibold text-foreground">{platformLabel(task.platform)}</span>
@@ -137,7 +161,7 @@ export const TaskCard = memo(({
           type="button"
           aria-label={`Open details for ${task.name}`}
           title={task.externalId === task.name ? task.name : `${task.name} — ${task.externalId}`}
-          onClick={e => { e.stopPropagation(); onSelect(task); }}
+          onClick={e => { e.stopPropagation(); activate(); }}
           className="block w-full text-left truncate rounded outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           {task.name}

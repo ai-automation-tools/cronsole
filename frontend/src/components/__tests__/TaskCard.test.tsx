@@ -226,4 +226,18 @@ describe('TaskCard Component', () => {
     // Run is disabled with a MISSING-specific reason.
     expect(screen.getByTitle("This task isn't on the platform — nothing to run")).toBeDisabled();
   });
+
+  it('in selection mode, a click selects instead of opening', () => {
+    const onToggleSelected = vi.fn();
+    const props = renderCard(mockTask, { selecting: true, selected: false, onToggleSelected });
+    fireEvent.click(screen.getByRole('button', { name: /Open details for/ }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Test Schedule Task' }));
+    expect(onToggleSelected).toHaveBeenCalledTimes(2);
+    expect(props.onSelect).not.toHaveBeenCalled();
+  });
+
+  it('draws no checkbox outside selection mode', () => {
+    renderCard();
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+  });
 });

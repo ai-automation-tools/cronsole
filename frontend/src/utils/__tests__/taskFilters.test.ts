@@ -17,6 +17,7 @@ import {
   matchesSystem,
   needsHealthData,
   nextRunOf,
+  sortByNextRun,
   subfolderPath,
   withheldBy,
   type HealthTier
@@ -121,6 +122,20 @@ describe('matchesOutcome', () => {
 
   it('lets everything through when outcome is not being asked about', () => {
     expect(matchesOutcome(task('a'), 'any', undefined)).toBe(true);
+  });
+});
+
+describe('sortByNextRun', () => {
+  const now = at('2026-08-01T12:00:00Z');
+  it('puts the soonest upcoming run first, and keeps the rest in arrival order', () => {
+    const list = [
+      task('none'),
+      task('later', { nextRunTime: '2026-08-01T15:00:00Z' }),
+      task('past', { nextRunTime: '2026-08-01T09:00:00Z' }),
+      task('soon', { nextRunTime: '2026-08-01T12:30:00Z' }),
+      task('disabled', { status: 'DISABLED', nextRunTime: '2026-08-01T12:10:00Z' })
+    ];
+    expect(sortByNextRun(list, now).map(t => t.id)).toEqual(['soon', 'later', 'none', 'past', 'disabled']);
   });
 });
 

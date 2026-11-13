@@ -259,6 +259,8 @@ export interface IdleInputTask {
   platform: PlatformType;
   category: string;
   externalId: string;
+  /** This user filed it under system tasks (`TaskHidden`). Absent = no. */
+  hiddenByUser?: boolean;
   status: TaskStatus;
   schedule: string | null;
   /** When this row was last written by a sync — the "as of" for platform evidence. */
@@ -332,7 +334,7 @@ export function findIdleTasks(tasks: IdleInputTask[], now: Date, thresholdDays: 
       taskId: task.id,
       name: task.name,
       platform: task.platform,
-      isSystem: TaskService.isSystemTask(task.externalId, task.platform)
+      isSystem: TaskService.isSystemTask(task.externalId, task.platform, task.hiddenByUser)
     };
 
     if (task.status === TaskStatus.DISABLED) {

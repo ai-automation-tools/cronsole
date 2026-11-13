@@ -20,6 +20,13 @@ export interface Task {
    */
   isSystem?: boolean;
   /**
+   * Did *this viewer* file the task under system tasks by hand (`TaskHidden`)?
+   * `isSystem` already includes it — this only says which of the two ways in it
+   * took, so the UI can offer to take it back out. An OS-owned task is
+   * `isSystem` without it, and has nothing to undo.
+   */
+  hiddenByUser?: boolean;
+  /**
    * Which **source** bar entry this task belongs to: a platform, or a platform
    * and a subtype (`TASKHUB_NATIVE:EXEC`).
    *

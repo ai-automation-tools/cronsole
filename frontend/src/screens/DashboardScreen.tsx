@@ -15,10 +15,13 @@ import {
   X,
   Download,
   Trash2,
-  PanelLeft
+  PanelLeft,
+  CheckSquare,
+  Check
 } from 'lucide-react';
 import type { Task } from '../types';
 import { TaskCard } from '../components/TaskCard';
+import { SelectionBar } from '../components/SelectionBar';
 import { TaskSchedule } from '../components/TaskSchedule';
 import { TaskFavoriteStar } from '../components/TaskFavoriteStar';
 import { ManageCollectionsModal } from '../components/ManageCollectionsModal';
@@ -48,6 +51,7 @@ import {
   effectiveFilters,
   needsHealthData,
   nextRunOf,
+  sortByNextRun,
   type FilterDimension,
   type TaskFilters
 } from '../utils/taskFilters';
@@ -273,6 +277,23 @@ export const DashboardScreen = ({
   };
 
   const [viewMode, setViewMode] = useState<DashboardView>(settings.defaultView);
+
+  // Selection mode — presentation state like the rail drawer, never the URL: a
+  // link reproduces which tasks you are looking at, not which you ticked.
+  const [selecting, setSelecting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(() => new Set());
+  const toggleSelected = useCallback((task: Task) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(task.id)) next.delete(task.id);
+      else next.add(task.id);
+      return next;
+    });
+  }, []);
+  const exitSelection = useCallback(() => {
+    setSelecting(false);
+    setSelectedIds(new Set());
+  }, []);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // The source rail as a drawer, below `md` only. Local state and not the URL:
@@ -432,10 +453,14 @@ export const DashboardScreen = ({
         e.preventDefault();
         searchInputRef.current?.focus();
       }
+      // Leaves selection — unless a dialog is open, whose own Escape this is.
+      if (e.key === 'Escape' && !typing && !document.querySelector('[role="dialog"],[role="alertdialog"]')) {
+        exitSelection();
+      }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+  }, [exitSelection]);
 
   // The system/personal split is the OUTERMOST lens: every count, chip, facet and
   // view below works from `tasks`, so hiding OS-owned tasks here hides them
@@ -616,13 +641,18 @@ export const DashboardScreen = ({
   // One pipeline, in one place. This used to be four hand-rolled `.filter()`
   // passes inline, which is fine at four and is exactly how the fifth ends up
   // applied to the list but not to the counts beside it.
+  // Soonest next run first — see `sortByNextRun`. Every layout reads this list,
+  // so the grid, list and kanban columns all share the order.
   const filteredTasks = useMemo(
     () =>
-      applyTaskFilters(tasks ?? [], viewFilters, {
-        now,
-        timezone: settings.timezone,
-        tiers
-      }),
+      sortByNextRun(
+        applyTaskFilters(tasks ?? [], viewFilters, {
+          now,
+          timezone: settings.timezone,
+          tiers
+        }),
+        now
+      ),
     [tasks, viewFilters, now, settings.timezone, tiers]
   );
 
@@ -631,6 +661,18 @@ export const DashboardScreen = ({
   // disagree with the list it sits above. `statusGoverned` is `filteredTasks`
   // plus exactly the rows status removes, so this is 0 whenever status is 'any'.
   const hiddenByActiveFilter = statusGoverned.length - filteredTasks.length;
+
+  // A selection acts only on what is on screen: intersected with the filtered
+  // list, so a filter change can never leave an invisible task in the batch.
+  const canSelect = selecting && (viewMode === 'grid' || viewMode === 'list');
+  const selectedTasks = useMemo(
+    () => (canSelect ? filteredTasks.filter(t => selectedIds.has(t.id)) : []),
+    [canSelect, filteredTasks, selectedIds]
+  );
+  const categoryNames = useMemo(
+    () => [...new Set((tasks ?? []).map(t => t.category || 'Uncategorized'))].sort(),
+    [tasks]
+  );
 
   // ---- Saved views --------------------------------------------------------
 
@@ -1192,6 +1234,18 @@ export const DashboardScreen = ({
             
             <div className="flex items-center gap-3 shrink-0">
 
+            {(viewMode === 'grid' || viewMode === 'list') && (
+              <button
+                type="button"
+                onClick={() => (selecting ? exitSelection() : setSelecting(true))}
+                aria-pressed={selecting}
+                title="Select tasks to act on several at once"
+                className={`shrink-0 px-3 py-2 rounded-xl text-xs font-bold border flex items-center gap-1.5 transition-colors ${selecting ? 'bg-primary text-primary-foreground border-primary' : 'bg-surface border-border text-muted-foreground hover:text-foreground'}`}
+              >
+                <CheckSquare size={13} /> {selecting ? 'Done' : 'Select'}
+              </button>
+            )}
+
             {/* View Mode Toggle */}
             <div className="flex bg-surface border border-border p-1 rounded-xl items-center shadow-md shrink-0">
               <button 
@@ -1228,17 +1282,9 @@ export const DashboardScreen = ({
             </div>
           </div>
 
-          {/* Bulk work lives on the Tools tab now, not here.
-
-              Selection was removed from the dashboard on 2026-08-12: a checkbox
-              per row plus a select-all is a second way to express "these tasks",
-              and it was the worse one — it cannot survive into a confirmation as
-              anything a person can check, and it capped out at what a single
-              request would accept. Mass actions is scope-based and batches.
-
-              The safe-path concern this raised does not apply: "Remove from
-              Cronsole" sits beside "Delete from Windows" in the **task modal**,
-              per task, which is where that pairing always actually lived. */}
+          {/* Selection (grid and list): `SelectionBar` carries why it came back
+              on 2026-11-13 and the rules it returned under. Scope-first bulk
+              work is still the Mass Actions console on the Tools tab. */}
           {/* Grid View */}
           {viewMode === 'grid' && (
             <div data-testid="task-list" className="skip-offscreen grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 pb-20">
@@ -1287,6 +1333,9 @@ export const DashboardScreen = ({
                     onToggleStatus={onToggleStatus}
                     onToggleFavorite={onToggleFavorite}
                     isTogglingStatus={statusTogglingId === task.id}
+                    selecting={canSelect}
+                    selected={canSelect && selectedIds.has(task.id)}
+                    onToggleSelected={toggleSelected}
                   />
                 ))
               )}
@@ -1300,6 +1349,11 @@ export const DashboardScreen = ({
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-border/80 text-[10px] uppercase font-black text-subtle-foreground tracking-wider bg-background/20">
+                      {canSelect && (
+                        <th className="py-4 pl-4 w-8">
+                          <span className="sr-only">Selected</span>
+                        </th>
+                      )}
                       <th className="py-4 px-4">Name</th>
                       <th className="py-4 px-4">Platform</th>
                       <th className="py-4 px-4">Category</th>
@@ -1311,17 +1365,31 @@ export const DashboardScreen = ({
                   <tbody className="divide-y divide-border/50 text-sm">
                     {filteredTasks.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="text-center py-12 text-subtle-foreground font-medium italic">
+                        <td colSpan={canSelect ? 7 : 6} className="text-center py-12 text-subtle-foreground font-medium italic">
                           No tasks match the active filters.
                         </td>
                       </tr>
                     ) : (
                       filteredTasks.map(task => (
-                        <tr 
-                          key={task.id} 
-                          className="hover:bg-surface/50 transition-colors group cursor-pointer"
-                          onClick={() => onTaskSelect(task)}
+                        <tr
+                          key={task.id}
+                          className={`transition-colors group cursor-pointer ${canSelect && selectedIds.has(task.id) ? 'bg-primary/10' : 'hover:bg-surface/50'}`}
+                          onClick={() => (canSelect ? toggleSelected(task) : onTaskSelect(task))}
                         >
+                          {canSelect && (
+                            <td className="py-4 pl-4">
+                              <button
+                                type="button"
+                                role="checkbox"
+                                aria-checked={selectedIds.has(task.id)}
+                                aria-label={`Select ${task.name}`}
+                                onClick={e => { e.stopPropagation(); toggleSelected(task); }}
+                                className={`flex h-5 w-5 items-center justify-center rounded-md border-2 ${selectedIds.has(task.id) ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background'}`}
+                              >
+                                {selectedIds.has(task.id) && <Check size={13} strokeWidth={3} />}
+                              </button>
+                            </td>
+                          )}
                           <td className="py-4 px-4 font-bold text-foreground group-hover:text-foreground transition-colors">
                             <div className="flex items-start gap-2">
                               <TaskFavoriteStar task={task} onToggle={onToggleFavorite} size={14} className="mt-0.5" />
@@ -1398,7 +1466,7 @@ export const DashboardScreen = ({
                   ) : (
                     filteredTasks.filter(t => t.status === 'ACTIVE').map(task => (
                       <div 
-                        key={task.id} 
+                        key={task.id}
                         onClick={() => onTaskSelect(task)}
                         className="bg-surface border border-border hover:border-primary/40 p-4 rounded-2xl cursor-pointer hover:-translate-y-0.5 active:translate-y-0 transition-all flex flex-col gap-2 shadow-lg"
                       >
@@ -1455,7 +1523,7 @@ export const DashboardScreen = ({
                   ) : (
                     filteredTasks.filter(t => t.status !== 'ACTIVE').map(task => (
                       <div 
-                        key={task.id} 
+                        key={task.id}
                         onClick={() => onTaskSelect(task)}
                         className="bg-surface border border-border hover:border-primary/40 p-4 rounded-2xl cursor-pointer hover:-translate-y-0.5 active:translate-y-0 transition-all flex flex-col gap-2 shadow-lg opacity-60 hover:opacity-100"
                       >
@@ -1572,6 +1640,20 @@ export const DashboardScreen = ({
               tasks={filteredTasks}
               includeSystem={filters.system !== 'personal'}
               onTaskSelect={onTaskSelect}
+            />
+          )}
+
+          {/* Sticks to the bottom of the task column (not the window), so it
+              never covers the rail. */}
+          {canSelect && (
+            <SelectionBar
+              selected={selectedTasks}
+              shownCount={filteredTasks.length}
+              categories={categoryNames}
+              onSelectAll={() => setSelectedIds(new Set(filteredTasks.map(t => t.id)))}
+              onClear={() => setSelectedIds(new Set())}
+              onExit={exitSelection}
+              systemShown={viewFilters.system !== 'personal'}
             />
           )}
         </>

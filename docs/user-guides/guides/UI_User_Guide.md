@@ -185,14 +185,22 @@ old sidebar's "System Status" panel used to give, moved next to the thing it des
 
 **Collections and Pinned are chips**, not rows — two separate bands, each with its own heading and
 its own fold, because a collection holds what you put in it and a pin tracks a folder. A chip keeps
-everything a row carried: its name, its count, whether it is selected, and (on a pin) the `×` that
-takes it off. Six of them cost two lines instead of six.
+everything a row carried: its name, its count, whether it is selected, and its own buttons — a
+collection's **link** and **rename**, a pin's **link** and the `×` that takes it off. Six of them cost two lines instead of six.
 
 **Collapse the rail** with the leftmost button in the bottom bar. Collapsed, it becomes a narrow column of
 icons — each system with its health dot and its count, names on hover — and the folder level is
 **dropped rather than shrunk**, because a Task Scheduler folder name has nowhere to go at that
 width and a column of tooltips is worse than admitting the tree needs room. The choice is
 remembered between visits.
+
+**Resize the rail** by dragging its right edge — the line lights up when you are on it. It goes
+from about 210px to 560px, and never past half the window. **Double-click the edge** to put it back
+to the default. From the keyboard, Tab to the edge and use ← / → (Shift for bigger steps), Home / End
+for the narrowest and widest, and Enter to reset. The width is remembered **per browser**, not
+synced like your other sidebar settings: a width in pixels depends on the screen, and the rail
+that suits a wide monitor would crowd a laptop. Collapsing still works as before and keeps your
+width for when you expand it again.
 
 On a phone the rail is a drawer: tap **Sources** beside the page heading. The breadcrumb under the
 heading is what tells you where you are while it is closed. The drawer always opens at full width —
@@ -370,6 +378,10 @@ Two consequences worth knowing:
   disconnect the platform, or remove its last task, and the pin stays where it is reading `0` — it
   is a place you declared, so it does not vanish out from under you, and you can still click it to
   remove it.
+- **Link to a pinned folder.** Click the **link** button on its chip to copy a URL like
+  `…/?source=…&category=…`. It names the folder itself, not your pin, so it keeps working if you
+  unpin and opens the same place for anyone signed in to the same Cronsole account. There is no
+  rename: a pin always shows the real folder's name.
 
 Pins follow your account, like your other dashboard preferences (the rail's collapsed state, your
 saved views): they sync through Cronsole's own preference store, so the sidebar you arranged on the

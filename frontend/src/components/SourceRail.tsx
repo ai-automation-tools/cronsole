@@ -30,6 +30,7 @@ import { filterRailNodes, capRows } from '../utils/railFilter';
 import { pinForNode, type RailPin } from '../utils/railPins';
 import { moveKey } from '../utils/railOrder';
 import { useCollections, collectionLink } from '../hooks/useCollections';
+import { railNodeLink } from '../utils/savedViews';
 import type { Task } from '../types';
 import type { TaskFilters } from '../utils/taskFilters';
 
@@ -695,6 +696,7 @@ export const SourceRail = ({
           section="pinned"
           onReorder={onReorder}
           Icon={Pin}
+          chipIcon={false}
           rows={sections.pinned}
           reorderKeys={sections.allKeys.pinned}
           filtering={filtering}
@@ -712,9 +714,11 @@ export const SourceRail = ({
             folder is gone, which is exactly when a `0` row you cannot remove
             would be worst. Collections carry no `x`: removing one destroys a
             set you built, and that belongs in the manager behind a
-            confirmation. (They carry copy-link and rename instead.)
+            confirmation. (They carry copy-link and rename instead.) A pin
+            carries copy-link too, but never rename: it shows the real folder's
+            name.
           */
-          chipAction={node => <UnpinButton node={node} onTogglePin={onTogglePin} />}
+          chipAction={node => <PinnedChipActions node={node} onTogglePin={onTogglePin} />}
         />
 
         {/* The source tree: rows, because these nest and carry counts. */}
@@ -1043,6 +1047,7 @@ const ChipBand = ({
   testId,
   title,
   Icon,
+  chipIcon = true,
   rows,
   reorderKeys,
   railCollapsed,
@@ -1063,6 +1068,13 @@ const ChipBand = ({
   title: string;
   /** Shown beside the heading when the band cannot be folded (no handler). */
   Icon: typeof Monitor;
+  /**
+   * Repeat `Icon` on every chip? Off for Pinned: the heading already says
+   * every chip under it is a pin, so a pin glyph per chip only costs width.
+   * The icons-only rail keeps it regardless — there is no heading there, and
+   * the glyph is the whole row.
+   */
+  chipIcon?: boolean;
   rows: RailNode[];
   /**
    * The **whole** band's keys, filter or no filter — what a reorder reports.
@@ -1162,7 +1174,7 @@ const ChipBand = ({
                 <Chip
                   node={node}
                   selected={isRailNodeSelected(node, filters)}
-                  Icon={Icon}
+                  Icon={chipIcon ? Icon : null}
                   onSelect={onSelect}
                   action={chipAction?.(node)}
                 />
@@ -1204,7 +1216,7 @@ const Chip = ({
 }: {
   node: RailNode;
   selected: boolean;
-  Icon: typeof Monitor;
+  Icon: typeof Monitor | null;
   onSelect: (patch: Partial<TaskFilters>) => void;
   action?: ReactNode;
 }) => (
@@ -1225,7 +1237,7 @@ const Chip = ({
       title={node.label}
       className="flex min-w-0 items-center gap-1.5 pr-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 rounded-full"
     >
-      <Icon size={11} className="shrink-0" />
+      {Icon && <Icon size={11} className="shrink-0" />}
       <span className="truncate text-[11.5px] font-semibold">{node.label}</span>
       <span
         className={`shrink-0 tabular-nums text-[10.5px] font-medium ${
@@ -1291,35 +1303,74 @@ const ChildRow = ({ node, ...ctx }: RowContext & { node: RailNode }) => {
   );
 };
 
+/*
+  A chip's trailing controls: full-height segments, always visible, divided
+  from the name by a rule — the chip reads as a small split button rather than
+  a pill with hidden corners, and works on a touch screen. `-mr-1` cancels the
+  chip's right padding and `rounded-r-full` clips the last segment's hover fill
+  to the chip's curve. Shared by both bands so a collection chip and a pinned
+  chip cannot drift into two different shapes.
+*/
+const CHIP_SEGMENT =
+  'flex h-full w-7 shrink-0 items-center justify-center border-l border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60';
+
+const ChipSegments = ({ children }: { children: ReactNode }) => (
+  <span className="-mr-1 ml-0.5 flex shrink-0 self-stretch overflow-hidden rounded-r-full">
+    {children}
+  </span>
+);
+
+const CopyLinkSegment = ({ label, url }: { label: string; url: string }) => {
+  const { toast } = useToast();
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      toast(`Link to “${label}” copied.`, 'success');
+    } catch {
+      toast('Could not copy the link.', 'error');
+    }
+  };
+  return (
+    <button type="button" onClick={copy} aria-label={`Copy link to ${label}`} title="Copy link" className={CHIP_SEGMENT}>
+      <Link2 size={13} />
+    </button>
+  );
+};
+
 /**
- * Take a pinned chip back off the band.
+ * Copy a link to this pinned folder, and take the pin back off the band.
  *
- * A separate component from `PinButton` rather than a mode of it: that one is
- * asked *about a folder* and has to work out whether it is pinned, while this
- * one is on a chip that is a pin by construction. Folding them together would
- * mean a control whose meaning depends on which list it was rendered into.
+ * The link names the **folder** (`railNodeLink`), not the pin — see there.
+ * There is deliberately **no rename**, unlike a collection: a pin mirrors a
+ * real folder and shows that folder's name as it reads today, so a label of
+ * your own would be a second name for a place that already has one.
+ *
+ * Unpin is a separate control from `PinButton` rather than a mode of it: that
+ * one is asked *about a folder* and has to work out whether it is pinned, while
+ * this one is on a chip that is a pin by construction.
  */
-const UnpinButton = ({
+const PinnedChipActions = ({
   node,
   onTogglePin
 }: {
   node: RailNode;
   onTogglePin?: (node: RailNode) => void;
-}) => {
-  if (!onTogglePin) return null;
-
-  return (
-    <button
-      type="button"
-      onClick={() => onTogglePin(node)}
-      aria-label={`Unpin ${node.label} from collections`}
-      title={`Unpin ${node.label} — the folder itself is untouched`}
-      className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full text-subtle-foreground opacity-0 transition-all hover:bg-muted hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-    >
-      <X size={11} />
-    </button>
-  );
-};
+}) => (
+  <ChipSegments>
+    {node.patch && <CopyLinkSegment label={node.label} url={railNodeLink(node.patch)} />}
+    {onTogglePin && (
+      <button
+        type="button"
+        onClick={() => onTogglePin(node)}
+        aria-label={`Unpin ${node.label} from collections`}
+        title={`Unpin ${node.label} — the folder itself is untouched`}
+        className={CHIP_SEGMENT}
+      >
+        <X size={13} />
+      </button>
+    )}
+  </ChipSegments>
+);
 
 /**
  * Copy a link to this collection, and rename it — on the chip, because the chip
@@ -1335,39 +1386,18 @@ const CollectionChipActions = ({
   node: RailNode;
   onRename?: (id: string) => void;
 }) => {
-  const { toast } = useToast();
   const id = collectionIdFromKey(node.key);
   if (!id) return null;
 
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(collectionLink(id));
-      toast(`Link to “${node.label}” copied.`, 'success');
-    } catch {
-      toast('Could not copy the link.', 'error');
-    }
-  };
-
-  /*
-    Full-height segments, always visible, divided from the name by a rule —
-    the chip reads as a small split button rather than a pill with hidden
-    corners. `-mr-1` cancels the chip's right padding and `rounded-r-full`
-    clips the last segment's hover fill to the chip's curve.
-  */
-  const btn =
-    'flex h-full w-7 shrink-0 items-center justify-center border-l border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60';
-
   return (
-    <span className="-mr-1 ml-0.5 flex shrink-0 self-stretch overflow-hidden rounded-r-full">
-      <button type="button" onClick={copy} aria-label={`Copy link to ${node.label}`} title="Copy link" className={btn}>
-        <Link2 size={13} />
-      </button>
+    <ChipSegments>
+      <CopyLinkSegment label={node.label} url={collectionLink(id)} />
       {onRename && (
-        <button type="button" onClick={() => onRename(id)} aria-label={`Rename ${node.label}`} title="Rename" className={btn}>
+        <button type="button" onClick={() => onRename(id)} aria-label={`Rename ${node.label}`} title="Rename" className={CHIP_SEGMENT}>
           <Pencil size={12} />
         </button>
       )}
-    </span>
+    </ChipSegments>
   );
 };
 

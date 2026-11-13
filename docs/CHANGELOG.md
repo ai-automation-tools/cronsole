@@ -14,7 +14,9 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **Resizable sidebar** (2026-11-13). Drag the source rail's right edge to set its width (208–560px, never past half the window); double-click the edge to reset. Keyboard: Tab to the edge, ←/→ (Shift for bigger steps), Home/End, Enter to reset. Remembered per browser rather than synced, since a pixel width depends on the screen.
 - **Collections: add a whole folder, copy a link, rename from the chip** (2026-11-12). Every folder and job-type row in the source rail now has a hover **bookmark** that adds all the tasks it counts to a collection in one request (a snapshot — later arrivals don't join; pinning is still how you follow a folder). A partly-filed folder shows as mixed. Collection chips gain **copy link** (`/?collection=<id>`, stable across renames) and a **rename** pencil that opens *Manage collections* with that name in edit; the manager gains a copy-link button per row. Both chip buttons are full-height segments, always visible (so they work on a phone too).
+- **Pinned folders: copy a link** (2026-11-13). Pinned chips gain the same **copy link** button, copying a URL to the folder itself (`/?source=…&category=…`, plus the system lens for a `\Microsoft\` folder) — not to the pin, so it survives unpinning. No rename: a pin shows the real folder's name. The unpin `×` is now a full-height, always-visible segment too, matching the collection chips, and the pin glyph on each chip is gone — the Pinned heading already says what they are, and the chips are narrower for it.
 
 ### Fixed
 

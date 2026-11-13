@@ -10,6 +10,7 @@ import {
   matchView,
   newViewId,
   openingFilters,
+  railNodeLink,
   viewFiltersFrom,
   type SavedView
 } from '../savedViews';
@@ -369,5 +370,34 @@ describe('collections and saved views', () => {
   it('round-trips a collection with no view', () => {
     const params = filtersToParams({ ...DEFAULT_FILTERS, collection: 'c1' }, []);
     expect(filtersFromParams(params, []).collection).toBe('c1');
+  });
+});
+
+describe('railNodeLink', () => {
+  const roundTrip = (patch: Partial<TaskFilters>) => {
+    const url = new URL(railNodeLink(patch, 'https://cronsole.test'));
+    expect(url.origin + url.pathname).toBe('https://cronsole.test/');
+    return filtersFromParams(url.searchParams, []);
+  };
+
+  it('opens the dashboard on the pinned folder', () => {
+    const back = roundTrip({ source: 'WINDOWS', category: 'AI-Lab', folderPath: 'AI-Lab/Nightly' });
+    expect(back.source).toBe('WINDOWS');
+    expect(back.category).toBe('AI-Lab');
+    expect(back.folderPath).toBe('AI-Lab/Nightly');
+  });
+
+  // A pin under \Microsoft\ selects the system lens; a link that dropped it would
+  // land on a folder the default lens hides and read as empty.
+  it('carries the system lens a \\Microsoft\\ folder needs', () => {
+    const back = roundTrip({ source: 'WINDOWS', category: '\\Microsoft\\Windows\\Defrag', system: 'include' });
+    expect(back.system).toBe('include');
+    expect(back.category).toBe('\\Microsoft\\Windows\\Defrag');
+  });
+
+  it('names the place, never a pin id or a collection', () => {
+    const url = railNodeLink({ source: 'WINDOWS', category: 'AI-Lab' }, 'https://cronsole.test');
+    expect(url).not.toContain('pin');
+    expect(url).not.toContain('collection');
   });
 });

@@ -163,6 +163,13 @@ const sources: HelpTopic = {
         'stay put however far down the tree you have scrolled.'
     },
     {
+      label: 'Drag the edge to resize the sidebar',
+      body:
+        'Drag the right edge of the sidebar to make it as wide or narrow as you like; double-click ' +
+        'the edge to reset it. The width is remembered in this browser only, because a width that ' +
+        'suits a big monitor would crowd a laptop.'
+    },
+    {
       label: 'Drag a source into the order you want',
       body:
         'Sources are alphabetical until you move one — drag a row inside the Sources section, or ' +
@@ -1224,7 +1231,8 @@ const collections: HelpTopic = {
         'this one. A pin is not a collection: it keeps tracking the folder, so a task added there ' +
         'tomorrow is counted the same day. It always prints the same number as the folder in the ' +
         'tree, and it stays — reading 0 — if the folder empties, so you can still click it to ' +
-        'remove it. Pinned appears only once you have pinned something.'
+        'remove it. Its link button copies a URL to the folder itself (no rename — a pin shows ' +
+        'the real folder name). Pinned appears only once you have pinned something.'
     },
     {
       label: 'Fold any section',

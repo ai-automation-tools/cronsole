@@ -14,7 +14,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
-- **Collections: add a whole folder, copy a link, rename from the chip** (2026-11-12). Every folder and job-type row in the source rail now has a hover **bookmark** that adds all the tasks it counts to a collection in one request (a snapshot — later arrivals don't join; pinning is still how you follow a folder). A partly-filed folder shows as mixed. Collection chips gain **copy link** (`/?collection=<id>`, stable across renames) and a **rename** pencil that opens *Manage collections* with that name in edit; the manager gains a copy-link button per row.
+- **Collections: add a whole folder, copy a link, rename from the chip** (2026-11-12). Every folder and job-type row in the source rail now has a hover **bookmark** that adds all the tasks it counts to a collection in one request (a snapshot — later arrivals don't join; pinning is still how you follow a folder). A partly-filed folder shows as mixed. Collection chips gain **copy link** (`/?collection=<id>`, stable across renames) and a **rename** pencil that opens *Manage collections* with that name in edit; the manager gains a copy-link button per row. Both chip buttons are full-height segments, always visible (so they work on a phone too).
 
 ### Fixed
 

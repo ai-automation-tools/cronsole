@@ -1348,20 +1348,26 @@ const CollectionChipActions = ({
     }
   };
 
+  /*
+    Full-height segments, always visible, divided from the name by a rule —
+    the chip reads as a small split button rather than a pill with hidden
+    corners. `-mr-1` cancels the chip's right padding and `rounded-r-full`
+    clips the last segment's hover fill to the chip's curve.
+  */
   const btn =
-    'flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full text-subtle-foreground opacity-0 transition-all hover:bg-muted hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60';
+    'flex h-full w-7 shrink-0 items-center justify-center border-l border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60';
 
   return (
-    <>
+    <span className="-mr-1 ml-0.5 flex shrink-0 self-stretch overflow-hidden rounded-r-full">
       <button type="button" onClick={copy} aria-label={`Copy link to ${node.label}`} title="Copy link" className={btn}>
-        <Link2 size={11} />
+        <Link2 size={13} />
       </button>
       {onRename && (
         <button type="button" onClick={() => onRename(id)} aria-label={`Rename ${node.label}`} title="Rename" className={btn}>
-          <Pencil size={10} />
+          <Pencil size={12} />
         </button>
       )}
-    </>
+    </span>
   );
 };
 

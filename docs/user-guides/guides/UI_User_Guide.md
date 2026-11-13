@@ -325,10 +325,10 @@ there is no shared property to filter on.
   It is a snapshot — tasks that land in the folder later do not join. To follow a folder as it
   changes, pin it instead (below). A collection that holds some of the folder shows a **–**;
   clicking it adds the rest, and clicking a fully ticked one takes the whole folder back out.
-- **Link to a collection.** Hover its chip and click the **link** icon (or use the link button in
+- **Link to a collection.** Click the **link** button on its chip (or use the link button in
   *Manage collections*) to copy a URL like `…/?collection=<id>`. It opens the dashboard on that
   collection, survives a rename, and works for anyone signed in to the same Cronsole account.
-- **Rename** from the chip's **pencil**, or **manage, rename and delete** from *Manage collections*,
+- **Rename** from the **pencil** button on the chip, or **manage, rename and delete** from *Manage collections*,
   at the foot of the Collections section itself — the control that makes a collection sits in the
   band it makes into.
 - **Deleting a collection never deletes tasks.** It removes the grouping; the tasks stay in Cronsole

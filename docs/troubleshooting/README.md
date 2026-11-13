@@ -3175,7 +3175,7 @@ For the `any` errors specifically, use `frontend/src/utils/errorMessage.ts` in a
 in exactly the direction that lets six commits ship broken. It is the record-keeping failure
 of §11a pointed at CI: nothing fails loudly at the moment the mistake is made.
 
-*First hit: 2026-08-12, during the Claude routines work.*
+*First hit: 2026-08-12, during the Claude Code scheduled tasks work.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 
@@ -6685,3 +6685,9 @@ backend does not know to refuse, so every write times out with *Agent trigger ti
 agent log shows `REJECTED unsigned/invalid` for each one.
 
 *First hit: 2026-11-11 (the change itself).*
+
+---
+
+<p align="center">
+  <a href="../README.md">← Docs home</a>
+</p>

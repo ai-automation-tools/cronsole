@@ -22,6 +22,8 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Changed
 
+- **Docs sweep** (2026-11-13). `docs/install/guides/`, `docs/testing/manual-testing/runbooks/` and `docs/user-guides/guides/` have README indexes; `registry/` and `registry-site/` READMEs and the troubleshooting guide have the section header or an up-link footer; `DESIGN_NOTES.md` counts 38 MCP tools and says Claude Code scheduled tasks; three links to files that are not in the repo (`.mcp.json`, the archived Native Tasks spec) now point at the checked-in example or read as plain text.
+
 - **The help and docs say plainly that native jobs never run as administrator** (2026-11-12). Following the 0.11.0 change that runs only the agent elevated: the in-app help for Cronsole-native, *Run a program* and Windows Task Scheduler now says where admin work belongs (a Windows task with *Run with highest privileges*), and `README.md`, `SECURITY.md`, `TRUST.md`, `FEATURES.md`, the UI and MCP guides no longer describe the old single elevated `CronsoleStack` task.
 - **Roadmap rechecked against the org's 2026-11 requirements** (2026-11-11). The intro names the job that works the file, not a task and a time. *Stamp the demo build* and *Rename at the source* moved from Phase 4, above the release line, to Next up, where the routine looks. Four standing questions and decisions moved under Open decisions. The GitHub Actions remainder is marked 🔒 Needs owner, since only waiting or a live break can finish it. The reopened P0 items end in a `— done` note. New items: authenticate before the import and restore body parser, the dev JWT in pre-public history (🔒), and the DESIGN_NOTES tool count. The topics item now names the org's 4–5-topic vocabulary.
 

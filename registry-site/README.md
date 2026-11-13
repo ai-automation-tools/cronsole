@@ -1,4 +1,14 @@
-# registry-site/ — Cronsole's homepage and template gallery
+<h1 align="center">🌐 registry-site/ — Cronsole's homepage and template gallery</h1>
+
+<p align="center">
+  <em>Source of truth for Cronsole's public homepage and the template gallery beside the registry JSON.</em>
+</p>
+
+<p align="center">
+  <a href="../README.md"><img src="https://img.shields.io/badge/↩-repository_root-6B7280?style=for-the-badge" alt="Back to the repository root"></a>
+</p>
+
+---
 
 Source of truth for **Cronsole's public homepage**, served at
 **`https://cronsole.ai-automation-tools.dev/`**, beside the registry JSON it reads (since

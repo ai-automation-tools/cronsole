@@ -1579,6 +1579,16 @@ components over 1,000 lines.
       **Done when** no link from another org repo points at a deleted path; search the org first.
 - [ ] `small` **`DESIGN_NOTES.md` counts 38 MCP tools** (37 without the gated `delete_task`),
       matching the `registerTool(` calls in `mcp-server/src/tools.ts`. Lines 139 and 255 say 37.
+- [ ] `small` **Rename "Claude Code routines" in the troubleshooting headings** (docs sweep, 2026-11-13).
+      `docs/troubleshooting/README.md` headings #45, #50 and #95 still say "Claude routines" (vendor rename to
+      "scheduled tasks", repo-docs-builder §0). A heading rename changes its anchor, so the docs sweep left them.
+      **Done when** the three headings say scheduled tasks and every in-repo reference (`AGENTS.md`, `skills/`,
+      the help panel's deep links, `frontend/src/data/__tests__/docsLinks.test.ts`, `docs/CHANGELOG.md` links) and
+      the homepage point at the new anchors.
+- [ ] `small` **Rename "Claude routines" in the app's page metadata** (docs sweep, 2026-11-13).
+      `frontend/index.html` line 8 still says "Claude routines" (vendor rename, same as above); it is markup, so
+      the docs sweep did not touch it. **Done when** the page text says Claude Code scheduled tasks and no test or
+      in-app string depends on the old wording.
 - [ ] 🔒 Needs owner — **GitHub description and topics.** The description says "Claude Code
       routines" (renamed "scheduled tasks" in #390) and omits n8n. The audit's six new topics
       (`windows-task-scheduler`, `cron`, `mcp`, `n8n`, `self-hosted`, `local-first`) would make

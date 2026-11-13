@@ -6,7 +6,7 @@
   `SEQUENCE` by chaining tasks ([ADR 0004 §5](0004-native-run-policy.md)). `SQL` remains rejected.
   Open questions 1 and 3 were settled before implementation — see *Decisions taken* at the end.
 - **Deciders:** Mike
-- **Related:** [ROADMAP › Native job types](../ROADMAP.md#native-job-types) · [AGENTS.md §9 › Connector pattern](../../AGENTS.md) · frozen spec [`archive/specs/Native_Tasks.md`](../archive/specs/Native_Tasks.md) (local-only)
+- **Related:** [ROADMAP › Native job types](../ROADMAP.md#native-job-types) · [AGENTS.md §9 › Connector pattern](../../AGENTS.md) · frozen spec `archive/specs/Native_Tasks.md` (local-only, not in the repo)
 
 ## Context
 

@@ -1,4 +1,14 @@
-# Cronsole Template Registry — generated artifact (source of truth)
+<h1 align="center">📦 Cronsole Template Registry — generated artifact (source of truth)</h1>
+
+<p align="center">
+  <em>The static template registry a Cronsole backend can fetch at runtime, generated from the bundled catalog.</em>
+</p>
+
+<p align="center">
+  <a href="../README.md"><img src="https://img.shields.io/badge/↩-repository_root-6B7280?style=for-the-badge" alt="Back to the repository root"></a>
+</p>
+
+---
 
 > [!IMPORTANT]
 > **Don't hand-edit anything in this folder.** It's generated from
@@ -99,3 +109,10 @@ as a drop-in replacement.
 > house-style page for outside readers); this file is the internal developer note.
 > The two are meant to differ. (Index signing is the stronger integrity follow-up
 > beyond the per-file checksums.)
+
+---
+
+<p align="center">
+  <a href="../README.md">← Repository home</a> ·
+  <a href="../registry-site/README.md">Homepage and gallery</a>
+</p>

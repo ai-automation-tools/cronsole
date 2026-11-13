@@ -127,11 +127,11 @@ before anything else asks *which slice of it you want*:
 
 ```
   🔍 Filter sources and folders
-  [ ≡ All sources 403 │ ★ Favorites 12 ]
-  [ Collections 4     │ Pinned 2       ]
-  ┌ Nightly checks 6 ┐ ┌ Deploys      4 ┐
-  └ 🔖          🔗 ✎ ┘ └ 🔖        🔗 ✎ ┘
-  ┆ + New or manage collections        ┆
+  SCOPES
+  ≡ All tasks                      403
+  ★ Favorites                       12
+  🔖 Collections                      2
+  📌 Pinned                           2
 
   SOURCES 3
   ┌────────────────────────────────┐
@@ -149,14 +149,12 @@ before anything else asks *which slice of it you want*:
   ◧  [ Explore sources ]   ⚙  ?
 ```
 
-Under the filter box are **two sliders**. The first holds the two *scopes*, **All sources** and
-**Favorites** — clicking one shows those tasks straight away, and it stays lit while it is your
-selection. The second holds your two *lists*, **Collections** and **Pinned** — one is open at a
-time, underneath, and you pick a collection or a pin from there (the diagram shows Collections
-open). Every segment carries its count, so the list you have closed still tells you its size, and
-the sidebar remembers which list you left open — it follows your account like your other sidebar
-settings. **Sources sit
-on their own below the slider**, always on screen — they are what you navigate by.
+Under the filter box is **Scopes**: **All tasks**, **Favorites**, **Collections** and **Pinned**,
+each with its count. *All tasks* and *Favorites* show those tasks straight away. **Collections**
+and **Pinned** open a page of cards in the main area instead — one box per collection or pinned
+folder — and you click a box to open its tasks (see [Collections](#collections) and
+[Pinned](#pinned)). **Sources
+sit on their own below**, always on screen — they are what you navigate by.
 
 **Level 1 is the system.** The *Sources* section has one card per platform you have tasks from **or are
 connected to**: its icon, its name, its connection health in words beside a coloured dot — the
@@ -188,10 +186,9 @@ pick the source; click the chevron to open it.
   so in its own label and states the count, so nothing is quietly fenced off. Open it and pick a
   folder to look inside one. The group itself only expands — it is a disclosure, not a filter.
 
-**Collections and Pinned are separate tabs**, because a collection holds what you put in it and a
-pin tracks a folder. Both show as compact tiles, two to a row: the name and count on top, then a
-mark — a bookmark on a collection, the source's icon on a pin — and two buttons. A collection's are
-**link** and **rename**; a pin's are **link** and the `×` that takes it off.
+**Collections and pins live in different places**, because a collection holds what you put in it
+and a pin tracks a folder, so they get a page each. A collection's card has **link** and
+**rename**; a pin's has **link** and the `×` that takes it off.
 
 **Collapse the rail** with the leftmost button in the bottom bar. Collapsed, it becomes a narrow column of
 icons — *All sources*, *Favorites*, then each system with its health dot and its count, names on
@@ -227,11 +224,9 @@ empty sidebar.
 
 #### Filtering the sidebar
 
-The box at the top narrows **the rail itself** — sources, folders, collections and pins, by name.
-Matching folders open so you can see the hit, and the Collections and Pinned badges turn into
-their number of **matches**. If the list you have open holds no match and the other does, the sidebar
-opens that one instead — without forgetting your choice, so clearing the box puts you back. Clicking a list while
-filtering always opens it, even one with nothing in it, and it says so. **Escape** clears the box, and collapsing the sidebar clears it
+The box at the top narrows **the rail itself** — sources and folders, by name.
+Matching folders open so you can see the hit. The Scopes rows never filter
+away, so a search that matches nothing still leaves a way back. **Escape** clears the box, and collapsing the sidebar clears it
 too, since at icon width there would be nothing on screen to say the rail was still narrowed.
 
 It filters the sidebar, **not your tasks**. To search task names, use the search box and *Filters*
@@ -311,8 +306,8 @@ platform, so starring works fine with the agent offline.
 
 ### Collections
 A **collection** is a set of tasks you pick by hand and give a name — "Morning checks", "Client
-work", "View2". It appears on the **Collections** list of the source rail as a tile with its own count, and the
-tab's badge says how many collections you have. **Pinned** is the tab beside it.
+work", "View2". Click **Collections** under Scopes and each one appears as a box in the main area with its own
+count; click a box to open its tasks. **New or manage collections** sits above the boxes.
 
 **A collection is not a saved filter, and that distinction is the whole feature.** A view stores
 *conditions* (active, failing, due today) and shows whatever matches them right now. A collection
@@ -351,10 +346,11 @@ there is no shared property to filter on.
 - Collections are yours alone, change nothing on any platform, and work with the agent offline.
 
 ### Pinned
-A folder you use constantly can be lifted out of the tree and parked on the **Pinned** tab. Hover a
+A folder you use constantly can be lifted out of the tree and pinned. Hover a
 folder or job type in the source rail and click the **+** beside its name; it turns into a **pin**
-icon, and the folder appears on Pinned as a tile. Click the pin again on the folder in the tree, or
-the `×` on its tile, to take it back off. Nothing about the folder changes; the tree keeps it either
+icon. Click **Pinned** under Scopes and your pins open as cards in the main area — click one to
+open that folder's tasks. Click the pin again on the folder in the tree, or the `×` on its card,
+to take it back off. Nothing about the folder changes; the tree keeps it either
 way.
 
 **Pinned is a separate section from Collections because they are separate kinds of thing.** A
@@ -364,14 +360,12 @@ day, with no action from you. That is the reason pinning does not simply build a
 the folder's current contents: a set named after a folder that had quietly stopped matching it would
 be worse than no shortcut at all.
 
-**Collections** and **Pinned** share the second slider at the top, under *All sources* and
-*Favorites* — one list opens at a time, and each badge keeps its count on screen — and **Sources**
-(the platform tree) sit on their own below, always visible.
+**Collections** and **Pinned** are both rows under Scopes, and each opens its own page of cards
+in the main area rather than a list in the sidebar. **Sources** (the platform tree) sit on their own below, always visible.
 
-**An empty Pinned list tells you how to pin**, since pinning happens on a folder under Sources
-rather than from Pinned itself; unlike Collections it carries no *New…* button. The leftmost button
-in the bottom bar collapses the **whole** rail to icons, which is a different thing from switching
-segments.
+**An empty Pinned page tells you how to pin**, since pinning happens on a folder under Sources
+rather than from Pinned itself. The leftmost button in the bottom bar collapses the **whole** rail
+to icons.
 
 Two consequences worth knowing:
 
@@ -450,6 +444,14 @@ weekday appears exactly once and the shape of a week is invisible.
 ---
 
 ## 2. Task Details
+
+Each task card shows a **strip of seven bars** for its last seven recorded runs, oldest on the
+left: green succeeded, red failed or timed out, amber still running. An empty outline means there
+is no run on record for that slot — not that one succeeded. Cronsole records every run of a
+Cronsole-native task, but on other platforms only the runs **Cronsole started** (Run now); a
+Windows task firing on its own schedule isn't counted there. A task with no recorded run at all
+shows no strip. Hover the strip for the details. Beside
+it is the **next run** (*In 1h 32m (3:00 PM)*).
 
 Clicking a task card opens the **Task Details** modal, which has two tabs.
 

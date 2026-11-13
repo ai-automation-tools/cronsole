@@ -1,10 +1,14 @@
 import { memo, useState } from 'react';
 import type { CSSProperties } from 'react';
-import { ChevronRight, Folder, Plus, XOctagon } from 'lucide-react';
+import { ChevronRight, XOctagon } from 'lucide-react';
 import type { Task } from '../types';
-import { platformLabel, platformBadgeClass } from '../platform';
+import { platformLabel, sourceIcon, sourceAccentGlyph } from '../platform';
+import { nextRunOf } from '../utils/taskFilters';
+import { formatTime, nextRunText } from '../utils/datetime';
+import { useSettings } from '../hooks/useSettings';
 import { TaskRowActions } from './TaskRowActions';
 import { TaskSchedule } from './TaskSchedule';
+import { RunStrip } from './RunStrip';
 import { TaskFavoriteStar } from './TaskFavoriteStar';
 import { TaskCollectionMenu } from './TaskCollectionMenu';
 import { useSpotlight } from '../hooks/useSpotlight';
@@ -52,110 +56,119 @@ export const TaskCard = memo(({
   const [isEditing, setIsEditing] = useState(false);
   const [tempCat, setTempCat] = useState(task.category || 'Uncategorized');
   const onPointerMove = useSpotlight();
+  const { settings } = useSettings();
+
+  const next = nextRunOf(task);
+  const SourceIcon = sourceIcon(task.source ?? task.platform);
+  const statusWord = task.status.charAt(0) + task.status.slice(1).toLowerCase();
+  const statusTone =
+    task.status === 'ACTIVE' ? 'text-success-text'
+    : task.status === 'MISSING' ? 'text-warning-text'
+    : 'text-muted-foreground';
 
   return (
     /*
       A spotlight surface (`.spot`): the hover state is a ring of the brand
-      colour that follows the pointer, drawn by index.css from `--mx`/`--my`,
-      in place of the flat `hover:border-primary/50` it replaces. The lift and
-      press stay; the ring is what says "this one" on a grid of 24 lookalikes.
+      colour that follows the pointer, drawn by index.css from `--mx`/`--my`.
+      The layout reads top to bottom as *where · what · when · state · act*:
+      source and folder as a breadcrumb, the name, the schedule, the next run
+      beside the status word, then the actions under a rule.
     */
     <div
-      className="spot rise bg-surface border border-border rounded-2xl p-5 focus-within:border-primary/50 cursor-pointer transition-[transform,box-shadow,border-color] duration-300 shadow-xl group hover:-translate-y-1 hover:shadow-2xl active:scale-[0.98]"
+      className="spot rise flex flex-col bg-surface border border-border rounded-xl p-4 focus-within:border-primary/50 cursor-pointer transition-[transform,box-shadow,border-color] duration-300 group hover:-translate-y-0.5 hover:shadow-xl active:scale-[0.99]"
       style={{ '--i': Math.min(index, 12) } as CSSProperties}
       onPointerMove={onPointerMove}
       onClick={() => !isEditing && onSelect(task)}
     >
-      <div className="flex justify-between items-start mb-4">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <span className={`text-[10px] w-fit uppercase font-black px-2.5 py-1 rounded-lg border ${platformBadgeClass(task.platform)}`}>
-              {platformLabel(task.platform)}
-            </span>
-          </div>
-
+      <div className="flex items-center gap-2 min-w-0">
+        <div className="flex min-w-0 flex-1 items-center gap-1.5 text-xs">
+          <SourceIcon size={14} aria-hidden className={`shrink-0 ${sourceAccentGlyph(task.source ?? task.platform)}`} />
+          <span className="shrink-0 font-semibold text-foreground">{platformLabel(task.platform)}</span>
+          <span aria-hidden className="text-subtle-foreground">/</span>
           {isEditing ? (
-            <div className="flex items-center gap-1 mt-1" onClick={e => e.stopPropagation()}>
-              <input 
-                autoFocus
-                className="bg-background border border-border rounded px-1.5 py-0.5 text-[10px] text-foreground w-24 outline-none focus:border-primary"
-                value={tempCat}
-                onChange={e => setTempCat(e.target.value)}
-                onBlur={() => setIsEditing(false)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    onCategoryUpdate(task.id, tempCat);
-                    setIsEditing(false);
-                  }
-                  if (e.key === 'Escape') setIsEditing(false);
-                }}
-              />
-            </div>
+            <input
+              autoFocus
+              onClick={e => e.stopPropagation()}
+              className="min-w-0 bg-background border border-border rounded px-1.5 py-0.5 text-xs text-foreground w-32 outline-none focus:border-primary"
+              value={tempCat}
+              onChange={e => setTempCat(e.target.value)}
+              onBlur={() => setIsEditing(false)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  onCategoryUpdate(task.id, tempCat);
+                  setIsEditing(false);
+                }
+                if (e.key === 'Escape') setIsEditing(false);
+              }}
+            />
           ) : (
             <button
               type="button"
               aria-label={`Edit category of ${task.name}`}
               title="Edit category"
-              className="flex items-center gap-1.5 text-[10px] font-bold text-subtle-foreground ml-1 hover:text-foreground transition-colors"
+              className="min-w-0 truncate text-muted-foreground hover:text-foreground transition-colors"
               onClick={e => { e.stopPropagation(); setIsEditing(true); }}
             >
-              <Folder size={10} /> {task.category || 'Uncategorized'}
-              <Plus size={8} className="opacity-0 group-hover:opacity-100" />
+              {task.category || 'Uncategorized'}
             </button>
           )}
         </div>
-        <div className="flex flex-col items-end gap-1.5">
-          <div className="flex items-center gap-2">
-            {onToggleFavorite && (
-              <TaskFavoriteStar task={task} onToggle={onToggleFavorite} size={16} />
-            )}
-            {/*
-              Beside the star on every task surface, not just in the modal: both
-              are Cronsole-side labels on a task that touch no platform, and
-              collections are a rail dimension you can navigate to — so the
-              control that fills one has to be as reachable as the one that
-              fills Favorites.
-            */}
-            <TaskCollectionMenu task={task} size={16} />
-            <div className="flex items-center gap-1.5 bg-background px-2 py-1 rounded-lg border border-border">
-              <div className={`h-2 w-2 rounded-full ${task.status === 'ACTIVE' ? 'bg-success' : 'bg-muted'}`}></div>
-              <span className="text-[10px] font-bold text-muted-foreground">{task.status}</span>
-            </div>
-          </div>
-          {task.lastRunStatus === 'FAILURE' && (
-            <div className="flex items-center gap-1 bg-danger/10 px-2 py-1 rounded-lg border border-danger/30" title={task.lastRunAt ? `Failed ${new Date(task.lastRunAt).toLocaleString()}` : 'Last run failed'}>
-              <XOctagon size={10} className="text-danger-text" />
-              <span className="text-[9px] font-black text-danger-text uppercase">Run failed</span>
-            </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {onToggleFavorite && (
+            <TaskFavoriteStar task={task} onToggle={onToggleFavorite} size={15} />
           )}
+          {/*
+            Beside the star on every task surface: both are Cronsole-side labels
+            on a task that touch no platform, and collections are a rail
+            dimension you can navigate to.
+          */}
+          <TaskCollectionMenu task={task} size={15} />
         </div>
       </div>
+
       {/*
         The card is a clickable <div>, which is unreachable by keyboard and has no
-        accessible name. Rather than redesign the card, the title becomes the real
-        control: a button whose name is the task's, so the card's default action is
-        tab-reachable and announced. It can't be the card itself — TaskRowActions'
-        buttons are inside it, and a button may not nest inside a button.
+        accessible name, so the title is the real control: a button whose name is
+        the task's. It can't be the card itself — TaskRowActions' buttons are
+        inside it, and a button may not nest inside a button.
       */}
-      <h3 className="font-bold text-lg mb-1 truncate">
+      <h3 className="mt-3 font-bold text-base leading-snug truncate">
         <button
           type="button"
           aria-label={`Open details for ${task.name}`}
+          title={task.externalId === task.name ? task.name : `${task.name} — ${task.externalId}`}
           onClick={e => { e.stopPropagation(); onSelect(task); }}
           className="block w-full text-left truncate rounded outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           {task.name}
         </button>
       </h3>
-      <p className="text-xs text-subtle-foreground mb-3 italic truncate">{task.externalId}</p>
-      <TaskSchedule task={task} className="mb-5" />
-      <div className="flex items-center justify-between border-t border-border pt-4">
-        <div className="text-[10px] text-muted-foreground min-w-0 truncate">
+      <TaskSchedule task={task} className="mt-1" />
+
+      <div className="mt-4 flex items-center gap-2.5 min-w-0">
+        <RunStrip task={task} />
+        <span
+          className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground"
+          title={next ? `Next run ${next.toLocaleString()}` : 'The platform reports no upcoming run'}
+        >
+          {next ? nextRunText(next, settings.timezone) : 'No upcoming run'}
+        </span>
+        {task.lastRunStatus === 'FAILURE' && (
+          <span
+            className="flex shrink-0 items-center gap-1 rounded-md border border-danger/30 bg-danger/10 px-1.5 py-0.5 text-[10px] font-bold text-danger-text"
+            title={task.lastRunAt ? `Failed ${new Date(task.lastRunAt).toLocaleString()}` : 'Last run failed'}
+          >
+            <XOctagon size={10} /> Run failed
+          </span>
+        )}
+        <span className={`shrink-0 text-xs font-semibold ${statusTone}`}>{statusWord}</span>
+      </div>
+
+      <div className="mt-4 flex items-center justify-between gap-2 border-t border-border pt-3">
+        <div className="min-w-0 truncate text-[11px] text-subtle-foreground">
           {/*
-            The card row carries five controls plus the card's own click target, and
-            nothing said the card *was* one. This names it on hover/focus. It is
-            aria-hidden because the title button above already carries the semantics —
-            a second announced "Open details" would be one control described twice.
+            Names the card as a control on hover/focus. aria-hidden because the
+            title button already carries the semantics.
           */}
           <span
             aria-hidden="true"
@@ -164,12 +177,17 @@ export const TaskCard = memo(({
             Open details <ChevronRight size={10} />
           </span>
           <span className="group-hover:hidden group-focus-within:hidden">
-            Last updated: <span className="text-foreground">{new Date(task.updatedAt).toLocaleTimeString()}</span>
+            {/* A run Cronsole recorded when there is one; otherwise the row's
+                last change, labelled as that — never passed off as a run. */}
+            {task.lastRunAt
+              ? <>Last run: {formatTime(task.lastRunAt, settings.timezone)}</>
+              : <>Updated: {formatTime(task.updatedAt, settings.timezone)}</>}
           </span>
         </div>
         <TaskRowActions
           task={task}
-          size="lg"
+          size="sm"
+          runLabel
           onRun={onRun}
           onClone={onClone}
           onToggleStatus={onToggleStatus}

@@ -54,13 +54,40 @@ describe('TaskCard Component', () => {
   it('renders task details correctly', () => {
     renderCard();
     expect(screen.getByText('Test Schedule Task')).toBeInTheDocument();
-    expect(screen.getByText('test-external-id')).toBeInTheDocument();
+    // The platform id rides on the title's tooltip; the detail modal shows it
+    // under the title (and says so once a rename diverges from it).
+    expect(screen.getByTitle(/test-external-id/)).toBeInTheDocument();
     expect(screen.getByText('Backup')).toBeInTheDocument();
     expect(screen.getByText('Windows')).toBeInTheDocument();
-    expect(screen.getByText('ACTIVE')).toBeInTheDocument();
+    expect(screen.getByText('Active')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Run / })).toHaveTextContent('Run');
   });
 
-  // --- schedule preview (added 2026-08-11) ---
+  // --- run strip (added 2026-11-13) ---
+  it('draws the last runs oldest → newest, and names them in words', () => {
+    renderCard({
+      ...mockTask,
+      recentRuns: [
+        { status: 'FAILURE', triggeredAt: '2026-11-13T03:00:00Z' },
+        { status: 'SUCCESS', triggeredAt: '2026-11-13T02:00:00Z' },
+        { status: 'SUCCESS', triggeredAt: '2026-11-13T01:00:00Z' }
+      ]
+    });
+    const strip = screen.getByRole('img', { name: /^Last 3 recorded runs: 2 succeeded, 1 failed$/ });
+    const bars = Array.from(strip.children).map(b => b.className);
+    expect(bars).toHaveLength(7);
+    // Four empty outlines — absence is never drawn as success — then the runs.
+    expect(bars.slice(0, 4).every(c => c.includes('border'))).toBe(true);
+    expect(bars[6]).toContain('bg-danger');
+    expect(bars[5]).toContain('bg-success');
+  });
+
+  it('draws no strip at all for a task with no recorded run', () => {
+    renderCard({ ...mockTask, recentRuns: [] });
+    expect(screen.queryByRole('img', { name: /recorded run/ })).toBeNull();
+  });
+
+    // --- schedule preview (added 2026-08-11) ---
   //
   // The card is the surface most people read; it has to answer "when does this
   // run?" without a click. The zone is pinned to Pacific above, so a UTC cron is shown

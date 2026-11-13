@@ -618,15 +618,19 @@ Non-negotiable rules. **Every one has a reason recorded in
   the `\Microsoft\` group sorts last and exists to say what is held back, so a plain cap would hide
   it first on the machines with most to disclose, and behind a fold is most of the way to fenced.
   *Show more* is one-way — a list you opened is a list you went looking in.
-- **Two sliders, then Sources on their own** (since 2026-11-13). The **scope slider** (*All
-  sources · Favorites*) selects on click and stores nothing — a segment is lit only while its scope
-  is *actually selected*, so picking a source card unlights it. The **list slider** (*Collections ·
-  Pinned*, `utils/railTabs.ts`) opens one list underneath, as compact two-per-row tiles; which one
-  is a synced preference (`Settings.railTab`), replacing the three per-band folds. Both are
-  `toolbar`s, not `tablist`s — arrows move focus and never act, or each keypress on the scope slider
-  would re-filter the dashboard. Every badge keeps its count on screen. Sources are **never** in a
-  slider — the platform tree is what you navigate by. Collections and Pinned stay **two tabs**, because a pin is
-  not a collection and the layout may not blur what the type split exists to state. **An observed
+- **One Scopes list, then Sources on their own** (since 2026-11-13, replacing the same day's two
+  sliders). *All tasks · Favorites · Collections · Pinned* are four rows in one **Scopes**
+  section — all of them answer *which tasks* across sources, so they share a list. A scope row is
+  lit only while it is *actually selected*, so picking a source card unlights it. **Collections
+  and Pinned each open a gallery in the main area** (`ScopeGallery.tsx`, `?lens=collections|pinned`
+  — not a `TaskFilters` field and not in `FILTER_PARAM_KEYS`, so `setFilters` drops it and any
+  rail pick leaves the gallery); the rail lists neither, so it stays the tree. While a gallery is
+  open **no other row is lit** — the filters behind it do not describe the screen — and
+  Collections stays lit while one collection's tasks are shown, since collections have no rows of
+  their own. The galleries read the same `buildSourceTree` pass, so a card's count is the rail's
+  by construction. Sources are **never** folded into Scopes — the platform tree is what you
+  navigate by. A pin is still not a collection: **two galleries**, and only a collection's card
+  has rename. **An observed
   tree is rows**: a source is a card, but its folders inside it stay rows, because they nest and
   their counts scan as a column. The rail carries **no** task total, sync time or online summary:
   the dashboard heading counts the tasks and `HealthStrip` is the one surface for sync state
@@ -726,7 +730,11 @@ Non-negotiable rules. **Every one has a reason recorded in
 - **`ExecutionLog` records runs Cronsole *performed*, not runs that *happened*.** A Windows task
   firing on its own schedule writes nothing, and a manual Windows `SUCCESS` means "the agent accepted
   the start". Windows outcomes live in `lastTaskResult`. `runKind` is derived at read time, only on
-  `/api/tools/history`.
+  `/api/tools/history`. The task card's **run strip** (`RunStrip`, from `GET /api/tasks`'
+  `recentRuns`, the last 7) is this population and says so: a slot with no record is an **empty
+  outline, never green**, a task with **no** record draws no strip at all, and its tooltip names
+  what is and is not recorded for that platform.
+  `lastTaskResult` is never folded in — two populations, one strip, would be §9's mixed summary.
 - **A platform's own run history is a *live read*, never a second writer of `ExecutionLog`.**
   `PlatformConnector.listPlatformRuns` / `getRunOutput` (both optional, both `unsupported` by
   absence, `GET /api/tasks/:id/platform-runs[/:runId/output]`) exist because the rule above leaves a

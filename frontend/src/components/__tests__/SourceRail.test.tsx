@@ -294,8 +294,9 @@ describe('SourceRail', () => {
 });
 
 /**
- * The three sections — Sources, Collections, Pinned — shown one at a time
- * behind a tab bar (2026-11-13; they were three stacked, folding bands).
+ * The Scopes list — All tasks, Favorites, Collections, Pinned (2026-11-13; it
+ * was two sliders and a tabbed panel), with Sources below. Collections and
+ * Pinned open galleries in the main area, so the rail lists neither.
  */
 describe('SourceRail sections', () => {
   const PIN = {
@@ -311,8 +312,8 @@ describe('SourceRail sections', () => {
       population: [task({ category: 'AI-Maintenance' })],
       filters: DEFAULT_FILTERS,
       onSelect: vi.fn(),
-      onManageCollections: vi.fn(),
       onTogglePin: vi.fn(),
+      onShowLens: vi.fn(),
       pins: [],
       ...over
     } as Parameters<typeof SourceRail>[0];
@@ -326,69 +327,50 @@ describe('SourceRail sections', () => {
     return props;
   };
 
-  // Slider segments are named "<label>, <count>…", so anchor on the comma.
-  const openTab = (name: RegExp) => fireEvent.click(screen.getByRole('button', { name }));
+  const scopeNames = () =>
+    within(screen.getByTestId('scopes-band')).getAllByRole('button').map(b => b.getAttribute('aria-label')?.split(',')[0]);
 
-  it('shows two sliders — scopes, then lists — with Sources on their own below', async () => {
-    // Sources are what you navigate by, so they are never in a slider.
+  it('lists All tasks, Favorites, Collections and Pinned, in that order', async () => {
     renderBand({ pins: [PIN] });
-    expect(await screen.findByTestId('sources-band')).toBeInTheDocument();
-    expect(screen.getByRole('toolbar', { name: 'Scope' })).toBeInTheDocument();
-    expect(screen.getByRole('toolbar', { name: 'Your lists' })).toBeInTheDocument();
-    // A fresh rail opens on Collections, with All sources lit as the selection.
-    expect(screen.getByTestId('collections-band')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^All sources, / })).toHaveAttribute('aria-current', 'true');
-
-    openTab(/^Pinned, /);
-    expect(screen.getByTestId('pinned-band')).toBeInTheDocument();
+    await screen.findByTestId('scopes-band');
+    expect(scopeNames()).toEqual(['All tasks', 'Favorites', 'Collections', 'Pinned']);
+    expect(screen.getByRole('button', { name: /^All tasks, 1 task$/ })).toHaveAttribute('aria-current', 'true');
+    expect(screen.getByRole('button', { name: /^Pinned, 1 pinned folder$/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Collections, 0 collections$/ })).toBeInTheDocument();
+    // Both are drawn in the main area, never here.
     expect(screen.queryByTestId('collections-band')).toBeNull();
-    expect(screen.getByRole('button', { name: /^Pinned, / })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.queryByTestId('pinned-band')).toBeNull();
   });
 
-  it('selects a scope from its slider without touching the open list', async () => {
-    // Two sliders, two jobs: picking Favorites is a selection, not a list switch.
-    const props = renderBand({ pins: [PIN] });
-    await screen.findByTestId('sources-band');
-    openTab(/^Pinned, /);
-
+  it('selects a scope on click', async () => {
+    const props = renderBand();
+    await screen.findByTestId('scopes-band');
     fireEvent.click(screen.getByRole('button', { name: /^Favorites, / }));
     expect(props.onSelect).toHaveBeenCalledWith(expect.objectContaining({ favorites: 'only' }));
-    expect(screen.getByTestId('pinned-band')).toBeInTheDocument();
   });
 
-  it('counts each segment, so a closed list still says how much it holds', async () => {
-    renderBand({ pins: [PIN] });
-    await screen.findByTestId('sources-band');
-    expect(screen.getByRole('button', { name: /^Pinned, 1$/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^Collections, 0$/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^All sources, 1 task$/ })).toBeInTheDocument();
-  });
-
-  it('hands the tab to the caller to remember, and draws the one it is given', async () => {
-    const onTabChange = vi.fn();
-    renderBand({ tab: 'collections', onTabChange });
-    expect(await screen.findByTestId('collections-band')).toBeInTheDocument();
-
-    openTab(/^Pinned, /);
-    expect(onTabChange).toHaveBeenCalledWith('pinned');
-  });
-
-  it('reads a stored list it does not know — including values earlier builds wrote — as Collections', async () => {
-    renderBand({ tab: 'favorites' as never, onTabChange: vi.fn() });
-    expect(await screen.findByTestId('collections-band')).toBeInTheDocument();
-  });
-
-  it('moves focus along a slider with the arrow keys, acting only on Enter or a click', async () => {
-    // The scope slider's segments select, so an arrow that acted would
-    // re-filter the dashboard on every keypress.
-    const props = renderBand();
-    await screen.findByTestId('sources-band');
-    screen.getByRole('button', { name: /^All sources, / }).focus();
-    fireEvent.keyDown(screen.getByRole('toolbar', { name: 'Scope' }), { key: 'ArrowRight' });
-    expect(screen.getByRole('button', { name: /^Favorites, / })).toHaveFocus();
-    fireEvent.keyDown(screen.getByRole('toolbar', { name: 'Scope' }), { key: 'Home' });
-    expect(screen.getByRole('button', { name: /^All sources, / })).toHaveFocus();
+  it.each(['collections', 'pinned'] as const)('opens the %s gallery, and lights only its row while open', async lens => {
+    const label = lens === 'pinned' ? 'Pinned' : 'Collections';
+    const props = renderBand({ pins: [PIN], lens });
+    await screen.findByTestId('scopes-band');
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${label}, `) }));
+    expect(props.onShowLens).toHaveBeenCalledWith(lens);
     expect(props.onSelect).not.toHaveBeenCalled();
+    // A gallery is not a task slice, so the filters behind it light nothing.
+    expect(screen.getByRole('button', { name: new RegExp(`^${label}, `) })).toHaveAttribute('aria-current', 'true');
+    expect(screen.getByRole('button', { name: /^All tasks, / })).not.toHaveAttribute('aria-current');
+  });
+
+  it('lights Collections while one collection is open — it has no row of its own', async () => {
+    renderBand({ filters: { ...DEFAULT_FILTERS, collection: 'c1' } });
+    await screen.findByTestId('scopes-band');
+    expect(screen.getByRole('button', { name: /^Collections, / })).toHaveAttribute('aria-current', 'true');
+  });
+
+  it('draws neither gallery row without a handler to open one', async () => {
+    renderBand({ onShowLens: undefined });
+    await screen.findByTestId('scopes-band');
+    expect(scopeNames()).toEqual(['All tasks', 'Favorites']);
   });
 
   it('heads the Sources section with its count', async () => {
@@ -398,20 +380,11 @@ describe('SourceRail sections', () => {
     expect(within(sources).getByRole('heading', { name: /^Sources\s*2$/ })).toBeInTheDocument();
   });
 
-  it('keeps the button that makes a collection inside the Collections section', async () => {
-    renderBand();
-    await screen.findByTestId('sources-band');
-    openTab(/^Collections, /);
-    const band = screen.getByTestId('collections-band');
-    expect(within(band).getByRole('button', { name: /new collection/i })).toBeInTheDocument();
-  });
-
-  it('offers Explore and Manage from the utility bar, whatever section is showing', async () => {
-    // Out of the scroll, so no section can take the only route to a source you
+  it('offers Explore and Manage from the utility bar', async () => {
+    // Out of the scroll, so nothing can take the only route to a source you
     // have NOT added with it.
     renderBand();
     await screen.findByTestId('sources-band');
-    openTab(/^Pinned, /);
     expect(screen.getByRole('button', { name: /explore sources/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /manage sources/i })).toBeInTheDocument();
   });
@@ -422,15 +395,6 @@ describe('SourceRail sections', () => {
     // The default `shownSources`. A first run that listed only the platforms
     // holding tasks would show one row and no way to learn there are others.
     expect(within(sources).getByText('Cronsole (Native)')).toBeInTheDocument();
-  });
-
-  it('says how to pin something when nothing is pinned', async () => {
-    // A tab you can land on cannot be blank: the empty Pinned section explains
-    // where pinning happens, since it cannot happen here.
-    renderBand({ pins: [] });
-    await screen.findByTestId('sources-band');
-    openTab(/^Pinned, /);
-    expect(within(screen.getByTestId('pinned-band')).getByText(/keeps tracking the folder/)).toBeInTheDocument();
   });
 
   it('pins a folder from the tree, and hands back the node it was asked about', async () => {
@@ -446,69 +410,12 @@ describe('SourceRail sections', () => {
     });
   });
 
-  it('offers to unpin from both the folder row and the pin', async () => {
-    // The tree row is where you notice the folder is already pinned, the tile
-    // is where you notice the pin is no longer earning its place.
+  it('offers to unpin from the folder row it mirrors', async () => {
     renderBand({ filters: { ...DEFAULT_FILTERS, source: 'WINDOWS_TASK_SCHEDULER' }, pins: [PIN] });
-
     const sources = await screen.findByTestId('sources-band');
     expect(
       within(sources).getByRole('button', { name: /unpin AI-Maintenance from collections/i })
     ).toBeInTheDocument();
-
-    openTab(/^Pinned, /);
-    expect(
-      within(screen.getByTestId('pinned-band')).getByRole('button', { name: /unpin AI-Maintenance from collections/i })
-    ).toBeInTheDocument();
-  });
-
-  it('unpins from the pin itself, so a pin whose folder is gone is still removable', async () => {
-    // The folder is NOT in the population — it has been emptied or its platform
-    // disconnected. There is no tree row left to click, which is exactly when a
-    // tile you cannot remove would be worst.
-    const props = renderBand({ population: [task({ category: 'AI-Tools' })], pins: [PIN] });
-    await screen.findByTestId('sources-band');
-    openTab(/^Pinned, /);
-
-    const band = screen.getByTestId('pinned-band');
-    // Still there, reading 0 rather than having silently disappeared.
-    expect(within(band).getByText('AI-Maintenance')).toBeInTheDocument();
-
-    fireEvent.click(
-      within(band).getByRole('button', { name: /unpin AI-Maintenance from collections/i })
-    );
-    expect(vi.mocked(props.onTogglePin!).mock.calls[0][0]).toMatchObject({ key: 'pin:pin-1' });
-  });
-
-  // A pin shows the real folder's name, so it gets a collection's copy-link but
-  // never its rename — a second name for a place that already has one.
-  it('copies a link to the pinned folder, and offers no rename', async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
-    renderBand({ pins: [PIN] });
-    await screen.findByTestId('sources-band');
-    openTab(/^Pinned, /);
-
-    const band = screen.getByTestId('pinned-band');
-    fireEvent.click(within(band).getByRole('button', { name: /copy link to AI-Maintenance/i }));
-    await vi.waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
-    const url = new URL(writeText.mock.calls[0][0]);
-    expect(url.searchParams.get('source')).toBe('WINDOWS_TASK_SCHEDULER');
-    expect(url.searchParams.get('category')).toBe('AI-Maintenance');
-    expect(within(band).queryByRole('button', { name: /rename/i })).toBeNull();
-  });
-
-  // The tab already says these are pins; the tile names its source instead —
-  // by glyph, with the full name on hover, since it truncates at half width.
-  it('marks a pin with its source, not with a pin glyph', async () => {
-    renderBand({ pins: [PIN] });
-    await screen.findByTestId('sources-band');
-    openTab(/^Pinned, /);
-
-    const band = screen.getByTestId('pinned-band');
-    const tile = within(band).getByRole('button', { name: /^AI-Maintenance, 1 task$/ });
-    expect(within(tile).getByTitle('Windows Task Scheduler')).toBeInTheDocument();
-    expect(tile.querySelector('.lucide-pin')).toBeNull();
   });
 
   it('offers no pin on the system disclosure group — it is an expander, not a place', async () => {
@@ -551,7 +458,7 @@ describe('SourceRail filter', () => {
     expect(screen.queryByText('Reports')).not.toBeInTheDocument();
   });
 
-  it('never filters away the two scopes', async () => {
+  it('never filters away the scopes', async () => {
     // They are not search results — they are the two rows that mean "stop
     // narrowing", and a query matching nothing must still leave a route back.
     renderRail([task({ category: 'AI-Tools' })]);
@@ -559,7 +466,7 @@ describe('SourceRail filter', () => {
 
     type('zzz-nothing-matches');
 
-    expect(screen.getByRole('button', { name: /^All sources, / })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^All tasks, / })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^Favorites, / })).toBeInTheDocument();
   });
 
@@ -597,62 +504,6 @@ describe('SourceRail filter', () => {
     expect(note).toHaveTextContent('Searched 3 sources');
     expect(note).toHaveTextContent('Claude Code');
     expect(note).toHaveTextContent('Cronsole (Native)');
-  });
-
-  const renderWithPin = (onTabChange = vi.fn()) => {
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter><ToastProvider>
-          <SourceRail
-            population={[task({ category: 'Backups' }), task({ category: 'Reports' })]}
-            filters={{ ...DEFAULT_FILTERS }}
-            onSelect={vi.fn()}
-            pins={[{
-              id: 'pin-1',
-              nodeKey: 'WINDOWS_TASK_SCHEDULER/Backups',
-              label: 'Backups',
-              patch: { source: 'WINDOWS_TASK_SCHEDULER', category: 'Backups' }
-            }]}
-            tab="collections"
-            onTabChange={onTabChange}
-          />
-        </ToastProvider></MemoryRouter>
-      </QueryClientProvider>
-    );
-    return onTabChange;
-  };
-
-  it('shows the tab holding the hits rather than an empty one — without moving your choice', async () => {
-    // The folds' rule ("a fold may not swallow a hit") in its new shape. Left
-    // on Collections, typing a pinned folder's name would otherwise show an
-    // empty panel while the match sat one tab over.
-    const onTabChange = renderWithPin();
-    await screen.findByTestId('collections-band');
-
-    type('backups');
-
-    expect(screen.getByTestId('pinned-band')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^Pinned, 1 match$/ })).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByRole('button', { name: /^Collections, 0 matches$/ })).toBeInTheDocument();
-    // Sources are not a tab, so their hit was never at risk.
-    expect(within(screen.getByTestId('sources-band')).getByText('Backups')).toBeInTheDocument();
-    // Shown, not chosen: clearing the query should put you back on Collections.
-    expect(onTabChange).not.toHaveBeenCalled();
-  });
-
-  it('still shows a tab you click while filtering, and says it holds nothing', async () => {
-    // The auto-switch is for landing on a query. Overruling a click would read
-    // as a broken tab.
-    renderWithPin();
-    await screen.findByTestId('collections-band');
-
-    type('backups');
-    expect(screen.getByTestId('pinned-band')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /^Collections, / }));
-
-    expect(screen.getByTestId('collections-band')).toBeInTheDocument();
-    expect(screen.getByText(/No collection is called “backups”/)).toBeInTheDocument();
   });
 
   it('drops the query when the rail collapses, so nothing narrows invisibly', async () => {

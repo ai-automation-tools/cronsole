@@ -1,11 +1,10 @@
-import { useId, useMemo, useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import {
   ChevronRight, Layers, Monitor, EyeOff, Star,
   PanelLeftClose, PanelLeftOpen, Bookmark, Plus, Pin, X,
-  Compass, SlidersHorizontal, Search, Link2, Pencil
+  Compass, SlidersHorizontal, Search
 } from 'lucide-react';
-import { useToast } from '../hooks/useToast';
 import { TaskCollectionMenu } from './TaskCollectionMenu';
 import { useConnections, healthMeta } from '../hooks/useConnections';
 import { usePlatformMatrix } from '../hooks/usePlatformMatrix';
@@ -20,7 +19,6 @@ import {
   isRailNodeSelected,
   railSectionOf,
   railNodeTasks,
-  collectionIdFromKey,
   ALL_SOURCES,
   FAVORITES_KEY,
   type RailNode,
@@ -28,17 +26,8 @@ import {
 } from '../utils/sourceTree';
 import { filterRailNodes, capRows } from '../utils/railFilter';
 import { pinForNode, type RailPin } from '../utils/railPins';
-import { moveKey } from '../utils/railOrder';
-import {
-  RAIL_TABS,
-  RAIL_TAB_LABEL,
-  DEFAULT_RAIL_TAB,
-  asRailTab,
-  shownRailTab,
-  type RailTab
-} from '../utils/railTabs';
-import { useCollections, collectionLink } from '../hooks/useCollections';
-import { railNodeLink } from '../utils/savedViews';
+import { useBandReorder } from '../hooks/useBandReorder';
+import { useCollections } from '../hooks/useCollections';
 import type { Task } from '../types';
 import type { TaskFilters } from '../utils/taskFilters';
 
@@ -107,6 +96,11 @@ import type { TaskFilters } from '../utils/taskFilters';
  * `shownRailTab`. An overview card (task total + per-source bar) was built and
  * removed: the dashboard heading already counts the tasks.
  *
+ * Later the same day the sliders went: All tasks, Favorites, Pinned and every
+ * collection became **one Scopes list** of rows, and Pinned stopped listing its
+ * pins here — it opens `PinnedGallery` in the main area instead, since the rail
+ * already draws the tree those pins point into.
+ *
  * And one thing was **deliberately not** done, having been drawn and rejected:
  * hiding the health dot on a healthy platform. Six green dots really are six
  * things saying nothing — but a platform with no connection at all already draws
@@ -120,113 +114,8 @@ import type { TaskFilters } from '../utils/taskFilters';
 // glyphs on its cards. See `sourceIcon` for why it is not private here.
 const iconFor = sourceIcon;
 
-/**
- * Props a reorderable row's `<li>` spreads. Named so the hook can return an
- * empty object for a band that cannot reorder without the two shapes diverging.
- */
-interface DragProps {
-  draggable?: boolean;
-  onDragStart?: (e: DragEvent<HTMLLIElement>) => void;
-  onDragOver?: (e: DragEvent<HTMLLIElement>) => void;
-  onDragLeave?: () => void;
-  onDrop?: (e: DragEvent<HTMLLIElement>) => void;
-  onDragEnd?: () => void;
-  onKeyDown?: (e: KeyboardEvent<HTMLLIElement>) => void;
-  className?: string;
-}
-
-/**
- * **Drag one band's rows into the order you want**, with a keyboard path.
- *
- * Native HTML5 drag-and-drop rather than a library: the rail reorders a flat
- * list of at most a few dozen rows inside one container, which is the exact case
- * the platform already handles, and a drag library is a dependency plus a
- * provider plus a sensor config to do it. What the platform does *not* give is a
- * keyboard path — HTML5 DnD has none at all — so **Alt+Arrow moves the focused
- * row**, which is the half that would otherwise make this control mouse-only.
- * That is not a nicety here: the rail is the app's navigation, and a
- * navigation preference you cannot set without a pointer is one a keyboard user
- * simply does not have.
- *
- * A drop means *the dragged row takes the target's index* — the same thing
- * Alt+Arrow does one step at a time, so the two gestures cannot disagree about
- * what a move is. Order is written by the caller, never here: this hook knows
- * two rows swapped, and `onReorder` knows where that fact is kept.
- *
- * ponytail: touch is left out — HTML5 DnD does not fire for a finger and the
- * keyboard path needs a keyboard, so the rail is arranged on a desktop and the
- * order (a synced preference) is what the phone reads. Add pointer-event
- * dragging if anyone ever wants to arrange a sidebar from a phone.
- *
- * Returns no props at all for a band of fewer than two rows or one whose caller
- * passed no handler — a single row that can be picked up and dropped on itself
- * is an affordance that promises something it cannot do.
- */
-function useBandReorder(
-  section: RailSection,
-  keys: string[],
-  onReorder?: (section: RailSection, keys: string[]) => void
-): (key: string) => DragProps {
-  const dragging = useRef<string | null>(null);
-  const [over, setOver] = useState<string | null>(null);
-
-  const enabled = !!onReorder && keys.length > 1;
-
-  const move = (from: string, to: string) => {
-    const next = moveKey(keys, from, to);
-    // `moveKey` returns the same array when nothing moved — a drop on yourself,
-    // or on a row that has gone since the drag began. Reporting that would push
-    // a write for a change that did not happen.
-    if (next !== keys) onReorder?.(section, next);
-  };
-
-  return (key: string) => {
-    if (!enabled) return {};
-    return {
-      draggable: true,
-      onDragStart: e => {
-        dragging.current = key;
-        e.dataTransfer.effectAllowed = 'move';
-        // Set *something*: Firefox starts no drag at all without payload, and
-        // it doubles as the fallback when `dragging` is lost to a re-render.
-        e.dataTransfer.setData('text/plain', key);
-      },
-      onDragOver: e => {
-        // Preventing the default is what makes this a drop target — without it
-        // the row rejects every drag and the whole gesture silently no-ops.
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        if (over !== key) setOver(key);
-      },
-      onDragLeave: () => setOver(prev => (prev === key ? null : prev)),
-      onDrop: e => {
-        e.preventDefault();
-        move(dragging.current ?? e.dataTransfer.getData('text/plain'), key);
-        dragging.current = null;
-        setOver(null);
-      },
-      onDragEnd: () => {
-        dragging.current = null;
-        setOver(null);
-      },
-      onKeyDown: e => {
-        // Alt-modified, so the arrows keep meaning "move the caret / scroll" in
-        // every other context and this cannot shadow a browser or screen-reader
-        // binding. Bubbles up from the row's own button, which is what holds
-        // focus.
-        if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
-        const i = keys.indexOf(key);
-        const j = e.key === 'ArrowUp' ? i - 1 : i + 1;
-        if (i < 0 || j < 0 || j >= keys.length) return;
-        e.preventDefault();
-        move(key, keys[j]);
-      },
-      className: `cursor-grab active:cursor-grabbing rounded-xl ${
-        over === key ? 'ring-1 ring-ring/60' : ''
-      }`
-    };
-  };
-}
+/** A scope that opens a gallery in the main area instead of a task list. */
+export type RailLens = 'collections' | 'pinned';
 
 interface SourceRailProps {
   /**
@@ -250,13 +139,6 @@ interface SourceRailProps {
   collapsed?: boolean;
   onToggleCollapsed?: () => void;
   /**
-   * Open the collection manager. Optional so the rail still renders in tests and
-   * in any caller that has no manager wired — a missing handler hides the
-   * button rather than rendering one that does nothing. `renameId` opens it
-   * with that collection's name already in edit — the card's pencil.
-   */
-  onManageCollections?: (renameId?: string) => void;
-  /**
    * Pinned rail locations. See `utils/railPins.ts` for why these are not
    * collections: a collection's membership is declared, a pinned folder's is
    * derived, and the rail must not blur the two.
@@ -264,16 +146,19 @@ interface SourceRailProps {
   pins?: RailPin[];
   /**
    * Pin or unpin a level-2 row. Optional on the same terms as
-   * `onManageCollections` — no handler, no `+`.
+   * `onReorder` — no handler, no `+`.
    */
   onTogglePin?: (node: RailNode) => void;
   /**
-   * Which section is showing. See `utils/railTabs.ts` — a synced preference,
-   * so it is the caller's to store. Uncontrolled (local state) when no
-   * `onTabChange` is given, which is what the tests use.
+   * Which gallery the main area is showing, if any. **Collections** and
+   * **Pinned** are scope rows that open a gallery of cards in the main content
+   * area rather than a list in the rail — the rail stays the tree, and a list
+   * of places is easier to read as boxes than as a second column of rows.
+   * `lens` lights its row and unlights every other (a gallery is not a task
+   * slice); `onShowLens` opens one. No handler, no rows.
    */
-  tab?: RailTab;
-  onTabChange?: (tab: RailTab) => void;
+  lens?: RailLens | null;
+  onShowLens?: (lens: RailLens) => void;
   /**
    * The order the user dragged the source rows into. See
    * `SourceTreeInput.sourceOrder` — empty means alphabetical.
@@ -303,11 +188,10 @@ export const SourceRail = ({
   onSelect,
   collapsed = false,
   onToggleCollapsed,
-  onManageCollections,
   pins = [],
   onTogglePin,
-  tab: tabProp,
-  onTabChange,
+  lens = null,
+  onShowLens,
   sourceOrder = [],
   onReorder
 }: SourceRailProps) => {
@@ -316,10 +200,6 @@ export const SourceRail = ({
   const { data: collections } = useCollections();
   const { data: matrix } = usePlatformMatrix();
   const { settings } = useSettings();
-  // The rail renders twice at once (desktop panel + phone drawer), so tab ids
-  // need a per-instance prefix or `aria-controls` points at the wrong panel.
-  const idBase = useId();
-
   /**
    * What you typed into the filter field.
    *
@@ -330,10 +210,7 @@ export const SourceRail = ({
    */
   const [query, setQuery] = useState('');
   const filtering = query.trim().length > 0;
-  const changeQuery = (q: string) => {
-    setQuery(q);
-    setPickedThisQuery(null);
-  };
+  const changeQuery = setQuery;
 
   /**
    * Narrowing the rail and narrowing the *panel* do not compose, so one clears
@@ -412,8 +289,6 @@ export const SourceRail = ({
     for (const node of tree) bands[railSectionOf(node.key)].push(node);
 
     const filtered = {
-      collection: filterRailNodes(bands.collection, query),
-      pinned: filterRailNodes(bands.pinned, query),
       source: filterRailNodes(bands.source, query)
     };
 
@@ -433,8 +308,6 @@ export const SourceRail = ({
       scope: bands.scope,
       /** Every source, unfiltered — what the overview card's bar is drawn from. */
       allSources: bands.source,
-      collection: filtered.collection.nodes,
-      pinned: filtered.pinned.nodes,
       source: filtered.source.nodes,
       /**
        * **The whole band's keys, before the filter.**
@@ -450,8 +323,6 @@ export const SourceRail = ({
        * same shape for the filter.
        */
       allKeys: {
-        collection: bands.collection.map(n => n.key),
-        pinned: bands.pinned.map(n => n.key),
         source: bands.source.map(n => n.key)
       },
       liftedLists
@@ -477,48 +348,54 @@ export const SourceRail = ({
    */
   const isUncapped = (key: string) => uncapped.has(key) || sections.liftedLists.has(key);
 
-  const nothingMatched =
-    filtering &&
-    sections.collection.length === 0 &&
-    sections.pinned.length === 0 &&
-    sections.source.length === 0;
+  const nothingMatched = filtering && sections.source.length === 0;
 
   const health = useMemo(
     () => new Map((connections ?? []).filter(c => c.state).map(c => [c.platform, c])),
     [connections]
   );
 
-  // One reorder hook per band, called unconditionally: the hidden tabs' hooks
-  // still run, so switching tabs never changes the hook order.
   const sourceDrag = useBandReorder('source', sections.allKeys.source, onReorder);
-  const collectionDrag = useBandReorder('collection', sections.allKeys.collection, onReorder);
-  const pinDrag = useBandReorder('pinned', sections.allKeys.pinned, onReorder);
 
   /**
-   * Which tab is drawn. Chosen by the user, except that a running filter may
-   * show another one rather than an empty panel — see `shownRailTab`. The
-   * badges become match counts at the same moment, so the reader can see where
-   * the other hits are.
+   * Is this row the current place? Never while a gallery is open: a gallery is
+   * not a task slice, so the filters still in the URL behind it do not describe
+   * what is on screen, and lighting them would put two "you are here" marks in
+   * one rail.
    */
-  const [localTab, setLocalTab] = useState<RailTab>(DEFAULT_RAIL_TAB);
-  const chosenTab = asRailTab(tabProp ?? localTab);
-  /*
-    A tab clicked *while filtering* is shown even when it holds no matches —
-    the auto-switch is for landing on a query, never for overruling a click
-    (a tab that ignores you reads as broken). Cleared with the query, so the
-    next search starts from the rule again.
-  */
-  const [pickedThisQuery, setPickedThisQuery] = useState<RailTab | null>(null);
-  const chooseTab = (t: RailTab) => {
-    if (filtering) setPickedThisQuery(t);
-    if (onTabChange) onTabChange(t);
-    else setLocalTab(t);
-  };
-  const hits: Record<RailTab, number> = {
-    collections: sections.collection.length,
-    pinned: sections.pinned.length
-  };
-  const tab = (filtering && pickedThisQuery) || shownRailTab(chosenTab, hits, filtering);
+  const isSelected = (node: RailNode) => !lens && isRailNodeSelected(node, filters);
+
+  /**
+   * The Collections row is lit in its gallery **and** while one collection's
+   * tasks are on screen — collections have no rows of their own in the rail any
+   * more, so without this a collection's list would light nothing at all.
+   */
+  const collectionsLit = lens === 'collections' || (!lens && filters.collection !== 'All');
+  const collectionCount = collections?.length ?? 0;
+
+  /**
+   * The two gallery scopes, in rail order (after Favorites). Stand-in nodes so
+   * the collapsed rail's `Row` can draw them; their patch is never applied —
+   * each row's onSelect opens its gallery.
+   */
+  const lensRows = onShowLens
+    ? ([
+        {
+          lens: 'collections' as const,
+          node: { key: '__collections', label: 'Collections', count: collectionCount, patch: {} },
+          Icon: Bookmark,
+          lit: collectionsLit,
+          ariaLabel: `Collections, ${collectionCount} collection${collectionCount === 1 ? '' : 's'}`
+        },
+        {
+          lens: 'pinned' as const,
+          node: { key: '__pinned', label: 'Pinned', count: pins.length, patch: {} },
+          Icon: Pin,
+          lit: lens === 'pinned',
+          ariaLabel: `Pinned, ${pins.length} pinned folder${pins.length === 1 ? '' : 's'}`
+        }
+      ] satisfies { lens: RailLens; node: RailNode; Icon: typeof Monitor; lit: boolean; ariaLabel: string }[])
+    : [];
 
   /**
    * Which branches are open.
@@ -546,10 +423,8 @@ export const SourceRail = ({
   const toggle = (key: string) =>
     setOverrides(prev => new Map(prev).set(key, !isOpen(key)));
 
-  const rowProps = { isOpen, onToggle: toggle, onSelect, filters, pins, onTogglePin, isUncapped, uncap, population };
+  const rowProps = { isOpen, onToggle: toggle, onSelect, isSelected, pins, onTogglePin, isUncapped, uncap, population };
 
-  const collectionCap = capRows(sections.collection, isUncapped('band:collection'));
-  const pinCap = capRows(sections.pinned, isUncapped('band:pinned'));
 
   return (
     <nav
@@ -588,7 +463,7 @@ export const SourceRail = ({
                 <li key={node.key}>
                   <Row
                     node={node}
-                    selected={isRailNodeSelected(node, filters)}
+                    selected={isSelected(node)}
                     collapsed
                     Icon={node.key === ALL_SOURCES ? Layers : Star}
                     iconTone={node.key === FAVORITES_KEY ? 'warning' : undefined}
@@ -597,6 +472,21 @@ export const SourceRail = ({
                     open={false}
                     onToggle={() => {}}
                     onSelect={onSelect}
+                  />
+                </li>
+              ))}
+              {lensRows.map(r => (
+                <li key={r.lens}>
+                  <Row
+                    node={r.node}
+                    selected={r.lit}
+                    collapsed
+                    Icon={r.Icon}
+                    dot={null}
+                    expandable={false}
+                    open={false}
+                    onToggle={() => {}}
+                    onSelect={() => onShowLens?.(r.lens)}
                   />
                 </li>
               ))}
@@ -609,7 +499,7 @@ export const SourceRail = ({
                   <li key={node.key}>
                     <Row
                       node={node}
-                      selected={isRailNodeSelected(node, filters)}
+                      selected={isSelected(node)}
                       collapsed
                       Icon={iconFor(node.key)}
                       iconClass={sourceAccentGlyph(node.key)}
@@ -628,7 +518,7 @@ export const SourceRail = ({
           <>
 
             {/*
-              **Filter the rail by name.** Sources, folders, collections and pins —
+              **Filter the rail by name.** Sources and folders —
               not tasks, which the view bar above the list already filters. The
               placeholder says which, because that is the one confusion this
               control can cause.
@@ -672,47 +562,47 @@ export const SourceRail = ({
             </div>
 
             {/*
-              **Two sliders.** The first holds the two scopes — All sources and
-              Favorites select on click, and are lit while they are the
-              selection. The second holds the two lists — Collections and
-              Pinned open underneath, one at a time. Sources are in neither: the
-              tree is what you navigate by, so it stands alone below.
+              **Scopes: one list.** All tasks, Favorites, Collections and
+              Pinned are all "which tasks" answers that cut across sources, so
+              they share a section. None of them is filtered — they are the
+              routes back when a query matches nothing. Collections and Pinned
+              open a gallery in the main area instead of listing here.
             */}
-            <Segmented
-              idBase={`${idBase}-scope`}
-              label="Scope"
-              className="mt-2"
-              segments={sections.scope.map(node => {
-                const fav = node.key === FAVORITES_KEY;
-                const active = isRailNodeSelected(node, filters);
-                return {
-                  key: node.key,
-                  label: node.label,
-                  icon: fav
-                    ? <Star size={13} aria-hidden className="shrink-0 text-warning-text" fill="currentColor" />
-                    : <Layers size={13} aria-hidden className="shrink-0 text-primary-text" />,
-                  count: node.count,
-                  active,
-                  ariaLabel: `${node.label}, ${node.count} task${node.count === 1 ? '' : 's'}`,
-                  ariaState: { 'aria-current': active ? ('true' as const) : undefined },
-                  onClick: () => node.patch && onSelect(node.patch)
-                };
-              })}
-            />
-            <Segmented
-              idBase={`${idBase}-list`}
-              label="Your lists"
-              className="mt-1.5"
-              segments={RAIL_TABS.map(t => ({
-                key: t,
-                label: RAIL_TAB_LABEL[t],
-                count: hits[t],
-                active: tab === t,
-                ariaLabel: `${RAIL_TAB_LABEL[t]}, ${hits[t]}${filtering ? ` match${hits[t] === 1 ? '' : 'es'}` : ''}`,
-                ariaState: { 'aria-expanded': tab === t, 'aria-controls': `${idBase}-panel` },
-                onClick: () => chooseTab(t)
-              }))}
-            />
+            <section aria-label="Scopes" data-testid="scopes-band" className="mt-3">
+              <h3 className="px-2 pb-1 text-[10.5px] font-bold uppercase tracking-[0.12em] text-subtle-foreground">
+                Scopes
+              </h3>
+              <ul className="space-y-px">
+                {sections.scope.map(node => {
+                  const fav = node.key === FAVORITES_KEY;
+                  return (
+                    <li key={node.key}>
+                      <ScopeRow
+                        icon={fav
+                          ? <Star size={15} aria-hidden className="shrink-0 text-warning-text" fill="currentColor" />
+                          : <Layers size={15} aria-hidden className="shrink-0 text-primary-text" />}
+                        label={fav ? node.label : 'All tasks'}
+                        count={node.count}
+                        selected={isSelected(node)}
+                        onClick={() => node.patch && onSelect(node.patch)}
+                      />
+                    </li>
+                  );
+                })}
+                {lensRows.map(r => (
+                  <li key={r.lens}>
+                    <ScopeRow
+                      icon={<r.Icon size={15} aria-hidden className="shrink-0 text-primary-text" />}
+                      label={r.node.label}
+                      count={r.node.count}
+                      ariaLabel={r.ariaLabel}
+                      selected={r.lit}
+                      onClick={() => onShowLens?.(r.lens)}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </section>
 
             {nothingMatched ? (
               <div className="mt-3 px-1">
@@ -720,9 +610,9 @@ export const SourceRail = ({
                   Nothing here is called &ldquo;{query.trim()}&rdquo;
                 </p>
                 <p className="mt-1.5 text-[11px] leading-relaxed text-subtle-foreground">
-                  Searched {coverage.searched} source{coverage.searched === 1 ? '' : 's'}, your
-                  collections and your pins, by name. This filters the sidebar, not your tasks — to
-                  search task names, use the filters above the list.
+                  Searched {coverage.searched} source{coverage.searched === 1 ? '' : 's'} and their
+                  folders, by name. This filters the sidebar, not your tasks — to search task
+                  names, use the filters above the list.
                 </p>
                 <button
                   type="button"
@@ -735,88 +625,6 @@ export const SourceRail = ({
               </div>
             ) : (
               <>
-                <div
-                  role="region"
-                  id={`${idBase}-panel`}
-                  aria-label={RAIL_TAB_LABEL[tab]}
-                  className="mt-2"
-                >
-                  {tab === 'collections' ? (
-                  <div data-testid="collections-band">
-                    {sections.collection.length === 0 && (
-                      <p className="px-1 pb-2 text-[11.5px] leading-relaxed text-subtle-foreground">
-                        {filtering
-                          ? `No collection is called “${query.trim()}”.`
-                          : 'A collection holds exactly the tasks you put in it, from any source.'}
-                      </p>
-                    )}
-                    <ul className="grid grid-cols-2 gap-1.5">
-                      {collectionCap.shown.map(node => (
-                        <li key={node.key} {...withClass(collectionDrag(node.key), 'min-w-0')}>
-                          <CollectionCard
-                            node={node}
-                            selected={isRailNodeSelected(node, filters)}
-                            onSelect={onSelect}
-                            onRename={onManageCollections}
-                          />
-                        </li>
-                      ))}
-                    </ul>
-                    {collectionCap.hidden > 0 && (
-                      <MoreButton
-                        label={`Show ${collectionCap.hidden} more collection${collectionCap.hidden === 1 ? '' : 's'}`}
-                        onClick={() => uncap('band:collection')}
-                      />
-                    )}
-                    {!filtering && onManageCollections && (
-                      <button
-                        type="button"
-                        onClick={() => onManageCollections()}
-                        aria-label={collections?.length ? 'Manage collections' : 'New collection'}
-                        className="mt-1.5 flex h-7 w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border text-[12px] font-semibold text-muted-foreground hover:text-foreground hover:border-ring/50 hover:bg-muted/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                      >
-                        <Plus size={14} />
-                        {collections?.length ? 'New or manage collections' : 'New collection'}
-                      </button>
-                    )}
-                  </div>
-                  ) : (
-                  <div data-testid="pinned-band">
-                    {sections.pinned.length === 0 && filtering && (
-                      <p className="px-1 text-[11.5px] leading-relaxed text-subtle-foreground">
-                        No pin is called &ldquo;{query.trim()}&rdquo;.
-                      </p>
-                    )}
-                    {sections.pinned.length === 0 && !filtering && (
-                      <p className="px-1 text-[11.5px] leading-relaxed text-subtle-foreground">
-                        Pin a folder to keep it one click away. Under <strong className="font-semibold text-muted-foreground">Sources</strong> below,
-                        open a source, hover a folder and press <strong className="font-semibold text-muted-foreground">+</strong>.
-                        A pin keeps tracking the folder as tasks come and go.
-                      </p>
-                    )}
-                    <ul className="grid grid-cols-2 gap-1.5">
-                      {pinCap.shown.map(node => (
-                        <li key={node.key} {...withClass(pinDrag(node.key), 'min-w-0')}>
-                          <PinTile
-                            node={node}
-                            SourceIcon={node.patch?.source ? iconFor(node.patch.source) : null}
-                            selected={isRailNodeSelected(node, filters)}
-                            onSelect={onSelect}
-                            onTogglePin={onTogglePin}
-                          />
-                        </li>
-                      ))}
-                    </ul>
-                    {pinCap.hidden > 0 && (
-                      <MoreButton
-                        label={`Show ${pinCap.hidden} more pin${pinCap.hidden === 1 ? '' : 's'}`}
-                        onClick={() => uncap('band:pinned')}
-                      />
-                    )}
-                  </div>
-                  )}
-                </div>
-
                 <section aria-label="Sources" data-testid="sources-band" className="mt-4">
                   <h3 className="flex items-center gap-1.5 px-1 pb-1.5 text-[10.5px] font-bold uppercase tracking-[0.12em] text-subtle-foreground">
                     Sources
@@ -839,7 +647,7 @@ export const SourceRail = ({
                           <SourceCard
                             node={node}
                             Icon={iconFor(node.key)}
-                            selected={isRailNodeSelected(node, filters)}
+                            selected={isSelected(node)}
                             health={conn ? healthMeta(conn.state) : null}
                             open={open}
                             onToggle={() => toggle(node.key)}
@@ -934,91 +742,63 @@ export const SourceRail = ({
   );
 };
 
-/** One segment of a `Segmented` slider. */
-interface Segment {
-  key: string;
-  label: string;
-  icon?: ReactNode;
-  count: number;
-  active: boolean;
-  ariaLabel: string;
-  /** `aria-current` for a scope, `aria-expanded` + `aria-controls` for a list. */
-  ariaState: Record<string, string | boolean | undefined>;
-  onClick: () => void;
-}
-
 /**
- * A slider of segments — the rail has two (scopes, then lists).
+ * One row of the Scopes list — All tasks, Favorites, Pinned, or a collection.
  *
- * A `toolbar` rather than a `tablist`, because the scope slider's segments
- * select instead of switching a panel, and the two sliders should behave the
- * same: arrows move focus, Enter or a click acts — an arrow that acted would
- * re-filter the dashboard on every keypress.
+ * Icon, name, count; the selected row is filled. Trailing actions (a
+ * collection's copy-link and rename) sit **outside** the row's button so a
+ * button never nests in a button, and are revealed on hover or focus — always
+ * shown where there is no hover (`hover:none`), so a phone can still reach them.
  */
-const Segmented = ({
-  idBase,
+const ScopeRow = ({
+  icon,
   label,
-  segments,
-  className = ''
+  count,
+  selected,
+  onClick,
+  ariaLabel,
+  actions
 }: {
-  idBase: string;
+  icon: ReactNode;
   label: string;
-  segments: Segment[];
-  className?: string;
-}) => {
-  const focusable = segments.find(sg => sg.active)?.key ?? segments[0]?.key;
-  const idFor = (key: string) => `${idBase}-${key.replace(/[^a-z0-9_-]/gi, '_')}`;
-  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    const current = segments.findIndex(sg => document.getElementById(idFor(sg.key)) === document.activeElement);
-    if (current < 0) return;
-    const n = segments.length;
-    const next =
-      e.key === 'ArrowRight' ? (current + 1) % n
-      : e.key === 'ArrowLeft' ? (current + n - 1) % n
-      : e.key === 'Home' ? 0
-      : e.key === 'End' ? n - 1
-      : -1;
-    if (next < 0) return;
-    e.preventDefault();
-    document.getElementById(idFor(segments[next].key))?.focus();
-  };
-
-  return (
-    <div
-      role="toolbar"
-      aria-label={label}
-      onKeyDown={onKeyDown}
-      className={`grid grid-cols-2 gap-0.5 rounded-lg border border-border bg-background/60 p-[2px] ${className}`}
+  count: number;
+  selected: boolean;
+  onClick: () => void;
+  ariaLabel?: string;
+  actions?: ReactNode;
+}) => (
+  <div
+    className={`group flex h-7 items-center rounded-lg pr-1 transition-colors ${
+      selected ? 'bg-primary/15 text-foreground' : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+    }`}
+  >
+    <button
+      type="button"
+      onClick={onClick}
+      aria-current={selected ? 'true' : undefined}
+      // Named explicitly: a collection called "2" would otherwise be
+      // indistinguishable from its own tally.
+      aria-label={ariaLabel ?? `${label}, ${count} task${count === 1 ? '' : 's'}`}
+      title={label}
+      className="flex h-full min-w-0 flex-1 items-center gap-2 rounded-lg px-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
     >
-      {segments.map(sg => (
-        <button
-          key={sg.key}
-          type="button"
-          id={idFor(sg.key)}
-          tabIndex={sg.key === focusable ? 0 : -1}
-          onClick={sg.onClick}
-          aria-label={sg.ariaLabel}
-          title={sg.label}
-          {...sg.ariaState}
-          className={`flex h-6 min-w-0 items-center justify-center gap-1 rounded-md px-1.5 text-[11.5px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
-            sg.active ? 'bg-raised text-foreground shadow-sm' : 'text-subtle-foreground hover:text-foreground'
-          }`}
-        >
-          {sg.icon}
-          <span className="truncate">{sg.label}</span>
-          <span
-            aria-hidden
-            className={`shrink-0 rounded-full px-1 text-[10px] font-medium tabular-nums ${
-              sg.active ? 'bg-primary/20 text-primary-text' : 'bg-muted text-subtle-foreground'
-            }`}
-          >
-            {sg.count}
-          </span>
-        </button>
-      ))}
-    </div>
-  );
-};
+      {icon}
+      <span className={`truncate text-[12.5px] ${selected ? 'font-bold' : 'font-semibold'}`}>{label}</span>
+      <span
+        className={`ml-auto shrink-0 pl-1 tabular-nums text-[11.5px] ${
+          selected ? 'font-semibold text-primary-text' : 'text-subtle-foreground'
+        }`}
+      >
+        {count}
+      </span>
+    </button>
+    {actions && (
+      <span className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100">
+        {actions}
+      </span>
+    )}
+  </div>
+);
 
 /**
  * One platform, as a card: identity tile, name, health in words, count — and
@@ -1117,7 +897,7 @@ const SourceCard = ({
 
 /** Shared row-rendering handles, threaded down the folder tree. */
 interface RowContext {
-  filters: TaskFilters;
+  isSelected: (node: RailNode) => boolean;
   isOpen: (key: string) => boolean;
   onToggle: (key: string) => void;
   onSelect: (patch: Partial<TaskFilters>) => void;
@@ -1214,7 +994,7 @@ const ChildRow = ({ node, ...ctx }: RowContext & { node: RailNode }) => {
     <li>
       <Row
         node={node}
-        selected={isRailNodeSelected(node, ctx.filters)}
+        selected={ctx.isSelected(node)}
         child
         Icon={isGroup ? EyeOff : null}
         dot={null}
@@ -1250,186 +1030,8 @@ const ChildRow = ({ node, ...ctx }: RowContext & { node: RailNode }) => {
   );
 };
 
-/** Merge a reorder hook's props with a row's own class, rather than letting one replace the other. */
-const withClass = (props: DragProps, cls: string): DragProps => ({
-  ...props,
-  className: `${cls} ${props.className ?? ''}`
-});
-
-/** A square icon button on a card — copy link, rename, unpin. Always visible, so it works by touch. */
-const CARD_ACTION =
-  'flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded text-subtle-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60';
-
-const CopyLinkButton = ({ label, url }: { label: string; url: string }) => {
-  const { toast } = useToast();
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(url);
-      toast(`Link to “${label}” copied.`, 'success');
-    } catch {
-      toast('Could not copy the link.', 'error');
-    }
-  };
-  return (
-    <button type="button" onClick={copy} aria-label={`Copy link to ${label}`} title="Copy link" className={CARD_ACTION}>
-      <Link2 size={11} />
-    </button>
-  );
-};
-
 /**
- * The compact two-per-row tile both lists use: name and count on top, a small
- * mark (a bookmark, or the pin's source glyph) and the actions underneath.
- *
- * The whole tile selects; the actions sit beside the select button rather than
- * inside it, so a button never nests in a button and a click means one thing.
- */
-const CompactTile = ({
-  node,
-  selected,
-  onSelect,
-  mark,
-  actions
-}: {
-  node: RailNode;
-  selected: boolean;
-  onSelect: (patch: Partial<TaskFilters>) => void;
-  mark: ReactNode;
-  actions: ReactNode;
-}) => (
-  <div
-    className={`relative h-full rounded-xl border transition-colors ${
-      selected ? 'border-primary/50 bg-primary/10' : 'border-border bg-raised hover:border-ring/40'
-    }`}
-  >
-    <button
-      type="button"
-      onClick={() => node.patch && onSelect(node.patch)}
-      aria-current={selected ? 'true' : undefined}
-      // Named explicitly rather than left to the content: a collection called
-      // "2" would otherwise be indistinguishable from its own tally.
-      aria-label={`${node.label}, ${node.count} task${node.count === 1 ? '' : 's'}`}
-      title={node.label}
-      className="flex w-full min-w-0 flex-col gap-0.5 rounded-xl px-2 pb-1 pt-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-    >
-      <span className="flex w-full items-baseline gap-1.5">
-        <span className={`min-w-0 flex-1 truncate text-[12.5px] leading-tight ${selected ? 'font-bold' : 'font-semibold'}`}>
-          {node.label}
-        </span>
-        <span className={`shrink-0 text-[12px] font-bold leading-tight tabular-nums ${selected ? 'text-primary-text' : 'text-muted-foreground'}`}>
-          {node.count}
-        </span>
-      </span>
-      {/* Leaves room on the right for the actions, which sit over this line. */}
-      <span className="flex h-4 items-center pr-10">{mark}</span>
-    </button>
-    <span className="absolute bottom-1 right-1 flex gap-0.5">{actions}</span>
-  </div>
-);
-
-/**
- * A collection, as a compact tile: name, size, and its two actions — copy a
- * link and rename. Rename opens the manager in edit mode rather than editing
- * inline: a text field inside a tile is a control nobody can hit on a phone.
- * Deleting stays in the manager only, behind a confirmation, because it
- * destroys a set you built (a pin's unpin does not).
- */
-const CollectionCard = ({
-  node,
-  selected,
-  onSelect,
-  onRename
-}: {
-  node: RailNode;
-  selected: boolean;
-  onSelect: (patch: Partial<TaskFilters>) => void;
-  onRename?: (id: string) => void;
-}) => {
-  const id = collectionIdFromKey(node.key);
-  return (
-    <CompactTile
-      node={node}
-      selected={selected}
-      onSelect={onSelect}
-      mark={<Bookmark size={11} aria-hidden className="text-primary-text" />}
-      actions={
-        <>
-          {id && <CopyLinkButton label={node.label} url={collectionLink(id)} />}
-          {id && onRename && (
-            <button type="button" onClick={() => onRename(id)} aria-label={`Rename ${node.label}`} title="Rename" className={CARD_ACTION}>
-              <Pencil size={10} />
-            </button>
-          )}
-        </>
-      }
-    />
-  );
-};
-
-/**
- * A pinned folder, as a tile in a two-column grid: which source it lives in,
- * its count large, its name — then copy-link and unpin.
- *
- * The link names the **folder** (`railNodeLink`), not the pin. There is
- * deliberately **no rename**: a pin mirrors a real folder and shows that
- * folder's name as it reads today, so a label of your own would be a second
- * name for a place that already has one.
- *
- * Unpin lives on the tile as well as on the folder row it mirrors: it is the
- * surface you are looking at when you decide a pin has served its purpose, and
- * the only one that still works once the folder is gone — exactly when a `0`
- * tile you could not remove would be worst.
- */
-const PinTile = ({
-  node,
-  SourceIcon,
-  selected,
-  onSelect,
-  onTogglePin
-}: {
-  node: RailNode;
-  /** The pinned folder's source glyph, passed in so it is not chosen during render. */
-  SourceIcon: typeof Monitor | null;
-  selected: boolean;
-  onSelect: (patch: Partial<TaskFilters>) => void;
-  onTogglePin?: (node: RailNode) => void;
-}) => {
-  const source = node.patch?.source;
-  return (
-    <CompactTile
-      node={node}
-      selected={selected}
-      onSelect={onSelect}
-      mark={
-        /* The source as its glyph alone, named on hover: at half the rail's
-           width "Windows Task Scheduler" truncates to nothing useful, and the
-           glyph is the same identity the Sources section draws. */
-        <span title={source ? platformSourceLabel(source) : undefined} className="flex items-center">
-          {SourceIcon && source && <SourceIcon size={11} aria-hidden className={sourceAccentGlyph(source)} />}
-        </span>
-      }
-      actions={
-        <>
-          {node.patch && <CopyLinkButton label={node.label} url={railNodeLink(node.patch)} />}
-          {onTogglePin && (
-            <button
-              type="button"
-              onClick={() => onTogglePin(node)}
-              aria-label={`Unpin ${node.label} from collections`}
-              title={`Unpin ${node.label} — the folder itself is untouched`}
-              className={CARD_ACTION}
-            >
-              <X size={11} />
-            </button>
-          )}
-        </>
-      }
-    />
-  );
-};
-
-/**
- * Pin this folder to the Pinned tab, or take it back off.
+ * Pin this folder to Pinned, or take it back off.
  *
  * **One control, both directions.** A `+` that only added would leave removal to
  * some other surface, and the row that shows you a folder is pinned is exactly

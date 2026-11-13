@@ -132,6 +132,12 @@ describe('nextRunOf', () => {
       .toEqual(at('2026-08-01T10:00:00Z'));
   });
 
+  it('prefers the nextRunTime column every connector writes', () => {
+    // Reading metadata only left every native task with no next run.
+    expect(nextRunOf(task('a', { nextRunTime: '2026-08-02T10:00:00Z', metadata: { nextRunTime: '2026-08-01T10:00:00Z' } })))
+      .toEqual(at('2026-08-02T10:00:00Z'));
+  });
+
   it('returns null for a missing or unparseable stamp', () => {
     // An unparseable date must not become epoch zero — that would land every
     // such task in `overdue` and make the filter confidently wrong.

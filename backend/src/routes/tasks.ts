@@ -59,6 +59,9 @@ const platformSchema = z.enum(PlatformType, { message: 'Invalid platform' });
 import { isValidCron } from '../utils/cron.js';
 import { previewSchedule } from '../services/schedulePreview.js';
 
+/** How many recent runs each task carries on the list — one task card's run strip. */
+const RECENT_RUNS = 7;
+
 // List all tasks (with a flattened last-run summary for the dashboard)
 router.get('/', async (req: Request, res: Response) => {
   const userId = (req as AuthRequest).user!.id;
@@ -69,7 +72,7 @@ router.get('/', async (req: Request, res: Response) => {
       include: {
         executions: {
           orderBy: { triggeredAt: 'desc' },
-          take: 1,
+          take: RECENT_RUNS,
           select: { status: true, triggeredAt: true, durationMs: true }
         }
       }
@@ -95,6 +98,11 @@ router.get('/', async (req: Request, res: Response) => {
     lastRunStatus: executions[0]?.status ?? null,
     lastRunAt: executions[0]?.triggeredAt ?? null,
     lastRunDurationMs: executions[0]?.durationMs ?? null,
+    // The card's run strip: up to RECENT_RUNS of Cronsole's own execution
+    // records, newest first. Runs Cronsole *performed* only (§9) — a platform
+    // firing on its own schedule writes nothing here, so a short list means
+    // "Cronsole recorded this many", never "it ran this many times".
+    recentRuns: executions.map(e => ({ status: e.status, triggeredAt: e.triggeredAt })),
     // Per-viewer, from the TaskFavorite join — never a column on Task, which in a
     // multi-tenant DB would make one user's star everyone's.
     isFavorite: favoriteIds.has(task.id),

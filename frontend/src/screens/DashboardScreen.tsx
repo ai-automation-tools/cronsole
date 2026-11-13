@@ -66,6 +66,8 @@ import { useMinuteClock } from '../hooks/useMinuteClock';
 import { formatDateTime, formatTime } from '../utils/datetime';
 import { Link, useSearchParams } from 'react-router';
 import { TaskSearchBox } from '../components/TaskSearchBox';
+import { RailResizeHandle } from '../components/RailResizeHandle';
+import { readRailWidth, writeRailWidth } from '../utils/railWidth';
 
 // Loose shape for the untyped platform-metadata JSON blob on tasks.
 type TaskMeta = { nextRunTime?: string; nextRun?: string; schedule?: string } | null | undefined;
@@ -140,6 +142,10 @@ export const DashboardScreen = ({
   // filter exists to stop.
   const { settings: prefs, update } = useSettings();
   const railCollapsed = prefs.railCollapsed;
+  // Per-browser, not a synced preference — see `utils/railWidth.ts`.
+  const [railWidth, setRailWidth] = useState(readRailWidth);
+  // While dragging the width must track the pointer, not ease after it.
+  const [railResizing, setRailResizing] = useState(false);
 
   /**
    * Pin or unpin a folder from the rail.
@@ -738,10 +744,27 @@ export const DashboardScreen = ({
           scrolling box scrolls with it. The panel is a fixed-height flex column;
           `SourceRail` splits it into a scrolling region and that bar.
         */
-        className={`hidden md:flex flex-col shrink-0 self-start sticky top-0 h-[calc(100vh-3.5rem)] overflow-hidden border-r border-border bg-surface transition-[width] duration-200 ${
-          railCollapsed ? 'w-[4.5rem]' : 'w-72'
-        }`}
+        /*
+          The width is inline because it is the user's own (dragged, see
+          `RailResizeHandle`); `max-w-[50vw]` keeps a width picked on a wide
+          window from crowding the list off a narrow one. The panel itself does
+          not clip — the handle hangs half outside it so it never sits over the
+          rail's scrollbar — so the clipping moved to the wrapper inside.
+        */
+        className={`hidden md:flex flex-col shrink-0 self-start sticky top-0 h-[calc(100vh-3.5rem)] max-w-[50vw] border-r border-border bg-surface ${
+          railResizing ? '' : 'transition-[width] duration-200'
+        } ${railCollapsed ? 'w-[4.5rem]' : ''}`}
+        style={railCollapsed ? undefined : { width: railWidth }}
       >
+        {!railCollapsed && (
+          <RailResizeHandle
+            width={railWidth}
+            onResize={setRailWidth}
+            onCommit={writeRailWidth}
+            onDraggingChange={setRailResizing}
+          />
+        )}
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <SourceRail
           population={railPopulation}
           filters={filters}
@@ -762,6 +785,7 @@ export const DashboardScreen = ({
           sourceOrder={prefs.sourceOrder}
           onReorder={reorderRail}
         />
+        </div>
       </aside>
 
       {railOpen && (

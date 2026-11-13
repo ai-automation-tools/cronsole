@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, within, fireEvent, cleanup } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router';
+import { ToastProvider } from '../../hooks/ToastProvider';
 import { SourceRail } from '../SourceRail';
 import { DEFAULT_FILTERS, type TaskFilters } from '../../utils/taskFilters';
 import type { Task } from '../../types';
@@ -31,13 +32,13 @@ const renderRail = (
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
-      <MemoryRouter>
+      <MemoryRouter><ToastProvider>
         <SourceRail
           population={population}
           filters={{ ...DEFAULT_FILTERS, ...filters }}
           onSelect={onSelect}
         />
-      </MemoryRouter>
+      </ToastProvider></MemoryRouter>
     </QueryClientProvider>
   );
   return onSelect;
@@ -209,13 +210,13 @@ describe('SourceRail', () => {
 
     const { unmount } = render(
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-        <MemoryRouter>
+        <MemoryRouter><ToastProvider>
           <SourceRail
             population={sys}
             filters={{ ...DEFAULT_FILTERS, source: 'WINDOWS_TASK_SCHEDULER' }}
             onSelect={vi.fn()}
           />
-        </MemoryRouter>
+        </ToastProvider></MemoryRouter>
       </QueryClientProvider>
     );
     expect(await screen.findByText('hidden')).toBeInTheDocument();
@@ -232,7 +233,7 @@ describe('SourceRail', () => {
     const renderCollapsed = (onSelect = vi.fn()) => {
       render(
         <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-          <MemoryRouter>
+          <MemoryRouter><ToastProvider>
             <SourceRail
               population={[task({ category: 'AI-Tools' }), task({ category: 'AI-Maintenance' })]}
               filters={{ ...DEFAULT_FILTERS, source: 'WINDOWS_TASK_SCHEDULER' }}
@@ -240,7 +241,7 @@ describe('SourceRail', () => {
               collapsed
               onToggleCollapsed={vi.fn()}
             />
-          </MemoryRouter>
+          </ToastProvider></MemoryRouter>
         </QueryClientProvider>
       );
       return onSelect;
@@ -312,9 +313,9 @@ describe('SourceRail collections band', () => {
     } as Parameters<typeof SourceRail>[0];
     render(
       <QueryClientProvider client={client}>
-        <MemoryRouter>
+        <MemoryRouter><ToastProvider>
           <SourceRail {...props} />
-        </MemoryRouter>
+        </ToastProvider></MemoryRouter>
       </QueryClientProvider>
     );
     return props;
@@ -491,6 +492,51 @@ describe('SourceRail collections band', () => {
     expect(vi.mocked(props.onTogglePin!).mock.calls[0][0]).toMatchObject({ key: 'pin:pin-1' });
   });
 
+  // A pin shows the real folder's name, so it gets a collection's copy-link but
+  // never its rename — a second name for a place that already has one.
+  it('copies a link to the pinned folder, and offers no rename', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    renderBand({
+      population: [task({ category: 'AI-Maintenance' })],
+      pins: [
+        {
+          id: 'pin-1',
+          nodeKey: 'WINDOWS_TASK_SCHEDULER/AI-Maintenance',
+          label: 'AI-Maintenance',
+          patch: { source: 'WINDOWS_TASK_SCHEDULER', category: 'AI-Maintenance' }
+        }
+      ]
+    });
+
+    const band = await screen.findByTestId('pinned-band');
+    fireEvent.click(within(band).getByRole('button', { name: /copy link to AI-Maintenance/i }));
+    await vi.waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    const url = new URL(writeText.mock.calls[0][0]);
+    expect(url.searchParams.get('source')).toBe('WINDOWS_TASK_SCHEDULER');
+    expect(url.searchParams.get('category')).toBe('AI-Maintenance');
+    expect(within(band).queryByRole('button', { name: /rename/i })).toBeNull();
+  });
+
+  // The band heading already says these are pins; a glyph per chip only cost width.
+  it('draws no pin glyph on a pinned chip', async () => {
+    renderBand({
+      population: [task({ category: 'AI-Maintenance' })],
+      pins: [
+        {
+          id: 'pin-1',
+          nodeKey: 'WINDOWS_TASK_SCHEDULER/AI-Maintenance',
+          label: 'AI-Maintenance',
+          patch: { source: 'WINDOWS_TASK_SCHEDULER', category: 'AI-Maintenance' }
+        }
+      ]
+    });
+
+    const band = await screen.findByTestId('pinned-band');
+    const chip = within(band).getByRole('button', { name: /^AI-Maintenance, 1 task$/ });
+    expect(chip.querySelector('svg')).toBeNull();
+  });
+
   it('offers no pin on the system disclosure group — it is an expander, not a place', async () => {
     renderBand({
       population: [
@@ -587,7 +633,7 @@ describe('SourceRail filter', () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={client}>
-        <MemoryRouter>
+        <MemoryRouter><ToastProvider>
           <SourceRail
             population={[task({ category: 'Backups' }), task({ category: 'Reports' })]}
             filters={{ ...DEFAULT_FILTERS }}
@@ -595,7 +641,7 @@ describe('SourceRail filter', () => {
             sourcesCollapsed
             onToggleSourcesCollapsed={vi.fn()}
           />
-        </MemoryRouter>
+        </ToastProvider></MemoryRouter>
       </QueryClientProvider>
     );
     await screen.findByTestId('sources-band');
@@ -617,14 +663,14 @@ describe('SourceRail filter', () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={client}>
-        <MemoryRouter>
+        <MemoryRouter><ToastProvider>
           <SourceRail
             population={[task({ category: 'Backups' })]}
             filters={DEFAULT_FILTERS}
             onSelect={vi.fn()}
             onToggleCollapsed={onToggleCollapsed}
           />
-        </MemoryRouter>
+        </ToastProvider></MemoryRouter>
       </QueryClientProvider>
     );
     await screen.findByText('Windows Task Scheduler');
@@ -755,7 +801,7 @@ describe('SourceRail reordering', () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={client}>
-        <MemoryRouter>
+        <MemoryRouter><ToastProvider>
           <SourceRail
             population={[
               task({ platform: 'WINDOWS_TASK_SCHEDULER' }),
@@ -766,7 +812,7 @@ describe('SourceRail reordering', () => {
             sourceOrder={sourceOrder}
             onReorder={onReorder}
           />
-        </MemoryRouter>
+        </ToastProvider></MemoryRouter>
       </QueryClientProvider>
     );
     return onReorder;
@@ -813,7 +859,7 @@ describe('SourceRail reordering', () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={client}>
-        <MemoryRouter>
+        <MemoryRouter><ToastProvider>
           <SourceRail
             population={[
               task({ platform: 'WINDOWS_TASK_SCHEDULER' }),
@@ -824,7 +870,7 @@ describe('SourceRail reordering', () => {
             onSelect={vi.fn()}
             onReorder={onReorder}
           />
-        </MemoryRouter>
+        </ToastProvider></MemoryRouter>
       </QueryClientProvider>
     );
     await screen.findByText('Claude Code');

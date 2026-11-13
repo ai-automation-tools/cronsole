@@ -1067,6 +1067,11 @@ verification pass — is still open above, narrowed to the half that needs a tok
       snapshot, so membership stays declared and pinning stays the derived alternative. Chips copy
       `/?collection=<id>` (id, so a rename keeps links) and open the manager in rename mode
       *(2026-11-12)*.
+- [x] **Pinned chips copy a link; the sidebar resizes** — a pin's link names the folder
+      (`railNodeLink`, through `filtersToParams`), never the pin, and a pin gets no rename because it
+      shows the real folder's name. The rail's right edge drags (208–560px, `max-w-[50vw]`), with a
+      keyboard twin; the width is per browser (`cronsole.railWidth`) because it is a fact about the
+      screen, not an account preference *(2026-11-13)*.
 - [x] **A schedule can be picked, not only typed** — one `ScheduleBuilder` on all four cron
       surfaces (Edit task, New task, Apply template, Schedule tester): five shapes, a clock
       control and weekday toggles, with the cron it compiles to on screen and the Cron tab beside

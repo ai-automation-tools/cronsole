@@ -313,6 +313,25 @@ export function filtersToParams(
 }
 
 /**
+ * A dashboard URL for one rail location — what a pinned folder's copy-link
+ * hands out.
+ *
+ * It encodes the **place** (source, folder, the system lens a `\Microsoft\`
+ * folder needs), never the pin's id: a pin is a per-user preference, so a link
+ * naming it would break the moment it was unpinned, while a folder path keeps
+ * resolving for as long as the folder exists — and reads `0` rather than
+ * failing once it does not, which is the pin's own rule. Encoded through
+ * `filtersToParams` so there is one definition of what a URL means.
+ */
+export function railNodeLink(
+  patch: Partial<TaskFilters>,
+  origin = window.location.origin
+): string {
+  const qs = filtersToParams({ ...DEFAULT_FILTERS, ...patch }, []).toString();
+  return `${origin}/${qs ? `?${qs}` : ''}`;
+}
+
+/**
  * Read filters back out of search params.
  *
  * `view=<id>` wins over the individual fields when it names a view that exists.

@@ -61,7 +61,8 @@ const ActionButton = ({
 }: {
   tone: keyof typeof ACTION_TONE;
   icon: ReactNode;
-  text: string;
+  /** Omit for an icon-only square (the aria-label and title still name it). */
+  text?: string;
   ariaLabel: string;
   title: string;
   onClick: () => void;
@@ -71,7 +72,7 @@ const ActionButton = ({
     onClick={onClick}
     aria-label={ariaLabel}
     title={title}
-    className={`flex h-8 items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition-colors active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${ACTION_TONE[tone]}`}
+    className={`flex h-8 items-center gap-1.5 rounded-lg border ${text ? 'px-3' : 'w-8 justify-center'} text-xs font-semibold transition-colors active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${ACTION_TONE[tone]}`}
   >
     {icon}
     {text}
@@ -387,8 +388,7 @@ export const CollectionsGallery = ({
                       {onDelete && (
                         <ActionButton
                           tone="danger"
-                          icon={<Trash2 size={14} />}
-                          text="Delete"
+                          icon={<Trash2 size={15} />}
                           ariaLabel={`Delete ${node.label}`}
                           title="Delete this collection — its tasks are not touched"
                           onClick={() => onDelete(id, node.label, node.count)}

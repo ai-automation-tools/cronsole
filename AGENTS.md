@@ -594,19 +594,16 @@ Non-negotiable rules. **Every one has a reason recorded in
   never a `TaskFilters` field** (`utils/railFilter.ts`, local `useState` in `SourceRail`). Putting
   it in the URL would make two links that show the same tasks — branch expansion's rule, one
   control over. It is also not persisted: a narrowed rail is something you are doing right now, and
-  finding the sidebar still filtered tomorrow reads as a platform that has disappeared. The two
-  **scopes are exempt from it** — *All sources* and *Favorites* mean "stop narrowing", and a query
-  matching nothing must still leave a route back to everything. A node survives if it matches **or**
+  finding the sidebar still filtered tomorrow reads as a platform that has disappeared. It searches
+  sources and folders only; the **Scopes rows are exempt from it** — *All tasks* means "stop
+  narrowing", and a query matching nothing must still leave a route back to everything. A node survives if it matches **or**
   a descendant does, and the two cases keep different children: a node that matched keeps all of
   its (so you can drill in), a node on the path to a hit keeps only the hits. It reports what it
   **searched** beside what it found, `SyncOutcome.notes`' rule in the UI. Two things it may
   **never** narrow: **a reorder still reports the whole band** — `orderBy` drops every record the
   reported list does not name, so reporting the filtered rows destroys the rest (five pins, a query
-  matching two, one drag, three pins gone from a synced preference); and **a tab may not swallow a
-  hit** — the chosen tab is a persisted preference, so while a query runs and that tab holds no
-  match, the first tab that does is *shown* (never written back: `shownRailTab`), and every badge
-  becomes a match count. A tab the user **clicks** mid-query is shown anyway, with a sentence saying
-  it holds nothing — the rule is for landing on a query, never for overruling a click.
+  matching two, one drag, three pins gone from a synced preference). *(The second rule — a
+  persisted rail tab may not swallow a hit, `shownRailTab` — went with the tabs on 2026-11-13.)*
 - **No rail list draws unbounded, and none truncates silently.** Every collection, pin and folder list
   stops at `RAIL_ROW_CAP` (10) and states the remainder (*Show 5 more folders*). **The source list
   is exempt**: which sources appear is already the user's choice (`shownSources`), so capping it
@@ -655,7 +652,7 @@ Non-negotiable rules. **Every one has a reason recorded in
   are per-user joins keyed on `Task` with a cascade — never columns. `TaskExclusion` is the opposite
   shape, keyed on `(platform, externalId)`, because it must outlive the row. **A pinned folder is
   therefore not a collection** — it is derived, so it is a `RailPin` preference (`utils/railPins.ts`)
-  shown on its **own** rail tab (Pinned, beside Collections in one slider),
+  shown in its **own** gallery (the Pinned scope, beside Collections — `ScopeGallery.tsx`),
   storing no foreign key, reading its target node's count rather than re-deriving one, and
   surviving its target's disappearance at `0`.
 - **The rail reorders per band, and each band's order is written where that band's record already

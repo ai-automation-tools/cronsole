@@ -69,6 +69,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // would be the same code path, which §9 forbids; the second failure is
   // evidence, so the login screen is the honest answer.
   const fallbackSpent = useRef(false);
+  // Who was signed in when the session ended. The gate keeps the app mounted under the login
+  // overlay, so a different account signing in must not inherit that account's cached data.
+  const userIdRef = useRef<string | null>(user?.id ?? null);
+  const expiredMounted = useRef(false); // an expiry left the app mounted under the login overlay
   useEffect(() => subscribeAuthFailure(() => {
     storeUser(null);
     setUser(null);
@@ -77,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setStatus('authed');
       return;
     }
+    expiredMounted.current = true;
     setSessionExpired(true);
     setStatus('unauthed');
   }), []);
@@ -89,6 +94,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     storeUser(u);
     setUser(u);
     setStatus('authed');
+    // A different account after an expiry: drop the mounted tree and its query cache.
+    if (expiredMounted.current && userIdRef.current !== u.id) window.location.reload();
+    expiredMounted.current = false;
+    userIdRef.current = u.id;
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
@@ -111,6 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     storeUser(null);
     setUser(null);
     setSessionExpired(false);
+    expiredMounted.current = false;
     setStatus('unauthed');
   }, []);
 

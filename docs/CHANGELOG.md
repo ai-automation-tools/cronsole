@@ -41,6 +41,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Fixed
 
+- **An expired session no longer wipes what you were typing** (2026-11-13). When your sign-in runs out while the app is open, the login box now appears over the page instead of replacing it; sign in again and you are back where you were, with an open form still filled in. If a *different* account signs in, the page reloads so it cannot show the first account's data.
 - **Native tasks showed no next run, and never counted as *Due today*** (2026-11-13). The dashboard read a task's next run only from platform metadata, which some sources never fill, and ignored the `nextRunTime` value Cronsole stores for every task. It now reads that first.
 - **A deleted on-demand or chained native task can be restored again** (2026-11-12). A Cronsole-native task with no schedule of its own — made on-demand with *Edit schedule*, or one that only runs after another task — exported and archived as `schedule: null`, and import and archive-restore refused that as *"has no schedule in the file"*. So the archive taken before a delete could never rebuild it, and its `restorable` said so. `null` now recreates the task unscheduled; a file with the field missing or blank is still refused. Found by driving `delete_task` → `restore_task_archive` over MCP.
 

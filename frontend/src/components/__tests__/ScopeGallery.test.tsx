@@ -22,7 +22,7 @@ describe('PinnedGallery', () => {
     const props = renderGallery([PIN]);
     fireEvent.click(screen.getByRole('button', { name: /^Open AI-Maintenance, 3 tasks$/ }));
     expect(props.onSelect).toHaveBeenCalledWith(PIN.patch);
-    expect(screen.getByText('Windows Task Scheduler')).toBeInTheDocument();
+    expect(screen.getByText('Pinned · Windows Task Scheduler')).toBeInTheDocument();
   });
 
   it('unpins from the card — the only surface left once the folder is gone', () => {
@@ -41,6 +41,21 @@ describe('PinnedGallery', () => {
     const url = new URL(writeText.mock.calls[0][0]);
     expect(url.searchParams.get('category')).toBe('AI-Maintenance');
     expect(screen.queryByRole('button', { name: /rename/i })).toBeNull();
+  });
+
+  it('summarizes the tasks behind the card: sources, active, failed', () => {
+    const task = (id: string, extra: object) => ({
+      id, name: id, externalId: id, platform: 'WINDOWS_TASK_SCHEDULER', status: 'ACTIVE',
+      category: 'AI-Maintenance', updatedAt: '2026-11-13T00:00:00Z', metadata: {}, ...extra
+    });
+    const members = [task('a', {}), task('b', { lastRunStatus: 'FAILURE' }), task('c', { status: 'DISABLED' })];
+    render(
+      <ToastProvider>
+        <PinnedGallery nodes={[PIN]} onSelect={vi.fn()} onTogglePin={vi.fn()} onReorder={vi.fn()} membersOf={() => members as never} />
+      </ToastProvider>
+    );
+    expect(screen.getByText(/2 active/)).toBeInTheDocument();
+    expect(screen.getByText(/1 failed/)).toBeInTheDocument();
   });
 
   it('says how to pin when nothing is pinned', () => {

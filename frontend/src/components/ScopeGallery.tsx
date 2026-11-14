@@ -1,6 +1,11 @@
 import { createElement, type ReactNode } from 'react';
-import { Bookmark, Link2, Pencil, Pin, PinOff, Plus } from 'lucide-react';
-import { platformSourceLabel, sourceAccentGlyph, sourceIcon } from '../platform';
+import { Bookmark, CircleCheck, Clock, Link2, Pencil, Pin, PinOff, Plus, PowerOff, XOctagon, type LucideIcon } from 'lucide-react';
+import { platformAccent, platformLabel, platformSourceLabel, sourceAccentGlyph, sourceIcon, sourcePlatform } from '../platform';
+import type { Task } from '../types';
+import { nextRunOf } from '../utils/taskFilters';
+import { nextRunText } from '../utils/datetime';
+import { useSettings } from '../hooks/useSettings';
+import { useMinuteClock } from '../hooks/useMinuteClock';
 import { railNodeLink } from '../utils/savedViews';
 import { collectionIdFromKey, type RailNode, type RailSection } from '../utils/sourceTree';
 import type { TaskFilters } from '../utils/taskFilters';
@@ -29,6 +34,8 @@ interface GalleryProps {
   nodes: RailNode[];
   onSelect: (patch: Partial<TaskFilters>) => void;
   onReorder: (section: RailSection, keys: string[]) => void;
+  /** The tasks behind a card — the same rows the rail counted. Absent = count only. */
+  membersOf?: (node: RailNode) => Task[];
 }
 
 const GRID = 'grid grid-cols-1 gap-4 pb-20 md:grid-cols-2 xl:grid-cols-3';
@@ -94,39 +101,152 @@ const CopyLinkButton = ({ label, url }: { label: string; url: string }) => {
   );
 };
 
-/** One place, as a box: what it is, its name and count, then its actions under a rule. */
+/**
+ * What a card can say about its tasks, beyond the count: which sources they
+ * come from, how many run, how many last failed, and the soonest next run.
+ * Everything here is read off the same task rows the rail counted.
+ */
+function summarize(members: Task[], now: Date) {
+  const bySource = new Map<string, number>();
+  let active = 0;
+  let failed = 0;
+  let off = 0;
+  let next: Date | null = null;
+  for (const t of members) {
+    bySource.set(t.platform, (bySource.get(t.platform) ?? 0) + 1);
+    if (t.status === 'ACTIVE') active++;
+    else off++;
+    if (t.lastRunStatus === 'FAILURE') failed++;
+    // A task that is off does not run, whatever its schedule says.
+    const at = t.status === 'ACTIVE' ? nextRunOf(t) : null;
+    if (at && at >= now && (!next || at < next)) next = at;
+  }
+  const mix = [...bySource.entries()].sort((a, b) => b[1] - a[1]);
+  return { mix, active, failed, off, next };
+}
+
+/**
+ * One place, as a box. Its colour is its **source's** — a pin's platform, or the
+ * platform most of a collection's tasks come from — so the tint says something
+ * true rather than decorating. Role tokens only, through `platformAccent`.
+ */
 const GalleryCard = ({
   node,
-  header,
+  kind,
+  icon,
+  platform,
+  members,
+  showSources = false,
   actions,
   emptyNote,
   onSelect
 }: {
   node: RailNode;
-  header: ReactNode;
+  kind: string;
+  /** List the sources under the bar — for a collection, which can mix them. */
+  showSources?: boolean;
+  icon: LucideIcon;
+  /** The accent's platform; `null` = no tasks to take a colour from. */
+  platform: string | null;
+  members: Task[];
   actions: ReactNode;
   emptyNote: string;
   onSelect: (patch: Partial<TaskFilters>) => void;
-}) => (
-  <div className="group flex h-full flex-col rounded-xl border border-border bg-surface p-4 transition-colors hover:border-ring/40">
-    <div className="flex min-w-0 items-center gap-1.5 text-xs">{header}</div>
-    <button
-      type="button"
-      onClick={() => node.patch && onSelect(node.patch)}
-      aria-label={`Open ${node.label}, ${node.count} task${node.count === 1 ? '' : 's'}`}
-      title={node.label}
-      className="mt-3 flex flex-1 flex-col items-start rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-    >
-      <span className="w-full truncate text-base font-bold leading-snug">{node.label}</span>
-      <span className="mt-1 text-xs text-muted-foreground">
-        <span className="font-semibold tabular-nums text-foreground">{node.count}</span>{' '}
-        task{node.count === 1 ? '' : 's'}
-        {node.count === 0 && emptyNote}
-      </span>
-    </button>
-    <div className="mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-border pt-3">{actions}</div>
-  </div>
-);
+}) => {
+  const now = useMinuteClock();
+  const { settings } = useSettings();
+  const accent = platform ? platformAccent(platform) : { tile: 'bg-primary/10', rule: 'bg-primary/40' };
+  const glyph = platform ? sourceAccentGlyph(platform) : 'text-primary-text';
+  const { mix, active, failed, off, next } = summarize(members, now);
+  // The bar's three parts: running fine, last run failed, turned off.
+  const healthy = Math.max(active - failed, 0);
+  const pct = (n: number) => `${(n / members.length) * 100}%`;
+  const Icon = icon;
+
+  return (
+    <div className="group relative flex h-full flex-col overflow-hidden rounded-xl border border-border bg-surface transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:border-ring/40 hover:shadow-xl">
+      {/* Identity band, and a soft glow of the same colour behind the header. */}
+      <div aria-hidden className={`h-1.5 w-full ${accent.rule}`} />
+      <div aria-hidden className={`pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full opacity-40 blur-3xl ${accent.rule}`} />
+
+      <div className="relative flex flex-1 flex-col p-4">
+        <button
+          type="button"
+          onClick={() => node.patch && onSelect(node.patch)}
+          aria-label={`Open ${node.label}, ${node.count} task${node.count === 1 ? '' : 's'}`}
+          title={node.label}
+          className="flex flex-1 flex-col items-stretch rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+        >
+          <span className="flex items-start gap-3">
+            <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ring-1 ring-border ${accent.tile} ${glyph}`}>
+              <Icon size={20} aria-hidden />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{kind}</span>
+              <span className="mt-0.5 block truncate text-base font-bold leading-snug text-foreground">{node.label}</span>
+            </span>
+            <span className="shrink-0 text-right leading-none">
+              <span className="block text-3xl font-black tabular-nums text-foreground">{node.count}</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-subtle-foreground">
+                task{node.count === 1 ? '' : 's'}
+              </span>
+            </span>
+          </span>
+
+          {members.length > 0 ? (
+            <>
+              {/* How the set is doing, at a glance: running fine · last run failed · off. */}
+              <span className="mt-4 flex h-2 w-full gap-px overflow-hidden rounded-full bg-background" aria-hidden>
+                {healthy > 0 && <span className="bg-success" style={{ width: pct(healthy) }} />}
+                {failed > 0 && <span className="bg-danger" style={{ width: pct(failed) }} />}
+                {off > 0 && <span className="bg-muted-foreground/40" style={{ width: pct(off) }} />}
+              </span>
+              {showSources && <span className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                {mix.slice(0, 4).map(([p, n]) => (
+                  <span key={p} className="flex items-center gap-1">
+                    {createElement(sourceIcon(p), { size: 11, 'aria-hidden': true, className: sourceAccentGlyph(p) })}
+                    {platformLabel(p)} <span className="font-semibold tabular-nums text-foreground">{n}</span>
+                  </span>
+                ))}
+                {mix.length > 4 && <span>+{mix.length - 4} more</span>}
+              </span>}
+              <span className="mt-3 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold">
+                {active > 0 && (
+                  <span className="flex items-center gap-1 rounded-md border border-success/30 bg-success/10 px-1.5 py-0.5 text-success-text">
+                    <CircleCheck size={11} aria-hidden /> {active} active
+                  </span>
+                )}
+                {failed > 0 && (
+                  <span className="flex items-center gap-1 rounded-md border border-danger/30 bg-danger/10 px-1.5 py-0.5 text-danger-text">
+                    <XOctagon size={11} aria-hidden /> {failed} failed
+                  </span>
+                )}
+                {off > 0 && (
+                  <span className="flex items-center gap-1 rounded-md border border-border bg-background px-1.5 py-0.5 text-muted-foreground">
+                    <PowerOff size={11} aria-hidden /> {off} off
+                  </span>
+                )}
+                {next && (
+                  <span className="flex items-center gap-1 rounded-md border border-info/30 bg-info/10 px-1.5 py-0.5 text-info-text" title={`Next run ${next.toLocaleString()}`}>
+                    <Clock size={11} aria-hidden /> Next {nextRunText(next, settings.timezone, now).replace(/^In /, 'in ')}
+                  </span>
+                )}
+              </span>
+            </>
+          ) : (
+            <span className="mt-4 text-xs text-muted-foreground">
+              {node.count === 0 ? `No tasks${emptyNote}` : ' '}
+            </span>
+          )}
+        </button>
+        <div className="mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-border pt-3">{actions}</div>
+      </div>
+    </div>
+  );
+};
+
+/** The platform most of these tasks come from — the card's colour. */
+const dominantPlatform = (members: Task[]): string | null => summarize(members, new Date(0)).mix[0]?.[0] ?? null;
 
 const EmptyGallery = ({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) => (
   <div className="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-border px-6 py-20 text-center text-subtle-foreground">
@@ -140,7 +260,8 @@ export const PinnedGallery = ({
   nodes,
   onSelect,
   onTogglePin,
-  onReorder
+  onReorder,
+  membersOf
 }: GalleryProps & { onTogglePin: (node: RailNode) => void }) => {
   const drag = useBandReorder('pinned', nodes.map(n => n.key), onReorder);
 
@@ -165,19 +286,11 @@ export const PinnedGallery = ({
             <GalleryCard
               node={node}
               onSelect={onSelect}
+              kind={`Pinned · ${source ? platformSourceLabel(source) : 'Unknown source'}`}
+              icon={source ? sourceIcon(source) : Pin}
+              platform={source ? sourcePlatform(source) : null}
+              members={membersOf?.(node) ?? []}
               emptyNote=" — the folder is empty or gone"
-              header={
-                <>
-                  {source && createElement(sourceIcon(source), {
-                    size: 14,
-                    'aria-hidden': true,
-                    className: `shrink-0 ${sourceAccentGlyph(source)}`
-                  })}
-                  <span className="truncate font-semibold text-foreground">
-                    {source ? platformSourceLabel(source) : 'Unknown source'}
-                  </span>
-                </>
-              }
               actions={
                 <>
                   {node.patch && <CopyLinkButton label={node.label} url={railNodeLink(node.patch)} />}
@@ -208,7 +321,8 @@ export const CollectionsGallery = ({
   nodes,
   onSelect,
   onReorder,
-  onManage
+  onManage,
+  membersOf
 }: GalleryProps & { onManage: (renameId?: string) => void }) => {
   const drag = useBandReorder('collection', nodes.map(n => n.key), onReorder);
 
@@ -241,18 +355,18 @@ export const CollectionsGallery = ({
       <ul data-testid="collections-gallery" className={GRID}>
         {nodes.map(node => {
           const id = collectionIdFromKey(node.key);
+          const members = membersOf?.(node) ?? [];
           return (
             <li key={node.key} {...withClass(drag(node.key), 'min-w-0')}>
               <GalleryCard
                 node={node}
                 onSelect={onSelect}
+                kind="Collection"
+                icon={Bookmark}
+                platform={dominantPlatform(members)}
+                members={members}
+                showSources
                 emptyNote=" — add some with the bookmark on a task card"
-                header={
-                  <>
-                    <Bookmark size={14} aria-hidden className="shrink-0 text-primary-text" />
-                    <span className="truncate font-semibold text-foreground">Collection</span>
-                  </>
-                }
                 actions={
                   id && (
                     <>

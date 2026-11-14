@@ -33,7 +33,7 @@ import { HealthStrip } from '../components/HealthStrip';
 import { SyncMenu } from '../components/SyncMenu';
 import { SourceRail } from '../components/SourceRail';
 import type { RailNode, RailSection } from '../utils/sourceTree';
-import { collectionIdFromKey, buildSourceTree, railSectionOf } from '../utils/sourceTree';
+import { collectionIdFromKey, buildSourceTree, railNodeTasks, railSectionOf } from '../utils/sourceTree';
 import { CollectionsGallery, PinnedGallery } from '../components/ScopeGallery';
 import type { RailLens } from '../components/SourceRail';
 import { pinForNode, pinFromNode, pinIdFromKey, pinKey } from '../utils/railPins';
@@ -582,6 +582,19 @@ export const DashboardScreen = ({
     };
   }, [railPopulation, filters, collections, prefs.railPins]);
 
+  // The tasks behind a gallery card, by the same rules the rail counts them:
+  // a pin is its folder's tasks; a collection is its members under the system lens.
+  const galleryMembers = useCallback(
+    (node: RailNode): Task[] => {
+      const id = collectionIdFromKey(node.key);
+      if (!id) return railNodeTasks(railPopulation, node);
+      return railPopulation.filter(
+        t => t.collectionIds?.includes(id) && (filters.system !== 'personal' || t.isSystem !== true)
+      );
+    },
+    [railPopulation, filters.system]
+  );
+
   /**
    * How many rows the **system lens** is holding back from *this list* — the
    * number on the "N system hidden" chip.
@@ -1075,6 +1088,7 @@ export const DashboardScreen = ({
           onSelect={applyRailPatch}
           onTogglePin={togglePin}
           onReorder={reorderRail}
+          membersOf={galleryMembers}
         />
       ) : lens === 'collections' ? (
         <CollectionsGallery
@@ -1082,6 +1096,7 @@ export const DashboardScreen = ({
           onSelect={applyRailPatch}
           onReorder={reorderRail}
           onManage={renameId => setManagingCollections({ renameId })}
+          membersOf={galleryMembers}
         />
       ) : isEmpty ? (
         <div className="flex flex-col items-center justify-center h-[50vh] border-2 border-dashed border-border rounded-3xl p-10 text-center">

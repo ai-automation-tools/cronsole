@@ -1,5 +1,5 @@
 import { createElement, type ReactNode } from 'react';
-import { Bookmark, CircleCheck, Clock, Link2, Pencil, Pin, PinOff, Plus, PowerOff, XOctagon, type LucideIcon } from 'lucide-react';
+import { Bookmark, CircleCheck, Clock, Link2, Pencil, Pin, PinOff, Plus, PowerOff, Trash2, XOctagon, type LucideIcon } from 'lucide-react';
 import { platformAccent, platformLabel, platformSourceLabel, sourceAccentGlyph, sourceIcon, sourcePlatform } from '../platform';
 import type { Task } from '../types';
 import { nextRunOf } from '../utils/taskFilters';
@@ -314,16 +314,21 @@ export const PinnedGallery = ({
 
 /**
  * Collections, one box each. Rename opens the manager in edit mode (a text
- * field inside a card is a control nobody can hit on a phone); deleting stays
- * in the manager, behind its confirmation, because it destroys a set you built.
+ * field inside a card is a control nobody can hit on a phone). Delete is on the
+ * card too (2026-11-13 — in the manager alone nobody found it); `onDelete`
+ * owns the confirmation, which says the tasks themselves are untouched.
  */
 export const CollectionsGallery = ({
   nodes,
   onSelect,
   onReorder,
   onManage,
+  onDelete,
   membersOf
-}: GalleryProps & { onManage: (renameId?: string) => void }) => {
+}: GalleryProps & {
+  onManage: (renameId?: string) => void;
+  onDelete?: (id: string, label: string, count: number) => void;
+}) => {
   const drag = useBandReorder('collection', nodes.map(n => n.key), onReorder);
 
   const manageButton = (
@@ -379,6 +384,16 @@ export const CollectionsGallery = ({
                         title="Rename this collection"
                         onClick={() => onManage(id)}
                       />
+                      {onDelete && (
+                        <ActionButton
+                          tone="danger"
+                          icon={<Trash2 size={14} />}
+                          text="Delete"
+                          ariaLabel={`Delete ${node.label}`}
+                          title="Delete this collection — its tasks are not touched"
+                          onClick={() => onDelete(id, node.label, node.count)}
+                        />
+                      )}
                     </>
                   )
                 }

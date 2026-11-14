@@ -78,6 +78,17 @@ describe('CollectionsGallery', () => {
     return props;
   };
 
+  it('deletes from the card, through the caller', () => {
+    const onDelete = vi.fn();
+    render(
+      <ToastProvider>
+        <CollectionsGallery nodes={[COLLECTION]} onSelect={vi.fn()} onReorder={vi.fn()} onManage={vi.fn()} onDelete={onDelete} />
+      </ToastProvider>
+    );
+    fireEvent.click(screen.getByRole('button', { name: /^Delete Morning checks$/ }));
+    expect(onDelete).toHaveBeenCalledWith('c1', 'Morning checks', 4);
+  });
+
   it('opens a collection on click', () => {
     const props = renderCollections([COLLECTION]);
     fireEvent.click(screen.getByRole('button', { name: /^Open Morning checks, 4 tasks$/ }));

@@ -256,16 +256,16 @@ describe('SourceRail', () => {
       expect(screen.queryByText('AI-Maintenance')).not.toBeInTheDocument();
     });
 
-    it('keeps every source reachable, named and counted', async () => {
-      // The collapsed rail is still navigation. Losing the counts would make it
-      // a row of anonymous glyphs, and losing the names would make it unusable
-      // to a screen reader — so both survive, one visibly and one as the label.
+    it('keeps every source reachable and named, with the count in the label only', async () => {
+      // The collapsed rail is still navigation, so the name and count stay in
+      // the accessible label — but no number is drawn under the icon (removed
+      // 2026-11-13: a column of small numbers was noise at 72px).
       const onSelect = renderCollapsed();
       // Await the connection-derived row — it appears only once `useConnections`
       // resolves, so awaiting the task-derived one first races it.
       expect(await screen.findByLabelText(/^Claude Code, 0 tasks$/)).toBeInTheDocument();
       const windows = screen.getByLabelText(/^Windows Task Scheduler, 2 tasks$/);
-      expect(within(windows).getByText('2')).toBeInTheDocument();
+      expect(within(windows).queryByText('2')).toBeNull();
 
       fireEvent.click(windows);
       expect(onSelect).toHaveBeenCalledWith({

@@ -638,8 +638,9 @@ Non-negotiable rules. **Every one has a reason recorded in
   is doing* off one colour is what the two-token split exists to stop. **Health is not
   exception-only**: a healthy source says *Online*, and one with no connection says *No health
   reported* — suppressing either makes *connected and fine* and *not connected* the same absence.
-- **The rail's own controls leave the scroll.** The collapse toggle, *Explore sources*, *Manage
-  sources* and the help `?` live in a bar pinned to the bottom of the panel. They used to sit under
+- **The rail's own controls leave the scroll.** The **collapse toggle sits beside the filter box in
+  a header pinned to the top** (since 2026-11-13 — at the bottom it was a 24px grey glyph nobody
+  found); *Explore sources*, *Manage sources* and the help `?` live in a bar pinned to the bottom. They used to sit under
   the tree and fold with it, which put the only route to a platform you have **not** added off
   screen on any real machine — and that route existing is what makes an opt-in default set safe
   rather than indistinguishable from a missing platform.

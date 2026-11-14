@@ -20,7 +20,10 @@ import {
   sortByNextRun,
   subfolderPath,
   withheldBy,
-  type HealthTier
+  type HealthTier,
+  lastRunOf,
+  matchesRan,
+  sortByLastRun
 } from '../taskFilters';
 
 const task = (id: string, over: Partial<Task> = {}): Task => ({
@@ -663,5 +666,33 @@ describe('matchesCollection', () => {
     const withCollection = { ...DEFAULT_FILTERS, collection: 'c1' };
     expect(activeFilterCount(withCollection)).toBe(0);
     expect(filtersEqual(withCollection, DEFAULT_FILTERS)).toBe(true);
+  });
+});
+
+describe('last-run window', () => {
+  const now = new Date('2026-11-13T12:00:00Z');
+  const hoursAgo = (h: number) => new Date(now.getTime() - h * 3600000).toISOString();
+
+  it('takes the newer of the platform stamp and Cronsole’s own record', () => {
+    expect(lastRunOf(task('a', { metadata: { lastRunTime: hoursAgo(5) }, lastRunAt: hoursAgo(30) }))?.toISOString()).toBe(hoursAgo(5));
+    expect(lastRunOf(task('b', { metadata: { lastRunTime: hoursAgo(30) }, lastRunAt: hoursAgo(2) }))?.toISOString()).toBe(hoursAgo(2));
+  });
+
+  it('reads Windows’ never-run sentinel as no run', () => {
+    expect(lastRunOf(task('a', { metadata: { lastRunTime: '1999-11-30T00:00:00' } }))).toBeNull();
+  });
+
+  it('filters by window, and a task with no run matches none', () => {
+    const recent = task('a', { metadata: { lastRunTime: hoursAgo(5) } });
+    const old = task('b', { lastRunAt: hoursAgo(20) });
+    const never = task('c');
+    expect([recent, old, never].filter(t => matchesRan(t, '8h', now)).map(t => t.id)).toEqual(['a']);
+    expect([recent, old, never].filter(t => matchesRan(t, '24h', now)).map(t => t.id)).toEqual(['a', 'b']);
+    expect([recent, old, never].filter(t => matchesRan(t, 'any', now))).toHaveLength(3);
+  });
+
+  it('sorts newest run first, never-run last', () => {
+    const tasks = [task('never'), task('old', { lastRunAt: hoursAgo(20) }), task('new', { lastRunAt: hoursAgo(1) })];
+    expect(sortByLastRun(tasks).map(t => t.id)).toEqual(['new', 'old', 'never']);
   });
 });

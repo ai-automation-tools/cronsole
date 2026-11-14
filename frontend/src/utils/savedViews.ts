@@ -2,6 +2,7 @@ import {
   DEFAULT_FILTERS,
   filtersEqual,
   type DueFilter,
+  type RanFilter,
   type FavoritesFilter,
   type OutcomeFilter,
   type StatusFilter,
@@ -170,7 +171,12 @@ export function viewFiltersFrom(filters: TaskFilters): TaskFilters {
 
 /** Built-ins first, then the user's own, for the view bar. */
 export function allViews(saved: SavedView[]): SavedView[] {
-  return [...BUILTIN_VIEWS, ...saved.filter(v => !isBuiltinView(v.id))];
+  // A saved view stores the filters of its day; a dimension added since
+  // (`ran`) reads as its default rather than as `undefined`.
+  return [
+    ...BUILTIN_VIEWS,
+    ...saved.filter(v => !isBuiltinView(v.id)).map(v => ({ ...v, filters: { ...DEFAULT_FILTERS, ...v.filters } }))
+  ];
 }
 
 /**
@@ -215,6 +221,7 @@ export function describeFilters(filters: TaskFilters): string {
   if (filters.due === 'week') parts.push('due within 7 days');
   if (filters.due === 'overdue') parts.push('overdue');
   if (filters.due === 'never') parts.push('no scheduled run');
+  if (filters.ran && filters.ran !== 'any') parts.push(`ran in the last ${RAN_LABEL[filters.ran]}`);
   if (filters.source !== 'All') parts.push(filters.source);
   if (filters.category !== 'All') parts.push(filters.category);
   if (filters.search.trim()) parts.push(`matching “${filters.search.trim()}”`);
@@ -231,6 +238,14 @@ const STATUS: StatusFilter[] = ['any', 'active', 'disabled', 'missing'];
 const SYSTEM: SystemFilter[] = ['personal', 'include', 'only'];
 const OUTCOME: OutcomeFilter[] = ['any', 'failing', 'healthy', 'unknown'];
 const DUE: DueFilter[] = ['any', 'today', 'week', 'overdue', 'never'];
+const RAN: RanFilter[] = ['any', '1h', '8h', '24h', '7d'];
+/** How each last-run window reads in a sentence ("ran in the last 8 hours"). */
+export const RAN_LABEL: Record<Exclude<RanFilter, 'any'>, string> = {
+  '1h': 'hour',
+  '8h': '8 hours',
+  '24h': '24 hours',
+  '7d': '7 days'
+};
 const FAVORITES: FavoritesFilter[] = ['any', 'only'];
 
 /**
@@ -246,7 +261,7 @@ function oneOf<T extends string>(raw: string | null, allowed: T[], fallback: T):
 
 /** Every param this module writes — the caller uses it to spot a bare URL. */
 export const FILTER_PARAM_KEYS = [
-  'view', 'status', 'system', 'outcome', 'due', 'fav', 'source', 'platform', 'category', 'folder', 'collection', 'q'
+  'view', 'status', 'system', 'outcome', 'due', 'ran', 'fav', 'source', 'platform', 'category', 'folder', 'collection', 'q'
 ] as const;
 
 /**
@@ -303,6 +318,7 @@ export function filtersToParams(
   if (filters.system !== DEFAULT_FILTERS.system) params.set('system', filters.system);
   if (filters.outcome !== DEFAULT_FILTERS.outcome) params.set('outcome', filters.outcome);
   if (filters.due !== DEFAULT_FILTERS.due) params.set('due', filters.due);
+  if (filters.ran && filters.ran !== DEFAULT_FILTERS.ran) params.set('ran', filters.ran);
   if (filters.favorites !== DEFAULT_FILTERS.favorites) params.set('fav', filters.favorites);
   if (filters.source !== DEFAULT_FILTERS.source) params.set('source', filters.source);
   if (filters.category !== DEFAULT_FILTERS.category) params.set('category', filters.category);
@@ -365,6 +381,7 @@ export function filtersFromParams(
     system: oneOf(params.get('system'), SYSTEM, DEFAULT_FILTERS.system),
     outcome: oneOf(params.get('outcome'), OUTCOME, DEFAULT_FILTERS.outcome),
     due: oneOf(params.get('due'), DUE, DEFAULT_FILTERS.due),
+    ran: oneOf(params.get('ran'), RAN, DEFAULT_FILTERS.ran),
     favorites: oneOf(params.get('fav'), FAVORITES, DEFAULT_FILTERS.favorites),
     source: readSource(params),
     category: params.get('category') || DEFAULT_FILTERS.category,

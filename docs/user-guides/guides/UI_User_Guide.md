@@ -313,7 +313,9 @@ platform, so starring works fine with the agent offline.
 ### Collections
 A **collection** is a set of tasks you pick by hand and give a name — "Morning checks", "Client
 work", "View2". Click **Collections** under Scopes and each one appears as a box in the main area with its own
-count; click a box to open its tasks. **New or manage collections** sits above the boxes.
+count; click a box to open its tasks. The last box, **New collection**, makes one: name it and
+click **Create**. **Manage collections** above the boxes opens the full list for reordering,
+renaming and deleting.
 
 **A collection is not a saved filter, and that distinction is the whole feature.** A view stores
 *conditions* (active, failing, due today) and shows whatever matches them right now. A collection

@@ -1,5 +1,5 @@
-import { createElement, type ReactNode } from 'react';
-import { Bookmark, CircleCheck, Clock, Link2, Pencil, Pin, PinOff, Plus, PowerOff, Trash2, XOctagon, type LucideIcon } from 'lucide-react';
+import { createElement, useState, type ReactNode } from 'react';
+import { Bookmark, CircleCheck, Clock, Link2, Pencil, Pin, PinOff, Plus, PowerOff, Settings2, Trash2, XOctagon, type LucideIcon } from 'lucide-react';
 import { platformAccent, platformLabel, platformSourceLabel, sourceAccentGlyph, sourceIcon, sourcePlatform } from '../platform';
 import type { Task } from '../types';
 import { nextRunOf } from '../utils/taskFilters';
@@ -249,6 +249,72 @@ const GalleryCard = ({
 /** The platform most of these tasks come from — the card's colour. */
 const dominantPlatform = (members: Task[]): string | null => summarize(members, new Date(0)).mix[0]?.[0] ?? null;
 
+/**
+ * The last box in the Collections grid: a dashed "New collection" card that
+ * turns into a name field in place, so making one never leaves the gallery.
+ */
+const NewCollectionCard = ({ onCreate }: { onCreate: (name: string) => Promise<boolean> }) => {
+  const [name, setName] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    const trimmed = (name ?? '').trim();
+    if (!trimmed) return;
+    setBusy(true);
+    const ok = await onCreate(trimmed);
+    setBusy(false);
+    if (ok) setName(null);
+  };
+
+  if (name === null) {
+    return (
+      <button
+        type="button"
+        onClick={() => setName('')}
+        className="group flex h-full min-h-[180px] w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary/40 bg-primary/5 text-primary-text transition-colors hover:border-primary hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+      >
+        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/15 transition-transform group-hover:scale-110">
+          <Plus size={22} />
+        </span>
+        <span className="text-sm font-bold">New collection</span>
+      </button>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={e => { e.preventDefault(); submit(); }}
+      className="flex h-full min-h-[180px] flex-col justify-center gap-3 rounded-xl border-2 border-dashed border-primary bg-primary/5 p-4"
+    >
+      <label htmlFor="new-collection-name" className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        New collection
+      </label>
+      <input
+        id="new-collection-name"
+        autoFocus
+        value={name}
+        onChange={e => setName(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setName(null); } }}
+        placeholder="e.g. Morning checks"
+        maxLength={100}
+        className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary"
+      />
+      <div className="flex justify-end gap-2">
+        <button type="button" onClick={() => setName(null)} className="px-3 text-xs font-semibold text-muted-foreground hover:text-foreground">
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={busy || !name.trim()}
+          className="flex h-8 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-bold text-primary-foreground disabled:opacity-40"
+        >
+          <Plus size={14} /> Create
+        </button>
+      </div>
+    </form>
+  );
+};
+
 const EmptyGallery = ({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) => (
   <div className="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-border px-6 py-20 text-center text-subtle-foreground">
     {icon}
@@ -325,10 +391,13 @@ export const CollectionsGallery = ({
   onReorder,
   onManage,
   onDelete,
+  onCreate,
   membersOf
 }: GalleryProps & {
   onManage: (renameId?: string) => void;
   onDelete?: (id: string, label: string, count: number) => void;
+  /** Create a collection by name; resolves true when it was made. */
+  onCreate?: (name: string) => Promise<boolean>;
 }) => {
   const drag = useBandReorder('collection', nodes.map(n => n.key), onReorder);
 
@@ -338,8 +407,8 @@ export const CollectionsGallery = ({
       onClick={() => onManage()}
       className="flex items-center gap-2 rounded-lg border border-dashed border-border px-3 py-2 text-xs font-semibold text-muted-foreground transition-colors hover:border-ring/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
     >
-      <Plus size={14} />
-      {nodes.length ? 'New or manage collections' : 'New collection'}
+      {nodes.length ? <Settings2 size={14} /> : <Plus size={14} />}
+      {nodes.length ? 'Manage collections' : 'New collection'}
     </button>
   );
 
@@ -401,6 +470,11 @@ export const CollectionsGallery = ({
             </li>
           );
         })}
+        {onCreate && (
+          <li className="min-w-0">
+            <NewCollectionCard onCreate={onCreate} />
+          </li>
+        )}
       </ul>
     </div>
   );

@@ -1,5 +1,5 @@
 import { createElement, useState, type ReactNode } from 'react';
-import { Bookmark, CircleCheck, Clock, Link2, Pencil, Pin, PinOff, Plus, PowerOff, Settings2, Trash2, XOctagon, type LucideIcon } from 'lucide-react';
+import { Bookmark, Clock, Link2, Pencil, Pin, PinOff, Plus, Settings2, Trash2, type LucideIcon } from 'lucide-react';
 import { platformAccent, platformLabel, platformSourceLabel, sourceAccentGlyph, sourceIcon, sourcePlatform } from '../platform';
 import type { Task } from '../types';
 import { nextRunOf } from '../utils/taskFilters';
@@ -202,6 +202,20 @@ const GalleryCard = ({
                 {failed > 0 && <span className="bg-danger" style={{ width: pct(failed) }} />}
                 {off > 0 && <span className="bg-muted-foreground/40" style={{ width: pct(off) }} />}
               </span>
+              {/* The bar's legend — one swatch per colour, with its count. A zero
+                  stays listed (dimmed), because "0 failed" is information too. */}
+              <span className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                {[
+                  { n: healthy, label: 'running', swatch: 'bg-success' },
+                  { n: failed, label: 'failed', swatch: 'bg-danger' },
+                  { n: off, label: 'off', swatch: 'bg-muted-foreground/40' }
+                ].map(({ n, label, swatch }) => (
+                  <span key={label} className={`flex items-center gap-1 ${n === 0 ? 'opacity-50' : ''}`}>
+                    <span aria-hidden className={`h-2 w-2 rounded-sm ${swatch}`} />
+                    <span className="font-semibold tabular-nums text-foreground">{n}</span> {label}
+                  </span>
+                ))}
+              </span>
               {showSources && <span className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
                 {mix.slice(0, 4).map(([p, n]) => (
                   <span key={p} className="flex items-center gap-1">
@@ -211,28 +225,13 @@ const GalleryCard = ({
                 ))}
                 {mix.length > 4 && <span>+{mix.length - 4} more</span>}
               </span>}
-              <span className="mt-3 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold">
-                {active > 0 && (
-                  <span className="flex items-center gap-1 rounded-md border border-success/30 bg-success/10 px-1.5 py-0.5 text-success-text">
-                    <CircleCheck size={11} aria-hidden /> {active} active
-                  </span>
-                )}
-                {failed > 0 && (
-                  <span className="flex items-center gap-1 rounded-md border border-danger/30 bg-danger/10 px-1.5 py-0.5 text-danger-text">
-                    <XOctagon size={11} aria-hidden /> {failed} failed
-                  </span>
-                )}
-                {off > 0 && (
-                  <span className="flex items-center gap-1 rounded-md border border-border bg-background px-1.5 py-0.5 text-muted-foreground">
-                    <PowerOff size={11} aria-hidden /> {off} off
-                  </span>
-                )}
-                {next && (
-                  <span className="flex items-center gap-1 rounded-md border border-info/30 bg-info/10 px-1.5 py-0.5 text-info-text" title={`Next run ${next.toLocaleString()}`}>
+              {next && (
+                <span className="mt-3 flex">
+                  <span className="flex items-center gap-1 rounded-md border border-info/30 bg-info/10 px-1.5 py-0.5 text-[11px] font-semibold text-info-text" title={`Next run ${next.toLocaleString()}`}>
                     <Clock size={11} aria-hidden /> Next {nextRunText(next, settings.timezone, now).replace(/^In /, 'in ')}
                   </span>
-                )}
-              </span>
+                </span>
+              )}
             </>
           ) : (
             <span className="mt-4 text-xs text-muted-foreground">

@@ -216,12 +216,18 @@ export const SelectionBar = ({ selected, shownCount, categories, onSelectAll, on
             {busy ? <Loader2 size={15} className="animate-spin" /> : <CheckSquare size={15} className="text-primary-text" />}
             <span className="tabular-nums">{n}</span> selected
           </span>
-          {n < shownCount && (
-            <button type="button" onClick={onSelectAll} className="text-xs font-semibold text-primary-text hover:underline">
-              Select all {shownCount} shown
-            </button>
-          )}
-          {n > 0 && (
+          {/* One toggle: Select all while anything shown is unselected, then
+              Deselect all. "Shown" because a selection never reaches past the
+              filters on screen. */}
+          <button
+            type="button"
+            onClick={n < shownCount ? onSelectAll : onClear}
+            className="flex h-8 items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/15 px-3 text-xs font-bold text-primary-text transition-colors hover:bg-primary/25 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          >
+            <CheckSquare size={14} />
+            {n < shownCount ? `Select all ${shownCount}` : 'Deselect all'}
+          </button>
+          {n > 0 && n < shownCount && (
             <button type="button" onClick={onClear} className="text-xs font-semibold text-muted-foreground hover:text-foreground">
               Clear
             </button>
@@ -253,13 +259,17 @@ export const SelectionBar = ({ selected, shownCount, categories, onSelectAll, on
                     if (v === '__new') setNewName('');
                     else if (v) addToCollection(v);
                   }}
-                  className="bg-transparent outline-none"
+                  className="bg-transparent text-foreground outline-none"
                 >
-                  <option value="">Add to collection…</option>
+                  {/* Options render in the browser's own popup, which ignores a
+                      transparent select's background — so each option carries
+                      the app's surface and text colours, or white text lands on
+                      a white list. */}
+                  <option value="" className="bg-surface text-foreground">Add to collection…</option>
                   {collections?.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
+                    <option key={c.id} value={c.id} className="bg-surface text-foreground">{c.name}</option>
                   ))}
-                  <option value="__new">+ New collection…</option>
+                  <option value="__new" className="bg-surface text-foreground">+ New collection…</option>
                 </select>
               </label>
             ) : (

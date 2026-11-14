@@ -43,7 +43,7 @@ describe('PinnedGallery', () => {
     expect(screen.queryByRole('button', { name: /rename/i })).toBeNull();
   });
 
-  it('summarizes the tasks behind the card: sources, active, failed', () => {
+  it('summarizes the tasks behind the card with a legend for the bar', () => {
     const task = (id: string, extra: object) => ({
       id, name: id, externalId: id, platform: 'WINDOWS_TASK_SCHEDULER', status: 'ACTIVE',
       category: 'AI-Maintenance', updatedAt: '2026-11-13T00:00:00Z', metadata: {}, ...extra
@@ -54,8 +54,11 @@ describe('PinnedGallery', () => {
         <PinnedGallery nodes={[PIN]} onSelect={vi.fn()} onTogglePin={vi.fn()} onReorder={vi.fn()} membersOf={() => members as never} />
       </ToastProvider>
     );
-    expect(screen.getByText(/2 active/)).toBeInTheDocument();
-    expect(screen.getByText(/1 failed/)).toBeInTheDocument();
+    // The legend splits the bar: running fine · last run failed · off.
+    const legend = (label: string) => screen.getByText(label).textContent;
+    expect(legend('running')).toMatch(/1\s*running/);
+    expect(legend('failed')).toMatch(/1\s*failed/);
+    expect(legend('off')).toMatch(/1\s*off/);
   });
 
   it('says how to pin when nothing is pinned', () => {

@@ -501,10 +501,10 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
     <Modal
       onClose={onClose}
       overlayClassName="z-50"
-      sheet
-      closeOnBackdrop={false}
+      // A drawer beside the list, closed by clicking anywhere outside it.
+      side
       labelledBy="task-modal-title"
-      panelClassName="bg-surface border border-border rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+      panelClassName="bg-surface border-l border-border w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col"
     >
         <header className="p-4 sm:p-6 border-b border-border flex justify-between items-start gap-2">
           <div className="min-w-0">

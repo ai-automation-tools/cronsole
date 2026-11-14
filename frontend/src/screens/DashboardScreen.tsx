@@ -26,7 +26,9 @@ import { TaskSchedule } from '../components/TaskSchedule';
 import { TaskFavoriteStar } from '../components/TaskFavoriteStar';
 import { ManageCollectionsModal } from '../components/ManageCollectionsModal';
 import { TaskCollectionMenu } from '../components/TaskCollectionMenu';
-import { useCollections, useUpdateCollection } from '../hooks/useCollections';
+import { useCollections, useDeleteCollection, useUpdateCollection } from '../hooks/useCollections';
+import { useConfirm } from '../hooks/useConfirm';
+import { useToast } from '../hooks/useToast';
 import { TaskRowActions } from '../components/TaskRowActions';
 import { TaskFilterMenu } from '../components/TaskFilterMenu';
 import { HealthStrip } from '../components/HealthStrip';
@@ -318,6 +320,29 @@ export const DashboardScreen = ({
    * the same division as `togglePin` above.
    */
   const updateCollection = useUpdateCollection();
+  const deleteCollection = useDeleteCollection();
+  const confirmDialog = useConfirm();
+  const { toast: notify } = useToast();
+
+  // The gallery card's Delete. Same words as the manager's: say what survives.
+  const removeCollection = async (id: string, label: string, count: number) => {
+    const ok = await confirmDialog({
+      title: `Delete “${label}”?`,
+      message:
+        count > 0
+          ? `This removes the collection only. Its ${count} task${count === 1 ? '' : 's'} stay in Cronsole and keep running.`
+          : 'This removes the collection. It has no tasks in it.',
+      confirmText: 'Delete collection',
+      tone: 'danger'
+    });
+    if (!ok) return;
+    try {
+      await deleteCollection.mutateAsync(id);
+      notify(`Collection “${label}” deleted.`, 'success');
+    } catch {
+      notify(`Could not delete “${label}”.`, 'error');
+    }
+  };
   const reorderRail = useCallback(
     (section: RailSection, keys: string[]) => {
       if (section === 'pinned') {
@@ -1096,6 +1121,7 @@ export const DashboardScreen = ({
           onSelect={applyRailPatch}
           onReorder={reorderRail}
           onManage={renameId => setManagingCollections({ renameId })}
+          onDelete={removeCollection}
           membersOf={galleryMembers}
         />
       ) : isEmpty ? (

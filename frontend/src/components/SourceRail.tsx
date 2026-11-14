@@ -437,6 +437,73 @@ export const SourceRail = ({
       className="flex min-h-0 flex-1 flex-col text-sm"
     >
       {/*
+        **The rail's header, out of the scroll**: the filter box and, beside it,
+        the collapse toggle — at the top where it is seen, coloured so it reads as
+        a control, and never scrolled away. (It lived in the bottom bar until
+        2026-11-13, a 24px grey glyph nobody found.)
+      */}
+      <div className={`flex shrink-0 items-center gap-2 ${collapsed ? 'justify-center px-2 pt-3' : 'px-3 pt-3'}`}>
+        {!collapsed && (
+          <>
+          {/*
+            **Filter the rail by name.** Sources and folders —
+            not tasks, which the view bar above the list already filters. The
+            placeholder says which, because that is the one confusion this
+            control can cause.
+          */}
+          <div className="relative min-w-0 flex-1">
+            <Search
+              size={13}
+              aria-hidden
+              className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-subtle-foreground"
+            />
+            <input
+              type="search"
+              value={query}
+              onChange={e => changeQuery(e.target.value)}
+              // Escape clears rather than blurring: the field is a lens over
+              // the rail, and leaving it focused-but-full is the state nobody
+              // wants.
+              onKeyDown={e => {
+                if (e.key !== 'Escape' || !filtering) return;
+                e.preventDefault();
+                // The mobile drawer closes on a document-level Escape.
+                // Without this, one press clears the field AND dismisses the
+                // sidebar the field lives in — and only while `filtering`, so
+                // an empty field still lets Escape shut the drawer.
+                e.stopPropagation();
+                setQuery('');
+              }}
+              aria-label="Filter sources and folders"
+              placeholder="Filter sources and folders"
+              className="h-8 w-full rounded-lg border border-border bg-background/60 pl-8 pr-7 text-[12.5px] text-foreground placeholder:text-subtle-foreground focus:border-ring/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 [&::-webkit-search-cancel-button]:hidden"
+            />
+            {filtering && (
+              <button
+                onClick={() => setQuery('')}
+                aria-label="Clear filter"
+                className="absolute right-1 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-md text-subtle-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+          </>
+        )}
+        {onToggleCollapsed && (
+          <button
+            onClick={toggleCollapsed}
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-expanded={!collapsed}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-info/40 bg-info/15 text-info-text transition-colors hover:bg-info/25 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          >
+            {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+          </button>
+        )}
+      </div>
+
+      {/*
         Everything that scrolls. The footer below does not, which is the point of
         splitting them: the controls down there are the ones you reach for from
         anywhere in the tree.
@@ -518,57 +585,13 @@ export const SourceRail = ({
           <>
 
             {/*
-              **Filter the rail by name.** Sources and folders —
-              not tasks, which the view bar above the list already filters. The
-              placeholder says which, because that is the one confusion this
-              control can cause.
-            */}
-            <div className="relative">
-              <Search
-                size={13}
-                aria-hidden
-                className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-subtle-foreground"
-              />
-              <input
-                type="search"
-                value={query}
-                onChange={e => changeQuery(e.target.value)}
-                // Escape clears rather than blurring: the field is a lens over
-                // the rail, and leaving it focused-but-full is the state nobody
-                // wants.
-                onKeyDown={e => {
-                  if (e.key !== 'Escape' || !filtering) return;
-                  e.preventDefault();
-                  // The mobile drawer closes on a document-level Escape.
-                  // Without this, one press clears the field AND dismisses the
-                  // sidebar the field lives in — and only while `filtering`, so
-                  // an empty field still lets Escape shut the drawer.
-                  e.stopPropagation();
-                  setQuery('');
-                }}
-                aria-label="Filter sources and folders"
-                placeholder="Filter sources and folders"
-                className="h-7 w-full rounded-lg border border-border bg-background/60 pl-8 pr-7 text-[12.5px] text-foreground placeholder:text-subtle-foreground focus:border-ring/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 [&::-webkit-search-cancel-button]:hidden"
-              />
-              {filtering && (
-                <button
-                  onClick={() => setQuery('')}
-                  aria-label="Clear filter"
-                  className="absolute right-1 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-md text-subtle-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                >
-                  <X size={12} />
-                </button>
-              )}
-            </div>
-
-            {/*
               **Scopes: one list.** All tasks, Favorites, Collections and
               Pinned are all "which tasks" answers that cut across sources, so
               they share a section. None of them is filtered — they are the
               routes back when a query matches nothing. Collections and Pinned
               open a gallery in the main area instead of listing here.
             */}
-            <section aria-label="Scopes" data-testid="scopes-band" className="mt-3">
+            <section aria-label="Scopes" data-testid="scopes-band">
               <h3 className="px-2 pb-1 text-[10.5px] font-bold uppercase tracking-[0.12em] text-subtle-foreground">
                 Scopes
               </h3>
@@ -692,18 +715,6 @@ export const SourceRail = ({
           collapsed ? 'flex-col px-2 py-1.5' : 'px-3 py-1.5'
         }`}
       >
-        {onToggleCollapsed && (
-          <button
-            onClick={toggleCollapsed}
-            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            aria-expanded={!collapsed}
-            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-subtle-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-          >
-            {collapsed ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
-          </button>
-        )}
-
         <button
           type="button"
           onClick={() => navigate('/sources?focus=available')}
@@ -1189,16 +1200,9 @@ const Row = ({
             className={`absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full ${dot.dot}`}
           />
         )}
-        {/* The count survives the collapse: it is the one number that says
-            whether a source is worth clicking, and losing it would make the
-            collapsed rail a row of anonymous glyphs. */}
-        <span
-          className={`text-[10px] tabular-nums leading-none ${
-            selected ? 'text-foreground font-bold' : 'text-subtle-foreground'
-          }`}
-        >
-          {node.count}
-        </span>
+        {/* No count under the icon (removed 2026-11-13 at the user's request —
+            a column of small numbers was noise at 72px); it stays in the
+            tooltip and the accessible name. */}
       </button>
     );
   }

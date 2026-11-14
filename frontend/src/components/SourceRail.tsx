@@ -880,12 +880,12 @@ const SourceCard = ({
             onClick={onToggle}
             aria-expanded={open}
             aria-label={`${open ? 'Collapse' : 'Expand'} ${node.label}`}
-            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-subtle-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+            className={chevronChip(open)}
           >
-            <ChevronRight size={13} className={`transition-transform duration-200 ${open ? 'rotate-90' : ''}`} />
+            <ChevronRight size={16} strokeWidth={2.75} className={chevronTurn(open)} />
           </button>
         ) : (
-          <span className="w-5 shrink-0" aria-hidden />
+          <span className="w-6 shrink-0" aria-hidden />
         )}
       </div>
       {open && expandable && children && (
@@ -971,9 +971,9 @@ const MoreButton = ({ label, onClick }: { label: string; onClick: () => void }) 
   <button
     type="button"
     onClick={onClick}
-    className="flex w-full items-center gap-1.5 rounded-md py-0.5 pl-1.5 pr-2 text-[11px] font-semibold text-subtle-foreground hover:text-foreground hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+    className="flex w-full items-center gap-1.5 rounded-md py-1 pl-1.5 pr-2 text-[12px] font-semibold text-subtle-foreground hover:text-foreground hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
   >
-    <ChevronRight size={11} className="shrink-0 rotate-90" />
+    <ChevronRight size={14} strokeWidth={2.5} className="shrink-0 rotate-90" />
     <span className="truncate">{label}</span>
   </button>
 );
@@ -1029,6 +1029,18 @@ const ChildRow = ({ node, ...ctx }: RowContext & { node: RailNode }) => {
     </li>
   );
 };
+
+/**
+ * The expand arrow, on a bordered chip — one style for a source card and its
+ * folder rows. A bare 12px chevron was too small to see or hit; blue = closed, solid violet = open.
+ */
+const chevronChip = (open: boolean) =>
+  `flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
+    open
+      ? 'border-primary bg-primary text-primary-foreground shadow-sm shadow-primary/40'
+      : 'border-info/40 bg-info/15 text-info-text hover:bg-info/25'
+  }`;
+const chevronTurn = (open: boolean) => `transition-transform duration-200 ${open ? 'rotate-90' : ''}`;
 
 /**
  * Pin this folder to Pinned, or take it back off.
@@ -1203,13 +1215,13 @@ const Row = ({
     */
     <div
       className={`group relative flex items-center rounded-lg pr-1.5 transition-colors duration-100 ${
-        child ? 'h-5' : 'h-6'
+        child ? 'h-7' : 'h-8'
       } ${selected ? 'bg-primary/15 text-foreground' : 'hover:bg-muted/50'}`}
     >
       <span
         aria-hidden
         className={`absolute left-0 top-1/2 w-[3px] -translate-y-1/2 rounded-r-full bg-primary transition-all duration-150 ${
-          selected ? (child ? 'h-3.5 opacity-100' : 'h-4 opacity-100') : 'h-0 opacity-0'
+          selected ? (child ? 'h-4 opacity-100' : 'h-5 opacity-100') : 'h-0 opacity-0'
         }`}
       />
 
@@ -1218,18 +1230,15 @@ const Row = ({
           onClick={onToggle}
           aria-expanded={open}
           aria-label={`${open ? 'Collapse' : 'Expand'} ${node.label}`}
-          className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded text-subtle-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          className={chevronChip(open)}
         >
-          <ChevronRight
-            size={12}
-            className={`transition-transform duration-200 ${open ? 'rotate-90' : ''}`}
-          />
+          <ChevronRight size={16} strokeWidth={2.75} className={chevronTurn(open)} />
         </button>
       ) : (
         // Reserve the chevron's width so sibling labels stay on one left edge —
         // a row that shifts sideways depending on whether it has children makes
         // the tree's depth unreadable at a glance.
-        <span className="w-[18px] shrink-0" aria-hidden />
+        <span className="w-6 shrink-0" aria-hidden />
       )}
 
       {/*
@@ -1287,7 +1296,7 @@ const Row = ({
         */}
         {Icon && (
           <Icon
-            size={child ? 13 : 16}
+            size={child ? 15 : 17}
             className={`shrink-0 transition-colors ${
               iconTone === 'warning'
                 ? 'text-warning-text'
@@ -1298,7 +1307,7 @@ const Row = ({
         )}
 
         <span
-          className={`truncate text-[12px] tracking-[-0.01em] ${
+          className={`truncate tracking-[-0.01em] ${child ? 'text-[13px]' : 'text-[14px]'} ${
             selected ? 'font-bold' : child ? 'font-medium' : 'font-semibold'
           }`}
         >
@@ -1326,7 +1335,7 @@ const Row = ({
           whether it is beside a platform or a folder.
         */}
         <span
-          className={`ml-auto shrink-0 pl-1 tabular-nums text-right text-[11px] ${
+          className={`ml-auto shrink-0 pl-1 tabular-nums text-right text-[12px] ${
             selected ? 'text-foreground font-semibold' : 'text-subtle-foreground'
           }`}
         >

@@ -171,6 +171,34 @@ describe('auth flow', () => {
     // dashboard that never loads, so login is the only honest screen left.
     authFailure.listeners.forEach(l => l());
     expect(await screen.findByRole('button', { name: 'Sign in' })).toBeInTheDocument();
-    expect(screen.queryByText('DASHBOARD')).not.toBeInTheDocument();
+    // The app stays mounted under the overlay (an open form keeps its state).
+    expect(screen.getByText('DASHBOARD')).toBeInTheDocument();
+  });
+
+  it('keeps the app mounted under the login overlay and resumes after sign-in', async () => {
+    tokenState.value = 'stale-login-token';
+    apiMock.post.mockResolvedValue({ data: { token: 'jwt-2', user: { id: 'u1', email: 'me@example.com' } } });
+    render(
+      <AuthProvider>
+        <AuthGate>
+          <input placeholder="draft" />
+        </AuthGate>
+      </AuthProvider>
+    );
+    const draft = (await screen.findByPlaceholderText('draft')) as HTMLInputElement;
+    fireEvent.change(draft, { target: { value: 'half-typed' } });
+
+    tokenState.value = null;
+    authFailure.listeners.forEach(l => l());
+    await screen.findByRole('button', { name: 'Sign in' });
+    expect(screen.getByPlaceholderText('draft')).toBe(draft); // same node: not remounted
+
+    fireEvent.change(screen.getByPlaceholderText('you@example.com'), { target: { value: 'me@example.com' } });
+    fireEvent.change(screen.getByPlaceholderText('Your password'), { target: { value: 'a-good-password' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+
+    await vi.waitFor(() => expect(screen.queryByRole('button', { name: 'Sign in' })).not.toBeInTheDocument());
+    expect(screen.getByPlaceholderText('draft')).toBe(draft);
+    expect(draft.value).toBe('half-typed');
   });
 });

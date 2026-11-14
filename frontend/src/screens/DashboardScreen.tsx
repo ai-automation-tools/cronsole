@@ -53,6 +53,7 @@ import {
   effectiveFilters,
   needsHealthData,
   nextRunOf,
+  sortByLastRun,
   sortByNextRun,
   type FilterDimension,
   type TaskFilters
@@ -697,15 +698,11 @@ export const DashboardScreen = ({
   // Soonest next run first — see `sortByNextRun`. Every layout reads this list,
   // so the grid, list and kanban columns all share the order.
   const filteredTasks = useMemo(
-    () =>
-      sortByNextRun(
-        applyTaskFilters(tasks ?? [], viewFilters, {
-          now,
-          timezone: settings.timezone,
-          tiers
-        }),
-        now
-      ),
+    () => {
+      const shown = applyTaskFilters(tasks ?? [], viewFilters, { now, timezone: settings.timezone, tiers });
+      // Asking "what ran lately?" wants the newest run on top, not the next one.
+      return viewFilters.ran && viewFilters.ran !== 'any' ? sortByLastRun(shown) : sortByNextRun(shown, now);
+    },
     [tasks, viewFilters, now, settings.timezone, tiers]
   );
 

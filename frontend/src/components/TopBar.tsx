@@ -61,7 +61,18 @@ export const TopBar = ({ activeTab, setActiveTab, showQuickLinks = true }: TopBa
     <header className="shrink-0 z-30 border-b border-border bg-surface/80 backdrop-blur-xl supports-[backdrop-filter]:bg-surface/70">
       <div className="flex items-center h-14 px-3 sm:px-4">
         {/* ── Brand ─────────────────────────────────────────────────────── */}
-        <div className="flex items-center gap-2.5 shrink-0">
+        {/* Left and right zones take equal flexible widths (`flex-1 basis-0`),
+            so the sections sit in the true centre of the bar rather than in
+            whatever space the two sides happen to leave. */}
+        <div className="flex flex-1 basis-0 items-center min-w-0">
+        {/* Home: a real link, so it reloads — Mine, every filter, selection
+            and rail search back to the start. */}
+        <a
+          href="/?view=mine"
+          title="Home — reload on Mine"
+          aria-label="Cronsole home"
+          className="flex items-center gap-2.5 shrink-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 transition-opacity hover:opacity-80"
+        >
           {/*
             The mark reads as an object rather than a floating PNG: a ring and a
             faint primary bloom give it an edge against the plate. `select-none`
@@ -75,14 +86,11 @@ export const TopBar = ({ activeTab, setActiveTab, showQuickLinks = true }: TopBa
           <span className="hidden sm:inline text-[15px] font-bold tracking-[-0.01em] select-none">
             Cronsole
           </span>
+        </a>
         </div>
 
-        {/* A hairline, not a gap. Three zones live in this bar and a gap alone
-            let the wordmark and the first tab read as one run of text. */}
-        <span aria-hidden className="hidden sm:block h-5 w-px bg-border mx-3 shrink-0" />
-
         {/* ── Sections ──────────────────────────────────────────────────── */}
-        <nav aria-label="Sections" className="flex items-stretch h-full sm:gap-0.5 min-w-0">
+        <nav aria-label="Sections" className="flex items-stretch h-full sm:gap-0.5 min-w-0 px-2">
           {NAV.filter(n => showQuickLinks || n.id !== 'links').map(({ id, label, Icon }) => {
             const active = activeTab === id;
             return (
@@ -106,7 +114,7 @@ export const TopBar = ({ activeTab, setActiveTab, showQuickLinks = true }: TopBa
                 */
                 className={`group relative flex items-center gap-2 px-1.5 sm:px-3 text-sm font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 rounded-t-lg ${
                   active
-                    ? 'text-foreground'
+                    ? 'text-foreground bg-gradient-to-b from-primary/5 to-primary/30'
                     : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
                 }`}
               >
@@ -117,7 +125,7 @@ export const TopBar = ({ activeTab, setActiveTab, showQuickLinks = true }: TopBa
                 <span className="hidden sm:inline">{label}</span>
                 <span
                   aria-hidden
-                  className={`pointer-events-none absolute inset-x-1 -bottom-px h-0.5 rounded-full bg-primary transition-all duration-200 ${
+                  className={`pointer-events-none absolute inset-x-0 -bottom-px h-[3px] rounded-full bg-primary shadow-[0_0_12px_hsl(var(--primary)/0.8)] transition-all duration-200 ${
                     active ? 'opacity-100 scale-x-100' : 'opacity-0 scale-x-50'
                   }`}
                 />
@@ -127,7 +135,7 @@ export const TopBar = ({ activeTab, setActiveTab, showQuickLinks = true }: TopBa
         </nav>
 
         {/* ── Account ───────────────────────────────────────────────────── */}
-        <div className="ml-auto flex items-center gap-1 shrink-0 pl-1.5 sm:pl-3">
+        <div className="flex flex-1 basis-0 items-center justify-end gap-1 pl-2">
           <ThemeToggle compact />
           {/* Filled with the brand primary: the one outbound link in the bar.
               Below `sm` the label drops, like the section tabs. */}

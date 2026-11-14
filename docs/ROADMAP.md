@@ -1078,6 +1078,9 @@ verification pass — is still open above, narrowed to the half that needs a tok
       became `shownRailTab`. Kept: filter, reorder + keyboard twin, caps, collapse-to-icons
       *(2026-11-13)*. *The two sliders were replaced the same day — see **Scopes as one list**
       below; `railTabs.ts`, `Settings.railTab` and `shownRailTab` are gone.*
+- [x] **Last ran filter** — `TaskFilters.ran` (1h/8h/24h/7d, `?ran=`), over `lastRunOf`: the newer
+      of the platform's `metadata.lastRunTime` and Cronsole's own `lastRunAt`; sorts newest run
+      first while set. Task cards' *Last run* reads the same helper *(2026-11-13)*.
 - [x] **Dashboard multi-select** — `SelectionBar` over the Mass Actions runner (`utils/bulkRun.ts`),
       bulk favorite / system-task routes, collection add; reverses the 2026-08-12 removal under its
       own rules (acts only on shown tasks, names the selection, typed count past 25) *(2026-11-13)*.

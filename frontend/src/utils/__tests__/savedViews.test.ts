@@ -401,3 +401,19 @@ describe('railNodeLink', () => {
     expect(url).not.toContain('collection');
   });
 });
+
+describe('last-run window in the URL', () => {
+  it('round-trips and reads an unknown value as the default', () => {
+    const f = { ...DEFAULT_FILTERS, ran: '8h' as const };
+    expect(filtersFromParams(filtersToParams(f, []), []).ran).toBe('8h');
+    expect(filtersFromParams(new URLSearchParams('ran=3y'), []).ran).toBe('any');
+  });
+
+  it('gives a saved view from before the field the default', () => {
+    // Stored JSON from before the field: the key is simply absent.
+    const before: Partial<TaskFilters> = { ...DEFAULT_FILTERS };
+    delete before.ran;
+    const old = { id: 'u1', name: 'Old', filters: before } as unknown as SavedView;
+    expect(allViews([old]).find(v => v.id === 'u1')?.filters.ran).toBe('any');
+  });
+});

@@ -1333,7 +1333,7 @@ const filters: HelpTopic = {
   id: 'filters',
   title: 'Filters',
   summary:
-    'Status and ownership. Source and folder are not in here — they are the rail on the left. ' +
+    'Status, ownership and last ran. Source and folder are not in here — they are the rail on the left. ' +
     'The number on the button is how many filters are set.',
   points: [
     {
@@ -1347,6 +1347,13 @@ const filters: HelpTopic = {
       body:
         '"Disabled only" shows you less, not more. An isolated state gets its own pill outside ' +
         'the menu so it cannot be mistaken for a normal view.'
+    },
+    {
+      label: 'Last ran: what executed lately',
+      body:
+        'Shows only tasks that ran in the last hour, 8 hours, 24 hours or 7 days, newest run first. ' +
+        'A run counts if the platform reported it (Windows, Gemini, GitHub Actions, n8n) or Cronsole ' +
+        'ran it. A source that reports no runs (Vercel) never appears here.'
     },
     {
       label: 'The counts are faceted',

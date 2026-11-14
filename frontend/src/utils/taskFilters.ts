@@ -40,6 +40,12 @@ export interface TaskFilters {
   /** Next scheduled run, relative to now in the user's schedule timezone. */
   due: DueFilter;
   /**
+   * Last-run window: "what ran in the last 8 hours?" — see `lastRunOf` for
+   * which evidence counts as a run. A user's saved view from before it existed
+   * reads as `'any'` (`allViews` fills the default in).
+   */
+  ran: RanFilter;
+  /**
    * The starred lens. `'only'` is what the Favorites view asks for; `'any'`
    * means the star plays no part in what is shown.
    *
@@ -101,6 +107,15 @@ export type SystemFilter = 'personal' | 'include' | 'only';
 export type FavoritesFilter = 'any' | 'only';
 export type OutcomeFilter = 'any' | 'failing' | 'healthy' | 'unknown';
 export type DueFilter = 'any' | 'today' | 'week' | 'overdue' | 'never';
+export type RanFilter = 'any' | '1h' | '8h' | '24h' | '7d';
+
+/** The window each `RanFilter` names, in ms. */
+export const RAN_WINDOW_MS: Record<Exclude<RanFilter, 'any'>, number> = {
+  '1h': 3600000,
+  '8h': 8 * 3600000,
+  '24h': 24 * 3600000,
+  '7d': 7 * 86400000
+};
 
 /** The server's per-task verdict from `GET /api/tools/task-health`. */
 export type HealthTier = 'ok' | 'attention' | 'critical' | 'unknown';
@@ -115,6 +130,7 @@ export const DEFAULT_FILTERS: TaskFilters = {
   system: 'personal',
   outcome: 'any',
   due: 'any',
+  ran: 'any',
   favorites: 'any',
   source: 'All',
   category: 'All',
@@ -301,6 +317,46 @@ export function nextRunOf(task: Task): Date | null {
 }
 
 /**
+ * When did this task last run — **as far as anyone can say.**
+ *
+ * Two kinds of evidence, both of a run that really happened, so the newest wins:
+ * the platform's own last-run stamp (`metadata.lastRunTime` — Windows, Gemini,
+ * GitHub Actions, n8n) and Cronsole's newest `ExecutionLog` row (`lastRunAt` —
+ * every native run and every Run now). That is not a mixed-population summary:
+ * nothing is counted or scored, it is one instant either way. A platform that
+ * reports neither (Vercel; a Claude routine never run from here) has no last
+ * run, so a last-run window never lists it — absence, not "long ago".
+ *
+ * Windows reports a never-run task as 1999-11-30; anything before 2000 is that
+ * sentinel, not a run (`readWindowsSnapshot`'s rule on the server).
+ */
+export function lastRunOf(task: Task): Date | null {
+  const parse = (raw: unknown) => {
+    if (typeof raw !== 'string') return null;
+    const d = new Date(raw);
+    return Number.isNaN(d.getTime()) || d.getUTCFullYear() < 2000 ? null : d;
+  };
+  const platform = parse((task.metadata as Record<string, unknown> | null | undefined)?.lastRunTime);
+  const cronsole = parse(task.lastRunAt);
+  if (!platform) return cronsole;
+  if (!cronsole) return platform;
+  return platform > cronsole ? platform : cronsole;
+}
+
+/** Did it run inside the window? A task with no last run matches no window. */
+export function matchesRan(task: Task, filter: RanFilter | undefined, now: Date): boolean {
+  if (!filter || filter === 'any') return true;
+  const last = lastRunOf(task);
+  return last !== null && now.getTime() - last.getTime() <= RAN_WINDOW_MS[filter];
+}
+
+/** Most recent run first; tasks with no last run keep their order at the end. */
+export function sortByLastRun(tasks: Task[]): Task[] {
+  const key = (t: Task) => lastRunOf(t)?.getTime() ?? 0;
+  return [...tasks].sort((a, b) => key(b) - key(a));
+}
+
+/**
  * The dashboard's order: **what runs next comes first.**
  *
  * Active tasks with an upcoming run, soonest first; then everything else —
@@ -384,6 +440,7 @@ export type FilterDimension =
   | 'folderPath'
   | 'collection'
   | 'due'
+  | 'ran'
   | 'outcome'
   | 'search';
 
@@ -451,6 +508,7 @@ export function applyTaskFiltersExcept(
       (skip('folderPath') || matchesFolderPath(task, filters.folderPath)) &&
       (skip('collection') || matchesCollection(task, filters.collection)) &&
       (skip('due') || matchesDue(task, filters.due, options.now, zone)) &&
+      (skip('ran') || matchesRan(task, filters.ran, options.now)) &&
       (skip('outcome') || matchesOutcome(task, filters.outcome, options.tiers)) &&
       (skip('search') ||
         !filters.search.trim() ||
@@ -509,6 +567,7 @@ export function activeFilterCount(filters: TaskFilters, base: TaskFilters = DEFA
   if (filters.system !== base.system) n++;
   if (filters.outcome !== base.outcome) n++;
   if (filters.due !== base.due) n++;
+  if ((filters.ran ?? 'any') !== (base.ran ?? 'any')) n++;
   if (filters.search.trim() !== base.search.trim()) n++;
   return n;
 }
@@ -588,6 +647,7 @@ export function filtersEqual(a: TaskFilters, b: TaskFilters): boolean {
     a.system === b.system &&
     a.outcome === b.outcome &&
     a.due === b.due &&
+    (a.ran ?? 'any') === (b.ran ?? 'any') &&
     a.search.trim() === b.search.trim()
   );
 }

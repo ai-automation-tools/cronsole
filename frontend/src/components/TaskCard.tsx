@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react';
 import { Check, ChevronRight, XOctagon } from 'lucide-react';
 import type { Task } from '../types';
 import { platformLabel, sourceIcon, sourceAccentGlyph } from '../platform';
-import { nextRunOf } from '../utils/taskFilters';
+import { lastRunOf, nextRunOf } from '../utils/taskFilters';
 import { formatTime, nextRunText } from '../utils/datetime';
 import { useSettings } from '../hooks/useSettings';
 import { TaskRowActions } from './TaskRowActions';
@@ -68,6 +68,7 @@ export const TaskCard = memo(({
   const [tempCat, setTempCat] = useState(task.category || 'Uncategorized');
   const onPointerMove = useSpotlight();
   const { settings } = useSettings();
+  const lastRun = lastRunOf(task);
 
   const activate = () => (selecting ? onToggleSelected?.(task) : onSelect(task));
   const next = nextRunOf(task);
@@ -201,10 +202,10 @@ export const TaskCard = memo(({
             Open details <ChevronRight size={10} />
           </span>
           <span className="group-hover:hidden group-focus-within:hidden">
-            {/* A run Cronsole recorded when there is one; otherwise the row's
-                last change, labelled as that — never passed off as a run. */}
-            {task.lastRunAt
-              ? <>Last run: {formatTime(task.lastRunAt, settings.timezone)}</>
+            {/* The newest run anyone reported (`lastRunOf`); otherwise the
+                row's last change, labelled as that — never passed off as a run. */}
+            {lastRun
+              ? <>Last run: {formatTime(lastRun.toISOString(), settings.timezone)}</>
               : <>Updated: {formatTime(task.updatedAt, settings.timezone)}</>}
           </span>
         </div>

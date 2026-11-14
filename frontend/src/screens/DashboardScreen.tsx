@@ -26,7 +26,7 @@ import { TaskSchedule } from '../components/TaskSchedule';
 import { TaskFavoriteStar } from '../components/TaskFavoriteStar';
 import { ManageCollectionsModal } from '../components/ManageCollectionsModal';
 import { TaskCollectionMenu } from '../components/TaskCollectionMenu';
-import { useCollections, useDeleteCollection, useUpdateCollection } from '../hooks/useCollections';
+import { useCollections, useCreateCollection, useDeleteCollection, useUpdateCollection } from '../hooks/useCollections';
 import { useConfirm } from '../hooks/useConfirm';
 import { useToast } from '../hooks/useToast';
 import { TaskRowActions } from '../components/TaskRowActions';
@@ -321,6 +321,21 @@ export const DashboardScreen = ({
    */
   const updateCollection = useUpdateCollection();
   const deleteCollection = useDeleteCollection();
+  const createCollection = useCreateCollection();
+
+  // The gallery's "New collection" card. Resolves whether it worked, so the
+  // card keeps the typed name on a failure (a duplicate name, say).
+  const addCollection = async (name: string): Promise<boolean> => {
+    try {
+      await createCollection.mutateAsync({ name });
+      notify(`Collection “${name}” created — add tasks with the bookmark on any task card.`, 'success');
+      return true;
+    } catch (err) {
+      const e = err as Error & { response?: { data?: { error?: string } } };
+      notify(`Could not create “${name}”: ${e.response?.data?.error || e.message}`, 'error');
+      return false;
+    }
+  };
   const confirmDialog = useConfirm();
   const { toast: notify } = useToast();
 
@@ -1122,6 +1137,7 @@ export const DashboardScreen = ({
           onReorder={reorderRail}
           onManage={renameId => setManagingCollections({ renameId })}
           onDelete={removeCollection}
+          onCreate={addCollection}
           membersOf={galleryMembers}
         />
       ) : isEmpty ? (

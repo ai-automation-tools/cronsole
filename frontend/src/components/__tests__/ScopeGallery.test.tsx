@@ -78,6 +78,19 @@ describe('CollectionsGallery', () => {
     return props;
   };
 
+  it('creates a collection from the New collection card', async () => {
+    const onCreate = vi.fn().mockResolvedValue(true);
+    render(
+      <ToastProvider>
+        <CollectionsGallery nodes={[COLLECTION]} onSelect={vi.fn()} onReorder={vi.fn()} onManage={vi.fn()} onCreate={onCreate} />
+      </ToastProvider>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'New collection' }));
+    fireEvent.change(screen.getByLabelText('New collection'), { target: { value: '  Nightly  ' } });
+    fireEvent.click(screen.getByRole('button', { name: /Create/ }));
+    await vi.waitFor(() => expect(onCreate).toHaveBeenCalledWith('Nightly'));
+  });
+
   it('deletes from the card, through the caller', () => {
     const onDelete = vi.fn();
     render(
@@ -99,7 +112,7 @@ describe('CollectionsGallery', () => {
     const props = renderCollections([COLLECTION]);
     fireEvent.click(screen.getByRole('button', { name: /^Rename Morning checks$/ }));
     expect(props.onManage).toHaveBeenCalledWith('c1');
-    fireEvent.click(screen.getByRole('button', { name: /new or manage collections/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^manage collections$/i }));
     expect(props.onManage).toHaveBeenLastCalledWith();
   });
 

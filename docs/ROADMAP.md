@@ -339,7 +339,9 @@ under that date.
       survives clicking a view and scopes every view count *(2026-08-12)*.
 - [x] **Mass Actions console on the Tools tab — now the only bulk surface** — action-first, plan
       before ask, typed confirmation at ≥25 tasks, chunked at 100 with halt propagation, per-task
-      five-outcome report. Dashboard row selection removed entirely *(2026-08-12)*.
+      five-outcome report. Dashboard row selection removed entirely *(2026-08-12)*. *Selection
+      came back on 2026-11-13 as the dashboard's selection bar, sharing this console's runner — see
+      **Dashboard multi-select**; the console stays the scope-first surface.*
 - [x] **One Edit button per task, instead of four** — `EditTaskModal`, fields extracted to
       `components/edit/`, prefill and gating in `utils/taskEditing.ts`; one gesture, still three
       routes, reporting per route *(2026-08-13,
@@ -1074,7 +1076,8 @@ verification pass — is still open above, narrowed to the half that needs a tok
       everything ~25% shorter. B's overview card was dropped — the
       dashboard heading already counts the tasks. Folders stay rows inside source cards; "a fold may not swallow a hit"
       became `shownRailTab`. Kept: filter, reorder + keyboard twin, caps, collapse-to-icons
-      *(2026-11-13)*.
+      *(2026-11-13)*. *The two sliders were replaced the same day — see **Scopes as one list**
+      below; `railTabs.ts`, `Settings.railTab` and `shownRailTab` are gone.*
 - [x] **Dashboard multi-select** — `SelectionBar` over the Mass Actions runner (`utils/bulkRun.ts`),
       bulk favorite / system-task routes, collection add; reverses the 2026-08-12 removal under its
       own rules (acts only on shown tasks, names the selection, typed count past 25) *(2026-11-13)*.
@@ -1546,7 +1549,9 @@ components over 1,000 lines.
 **Low: dashboard**
 
 - [ ] `small` **The mobile source drawer uses `Modal`** [F20]. It has no focus trap or restore.
-- [ ] `small` **Rail pin controls are visible on touch** [F19].
+- [ ] `small` **Rail pin controls are visible on touch** [F19]. Unpinning is solved — the Pinned
+      gallery's cards carry a labelled **Unpin** button (2026-11-13). What remains is *adding* a
+      pin: the rail folder row's `+` is still hover-revealed until pinned.
 - [ ] `small` **A Help button in the top bar** [F17], and **load the Help Center on demand** [F18].
 - [ ] `small` **An unknown path or a deleted task says so** [F23], and each route sets a page title.
 - [ ] `small` **Top-bar sections are links** [F25], and sign out sits behind a menu.
@@ -2282,8 +2287,7 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
       the bottom** holding collapse, both source routes and the help `?`. Health stays four-state —
       exception-only was drawn and rejected, since an unconnected platform already draws no dot.
       See CHANGELOG 2026-09-09 and §9.
-- [ ] **Scoping.** Views filtered to the source they make sense for (*System* is Windows-only and
-      reads `0` everywhere else); source-scoped header actions, so **Sync** and **Import** state
+- [ ] **Scoping.** Views filtered to the source they make sense for; source-scoped header actions, so **Sync** and **Import** state
       which platform they mean; per-source empty states, so a connected platform with nothing
       imported says how to import from it.
 

@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, within, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, within, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router';
+import { ToastProvider } from '../../hooks/ToastProvider';
 import { SourceRail } from '../SourceRail';
 import { DEFAULT_FILTERS, type TaskFilters } from '../../utils/taskFilters';
 import type { Task } from '../../types';
@@ -31,13 +32,13 @@ const renderRail = (
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
-      <MemoryRouter>
+      <MemoryRouter><ToastProvider>
         <SourceRail
           population={population}
           filters={{ ...DEFAULT_FILTERS, ...filters }}
           onSelect={onSelect}
         />
-      </MemoryRouter>
+      </ToastProvider></MemoryRouter>
     </QueryClientProvider>
   );
   return onSelect;
@@ -209,13 +210,13 @@ describe('SourceRail', () => {
 
     const { unmount } = render(
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-        <MemoryRouter>
+        <MemoryRouter><ToastProvider>
           <SourceRail
             population={sys}
             filters={{ ...DEFAULT_FILTERS, source: 'WINDOWS_TASK_SCHEDULER' }}
             onSelect={vi.fn()}
           />
-        </MemoryRouter>
+        </ToastProvider></MemoryRouter>
       </QueryClientProvider>
     );
     expect(await screen.findByText('hidden')).toBeInTheDocument();
@@ -232,7 +233,7 @@ describe('SourceRail', () => {
     const renderCollapsed = (onSelect = vi.fn()) => {
       render(
         <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-          <MemoryRouter>
+          <MemoryRouter><ToastProvider>
             <SourceRail
               population={[task({ category: 'AI-Tools' }), task({ category: 'AI-Maintenance' })]}
               filters={{ ...DEFAULT_FILTERS, source: 'WINDOWS_TASK_SCHEDULER' }}
@@ -240,7 +241,7 @@ describe('SourceRail', () => {
               collapsed
               onToggleCollapsed={vi.fn()}
             />
-          </MemoryRouter>
+          </ToastProvider></MemoryRouter>
         </QueryClientProvider>
       );
       return onSelect;
@@ -255,16 +256,16 @@ describe('SourceRail', () => {
       expect(screen.queryByText('AI-Maintenance')).not.toBeInTheDocument();
     });
 
-    it('keeps every source reachable, named and counted', async () => {
-      // The collapsed rail is still navigation. Losing the counts would make it
-      // a row of anonymous glyphs, and losing the names would make it unusable
-      // to a screen reader — so both survive, one visibly and one as the label.
+    it('keeps every source reachable and named, with the count in the label only', async () => {
+      // The collapsed rail is still navigation, so the name and count stay in
+      // the accessible label — but no number is drawn under the icon (removed
+      // 2026-11-13: a column of small numbers was noise at 72px).
       const onSelect = renderCollapsed();
       // Await the connection-derived row — it appears only once `useConnections`
       // resolves, so awaiting the task-derived one first races it.
       expect(await screen.findByLabelText(/^Claude Code, 0 tasks$/)).toBeInTheDocument();
       const windows = screen.getByLabelText(/^Windows Task Scheduler, 2 tasks$/);
-      expect(within(windows).getByText('2')).toBeInTheDocument();
+      expect(within(windows).queryByText('2')).toBeNull();
 
       fireEvent.click(windows);
       expect(onSelect).toHaveBeenCalledWith({
@@ -293,122 +294,97 @@ describe('SourceRail', () => {
 });
 
 /**
- * The Collections band — its own section, between the scopes and the tree.
+ * The Scopes list — All tasks, Favorites, Collections, Pinned (2026-11-13; it
+ * was two sliders and a tabbed panel), with Sources below. Collections and
+ * Pinned open galleries in the main area, so the rail lists neither.
  */
-describe('SourceRail collections band', () => {
+describe('SourceRail sections', () => {
+  const PIN = {
+    id: 'pin-1',
+    nodeKey: 'WINDOWS_TASK_SCHEDULER/AI-Maintenance',
+    label: 'AI-Maintenance',
+    patch: { source: 'WINDOWS_TASK_SCHEDULER', category: 'AI-Maintenance' }
+  };
+
   const renderBand = (over: Partial<Parameters<typeof SourceRail>[0]> = {}) => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const props = {
       population: [task({ category: 'AI-Maintenance' })],
       filters: DEFAULT_FILTERS,
       onSelect: vi.fn(),
-      onManageCollections: vi.fn(),
-      onToggleCollectionsCollapsed: vi.fn(),
-      onTogglePinnedCollapsed: vi.fn(),
-      onToggleSourcesCollapsed: vi.fn(),
       onTogglePin: vi.fn(),
+      onShowLens: vi.fn(),
       pins: [],
       ...over
     } as Parameters<typeof SourceRail>[0];
     render(
       <QueryClientProvider client={client}>
-        <MemoryRouter>
+        <MemoryRouter><ToastProvider>
           <SourceRail {...props} />
-        </MemoryRouter>
+        </ToastProvider></MemoryRouter>
       </QueryClientProvider>
     );
     return props;
   };
 
-  it('keeps the manage button inside the band, not at the foot of the rail', async () => {
-    renderBand();
-    const band = await screen.findByTestId('collections-band');
-    // The control that makes a collection belongs to the section it makes into.
-    // It is the `+` in the band's own heading now rather than a footer row —
-    // same place in the tree, one row cheaper.
-    expect(within(band).getByRole('button', { name: /new collection/i })).toBeInTheDocument();
+  const scopeNames = () =>
+    within(screen.getByTestId('scopes-band')).getAllByRole('button').map(b => b.getAttribute('aria-label')?.split(',')[0]);
+
+  it('lists All tasks, Favorites, Collections and Pinned, in that order', async () => {
+    renderBand({ pins: [PIN] });
+    await screen.findByTestId('scopes-band');
+    expect(scopeNames()).toEqual(['All tasks', 'Favorites', 'Collections', 'Pinned']);
+    expect(screen.getByRole('button', { name: /^All tasks, 1 task$/ })).toHaveAttribute('aria-current', 'true');
+    expect(screen.getByRole('button', { name: /^Pinned, 1 pinned folder$/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Collections, 0 collections$/ })).toBeInTheDocument();
+    // Both are drawn in the main area, never here.
+    expect(screen.queryByTestId('collections-band')).toBeNull();
+    expect(screen.queryByTestId('pinned-band')).toBeNull();
   });
 
-  it('folds a band shut, and says how much it is holding', async () => {
-    const pins = [
-      {
-        id: 'pin-1',
-        nodeKey: 'WINDOWS_TASK_SCHEDULER/AI-Maintenance',
-        label: 'AI-Maintenance',
-        patch: { source: 'WINDOWS_TASK_SCHEDULER', category: 'AI-Maintenance' }
-      }
-    ];
-
-    renderBand({ pins, pinnedCollapsed: false });
-    const open = await screen.findByTestId('pinned-band');
-    expect(within(open).getByText('AI-Maintenance')).toBeInTheDocument();
-
-    cleanup();
-
-    renderBand({ pins, pinnedCollapsed: true });
-    const shut = await screen.findByTestId('pinned-band');
-    // The rows go; the tally stays, because a chevron that hid twelve rows with
-    // no hint of them is the thing this count prevents.
-    expect(within(shut).queryByText('AI-Maintenance')).toBeNull();
-    expect(within(shut).getByText('1')).toBeInTheDocument();
+  it('selects a scope on click', async () => {
+    const props = renderBand();
+    await screen.findByTestId('scopes-band');
+    fireEvent.click(screen.getByRole('button', { name: /^Favorites, / }));
+    expect(props.onSelect).toHaveBeenCalledWith(expect.objectContaining({ favorites: 'only' }));
   });
 
-  it('folds the two bands independently', async () => {
-    const pins = [
-      {
-        id: 'pin-1',
-        nodeKey: 'WINDOWS_TASK_SCHEDULER/AI-Maintenance',
-        label: 'AI-Maintenance',
-        patch: { source: 'WINDOWS_TASK_SCHEDULER', category: 'AI-Maintenance' }
-      }
-    ];
-
-    // Pinned shut, Collections open: one chevron must not speak for the other.
-    renderBand({ pins, pinnedCollapsed: true, collectionsCollapsed: false });
-
-    const collections = await screen.findByTestId('collections-band');
-    expect(
-      within(collections).getByRole('button', { name: /new collection/i })
-    ).toBeInTheDocument();
-
-    const pinned = screen.getByTestId('pinned-band');
-    expect(within(pinned).queryByText('AI-Maintenance')).toBeNull();
+  it.each(['collections', 'pinned'] as const)('opens the %s gallery, and lights only its row while open', async lens => {
+    const label = lens === 'pinned' ? 'Pinned' : 'Collections';
+    const props = renderBand({ pins: [PIN], lens });
+    await screen.findByTestId('scopes-band');
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${label}, `) }));
+    expect(props.onShowLens).toHaveBeenCalledWith(lens);
+    expect(props.onSelect).not.toHaveBeenCalled();
+    // A gallery is not a task slice, so the filters behind it light nothing.
+    expect(screen.getByRole('button', { name: new RegExp(`^${label}, `) })).toHaveAttribute('aria-current', 'true');
+    expect(screen.getByRole('button', { name: /^All tasks, / })).not.toHaveAttribute('aria-current');
   });
 
-  it('names the Sources section down at the tree, not at the top of the rail', async () => {
+  it('lights Collections while one collection is open — it has no row of its own', async () => {
+    renderBand({ filters: { ...DEFAULT_FILTERS, collection: 'c1' } });
+    await screen.findByTestId('scopes-band');
+    expect(screen.getByRole('button', { name: /^Collections, / })).toHaveAttribute('aria-current', 'true');
+  });
+
+  it('draws neither gallery row without a handler to open one', async () => {
+    renderBand({ onShowLens: undefined });
+    await screen.findByTestId('scopes-band');
+    expect(scopeNames()).toEqual(['All tasks', 'Favorites']);
+  });
+
+  it('heads the Sources section with its count', async () => {
     renderBand();
     const sources = await screen.findByTestId('sources-band');
-    // The heading and its help `?` sit inside the section they describe. Atop
-    // the rail the word named a quarter of what sat under it.
-    expect(within(sources).getByText('Sources')).toBeInTheDocument();
-    expect(within(sources).getByRole('button', { name: /collapse sources/i })).toBeInTheDocument();
+    // Windows (holds the task) and Cronsole-native (shown by default).
+    expect(within(sources).getByRole('heading', { name: /^Sources\s*2$/ })).toBeInTheDocument();
   });
 
-  it('folds the Sources tree without touching the bands above it', async () => {
-    renderBand({ sourcesCollapsed: true, collectionsCollapsed: false });
-
-    const sources = await screen.findByTestId('sources-band');
-    expect(within(sources).queryByText('Windows Task Scheduler')).toBeNull();
-    // Folded, it still says how many platforms it is holding: Windows, which
-    // has the task, plus Cronsole-native, which `shownSources` defaults to even
-    // with nothing in it.
-    expect(within(sources).getByText('2')).toBeInTheDocument();
-
-    const collections = screen.getByTestId('collections-band');
-    expect(
-      within(collections).getByRole('button', { name: /new collection/i })
-    ).toBeInTheDocument();
-  });
-
-  it('offers Explore and Manage from the utility bar, whatever the tree is doing', async () => {
-    // They used to sit under the tree and fold with it. On a machine with six
-    // platforms and fifteen folders that put the only route to a source you have
-    // NOT added below the fold — which is the thing that makes an opt-in default
-    // set safe rather than indistinguishable from a missing platform. They are
-    // out of the scroll now, so folding the tree cannot take them with it.
-    renderBand({ sourcesCollapsed: true });
+  it('offers Explore and Manage from the utility bar', async () => {
+    // Out of the scroll, so nothing can take the only route to a source you
+    // have NOT added with it.
+    renderBand();
     await screen.findByTestId('sources-band');
-
     expect(screen.getByRole('button', { name: /explore sources/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /manage sources/i })).toBeInTheDocument();
   });
@@ -419,15 +395,6 @@ describe('SourceRail collections band', () => {
     // The default `shownSources`. A first run that listed only the platforms
     // holding tasks would show one row and no way to learn there are others.
     expect(within(sources).getByText('Cronsole (Native)')).toBeInTheDocument();
-  });
-
-  it('shows no Pinned band until something is pinned', async () => {
-    renderBand({ pins: [] });
-    // Collections keeps its empty state — the button below it is how the first
-    // one gets made. Pinned has no such control, so an empty band could only
-    // point somewhere else, and it does not render at all.
-    await screen.findByTestId('collections-band');
-    expect(screen.queryByTestId('pinned-band')).toBeNull();
   });
 
   it('pins a folder from the tree, and hands back the node it was asked about', async () => {
@@ -443,52 +410,12 @@ describe('SourceRail collections band', () => {
     });
   });
 
-  it('offers to unpin the folder that is already pinned', async () => {
-    renderBand({
-      filters: { ...DEFAULT_FILTERS, source: 'WINDOWS_TASK_SCHEDULER' },
-      pins: [
-        {
-          id: 'pin-1',
-          nodeKey: 'WINDOWS_TASK_SCHEDULER/AI-Maintenance',
-          label: 'AI-Maintenance',
-          patch: { source: 'WINDOWS_TASK_SCHEDULER', category: 'AI-Maintenance' }
-        }
-      ]
-    });
-
-    // Both surfaces offer it, and that is the intent: the tree row is where you
-    // notice the folder is already pinned, the band row is where you notice the
-    // pin is no longer earning its place.
-    await screen.findByTestId('collections-band');
+  it('offers to unpin from the folder row it mirrors', async () => {
+    renderBand({ filters: { ...DEFAULT_FILTERS, source: 'WINDOWS_TASK_SCHEDULER' }, pins: [PIN] });
+    const sources = await screen.findByTestId('sources-band');
     expect(
-      screen.getAllByRole('button', { name: /unpin AI-Maintenance from collections/i })
-    ).toHaveLength(2);
-  });
-
-  it('unpins from the pinned row itself, so a pin whose folder is gone is still removable', async () => {
-    // The folder is NOT in the population — it has been emptied or its platform
-    // disconnected. There is no tree row left to click, which is exactly when a
-    // row you cannot remove would be worst.
-    const props = renderBand({
-      population: [task({ category: 'AI-Tools' })],
-      pins: [
-        {
-          id: 'pin-1',
-          nodeKey: 'WINDOWS_TASK_SCHEDULER/AI-Maintenance',
-          label: 'AI-Maintenance',
-          patch: { source: 'WINDOWS_TASK_SCHEDULER', category: 'AI-Maintenance' }
-        }
-      ]
-    });
-
-    const band = await screen.findByTestId('pinned-band');
-    // Still there, reading 0 rather than having silently disappeared.
-    expect(within(band).getByText('AI-Maintenance')).toBeInTheDocument();
-
-    fireEvent.click(
-      within(band).getByRole('button', { name: /unpin AI-Maintenance from collections/i })
-    );
-    expect(vi.mocked(props.onTogglePin!).mock.calls[0][0]).toMatchObject({ key: 'pin:pin-1' });
+      within(sources).getByRole('button', { name: /unpin AI-Maintenance from collections/i })
+    ).toBeInTheDocument();
   });
 
   it('offers no pin on the system disclosure group — it is an expander, not a place', async () => {
@@ -531,7 +458,7 @@ describe('SourceRail filter', () => {
     expect(screen.queryByText('Reports')).not.toBeInTheDocument();
   });
 
-  it('never filters away the two scopes', async () => {
+  it('never filters away the scopes', async () => {
     // They are not search results — they are the two rows that mean "stop
     // narrowing", and a query matching nothing must still leave a route back.
     renderRail([task({ category: 'AI-Tools' })]);
@@ -539,8 +466,8 @@ describe('SourceRail filter', () => {
 
     type('zzz-nothing-matches');
 
-    expect(screen.getByText('All sources')).toBeInTheDocument();
-    expect(screen.getByText('Favorites')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^All tasks, / })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Favorites, / })).toBeInTheDocument();
   });
 
   it('says what it searched when it found nothing, and offers the way out', async () => {
@@ -579,36 +506,6 @@ describe('SourceRail filter', () => {
     expect(note).toHaveTextContent('Cronsole (Native)');
   });
 
-  it('opens a folded band rather than swallowing a hit inside it', async () => {
-    // The three band folds are persisted preferences. Someone who shut Sources
-    // months ago and then types a folder name would otherwise get a heading, a
-    // coverage note, and nothing on screen — and `nothingMatched` is false, so
-    // even the empty state that would explain it never renders.
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter>
-          <SourceRail
-            population={[task({ category: 'Backups' }), task({ category: 'Reports' })]}
-            filters={{ ...DEFAULT_FILTERS }}
-            onSelect={vi.fn()}
-            sourcesCollapsed
-            onToggleSourcesCollapsed={vi.fn()}
-          />
-        </MemoryRouter>
-      </QueryClientProvider>
-    );
-    await screen.findByTestId('sources-band');
-    expect(screen.queryByText('Windows Task Scheduler')).toBeNull();
-
-    type('backups');
-
-    expect(screen.getByText('Windows Task Scheduler')).toBeInTheDocument();
-    expect(screen.getByText('Backups')).toBeInTheDocument();
-    // The chevron follows rather than claiming shut over an open band.
-    expect(screen.getByRole('button', { name: /collapse sources/i })).toBeInTheDocument();
-  });
-
   it('drops the query when the rail collapses, so nothing narrows invisibly', async () => {
     // At 72px there is no field, no clear button and no empty state. A query
     // surviving would leave platforms missing from the icon rail with nothing
@@ -617,14 +514,14 @@ describe('SourceRail filter', () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={client}>
-        <MemoryRouter>
+        <MemoryRouter><ToastProvider>
           <SourceRail
             population={[task({ category: 'Backups' })]}
             filters={DEFAULT_FILTERS}
             onSelect={vi.fn()}
             onToggleCollapsed={onToggleCollapsed}
           />
-        </MemoryRouter>
+        </ToastProvider></MemoryRouter>
       </QueryClientProvider>
     );
     await screen.findByText('Windows Task Scheduler');
@@ -755,7 +652,7 @@ describe('SourceRail reordering', () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={client}>
-        <MemoryRouter>
+        <MemoryRouter><ToastProvider>
           <SourceRail
             population={[
               task({ platform: 'WINDOWS_TASK_SCHEDULER' }),
@@ -766,7 +663,7 @@ describe('SourceRail reordering', () => {
             sourceOrder={sourceOrder}
             onReorder={onReorder}
           />
-        </MemoryRouter>
+        </ToastProvider></MemoryRouter>
       </QueryClientProvider>
     );
     return onReorder;
@@ -813,7 +710,7 @@ describe('SourceRail reordering', () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={client}>
-        <MemoryRouter>
+        <MemoryRouter><ToastProvider>
           <SourceRail
             population={[
               task({ platform: 'WINDOWS_TASK_SCHEDULER' }),
@@ -824,7 +721,7 @@ describe('SourceRail reordering', () => {
             onSelect={vi.fn()}
             onReorder={onReorder}
           />
-        </MemoryRouter>
+        </ToastProvider></MemoryRouter>
       </QueryClientProvider>
     );
     await screen.findByText('Claude Code');

@@ -83,6 +83,8 @@ export interface HealthInputTask {
   category: string;
   /** The platform's native id — used only to ask whether Windows owns this task. */
   externalId: string;
+  /** This user filed it under system tasks (`TaskHidden`). Absent = no. */
+  hiddenByUser?: boolean;
   status: TaskStatus;
   schedule: string | null;
   nextRunTime: Date | null;
@@ -200,7 +202,7 @@ export function scoreTask(task: HealthInputTask, now: Date): TaskHealth {
     platform: task.platform,
     category: task.category,
     // One definition of "Windows owns this", shared with the dashboard's lens.
-    isSystem: TaskService.isSystemTask(task.externalId, task.platform)
+    isSystem: TaskService.isSystemTask(task.externalId, task.platform, task.hiddenByUser)
   };
 
   const add = (

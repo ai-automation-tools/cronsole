@@ -413,3 +413,28 @@ describe('what a hosted agent can reach', () => {
     expect(screen.queryByText(/What this agent can reach/i)).not.toBeInTheDocument();
   });
 });
+
+describe('TaskModal — move to system tasks', () => {
+  beforeEach(() => {
+    vi.mocked(api.get).mockResolvedValue({ data: [] });
+    vi.mocked(api.post).mockResolvedValue({ data: {} });
+    vi.mocked(api.delete).mockResolvedValue({ data: {} });
+  });
+
+  it('files an ordinary task under system tasks', async () => {
+    renderModal();
+    fireEvent.click(screen.getByRole('button', { name: /move to system tasks/i }));
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/tasks/task-123/hidden'));
+  });
+
+  it('takes a hand-filed task back out', async () => {
+    renderModal({ task: { ...mockTask, isSystem: true, hiddenByUser: true } });
+    fireEvent.click(screen.getByRole('button', { name: /move out of system tasks/i }));
+    await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/tasks/task-123/hidden'));
+  });
+
+  it('offers neither on an OS-owned task — there is nothing to move', () => {
+    renderModal({ task: { ...mockTask, isSystem: true, hiddenByUser: false } });
+    expect(screen.queryByRole('button', { name: /system tasks/i })).toBeNull();
+  });
+});

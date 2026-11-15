@@ -49,3 +49,26 @@ export function timeAgo(iso: string | null | undefined): string {
   if (months < 12) return `${months}mo ago`;
   return `${Math.floor(months / 12)}y ago`;
 }
+
+/**
+ * When a task runs next, as a card reads it: `In 1h 32m (3:00 PM)` inside a
+ * day, `Sun 4:00 AM` beyond one, `Overdue (9:00 AM)` once the stamp has
+ * passed. Read in the Settings zone, with the zone marked when it is not the
+ * machine's — `withZone`'s rule.
+ */
+export function nextRunText(at: Date, tz: TimezoneMode, now: Date = new Date()): string {
+  const iso = at.toISOString();
+  const clock = withZone(iso, tz, (d, opts) =>
+    d.toLocaleTimeString(undefined, { ...opts, hour: 'numeric', minute: '2-digit' })
+  );
+  const ms = at.getTime() - now.getTime();
+  if (ms < 0) return `Overdue (${clock})`;
+  if (ms >= 86400000) {
+    return withZone(iso, tz, (d, opts) =>
+      d.toLocaleString(undefined, { ...opts, weekday: 'short', hour: 'numeric', minute: '2-digit' })
+    );
+  }
+  const mins = Math.round(ms / 60000);
+  const span = mins < 60 ? `${mins}m` : `${Math.floor(mins / 60)}h ${mins % 60}m`;
+  return `In ${span} (${clock})`;
+}

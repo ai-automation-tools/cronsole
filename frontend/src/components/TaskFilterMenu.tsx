@@ -8,16 +8,19 @@ import {
   EyeOff,
   Filter,
   Folder,
+  History,
   User,
   X
 } from 'lucide-react';
 import {
   activeFilterCount,
   withheldBy,
+  type RanFilter,
   type StatusFilter,
   type SystemFilter,
   type TaskFilters
 } from '../utils/taskFilters';
+import { RAN_LABEL } from '../utils/savedViews';
 import { HelpButton } from './HelpButton';
 import { useAnchoredPanel } from '../hooks/useAnchoredPanel';
 import { useMediaQuery } from '../hooks/useMediaQuery';
@@ -172,7 +175,7 @@ export const TaskFilterMenu = ({
           onClick={() => setOpen(o => !o)}
           aria-expanded={open}
           aria-haspopup="true"
-          title="Status, ownership and category filters"
+          title="Status, ownership and last-run filters"
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all active:scale-95 ${
             active > 0
               ? 'bg-primary/10 border-primary/40 text-foreground'
@@ -246,6 +249,24 @@ export const TaskFilterMenu = ({
               </Section>
             )}
 
+            {/* "What ran lately?" — a window on the newest run anyone reported
+                (`lastRunOf`). Picking one also sorts newest run first. */}
+            <Section title="Last ran">
+              {(['any', '1h', '8h', '24h', '7d'] as RanFilter[]).map(r => (
+                <button
+                  key={r}
+                  onClick={() => setFilter('ran', r)}
+                  className={`${row} ${(filters.ran ?? 'any') === r ? rowOn : rowOff}`}
+                >
+                  <span className="flex items-center gap-2">
+                    <History size={12} className={r === 'any' ? 'text-muted-foreground' : 'text-info-text'} />
+                    {r === 'any' ? 'Any time' : `In the last ${RAN_LABEL[r]}`}
+                  </span>
+                  {(filters.ran ?? 'any') === r && <Check size={12} className="text-primary" />}
+                </button>
+              ))}
+            </Section>
+
             {/* Category is not here any more — it is the source rail's second
                 level, where a Task Scheduler folder is the axis you navigate
                 by rather than a list inside a popover. Same reasoning that took
@@ -268,6 +289,9 @@ export const TaskFilterMenu = ({
           tone="isolate"
           onClear={() => setFilter('status', 'any')}
         />
+      )}
+      {filters.ran && filters.ran !== 'any' && (
+        <Pill icon={<History size={11} />} label={`Ran in last ${RAN_LABEL[filters.ran]}`} onClear={() => setFilter('ran', 'any')} />
       )}
       {filters.system === 'only' && (
         <Pill icon={<Cpu size={11} />} label="Windows’ own only" tone="isolate" onClear={() => onSystemLensChange('personal')} />

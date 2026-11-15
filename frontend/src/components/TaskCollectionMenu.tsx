@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Bookmark, Check, Plus, Loader2 } from 'lucide-react';
+import { Bookmark, Check, Minus, Plus, Loader2 } from 'lucide-react';
 import type { Task } from '../types';
 import { useAnchoredPanel } from '../hooks/useAnchoredPanel';
 import {
@@ -9,8 +9,18 @@ import {
   useSetCollectionMembers
 } from '../hooks/useCollections';
 
+/** The members route's per-request cap (`membersSchema` / `createSchema`). */
+const MAX_PER_REQUEST = 500;
+
 interface TaskCollectionMenuProps {
-  task: Task;
+  /** One task — or, with `folder`, omitted. */
+  task?: Task;
+  /**
+   * A whole folder's tasks, added or removed in one request. A **snapshot**:
+   * a collection's membership is declared, so tasks that arrive in the folder
+   * later do not join — the panel says so, and points at pinning, which does.
+   */
+  folder?: { label: string; tasks: Task[] };
   size?: number;
   className?: string;
   /**
@@ -55,6 +65,7 @@ const PANEL_WIDTH = 240;
  */
 export const TaskCollectionMenu = ({
   task,
+  folder,
   size = 18,
   className = '',
   variant = 'icon'
@@ -71,8 +82,18 @@ export const TaskCollectionMenu = ({
   const setMembers = useSetCollectionMembers();
   const createCollection = useCreateCollection();
 
-  const memberOf = new Set(task.collectionIds ?? []);
-  const count = memberOf.size;
+  const tasks = folder ? folder.tasks : task ? [task] : [];
+  const ids = tasks.map(t => t.id);
+  /** How many of `tasks` each collection holds — all of them is "ticked". */
+  const held = new Map<string, number>();
+  for (const t of tasks) for (const c of t.collectionIds ?? []) held.set(c, (held.get(c) ?? 0) + 1);
+  const isMemberOf = (collectionId: string) =>
+    tasks.length > 0 && held.get(collectionId) === tasks.length;
+  // A folder's tasks each carry their own memberships, so the bookmark's count
+  // (collections *this task* is in) has no folder equivalent and is not drawn.
+  const count = folder ? 0 : held.size;
+  const tooMany = ids.length > MAX_PER_REQUEST;
+  const subject = folder ? `the ${ids.length} task${ids.length === 1 ? '' : 's'} in ${folder.label}` : task?.name ?? '';
 
   /**
    * Placement, flipping, outside-click and Escape all live in
@@ -98,10 +119,11 @@ export const TaskCollectionMenu = ({
 
   const toggle = (collectionId: string) => {
     setError(null);
-    const isMember = memberOf.has(collectionId);
+    if (tooMany) return setError(`${folder?.label} holds more than ${MAX_PER_REQUEST} tasks — pick a subfolder.`);
+    // All in → take them all out; otherwise add the rest (adding is idempotent).
     setMembers.mutate({
       id: collectionId,
-      ...(isMember ? { remove: [task.id] } : { add: [task.id] })
+      ...(isMemberOf(collectionId) ? { remove: ids } : { add: ids })
     });
   };
 
@@ -110,10 +132,11 @@ export const TaskCollectionMenu = ({
     const trimmed = name.trim();
     if (!trimmed) return;
     setError(null);
+    if (tooMany) return setError(`${folder?.label} holds more than ${MAX_PER_REQUEST} tasks — pick a subfolder.`);
     try {
       // Created *with* the task in it — one call, so a collection can never be
       // made and then fail to receive the task that motivated it.
-      await createCollection.mutateAsync({ name: trimmed, taskIds: [task.id] });
+      await createCollection.mutateAsync({ name: trimmed, taskIds: ids });
       setName('');
       setCreating(false);
     } catch (err) {
@@ -128,8 +151,8 @@ export const TaskCollectionMenu = ({
 
   const label =
     count > 0
-      ? `${task.name} is in ${count} collection${count === 1 ? '' : 's'}. Edit collections`
-      : `Add ${task.name} to a collection`;
+      ? `${subject} is in ${count} collection${count === 1 ? '' : 's'}. Edit collections`
+      : `Add ${subject} to a collection`;
 
   return (
     <>
@@ -143,7 +166,11 @@ export const TaskCollectionMenu = ({
         aria-expanded={open}
         aria-haspopup="true"
         aria-label={label}
-        title={count > 0 ? `In ${count} collection${count === 1 ? '' : 's'}` : 'Add to a collection'}
+        title={
+          folder
+            ? `Add ${subject} to a collection`
+            : count > 0 ? `In ${count} collection${count === 1 ? '' : 's'}` : 'Add to a collection'
+        }
         className={
           variant === 'labeled'
             ? `inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px] font-bold transition-colors ${
@@ -188,11 +215,18 @@ export const TaskCollectionMenu = ({
             <p className="px-2 py-1 text-[10px] font-black uppercase tracking-wider text-subtle-foreground">
               Collections
             </p>
+            {folder && (
+              <p className="px-2 pb-1.5 text-[11px] text-subtle-foreground">
+                Adds the {ids.length} task{ids.length === 1 ? '' : 's'} shown in {folder.label} now.
+                Tasks added to the folder later won't join — pin the folder for that.
+              </p>
+            )}
 
             {collections && collections.length > 0 ? (
               <ul className="max-h-56 overflow-y-auto">
                 {collections.map(c => {
-                  const isMember = memberOf.has(c.id);
+                  const isMember = isMemberOf(c.id);
+                  const partial = !isMember && (held.get(c.id) ?? 0) > 0;
                   return (
                     <li key={c.id}>
                       <button
@@ -201,15 +235,16 @@ export const TaskCollectionMenu = ({
                         // Not disabled while saving: a disabled row loses focus and
                         // cannot be re-read by a screen reader mid-write, and these
                         // writes are idempotent, so a double click is harmless.
-                        aria-pressed={isMember}
+                        aria-pressed={partial ? 'mixed' : isMember}
                         className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs text-foreground hover:bg-muted transition-colors"
                       >
                         <span
                           className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
-                            isMember ? 'bg-info border-info text-info-foreground' : 'border-border'
+                            isMember ? 'bg-info border-info text-info-foreground' : partial ? 'border-info text-info-text' : 'border-border'
                           }`}
                         >
                           {isMember && <Check size={11} />}
+                          {partial && <Minus size={11} />}
                         </span>
                         <span className="truncate">{c.name}</span>
                         <span className="ml-auto text-[10px] text-subtle-foreground">{c.count}</span>

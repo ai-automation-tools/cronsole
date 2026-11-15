@@ -122,41 +122,44 @@ Action panel. See [Editing a task](#editing-a-task).
 
 ### Source — where a task comes from
 
-The **rail down the left of the dashboard** is where you navigate. It is a tree, two levels deep,
-and it answers *where a task lives* before anything else asks *which slice of it you want*:
+The **rail down the left of the dashboard** is where you navigate. It answers *where a task lives*
+before anything else asks *which slice of it you want*:
 
 ```
   🔍 Filter sources and folders
-    All sources                403
-  ★ Favorites                   12
+  SCOPES
+  ≡ All tasks                      403
+  ★ Favorites                       12
+  🔖 Collections                      2
+  📌 Pinned                           2
 
-COLLECTIONS                      +
-  ( AI-Lab 24 ) ( Prompt Library 9 )
-  ( Nightly 6 ) ( Deploys 4 ) ( +2 )
-
-PINNED
-  ( \Cronsole 14 ) ( \AI_Agents 31 )
-
-SOURCES
-▾ ● Windows Task Scheduler     357
-     AI-Maintenance             12
-     AI-Tools                    8
-     Backups                     4
-     Claude                      5
-     …
-     ▸ Show 5 more folders
-   ⃠ System tasks     HIDDEN    300
-▸ ● Cronsole (Native)           12
-▸ ● Claude Code                  3
-  ─────────────────────────────
-  ◧  🔍 Explore sources   ⚙  ?
+  SOURCES 3
+  ┌────────────────────────────────┐
+  │ ▣ Windows Task Scheduler  357 ▾│
+  │   ● Online                     │
+  │   AI-Maintenance            12 │
+  │   AI-Tools                   8 │
+  │   …                            │
+  │   ▸ Show 5 more folders        │
+  │   ⃠ System tasks  HIDDEN   300  │
+  └────────────────────────────────┘
+  ┌ ▣ Cronsole (Native)      12  ▸ ┐
+  ┌ ▣ Claude Code             3  ▸ ┐
+  ─────────────────────────────────
+  ◧  [ Explore sources ]   ⚙  ?
 ```
 
-**Level 1 is the system.** *All sources* and **Favorites** lead, separated by a rule from the
-platforms below — those two are scopes over everything rather than one system each. Then one row per
-platform you have tasks from **or are
-connected to**. The coloured dot is that platform's connection health — this is the same reading the
-old sidebar's "System Status" panel used to give, moved next to the thing it describes.
+Under the filter box is **Scopes**: **All tasks**, **Favorites**, **Collections** and **Pinned**,
+each with its count. *All tasks* and *Favorites* show those tasks straight away. **Collections**
+and **Pinned** open a page of cards in the main area instead — one box per collection or pinned
+folder — and you click a box to open its tasks (see [Collections](#collections) and
+[Pinned](#pinned)). **Sources
+sit on their own below**, always on screen — they are what you navigate by.
+
+**Level 1 is the system.** The *Sources* section has one card per platform you have tasks from **or are
+connected to**: its icon, its name, its connection health in words beside a coloured dot — the
+same reading the old sidebar's "System Status" panel used to give — and its count. Click the card to
+pick the source; click the chevron to open it.
 
 **Level 2 is whatever that system groups by**, which is genuinely different per platform:
 
@@ -183,16 +186,24 @@ old sidebar's "System Status" panel used to give, moved next to the thing it des
   so in its own label and states the count, so nothing is quietly fenced off. Open it and pick a
   folder to look inside one. The group itself only expands — it is a disclosure, not a filter.
 
-**Collections and Pinned are chips**, not rows — two separate bands, each with its own heading and
-its own fold, because a collection holds what you put in it and a pin tracks a folder. A chip keeps
-everything a row carried: its name, its count, whether it is selected, and (on a pin) the `×` that
-takes it off. Six of them cost two lines instead of six.
+**Collections and pins live in different places**, because a collection holds what you put in it
+and a pin tracks a folder, so they get a page each. A collection's card has **link** and
+**rename**; a pin's has **link** and the `×` that takes it off.
 
 **Collapse the rail** with the leftmost button in the bottom bar. Collapsed, it becomes a narrow column of
-icons — each system with its health dot and its count, names on hover — and the folder level is
-**dropped rather than shrunk**, because a Task Scheduler folder name has nowhere to go at that
+icons — *All sources*, *Favorites*, then each system with its health dot and its count, names on
+hover. Collections and pins wait for the full width, since they have no icon of their own, and the
+folder level is **dropped rather than shrunk**, because a Task Scheduler folder name has nowhere to go at that
 width and a column of tooltips is worse than admitting the tree needs room. The choice is
 remembered between visits.
+
+**Resize the rail** by dragging its right edge — the line lights up when you are on it. It goes
+from about 210px to 560px, and never past half the window. **Double-click the edge** to put it back
+to the default. From the keyboard, Tab to the edge and use ← / → (Shift for bigger steps), Home / End
+for the narrowest and widest, and Enter to reset. The width is remembered **per browser**, not
+synced like your other sidebar settings: a width in pixels depends on the screen, and the rail
+that suits a wide monitor would crowd a laptop. Collapsing still works as before and keeps your
+width for when you expand it again.
 
 On a phone the rail is a drawer: tap **Sources** beside the page heading. The breadcrumb under the
 heading is what tells you where you are while it is closed. The drawer always opens at full width —
@@ -213,9 +224,9 @@ empty sidebar.
 
 #### Filtering the sidebar
 
-The box at the top narrows **the rail itself** — sources, folders, collections and pins, by name.
-Matching folders open so you can see the hit — as does a folded band, so a section you shut months
-ago cannot quietly answer "no results". **Escape** clears it, and collapsing the sidebar clears it
+The box at the top narrows **the rail itself** — sources and folders, by name.
+Matching folders open so you can see the hit. The Scopes rows never filter
+away, so a search that matches nothing still leaves a way back. **Escape** clears the box, and collapsing the sidebar clears it
 too, since at icon width there would be nothing on screen to say the rail was still narrowed.
 
 It filters the sidebar, **not your tasks**. To search task names, use the search box and *Filters*
@@ -228,7 +239,7 @@ would otherwise look identical.
 
 #### Long lists stop at ten
 
-Every band and every folder list draws ten rows, then a **Show 5 more folders** control stating
+Every list — collections, pins, and every folder list — draws ten rows, then a **Show 5 more folders** control stating
 exactly how many are behind it. One platform with fifteen Task Scheduler folders cannot take over
 the whole sidebar, and nothing is ever hidden without its count beside it. **The list of sources
 itself is never shortened** — you chose which sources to show, so every one of them is drawn. Filter matches are never
@@ -259,7 +270,7 @@ rebuilt from scratch on every visit. Seven ship built in:
 | **Failures** | Tasks the health check rates *critical* or *needs attention*. |
 | **Due today** | Tasks whose next run falls on today's date, in your **schedule timezone** (Settings › Schedule timezone) so it agrees with the times printed on the cards. |
 | **Disabled** | Only the tasks you've parked. Note this **isolates** them — it is not the same as *Filters › Status › All statuses*, which merely stops hiding them. |
-| **System** | Only the tasks Windows itself owns under `\Microsoft\`, which the dashboard hides by default. |
+| **System** | Only system tasks — the ones Windows itself owns under `\Microsoft\`, plus any you moved there yourself — which the dashboard hides by default. |
 
 > **System tasks are hidden by default.** On a real machine `\Microsoft\…` is most of what Task
 > Scheduler holds — 257 of 352 on the box this was built against — so leaving them in makes every
@@ -267,6 +278,12 @@ rebuilt from scratch on every visit. Seven ship built in:
 > with the number and a link to **Settings › Dashboard defaults › Show system tasks**, which is the
 > switch that changes it for good. The `N system hidden` chip beside **Filters** still reveals them
 > for the current session, and the **System** view still isolates them.
+>
+> **You can file any task there yourself.** Open it and click **Move to system tasks** — useful for
+> an updater or a vendor's housekeeping job that isn't under `\Microsoft\` but that you never want
+> to see. It is hidden everywhere system tasks are (the list, the calendar, task health) and keeps
+> running; it now sits in its source's *System tasks* group in the sidebar. **Move out of system
+> tasks** in the same place puts it back. Tasks Windows itself owns can't be moved out.
 
 - **Saving your own:** change any filters and the row shows a **Custom** chip plus **Save view**. Name it and it becomes a chip of its own, with a count, kept between visits. Delete one with the `×` on its chip — that only removes the name; the tasks and the filters you're currently looking at are untouched.
 - **Every view is a link.** The URL carries the view (`?view=failures`) or the individual filters, so you can bookmark one or paste it to another machine. A link to a saved view *someone else* made falls back to the normal dashboard rather than showing you nothing.
@@ -295,11 +312,10 @@ platform, so starring works fine with the agent offline.
 
 ### Collections
 A **collection** is a set of tasks you pick by hand and give a name — "Morning checks", "Client
-work", "View2". It appears in the **Collections** section of the source rail — its own band between
-*Favorites* and your platforms, ruled off top and bottom — with its own count. The band **folds
-shut** from the chevron beside its heading, which keeps its tally visible while it is closed so a
-fold can never quietly hide twelve rows. **Pinned** is a second band just like it, directly below;
-the two fold independently.
+work", "View2". Click **Collections** under Scopes and each one appears as a box in the main area with its own
+count; click a box to open its tasks. The last box, **New collection**, makes one: name it and
+click **Create**. **Manage collections** above the boxes opens the full list for reordering,
+renaming and deleting.
 
 **A collection is not a saved filter, and that distinction is the whole feature.** A view stores
 *conditions* (active, failing, due today) and shows whatever matches them right now. A collection
@@ -320,8 +336,17 @@ there is no shared property to filter on.
 - **Collections compose with your view**, exactly like Favorites. Selecting one keeps whichever view
   is lit, so *Failures* + your collection is the failing tasks in it. Selecting one also clears any
   source, folder or starred scope — a collection spans systems, so it cannot sit "inside" one.
-- **Manage, rename and delete** from *Manage collections*, at the foot of the Collections section
-  itself — the control that makes a collection sits in the band it makes into.
+- **Add a whole folder at once.** Hover a folder or job type in the source rail and click its
+  **bookmark**: the same checklist, acting on every task the row counts (under your current view).
+  It is a snapshot — tasks that land in the folder later do not join. To follow a folder as it
+  changes, pin it instead (below). A collection that holds some of the folder shows a **–**;
+  clicking it adds the rest, and clicking a fully ticked one takes the whole folder back out.
+- **Link to a collection.** Click the **link** button on its tile (or use the link button in
+  *Manage collections*) to copy a URL like `…/?collection=<id>`. It opens the dashboard on that
+  collection, survives a rename, and works for anyone signed in to the same Cronsole account.
+- **Rename** from the **pencil** button on the tile, or **manage, rename and delete** from *Manage
+  collections*, the dashed button at the foot of the Collections tab — the control that makes a
+  collection sits where collections are.
 - **Deleting a collection never deletes tasks.** It removes the grouping; the tasks stay in Cronsole
   and keep running, and the confirmation says so with the count.
 - **Removing a task from Cronsole takes it out of any collection holding it** — the same rule as the
@@ -329,10 +354,11 @@ there is no shared property to filter on.
 - Collections are yours alone, change nothing on any platform, and work with the agent offline.
 
 ### Pinned
-A folder you use constantly can be lifted out of the tree and parked in its own **Pinned** section,
-directly below Collections. Hover a folder or job type in the source rail and click the **+** beside
-its name; it appears above with a **pin** icon. Click the pin again — on the folder in the tree, or
-on the pinned row — to take it back off. Nothing about the folder changes; the tree keeps it either
+A folder you use constantly can be lifted out of the tree and pinned. Hover a
+folder or job type in the source rail and click the **+** beside its name; it turns into a **pin**
+icon. Click **Pinned** under Scopes and your pins open as cards in the main area — click one to
+open that folder's tasks. Click the pin again on the folder in the tree, or the `×` on its card,
+to take it back off. Nothing about the folder changes; the tree keeps it either
 way.
 
 **Pinned is a separate section from Collections because they are separate kinds of thing.** A
@@ -342,25 +368,26 @@ day, with no action from you. That is the reason pinning does not simply build a
 the folder's current contents: a set named after a folder that had quietly stopped matching it would
 be worse than no shortcut at all.
 
-The sidebar has **four sections**, top to bottom: the two scopes (*All sources*, *Favorites*), then
-**Collections**, **Pinned**, and **Sources** — the platform tree. The last three each carry a
-heading with a chevron and **fold independently**; a folded section keeps its count on screen, so
-folding one never hides how much is in it. They look and behave alike on purpose.
+**Collections** and **Pinned** are both rows under Scopes, and each opens its own page of cards
+in the main area rather than a list in the sidebar. **Sources** (the platform tree) sit on their own below, always visible.
 
-**Pinned appears only once you have pinned something**, and goes when you unpin the last one; unlike
-Collections it carries no *New…* button, because pinning happens on a folder in the tree rather than
-from the band. The button at the very top of the sidebar collapses the **whole** rail to icons,
-which is a different thing from folding a section.
+**An empty Pinned page tells you how to pin**, since pinning happens on a folder under Sources
+rather than from Pinned itself. The leftmost button in the bottom bar collapses the **whole** rail
+to icons.
 
 Two consequences worth knowing:
 
-- **A pinned row and its folder in the tree always print the same number**, because they are the
+- **A pin and its folder in the tree always print the same number**, because they are the
   same row shown twice — the pin reads the folder's count rather than tallying its own. Selecting
   either lights both.
 - **A pin outlives what it points at.** Rename the folder and the pin follows it. Empty the folder,
   disconnect the platform, or remove its last task, and the pin stays where it is reading `0` — it
   is a place you declared, so it does not vanish out from under you, and you can still click it to
   remove it.
+- **Link to a pinned folder.** Click the **link** button on its tile to copy a URL like
+  `…/?source=…&category=…`. It names the folder itself, not your pin, so it keeps working if you
+  unpin and opens the same place for anyone signed in to the same Cronsole account. There is no
+  rename: a pin always shows the real folder's name.
 
 Pins follow your account, like your other dashboard preferences (the rail's collapsed state, your
 saved views): they sync through Cronsole's own preference store, so the sidebar you arranged on the
@@ -416,15 +443,24 @@ weekday appears exactly once and the shape of a week is invisible.
 ### Views, Search & Filters
 - **View modes:** Switch between **Grid**, **List**, **Kanban** (active vs. disabled columns), **Schedule** (sorted by next run) and **Calendar** (a month or week grid — see above) using the toggle on the right. The layout is **not** part of a saved view — picking a view changes which tasks you see, never how they're drawn.
 - **Search:** The search box filters by task name, category, path, command, and schedule. Press `/` to jump to it and `Esc` to clear; a match counter shows how many tasks matched.
-- **The Filters button** holds status and ownership. *(Neither source nor folder is in here — both are the **source rail** on the left. The button's count ignores them too, because a badge may only count what its own menu can clear.)* The number on it is how many filters are set, so a closed menu can never hide *that* you're filtered. Inside:
+- **The Filters button** holds status, ownership and last ran. *(Neither source nor folder is in here — both are the **source rail** on the left. The button's count ignores them too, because a badge may only count what its own menu can clear.)* The number on it is how many filters are set, so a closed menu can never hide *that* you're filtered. Inside:
   - **Status** — *Active only* (the default), *All statuses*, or **isolate** just the *Disabled* or just the *Missing* ones. Isolating is not the same as including: it shows you **less**, and an isolated state appears as its own pill outside the menu so it can't be mistaken for normal.
   - **Ownership** — Windows keeps hundreds of its own scheduled tasks under `\Microsoft\`; on a typical machine they outnumber yours roughly 3:1, so Cronsole hides them by default. This is **independent of Status**, so the normal view is *yours **and** active* — either can be opened up without touching the other. The choice is remembered between visits, and the section only appears if you've actually imported some.
+  - **Last ran** — *what executed lately?* Pick *the last hour*, *8 hours*, *24 hours* or *7 days* to see only the tasks that ran in that window, **newest run first**; a pill (`Ran in last 8 hours ×`) stays on the toolbar while it's set, and the URL carries it (`?ran=8h`) so it bookmarks. A run counts if the platform reported it (Windows' own last-run time, Gemini, GitHub Actions, n8n) or Cronsole ran it (native jobs, Run now). A source that reports no runs — Vercel, or a Claude routine never run from here — has no last run, so it never appears in a window. For every individual run in a range, with outcomes, use **Tools › Run History**.
 - **What a filter is hiding is never inside the menu.** Two of these lenses are defaults you didn't pick today, and they hold rows back while looking like a neutral starting state — so they say so on the toolbar itself: `189 system hidden`, `10 inactive hidden`. Each is also the button that undoes it. The rail's two dimensions don't need this: the rail shows its own selection, and the folder also appears as a **pill** you can read and dismiss (`Backups ×`) — which is what names it on a phone, where the rail is closed.
 - **Counts describe the view you're in, not the whole dashboard.** A count beside a filter is a promise about what clicking it will reveal, so it's taken over everything the *other* filters allow. With Favorites selected and two stars, the status filter counts against those two — not against all 269.
 
 ---
 
 ## 2. Task Details
+
+Each task card shows a **strip of seven bars** for its last seven recorded runs, oldest on the
+left: green succeeded, red failed or timed out, amber still running. An empty outline means there
+is no run on record for that slot — not that one succeeded. Cronsole records every run of a
+Cronsole-native task, but on other platforms only the runs **Cronsole started** (Run now); a
+Windows task firing on its own schedule isn't counted there. A task with no recorded run at all
+shows no strip. Hover the strip for the details. Beside
+it is the **next run** (*In 1h 32m (3:00 PM)*).
 
 Clicking a task card opens the **Task Details** modal, which has two tabs.
 
@@ -482,11 +518,21 @@ the full walkthrough is the [Phone Shortcuts Guide](Phone_Shortcuts_Guide.md).
 
 ## Changing many tasks at once
 
-Bulk changes live in one place: **Mass actions**, on the [Tools tab](#mass-actions). There are no
-checkboxes on the dashboard — a selection can't be checked once it's more than a handful of rows
-(*"254 selected"* tells you nothing you can verify), and it couldn't act on more than 100 tasks
-anyway. Mass actions works the other way round: you say *what* you want to change, then *which*
-tasks, and you see exactly which ones before anything happens.
+There are two ways, and they run the same changes:
+
+- **Select tasks on the dashboard.** In the Grid or List view, click **Select**, then click the
+  tasks you want (or **Select all *N* shown**). A bar at the bottom offers **Add to collection**
+  (or start a new one from the selection), **Favorite**, **Move to system tasks** (and back out),
+  **Enable**, **Disable**, **Move to category** and **Remove from Cronsole**. Each button shows how
+  many of the selected tasks it would actually change. Favorites, collections and system tasks
+  happen on the click, with **Undo** in the message; the rest ask first, naming the tasks, and
+  past 25 tasks you type the count. Only tasks you can see are acted on — change a filter and the
+  ones it hides drop out of the selection. **Esc** or **Done** stops selecting.
+- **Mass actions**, on the [Tools tab](#mass-actions), for a set chosen by a rule rather than by
+  hand: you say *what* you want to change, then *which* tasks (a category, a source, every
+  disabled task…), and you see exactly which ones before anything happens.
+
+Either way, anything that wasn't done is listed with its reason.
 
 To change a single task, open it and use the buttons in the task modal.
 

@@ -120,3 +120,35 @@ describe('TaskCollectionMenu', () => {
     expect(await screen.findByText(/a set of tasks you pick by hand/i)).toBeInTheDocument();
   });
 });
+
+describe('TaskCollectionMenu — a whole folder', () => {
+  const folderTasks = [task({ id: 'f1', collectionIds: ['c1'] }), task({ id: 'f2' })];
+
+  it('adds every task in the folder in one request, and says it is a snapshot', async () => {
+    renderMenu({ task: undefined, folder: { label: 'AI-Tools', tasks: folderTasks } });
+    fireEvent.click(screen.getByRole('button', { name: /add the 2 tasks in ai-tools to a collection/i }));
+
+    expect(await screen.findByText(/won't join — pin the folder/i)).toBeInTheDocument();
+    // c1 holds one of two: mixed, and clicking it adds the rest rather than removing.
+    const partial = await screen.findByRole('button', { name: /morning checks/i });
+    expect(partial).toHaveAttribute('aria-pressed', 'mixed');
+
+    fireEvent.click(partial);
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/collections/c1/members', { add: ['f1', 'f2'] })
+    );
+  });
+
+  it('removes the whole folder when every task is already in', async () => {
+    const all = folderTasks.map(t => ({ ...t, collectionIds: ['c2'] }));
+    renderMenu({ task: undefined, folder: { label: 'AI-Tools', tasks: all } });
+    fireEvent.click(screen.getByRole('button', { name: /ai-tools/i }));
+
+    const full = await screen.findByRole('button', { name: /backups/i });
+    expect(full).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(full);
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/collections/c2/members', { remove: ['f1', 'f2'] })
+    );
+  });
+});

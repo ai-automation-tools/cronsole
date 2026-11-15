@@ -25,6 +25,7 @@ model User {
   templates      Template[]
   favorites      TemplateFavorite[]
   taskFavorites  TaskFavorite[]
+  hiddenTasks    TaskHidden[]
   collections    TaskCollection[]
   exclusions     TaskExclusion[]
   capabilities   PlatformCapability[]
@@ -146,6 +147,7 @@ model Task {
 
   executions  ExecutionLog[]
   favorites   TaskFavorite[]
+  hiddenBy    TaskHidden[]
   collections TaskCollectionMember[]
   secrets     TaskSecret?
 
@@ -261,6 +263,22 @@ model TaskCollectionMember {
 }
 
 model TaskFavorite {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, taskId])
+  @@index([userId])
+}
+
+/// A task this user filed under **system tasks** by hand — so the system lens
+/// hides it like a `\Microsoft\` task. `TaskFavorite`'s shape for the same
+/// reason: a per-user label is a join keyed on Task with a cascade, never a
+/// column. Read through `TaskService.isSystemTask`, the one verdict.
+model TaskHidden {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id])

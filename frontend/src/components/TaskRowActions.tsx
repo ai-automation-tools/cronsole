@@ -42,6 +42,8 @@ interface TaskRowActionsProps {
   onClone: (task: Task) => void;
   onToggleStatus: (task: Task) => void;
   isTogglingStatus?: boolean;
+  /** Spell the run button out ("▶ Run") — the grid card has the room for it. */
+  runLabel?: boolean;
 }
 
 export const TaskRowActions = ({
@@ -50,7 +52,8 @@ export const TaskRowActions = ({
   onRun,
   onClone,
   onToggleStatus,
-  isTogglingStatus
+  isTogglingStatus,
+  runLabel = false
 }: TaskRowActionsProps) => {
   const { icon, button, gap } = SIZES[size];
 
@@ -88,11 +91,12 @@ export const TaskRowActions = ({
       <button
         onClick={() => isRunnable(task) && onRun(task)}
         disabled={!isRunnable(task)}
-        className={`${button} ${RUN}`}
+        className={`${button} ${RUN} ${runLabel ? 'flex items-center gap-1.5 px-3 text-sm font-bold' : ''}`}
         title={runButtonTitle(task)}
         aria-label={`Run ${task.name}`}
       >
-        <Play size={icon} fill="currentColor" />
+        <Play size={runLabel ? icon - 4 : icon} fill="currentColor" />
+        {runLabel && 'Run'}
       </button>
     </div>
   );

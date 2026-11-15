@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { Bookmark, Plus, Trash2, Pencil, Check, X, Loader2 } from 'lucide-react';
+import { Bookmark, Plus, Trash2, Pencil, Check, X, Loader2, Link2 } from 'lucide-react';
 import { Modal } from './ui/Modal';
 import { useConfirm } from '../hooks/useConfirm';
+import { useToast } from '../hooks/useToast';
 import {
+  collectionLink,
   useCollections,
   useCreateCollection,
   useUpdateCollection,
@@ -11,6 +13,8 @@ import {
 
 interface ManageCollectionsModalProps {
   onClose: () => void;
+  /** Open with this collection's name already in edit — the rail chip's pencil. */
+  renameId?: string;
 }
 
 /**
@@ -30,16 +34,28 @@ interface ManageCollectionsModalProps {
  * confirmation here would train the gesture that the destructive task actions
  * need it *not* to be routine.
  */
-export const ManageCollectionsModal = ({ onClose }: ManageCollectionsModalProps) => {
+export const ManageCollectionsModal = ({ onClose, renameId }: ManageCollectionsModalProps) => {
   const { data: collections, isLoading } = useCollections();
   const createCollection = useCreateCollection();
   const updateCollection = useUpdateCollection();
   const deleteCollection = useDeleteCollection();
   const confirm = useConfirm();
+  const { toast } = useToast();
 
   const [name, setName] = useState('');
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingName, setEditingName] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(renameId ?? null);
+  const [editingName, setEditingName] = useState(
+    () => collections?.find(c => c.id === renameId)?.name ?? ''
+  );
+
+  const copyLink = async (id: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(collectionLink(id));
+      toast(`Link to “${label}” copied.`, 'success');
+    } catch {
+      toast('Could not copy the link.', 'error');
+    }
+  };
   const [error, setError] = useState<string | null>(null);
 
   const readError = (err: unknown, fallback: string) => {
@@ -184,6 +200,15 @@ export const ManageCollectionsModal = ({ onClose }: ManageCollectionsModalProps)
                       <span className="text-[11px] text-subtle-foreground">
                         {c.count} task{c.count === 1 ? '' : 's'}
                       </span>
+                      <button
+                        type="button"
+                        onClick={() => copyLink(c.id, c.name)}
+                        aria-label={`Copy link to ${c.name}`}
+                        title="Copy link"
+                        className="text-subtle-foreground hover:text-foreground"
+                      >
+                        <Link2 size={14} />
+                      </button>
                       <button
                         type="button"
                         onClick={() => {

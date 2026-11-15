@@ -55,6 +55,11 @@ interface ModalProps {
    * body scrolls.
    */
   sheet?: boolean;
+  /**
+   * A drawer: full height, pinned to the right edge, sliding in — for a detail
+   * view you glance at beside the list rather than a dialog that interrupts it.
+   */
+  side?: boolean;
 }
 
 export const Modal = ({
@@ -67,7 +72,8 @@ export const Modal = ({
   closeOnBackdrop = true,
   initialFocusRef,
   role = 'dialog',
-  sheet = false
+  sheet = false,
+  side = false
 }: ModalProps) => {
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -148,7 +154,9 @@ export const Modal = ({
 
   return createPortal(
     <div
-      className={`fixed inset-0 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm ${sheet ? 'max-sm:p-0' : ''} ${overlayClassName}`}
+      className={`fixed inset-0 flex ${
+        side ? 'justify-end bg-black/50 animate-in fade-in duration-200' : `items-center justify-center p-4 bg-black/80 backdrop-blur-sm ${sheet ? 'max-sm:p-0' : ''}`
+      } ${overlayClassName}`}
       // mousedown (not click) so selecting text inside the panel and releasing
       // on the backdrop doesn't count as a backdrop click.
       onMouseDown={e => {
@@ -162,7 +170,9 @@ export const Modal = ({
         aria-labelledby={labelledBy}
         aria-describedby={describedBy}
         tabIndex={-1}
-        className={`outline-none ${panelClassName} ${sheet ? 'max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:rounded-none max-sm:border-0' : ''}`}
+        className={`outline-none ${panelClassName} ${sheet ? 'max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:rounded-none max-sm:border-0' : ''} ${
+          side ? 'h-[100dvh] max-h-[100dvh] animate-in slide-in-from-right duration-300 ease-out' : ''
+        }`}
       >
         {children}
       </div>

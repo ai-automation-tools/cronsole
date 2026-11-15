@@ -12,6 +12,9 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
+### Added
+
+- **Four Windows templates in the catalog** (2026-11-12): `sys-winget-upgrade-report`, `mon-local-admins-audit`, `mon-firewall-profile-status` and `mon-last-boot-uptime`. Each appends a dated record to a log (pending winget upgrades, Administrators group members, firewall profile state, last boot time) and changes nothing on the machine. Extended tier, in the System & Utilities and Monitoring packs.
 ### Changed
 
 - **Diagrams re-read against the code** (2026-11-14). The source data flow now cites the current lines of the Windows agent, connector, task list, sync route, native scheduler and executor, and live-update hook, and notes that a failed native run is pushed to the open tab as `run:failed`; the template-catalog diagram's `managed` citation moved with the schema. Both rebuilt with `--pin-head`.

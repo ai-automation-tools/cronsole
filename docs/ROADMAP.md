@@ -1517,8 +1517,9 @@ components over 1,000 lines.
 
 **High**
 
-- [ ] **Keep the app mounted when the session expires** [F5]. Login replaces the whole tree, so an
-      open form loses what was typed. Draw login over the mounted app and resume after sign-in.
+- [x] **Keep the app mounted when the session expires** [F5]. Login replaces the whole tree, so an
+      open form loses what was typed. Draw login over the mounted app and resume after sign-in. — done 2026-11-13: `AuthGate` keeps the app mounted and
+      portals the login over it (`#root` goes `inert`); a different account signing in reloads the page.
 - [ ] **Replace the fixed owner id `cli_user_placeholder`** [S1, C8]. Give a new install a generated
       id and neutral placeholder name and email; migrate an existing install's rows in one step.
 - [ ] **Docker images that run the built app as a non-root user** [C5, S17]. `npm ci`, `USER node`,

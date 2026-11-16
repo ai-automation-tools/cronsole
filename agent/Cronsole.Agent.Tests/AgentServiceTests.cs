@@ -1060,6 +1060,41 @@ namespace Cronsole.Agent.Tests
         }
 
         [Fact]
+        public void TaskCreate_Event_IgnoresUnsignedWorkingDirectory()
+        {
+            // The create signature does not cover a working directory, so a value
+            // riding in the action must never reach the scheduler (roadmap A7).
+            var ts = Now();
+            var nonce = TestNonce();
+            var canonical = AgentAuthenticator.CanonicalizeAction("dir", new string[0]);
+            var triggerCanonical = AgentAuthenticator.CanonicalizeTrigger(null);
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.CreateMessage("WdTask", "0 * * * *", "dir", canonical, triggerCanonical, "\\Cronsole", false, nonce, ts));
+
+            var mockResponse = new Mock<ISocketResponse>();
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0))
+                .Returns(Payload(new
+                {
+                    name = "WdTask",
+                    schedule = "0 * * * *",
+                    command = "dir",
+                    action = new { executable = "dir", args = new string[0], workingDirectory = "C:\\Evil" },
+                    nonce,
+                    ts,
+                    sig
+                }));
+
+            _mockScheduler.Setup(s => s.CreateTask("WdTask", "0 * * * *", It.IsAny<AgentExecAction>(), null, It.IsAny<string?>(), It.IsAny<bool>()))
+                .Returns(new AgentTaskResult { Success = true, Path = "\\Cronsole\\WdTask", Name = "WdTask" });
+
+            _socketHandlers["task:create"].Invoke(mockResponse.Object);
+
+            _mockScheduler.Verify(s => s.CreateTask(
+                "WdTask", "0 * * * *",
+                It.Is<AgentExecAction>(a => a.WorkingDirectory == null),
+                null, "\\Cronsole", It.IsAny<bool>()), Times.Once);
+        }
+
+        [Fact]
         public void TaskCreate_Event_CreatesTaskAndEmitsResult()
         {
             // Arrange — no trigger field => trigger canonicalizes to "none"

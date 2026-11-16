@@ -1535,8 +1535,9 @@ components over 1,000 lines.
       raw. Accept 32 random bytes, add a version prefix, migrate with `npm run rotate-key`.
 - [ ] **Generate the database password** [issue 7]. It is `password` on a loopback-only port.
       New installs only; an existing volume keeps its password.
-- [ ] **Agent: ignore `workingDirectory` on create, or sign it** [A7]. It is honoured and unsigned.
-      Signing it is a wire change (protocol 3); ignoring it is not.
+- [x] **Agent: ignore `workingDirectory` on create, or sign it** [A7]. It is honoured and unsigned.
+      Signing it is a wire change (protocol 3); ignoring it is not. — done 2026-11-16: `ReadAction` no longer reads it, so create ignores it
+      (update still takes it as a signed top-level field); `TaskCreate_Event_IgnoresUnsignedWorkingDirectory` pins it. No wire change.
 - [ ] `small` **Agent: no handler may throw unhandled** [A8]. Two async-void handlers can end the
       process until the self-heal restarts it.
 - [ ] `small` **Agent refuses a non-loopback `http://` server URL without an explicit override**

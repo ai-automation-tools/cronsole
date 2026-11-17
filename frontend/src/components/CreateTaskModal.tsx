@@ -109,6 +109,8 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
   // `NativeJobFields` renders it and `nativeJobPayload` serializes it, so the
   // wire format has one definition.
   const [job, setJob] = useState<NativeJobValues>(emptyNativeJobValues);
+  // Not part of the job — stored beside it as `metadata.description`.
+  const [description, setDescription] = useState('');
   /*
    * Collected locally and sent WITH the create (ADR 0003). There is no task to
    * PUT to yet, and doing it as a second request afterwards would mean a task
@@ -299,6 +301,7 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
         // the parser the Windows path uses, so a security-relevant parse has one
         // definition and the browser never holds a copy of it.
         job: nativeJobPayload(job),
+        ...(description.trim() ? { description: description.trim() } : {}),
         // Omitted entirely when empty, so a create that uses no secrets sends
         // the same body it always did.
         ...(secrets.length
@@ -756,6 +759,20 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
                 onChange={setJob}
                 storedJobType={job.jobType}
               />
+
+              <div className="space-y-2">
+                <label htmlFor="create-native-description" className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">
+                  Description
+                </label>
+                <input
+                  id="create-native-description"
+                  value={description}
+                  maxLength={1024}
+                  onChange={e => setDescription(e.target.value)}
+                  placeholder="(optional) what this task does and why"
+                  className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary transition-colors"
+                />
+              </div>
 
               {/*
                 Where this will actually run — the one thing that makes a job

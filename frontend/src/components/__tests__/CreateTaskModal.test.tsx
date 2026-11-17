@@ -63,6 +63,31 @@ describe('platform choice', () => {
   });
 });
 
+describe('creating a Cronsole-native task', () => {
+  const fillAndCreate = (description: string) => {
+    renderModal();
+    // The task's name field — the Secrets section has a "Name" field too.
+    fireEvent.change(screen.getByPlaceholderText('Ping n8n webhook'), { target: { value: 'Ping' } });
+    fireEvent.change(screen.getByLabelText(/^URL/), { target: { value: 'https://example.com/health' } });
+    fireEvent.change(screen.getByLabelText('Description'), { target: { value: description } });
+    fireEvent.click(screen.getByRole('button', { name: /Create Cronsole Task/i }));
+  };
+  const nativeBody = () =>
+    vi.mocked(api.post).mock.calls.find(c => c[0] === '/tasks/native')?.[1] as Record<string, unknown> | undefined;
+
+  it('sends the description, trimmed', async () => {
+    fillAndCreate('  Pings the health endpoint.  ');
+    await waitFor(() => expect(nativeBody()).toBeDefined());
+    expect(nativeBody()!.description).toBe('Pings the health endpoint.');
+  });
+
+  it('sends no description key when it is blank', async () => {
+    fillAndCreate('   ');
+    await waitFor(() => expect(nativeBody()).toBeDefined());
+    expect('description' in nativeBody()!).toBe(false);
+  });
+});
+
 describe('Claude connects, it does not create', () => {
   it('renames the whole action rather than reusing "New Task"', () => {
     renderModal();

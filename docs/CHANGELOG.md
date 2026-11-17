@@ -14,6 +14,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **Cronsole-native tasks can have a description** (2026-11-16). Before, only a Windows task could show one, read from Task Scheduler. A native task now takes an optional `description` on create (`POST /api/tasks/native` and the four `create_native_*` MCP tools) and on `PATCH /api/tasks/:id/job` / `update_native_job`, where an omitted one is **kept**, unlike the job, and `""` clears it. It can be set in **New Task** and edited in **Edit → What it runs**, appears in the task's details, and rides along in the native export, the pre-delete archive, import and restore.
 - **Four Windows templates in the catalog** (2026-11-12): `sys-winget-upgrade-report`, `mon-local-admins-audit`, `mon-firewall-profile-status` and `mon-last-boot-uptime`. Each appends a dated record to a log (pending winget upgrades, Administrators group members, firewall profile state, last boot time) and changes nothing on the machine. Extended tier, in the System & Utilities and Monitoring packs.
 ### Changed
 

@@ -1,7 +1,9 @@
 import { copyFileSync, existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { defineConfig, type Plugin } from 'vite'
+import { fileURLToPath } from 'node:url'
+import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+import { parseFrameAncestors } from './src/utils/frameAncestors.ts'
 
 /**
  * Write `404.html` as a byte copy of `index.html`.
@@ -41,7 +43,15 @@ function spaFallback(): Plugin {
 // https://vite.dev/config/
 const APP_VERSION = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version
 
-export default defineConfig(({ mode }) => ({
+export default defineConfig(({ mode }) => {
+  // Pages allowed to show Cronsole in a frame (a local Project Hub, the suite shell).
+  // Unset, no frame header is sent, as before; set, CSP frame-ancestors limits framing
+  // to them. The app reads the same list as the only origins it talks to (utils/embed.ts).
+  const ancestors = parseFrameAncestors(loadEnv(mode, fileURLToPath(new URL('.', import.meta.url)), 'VITE_').VITE_FRAME_ANCESTORS)
+  const frameHeaders = ancestors.length
+    ? { 'Content-Security-Policy': `frame-ancestors 'self' ${ancestors.join(' ')}` }
+    : undefined
+  return {
   define: { __APP_VERSION__: JSON.stringify(APP_VERSION) },
   plugins: [react(), ...(mode === 'demo' ? [spaFallback()] : [])],
   server: {
@@ -54,6 +64,7 @@ export default defineConfig(({ mode }) => ({
     // instead of silently landing on 7374 and leaving CORS/ALLOWED_ORIGINS wrong.
     port: 7373,
     strictPort: true,
+    headers: frameHeaders,
     watch: {
       usePolling: true,
     },
@@ -71,9 +82,11 @@ export default defineConfig(({ mode }) => ({
     host: '127.0.0.1',
     port: 7373,
     strictPort: true,
+    headers: frameHeaders,
     proxy: {
       '/api': 'http://127.0.0.1:3000',
       '/socket.io': { target: 'http://127.0.0.1:3000', ws: true },
     },
   },
-}))
+}
+})

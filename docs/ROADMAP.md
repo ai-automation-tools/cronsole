@@ -438,6 +438,10 @@ under that date.
       Tunnel profile plus Access instructions and `TRUST_PROXY`; and the `VITE_DEV_TOKEN` leak found
       while verifying it, gated on `import.meta.env.DEV` and guarded by `check-bundle-secrets.mjs`
       *([#55](troubleshooting/README.md#55-the-dashboard-is-already-signed-in-on-a-browser-that-never-logged-in))*.
+- [x] **Suite embed contract v1** *(2026-11-17)*: `?embed=1` in a frame hides the brand and the
+      theme switch, posts `ready` / `route` and takes `theme`, only with the origins in
+      `VITE_FRAME_ANCESTORS`, which the dev and preview servers also send as CSP `frame-ancestors`.
+      Promptbook and Project Hub follow the same contract; the shell that hosts all three is next.
 - [x] **Automation health score** *(2026-07-28)* and **the Schedule tester**, the cheapest slice of
       the dry-run lab *(2026-07-31)* — two of the ★ product bets.
 

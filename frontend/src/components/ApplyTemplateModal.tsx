@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query';
-import { XCircle, Clock, Loader2, ArrowRight, AlertTriangle, CheckCircle2, FolderTree, ShieldCheck, Trash2 } from 'lucide-react';
+import { XCircle, ArrowLeft, Clock, Loader2, ArrowRight, AlertTriangle, CheckCircle2, FolderTree, ShieldCheck, Trash2 } from 'lucide-react';
 import type { Template } from '../types';
 import { api } from '../api';
 import { platformLabel } from '../platform';
@@ -46,9 +46,16 @@ const GEMINI_TOOL_LABEL: Record<string, string> = {
 interface ApplyTemplateModalProps {
   template: Template;
   onClose: () => void;
+  /** Preselect a target — the create form passes the platform already picked there. */
+  initialPlatform?: string;
+  /**
+   * Opened from another form (New Task's starters): Back and Cancel return to
+   * it, with what was typed there intact. Close (X / Escape) still ends both.
+   */
+  onBack?: () => void;
 }
 
-export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProps) => {
+export const ApplyTemplateModal = ({ template, onClose, initialPlatform, onBack }: ApplyTemplateModalProps) => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const confirm = useConfirm();
@@ -68,7 +75,8 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
   // and syncing that into state is how a modal ends up preselecting a platform
   // it is about to disable. `chosen` is empty until a click; `platform` is what
   // the rest of the modal reads.
-  const [chosen, setPlatform] = useState('');
+  // Seeded only, never synced: Apply still requires a `yes` from the matrix.
+  const [chosen, setPlatform] = useState(initialPlatform ?? '');
   // While the matrix is in flight, fall back to the template's first declared
   // target so the form is usable immediately. It can only ever be *corrected*
   // downward — Apply itself requires a `yes`, so an optimistic selection never
@@ -234,6 +242,15 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
     >
         <header className="p-6 border-b border-border flex justify-between items-start bg-surface/50">
           <div>
+            {onBack && (
+              <button
+                type="button"
+                onClick={onBack}
+                className="-ml-1 mb-2 min-h-9 px-1 flex items-center gap-1 text-xs font-bold text-subtle-foreground hover:text-foreground transition-colors"
+              >
+                <ArrowLeft size={14} /> Back to New Task
+              </button>
+            )}
             <p className="text-[10px] text-foreground uppercase font-black tracking-widest mb-1">Apply Template</p>
             <h2 id="apply-template-title" className="text-xl font-bold">{template.name}</h2>
             <p className="text-xs text-subtle-foreground mt-1 leading-relaxed">{template.description}</p>
@@ -467,7 +484,7 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
               {deleteMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
             </button>
           )}
-          <button onClick={onClose} className="flex-1 py-3 text-sm font-bold text-subtle-foreground hover:text-foreground transition-colors">Cancel</button>
+          <button onClick={onBack ?? onClose} className="flex-1 py-3 text-sm font-bold text-subtle-foreground hover:text-foreground transition-colors">{onBack ? 'Back' : 'Cancel'}</button>
           <button 
             onClick={() => applyMutation.mutate()} 
             disabled={!canApply}

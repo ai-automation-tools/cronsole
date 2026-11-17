@@ -1104,6 +1104,10 @@ verification pass — is still open above, narrowed to the half that needs a tok
       shows the real folder's name. The rail's right edge drags (208–560px, `max-w-[50vw]`), with a
       keyboard twin; the width is per browser (`cronsole.railWidth`) because it is a fact about the
       screen, not an account preference *(2026-11-13)*.
+- [x] **The create form fills itself in** — starter templates for the selected platform as chips
+      (opening the existing Apply modal, platform preselected), a name derived from the command,
+      URL or check target until one is typed (`utils/suggestTaskName.ts`), and the category field
+      suggesting the platform's existing categories (`<datalist>`). Frontend only *(2026-11-17)*.
 - [x] **A schedule can be picked, not only typed** — one `ScheduleBuilder` on all four cron
       surfaces (Edit task, New task, Apply template, Schedule tester): five shapes, a clock
       control and weekday toggles, with the cron it compiles to on screen and the Cron tab beside

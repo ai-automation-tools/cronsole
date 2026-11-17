@@ -1,5 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 
 vi.mock('../../api', () => ({ api: { post: vi.fn(), get: vi.fn() } }));
@@ -19,8 +20,11 @@ vi.mock('../../hooks/useSettings', async importOriginal => {
 });
 
 vi.mock('../../hooks/usePlatformMatrix', () => ({
-  usePlatformMatrix: () => ({ data: { platforms: [] } })
+  usePlatformMatrix: () => ({ data: { platforms: [] } }),
+  // Read by the Apply modal a starter opens.
+  usePlatformCreatability: () => ({ creatability: () => 'yes', isLoading: false })
 }));
+vi.mock('../../hooks/useConfirm', () => ({ useConfirm: () => vi.fn() }));
 
 import { CreateTaskModal } from '../CreateTaskModal';
 import { api } from '../../api';
@@ -37,7 +41,9 @@ const renderModal = () => {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <CreateTaskModal onClose={vi.fn()} />
+      <MemoryRouter>
+        <CreateTaskModal onClose={vi.fn()} />
+      </MemoryRouter>
     </QueryClientProvider>
   );
 };
@@ -85,6 +91,50 @@ describe('creating a Cronsole-native task', () => {
     fillAndCreate('   ');
     await waitFor(() => expect(nativeBody()).toBeDefined());
     expect('description' in nativeBody()!).toBe(false);
+  });
+});
+
+describe('filling the form for you', () => {
+  it('names the task after what it runs until a name is typed', async () => {
+    renderModal();
+    fireEvent.change(screen.getByLabelText(/^URL/), { target: { value: 'https://example.com/health' } });
+    expect(screen.getByPlaceholderText('Ping n8n webhook')).toHaveValue('example.com health');
+    fireEvent.change(screen.getByPlaceholderText('Ping n8n webhook'), { target: { value: 'Mine' } });
+    fireEvent.change(screen.getByLabelText(/^URL/), { target: { value: 'https://other.example/x' } });
+    expect(screen.getByPlaceholderText('Ping n8n webhook')).toHaveValue('Mine');
+  });
+
+  it("offers only the selected platform's starter templates", async () => {
+    vi.mocked(api.get).mockImplementation(async (url: string) => ({
+      data: url === '/templates'
+        ? [
+            { id: 'a', name: 'Native starter', isStarter: true, targetPlatforms: ['TASKHUB_NATIVE'] },
+            { id: 'b', name: 'Windows starter', isStarter: true, targetPlatforms: ['WINDOWS_TASK_SCHEDULER'] },
+            { id: 'c', name: 'Native pattern', isStarter: false, targetPlatforms: ['TASKHUB_NATIVE'] }
+          ]
+        : []
+    }));
+    renderModal();
+    expect(await screen.findByRole('button', { name: 'Native starter' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Windows starter' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Native pattern' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^Windows$/i }));
+    expect(await screen.findByRole('button', { name: 'Windows starter' })).toBeInTheDocument();
+  });
+
+  it('goes Back from a starter to the form, keeping what was typed', async () => {
+    vi.mocked(api.get).mockImplementation(async (url: string) => ({
+      data: url === '/templates'
+        ? [{ id: 'a', name: 'Native starter', description: '', isStarter: true, targetPlatforms: ['TASKHUB_NATIVE'], scheduleExpression: '0 8 * * *', command: '' }]
+        : []
+    }));
+    renderModal();
+    fireEvent.change(screen.getByPlaceholderText('Ping n8n webhook'), { target: { value: 'Half typed' } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Native starter' }));
+    expect(screen.getByRole('heading', { name: 'Native starter' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Back to New Task/i }));
+    expect(screen.getByRole('heading', { name: 'New Task' })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Ping n8n webhook')).toHaveValue('Half typed');
   });
 });
 

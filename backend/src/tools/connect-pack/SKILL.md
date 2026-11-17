@@ -195,5 +195,7 @@ Best evidence is a **real side effect** — a log line, a file, an HTTP hit.
    Its absence from the listing is normal: it is created on demand and pruned when empty.
 5. The name won't collide in that folder.
 6. The command **terminates**.
-7. After creating: run it and **verify from outside Cronsole**.
-8. If it was a test: delete it.
+7. A native task gets a **`description`**: what it does, why, and where its output goes. It is
+   what Cronsole shows to explain the task; one nobody can explain is one nobody dares change.
+8. After creating: run it and **verify from outside Cronsole**.
+9. If it was a test: delete it.

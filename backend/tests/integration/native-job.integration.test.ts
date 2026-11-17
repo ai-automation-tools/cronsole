@@ -115,6 +115,28 @@ describe('PATCH /tasks/:id/job', () => {
     expect(await prisma.executionLog.count({ where: { taskId: task.id } })).toBe(1);
   });
 
+  it('keeps the description when omitted, sets it when sent, clears it on ""', async () => {
+    const task = await createNativeTask(owner.user.id);
+    const patch = (body: object) =>
+      request(app).patch(`/api/tasks/${task.id}/job`).set('Authorization', owner.auth).send(body).expect(200);
+    const desc = (res: { body: { metadata: unknown } }) =>
+      (res.body.metadata as Record<string, unknown>).description;
+    const spec = { jobType: 'HTTP', url: 'https://example.com/health' };
+
+    expect(desc(await patch({ job: spec, description: '  Pings health.  ' }))).toBe('Pings health.');
+    expect(desc(await patch({ job: spec }))).toBe('Pings health.');
+    expect(desc(await patch({ job: spec, description: '' }))).toBeUndefined();
+  });
+
+  it('stores a description given on create', async () => {
+    const res = await request(app)
+      .post('/api/tasks/native')
+      .set('Authorization', owner.auth)
+      .send({ name: 'Described', schedule: '0 3 * * *', job: { jobType: 'HTTP', url: 'https://example.com' }, description: 'Why it exists.' })
+      .expect(200);
+    expect((res.body.task.metadata as Record<string, unknown>).description).toBe('Why it exists.');
+  });
+
   it('refuses a spec that creation would have refused', async () => {
     // The route shares `buildNativeJob` + `validateJob` with POST /tasks/native.
     // A second definition here is how an edit produces a job the executor cannot

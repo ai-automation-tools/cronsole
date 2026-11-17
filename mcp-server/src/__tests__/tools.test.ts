@@ -1947,6 +1947,16 @@ describe('update_native_job', () => {
     });
   });
 
+  it('sends a description only when given, so an omitted one is kept', async () => {
+    const { client, calls } = stubClient({ 'PATCH /tasks/n1/job': task });
+    const mcp = await connect(client);
+    await call(mcp, 'update_native_job', { taskId: 'n1', jobType: 'HTTP', url: 'https://e.com' });
+    await call(mcp, 'update_native_job', { taskId: 'n1', jobType: 'HTTP', url: 'https://e.com', description: '' });
+
+    expect('description' in (calls[0].body as object)).toBe(false);
+    expect((calls[1].body as { description?: string }).description).toBe('');
+  });
+
   it('url-encodes the task id', async () => {
     const { client, calls } = stubClient({ 'PATCH /tasks/a%2Fb/job': task });
     const mcp = await connect(client);

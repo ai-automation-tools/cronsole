@@ -75,7 +75,7 @@ Everything here is also reachable over MCP: the `create_native_*` tools and `upd
 the run settings (`timeoutMs`, `retries`, `retryDelayMinutes`, `overlap`, `catchUp`), chaining
 (`runAfterTaskId`, `runAfterWhen`), `passEnv` and a `description`, shown as the task's Description
 (on `update_native_job`, an omitted description is kept). In the app it is the **Description** field
-under **What it runs** in Edit.
+under the job in **New Task**, and under **What it runs** in Edit.
 
 ---
 

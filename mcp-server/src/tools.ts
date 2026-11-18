@@ -495,6 +495,19 @@ const OVERLAP_CATCHUP_SHAPE = {
     .optional()
     .describe("Which outcome of that task starts this one. Default 'success'. Judged on its final attempt, after retries.")
 };
+/**
+ * What the task is for, shown as its Description in Cronsole (the same field a
+ * Windows task's Task Scheduler description fills). Offered on every native
+ * create tool and on update_native_job.
+ */
+const NATIVE_DESCRIPTION = z
+  .string()
+  .max(1024)
+  .optional()
+  .describe(
+    'One or two sentences on what the task does and why, shown as its Description in Cronsole. ' +
+    'Strongly recommended: a scheduled task nobody can explain is one nobody dares to change.'
+  );
 const RUN_POLICY_SHAPE = {
   ...OVERLAP_CATCHUP_SHAPE,
   retries: z
@@ -1273,10 +1286,11 @@ export function registerTools(
           .optional()
           .describe('Request body as a string. For JSON, pass the serialized JSON and set a Content-Type header.'),
         ...(RUN_POLICY_SHAPE),
-        category: z.string().optional().describe('Cronsole category for grouping. Defaults to "Cronsole".')
+        category: z.string().optional().describe('Cronsole category for grouping. Defaults to "Cronsole".'),
+        description: NATIVE_DESCRIPTION
       }
     },
-    async ({ name, url, schedule, method, headers, body, category, ...policy }) => {
+    async ({ name, url, schedule, method, headers, body, category, description, ...policy }) => {
       try {
         // The route takes the job as a nested spec and validates it with the same
         // validateJob the executor uses — so the shape is the backend's, not ours.
@@ -1293,6 +1307,7 @@ export function registerTools(
 
         const payload: Record<string, unknown> = { name, schedule, job: withPolicy(job, policy) };
         if (category) payload.category = category;
+        if (description) payload.description = description;
 
         const result = await client.post<{ message?: string; task?: TaskRow; missingSecrets?: string[] }>('/tasks/native', payload);
         const task = result.task;
@@ -1376,10 +1391,11 @@ export function registerTools(
           .optional()
           .describe('Kill the job after this long, in ms. Defaults to 5 minutes; 24 hours is the maximum.'),
         ...(RUN_POLICY_SHAPE),
-        category: z.string().optional().describe('Cronsole category for grouping. Defaults to "Cronsole".')
+        category: z.string().optional().describe('Cronsole category for grouping. Defaults to "Cronsole".'),
+        description: NATIVE_DESCRIPTION
       }
     },
-    async ({ name, command, schedule, workingDirectory, timeoutMs, passEnv, category, ...policy }) => {
+    async ({ name, command, schedule, workingDirectory, timeoutMs, passEnv, category, description, ...policy }) => {
       try {
         const job: Record<string, unknown> = { jobType: 'EXEC', command };
         if (workingDirectory) job.workingDirectory = workingDirectory;
@@ -1388,6 +1404,7 @@ export function registerTools(
 
         const payload: Record<string, unknown> = { name, schedule, job: withPolicy(job, policy) };
         if (category) payload.category = category;
+        if (description) payload.description = description;
 
         const result = await client.post<{ message?: string; task?: TaskRow; missingSecrets?: string[] }>('/tasks/native', payload);
         const task = result.task;
@@ -1475,10 +1492,11 @@ Next run: ${task.nextRunTime}` : '')
           .optional()
           .describe('Kill the job after this long, in ms. Defaults to 5 minutes; 24 hours is the maximum.'),
         ...(RUN_POLICY_SHAPE),
-        category: z.string().optional().describe('Cronsole category for grouping. Defaults to "Cronsole".')
+        category: z.string().optional().describe('Cronsole category for grouping. Defaults to "Cronsole".'),
+        description: NATIVE_DESCRIPTION
       }
     },
-    async ({ name, interpreter, body, schedule, workingDirectory, timeoutMs, passEnv, category, ...policy }) => {
+    async ({ name, interpreter, body, schedule, workingDirectory, timeoutMs, passEnv, category, description, ...policy }) => {
       try {
         const job: Record<string, unknown> = { jobType: 'SCRIPT', interpreter, body };
         if (workingDirectory) job.workingDirectory = workingDirectory;
@@ -1487,6 +1505,7 @@ Next run: ${task.nextRunTime}` : '')
 
         const payload: Record<string, unknown> = { name, schedule, job: withPolicy(job, policy) };
         if (category) payload.category = category;
+        if (description) payload.description = description;
 
         const result = await client.post<{ message?: string; task?: TaskRow; missingSecrets?: string[] }>('/tasks/native', payload);
         const task = result.task;
@@ -1573,7 +1592,8 @@ Next run: ${task.nextRunTime}` : '')
           .optional()
           .describe('diskFree only: fail below this many free bytes. 10 GB is 10737418240.'),
         ...(OVERLAP_CATCHUP_SHAPE),
-        category: z.string().optional().describe('Cronsole category for grouping. Defaults to "Cronsole".')
+        category: z.string().optional().describe('Cronsole category for grouping. Defaults to "Cronsole".'),
+        description: NATIVE_DESCRIPTION
       }
     },
     async (args) => {
@@ -1608,6 +1628,7 @@ Next run: ${task.nextRunTime}` : '')
           job: withPolicy({ jobType: 'CHECK', probe }, args)
         };
         if (args.category) payload.category = args.category;
+        if (args.description) payload.description = args.description;
 
         const result = await client.post<{ message?: string; task?: TaskRow; missingSecrets?: string[] }>('/tasks/native', payload);
         const task = result.task;
@@ -2374,10 +2395,16 @@ Next run: ${task.nextRunTime}` : '')
           ),
         // Like every field here, the run policy is replaced, not merged: omit a
         // field and it returns to its default.
-        ...RUN_POLICY_SHAPE
+        ...RUN_POLICY_SHAPE,
+        // The one exception to "replaced": the description is not part of the
+        // job, so omitting it keeps the current one (the backend's rule).
+        description: NATIVE_DESCRIPTION.describe(
+          'The task\'s Description in Cronsole. Unlike every other field here, omitting it KEEPS the current ' +
+          'one: it describes the task, not the job. Pass an empty string to clear it.'
+        )
       }
     },
-    async ({ taskId, jobType, url, method, headers, body, command, workingDirectory, timeoutMs, passEnv, ...policy }) => {
+    async ({ taskId, jobType, url, method, headers, body, command, workingDirectory, timeoutMs, passEnv, description, ...policy }) => {
       try {
         // Built here rather than forwarded wholesale so a field belonging to the
         // other job type cannot ride along into the stored spec.
@@ -2396,7 +2423,7 @@ Next run: ${task.nextRunTime}` : '')
 
         const task = await client.patch<TaskRow & { missingSecrets?: string[] }>(
           `/tasks/${encodeURIComponent(taskId)}/job`,
-          { job: withPolicy(job, policy) }
+          { job: withPolicy(job, policy), ...(description !== undefined ? { description } : {}) }
         );
         const what = jobType === 'HTTP' ? `${method ?? 'GET'} ${url}` : command;
         return ok(

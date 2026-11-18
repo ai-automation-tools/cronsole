@@ -176,9 +176,12 @@ namespace Cronsole.Agent
             return ex.Message;
         }
 
-        // Read the structured { executable, args[], workingDirectory? } action from
-        // a task:create payload. Missing/ill-typed fields degrade to empty rather
+        // Read the structured { executable, args[] } action from a task:create or
+        // task:update payload. Missing/ill-typed fields degrade to empty rather
         // than throwing (the signature check is what actually gates execution).
+        // workingDirectory is deliberately NOT read from the action: create never
+        // signed it, so honouring it was an unsigned input. task:update carries it
+        // as a signed top-level field and sets it itself.
         private static AgentExecAction ReadAction(JsonElement data)
         {
             var action = new AgentExecAction();
@@ -191,8 +194,6 @@ namespace Cronsole.Agent
                     foreach (var a in args.EnumerateArray())
                         action.Args.Add(a.ValueKind == JsonValueKind.String ? a.GetString() ?? string.Empty : string.Empty);
                 }
-                if (el.TryGetProperty("workingDirectory", out var wd) && wd.ValueKind == JsonValueKind.String)
-                    action.WorkingDirectory = wd.GetString();
             }
             return action;
         }

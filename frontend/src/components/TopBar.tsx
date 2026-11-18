@@ -1,6 +1,7 @@
 import { LayoutDashboard, Settings, Layers, Library, LogOut, Wrench, ExternalLink, Link2 } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { useAuth } from '../hooks/useAuth';
+import { EMBED } from '../utils/embed';
 
 /**
  * The app's first-level navigation, across the top.
@@ -67,7 +68,9 @@ export const TopBar = ({ activeTab, setActiveTab, showQuickLinks = true }: TopBa
         <div className="flex flex-1 basis-0 items-center min-w-0">
         {/* Home: a real link, so it reloads — Mine, every filter, selection
             and rail search back to the start. */}
-        <a
+        {/* In the suite shell (?embed=1 in a frame) the shell's bar carries the brand and the
+            Light / Dark switch, so both drop here. The wrapper stays, keeping the nav centred. */}
+        {!EMBED && <a
           href="/?view=mine"
           title="Home — reload on Mine"
           aria-label="Cronsole home"
@@ -86,7 +89,7 @@ export const TopBar = ({ activeTab, setActiveTab, showQuickLinks = true }: TopBa
           <span className="hidden sm:inline text-[15px] font-bold tracking-[-0.01em] select-none">
             Cronsole
           </span>
-        </a>
+        </a>}
         </div>
 
         {/* ── Sections ──────────────────────────────────────────────────── */}
@@ -136,7 +139,7 @@ export const TopBar = ({ activeTab, setActiveTab, showQuickLinks = true }: TopBa
 
         {/* ── Account ───────────────────────────────────────────────────── */}
         <div className="flex flex-1 basis-0 items-center justify-end gap-1 pl-2">
-          <ThemeToggle compact />
+          {!EMBED && <ThemeToggle compact />}
           {/* Filled with the brand primary: the one outbound link in the bar.
               Below `sm` the label drops, like the section tabs. */}
           <a

@@ -892,6 +892,7 @@ const createNativeSchema = z.object({
   // Optional only for a task that runs after another; `createNativeTask` says so.
   schedule: z.string().trim().nullable().optional(),
   job: z.unknown(), // semantic validation stays in validateJob (shared with the executor)
+  description: z.string().trim().max(1024, 'description is too long').optional(),
   /**
    * Secret name → value, encrypted at rest and never returned (ADR 0003).
    *
@@ -909,13 +910,13 @@ const createNativeSchema = z.object({
 // docs/resources/Native_Tasks.md). Richer than the connector createTask path
 // because it takes a full job spec instead of a command string.
 router.post('/native', validateBody(createNativeSchema), async (req: Request, res: Response) => {
-  const { name, category, schedule, job, secrets } = req.body;
+  const { name, category, schedule, job, description, secrets } = req.body;
   const userId = (req as AuthRequest).user!.id;
 
   // Normalization, cron validation, the row, the capability evidence and the UI
   // notification all live in `createNativeTask`, shared with the import and
   // archive-restore paths — see the note there for why the split is at this line.
-  const created = await createNativeTask(userId, { name, category, schedule, job, secrets })
+  const created = await createNativeTask(userId, { name, category, schedule, job, description, secrets })
     .catch(rethrowNativeCreate);
   // `missingSecrets` is always present, empty when there is nothing to say —
   // same rule as `foldersCreated` on the generic create, and for the same
@@ -985,7 +986,13 @@ router.post('/import', async (req: Request, res: Response) => {
 });
 
 const patchNativeJobSchema = z.object({
-  job: z.unknown() // semantic validation stays in validateJob (shared with the executor)
+  job: z.unknown(), // semantic validation stays in validateJob (shared with the executor)
+  /**
+   * Unlike the job, **omitted keeps it**: the description is not part of the
+   * job, so a caller replacing the job (every MCP client written before this
+   * field existed) must not wipe it. An empty string clears it.
+   */
+  description: z.string().trim().max(1024, 'description is too long').optional()
 });
 
 /**
@@ -1020,7 +1027,7 @@ const patchNativeJobSchema = z.object({
 router.patch('/:id/job', validateBody(patchNativeJobSchema), async (req: Request, res: Response) => {
   const id = req.params.id as string;
   const userId = (req as AuthRequest).user!.id;
-  const { job } = req.body;
+  const { job, description } = req.body as { job: unknown; description?: string };
 
   // Scope by userId so one user can't edit another's task (IDOR).
   const task = await prisma.task.findFirst({ where: { id, userId } });
@@ -1050,8 +1057,12 @@ router.patch('/:id/job', validateBody(patchNativeJobSchema), async (req: Request
   // to the task rather than to the job, and dropping it would make this route
   // quietly destructive well outside what its name claims.
   const meta = task.metadata && typeof task.metadata === 'object' && !Array.isArray(task.metadata)
-    ? (task.metadata as Record<string, unknown>)
+    ? { ...(task.metadata as Record<string, unknown>) }
     : {};
+  if (description !== undefined) {
+    if (description) meta.description = description;
+    else delete meta.description;
+  }
 
   const updated = await prisma.task.update({
     where: { id },

@@ -62,7 +62,7 @@ leaves it running), or the dashboard. Do not route around a gate.
 | Remove **many** from Cronsole, keep them running | — | `POST /api/tools/tasks/untrack` (`{taskIds}`) |
 | Re-schedule | `update_task_schedule` | `PATCH /api/tasks/:id/schedule` |
 | Edit the command | `update_task_action` | `PATCH /api/tasks/:id/actions` |
-| Change what a **native** job runs | `update_native_job` | `PATCH /api/tasks/:id/job` — URL, method, headers, body, or a script's command and working directory. No agent involved. |
+| Change what a **native** job runs | `update_native_job` | `PATCH /api/tasks/:id/job` — URL, method, headers, body, or a script's command and working directory. No agent involved. Also takes `description`, which is **kept when omitted** (it describes the task, not the job); `""` clears it. |
 | Rename (Cronsole's label only) | `rename_task` | `PATCH /api/tasks/:id` — nothing is renamed on the platform. **Refused** where the platform owns the name (GitHub Actions, Vercel, n8n, Gemini, a Claude scheduled task read through the session). |
 | Run history | `get_task_history` | `GET /api/tasks/:id/executions` |
 | Runs **the platform** recorded (incl. every scheduled run Cronsole never started) | `list_platform_runs` | `GET /api/tasks/:id/platform-runs` — where a hosted source's runs actually are. `get_task_history` holds only runs Cronsole performed. |
@@ -195,5 +195,7 @@ Best evidence is a **real side effect** — a log line, a file, an HTTP hit.
    Its absence from the listing is normal: it is created on demand and pruned when empty.
 5. The name won't collide in that folder.
 6. The command **terminates**.
-7. After creating: run it and **verify from outside Cronsole**.
-8. If it was a test: delete it.
+7. A native task gets a **`description`**: what it does, why, and where its output goes. It is
+   what Cronsole shows to explain the task; one nobody can explain is one nobody dares change.
+8. After creating: run it and **verify from outside Cronsole**.
+9. If it was a test: delete it.

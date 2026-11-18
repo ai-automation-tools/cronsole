@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { useQueryClient, useMutation } from '@tanstack/react-query';
+import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router';
+import type { Task, Template } from '../types';
+import { ApplyTemplateModal } from './ApplyTemplateModal';
+import { suggestTaskName } from '../utils/suggestTaskName';
 import { XCircle, Clock, Loader2, Zap, Info, Monitor, CheckCircle2, AlertTriangle, Terminal, Bot, Sparkles, Upload, KeyRound } from 'lucide-react';
 import { importTaskFile, TaskFileImportError } from '../utils/importTaskFile';
 import { api } from '../api';
@@ -93,6 +97,9 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
   const { toast } = useToast();
   const [platform, setPlatform] = useState<CreatePlatform>(initial?.platform ?? 'TASKHUB_NATIVE');
   const [name, setName] = useState(initial?.name ?? '');
+  // Until the user types a name, the field shows one derived from what the task
+  // runs (`taskName` below). Clearing the field hands it back to the suggestion.
+  const [nameTouched, setNameTouched] = useState(!!initial?.name);
   const [category, setCategory] = useState(initial?.category ?? 'Cronsole');
   const zone = useScheduleZone();
   // Held in the user's zone; converted to UTC once, on submit. "0 8" now means
@@ -109,6 +116,8 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
   // `NativeJobFields` renders it and `nativeJobPayload` serializes it, so the
   // wire format has one definition.
   const [job, setJob] = useState<NativeJobValues>(emptyNativeJobValues);
+  // Not part of the job — stored beside it as `metadata.description`.
+  const [description, setDescription] = useState('');
   /*
    * Collected locally and sent WITH the create (ADR 0003). There is no task to
    * PUT to yet, and doing it as a second request afterwards would mean a task
@@ -198,6 +207,52 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
   // that has none.
   const isNative = !isWindows && !isClaude && !isGemini;
   const chainedOnly = isNative && chainOnly && !!job.runAfterTaskId;
+  const nameSource = isWindows
+    ? command
+    : !isNative
+      ? ''
+      : job.jobType === 'HTTP'
+        ? job.url
+        : job.jobType === 'EXEC'
+          ? job.command
+          : job.jobType !== 'CHECK'
+            ? ''
+            : job.checkKind === 'http'
+              ? job.checkUrl
+              : job.checkKind === 'tcp'
+                ? (job.checkHost.trim() ? `${job.checkHost.trim()}:${job.checkPort.trim()}` : '')
+                : job.checkPath;
+  const suggestedName = suggestTaskName(nameSource);
+
+  // The dashboard's own cache keys, so these read lists already fetched rather
+  // than second copies that could disagree with them.
+  const { data: tasks } = useQuery<Task[]>({
+    queryKey: ['tasks'],
+    queryFn: async () => (await api.get('/tasks')).data
+  });
+  const categoryOptions = [...new Set(
+    (Array.isArray(tasks) ? tasks : [])
+      .filter(t => t.platform === platform && t.category)
+      .map(t => t.category as string)
+  )].sort((a, b) => a.localeCompare(b));
+  const { data: templates } = useQuery<Template[]>({
+    queryKey: ['templates'],
+    // Same fallback as the Templates screen, which shares this cache entry.
+    queryFn: async () => {
+      try { return (await api.get('/templates')).data; } catch { return []; }
+    }
+  });
+  // Starters only: the parameterized building blocks. The full catalog is one
+  // click away, and a long row here would push the form below the fold.
+  const starters = (Array.isArray(templates) ? templates : [])
+    .filter(t => t.isStarter && t.targetPlatforms.includes(platform))
+    .sort((a, b) => Number(!!b.isFavorite) - Number(!!a.isFavorite) || a.name.localeCompare(b.name));
+  const STARTER_CAP = 8;
+  const [applyTarget, setApplyTarget] = useState<Template | null>(null);
+  const navigate = useNavigate();
+  const taskName = nameTouched
+    ? name
+    : suggestedName && isNative && job.jobType === 'CHECK' ? `Check ${suggestedName}` : suggestedName;
   /**
    * Which job types actually touch the backend's own filesystem, and so need the
    * execution-host disclosure below. `CHECK` is conditional on its probe: an
@@ -262,7 +317,7 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
       }
       if (isWindows) {
         return api.post('/tasks', {
-          name,
+          name: taskName,
           platform,
           category: category.trim() || undefined,
           schedule: storedSchedule.cron,
@@ -281,7 +336,7 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
         // Claude's routines are, so a typed one would be a field the next sync
         // corrects.
         return api.post('/tasks', {
-          name,
+          name: taskName,
           platform,
           schedule: storedSchedule.cron,
           command: prompt,
@@ -291,7 +346,7 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
         });
       }
       return api.post('/tasks/native', {
-        name,
+        name: taskName,
         category,
         schedule: chainedOnly ? null : storedSchedule.cron,
         // The same builder the edit modal posts to `PATCH /tasks/:id/job`. An
@@ -299,6 +354,7 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
         // the parser the Windows path uses, so a security-relevant parse has one
         // definition and the browser never holds a copy of it.
         job: nativeJobPayload(job),
+        ...(description.trim() ? { description: description.trim() } : {}),
         // Omitted entirely when empty, so a create that uses no secrets sends
         // the same body it always did.
         ...(secrets.length
@@ -337,7 +393,7 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
       const missing = (res as { data?: { missingSecrets?: string[] } })?.data?.missingSecrets ?? [];
       if (missing.length) {
         toast(
-          `Cronsole task "${name}" created, but it refers to ${missing.length === 1 ? 'a secret that is not set' : 'secrets that are not set'}: ` +
+          `Cronsole task "${taskName}" created, but it refers to ${missing.length === 1 ? 'a secret that is not set' : 'secrets that are not set'}: ` +
           `${missing.join(', ')}. Open the task → Edit → Secrets to store ${missing.length === 1 ? 'it' : 'them'}; ` +
           'until then it will refuse to start rather than run with a blank credential.',
           'error'
@@ -351,7 +407,7 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
       const made = (res as { data?: { foldersCreated?: string[] } })?.data?.foldersCreated ?? [];
       toast(
         isWindows
-          ? `Windows task "${name}" created in ${folderChoice.folder.trim()}.` +
+          ? `Windows task "${taskName}" created in ${folderChoice.folder.trim()}.` +
             (made.length
               ? ` Created ${made.length === 1 ? 'folder' : 'folders'} ${made.join(', ')} — remove ${made.length === 1 ? 'it' : 'them'} in Task Scheduler if you don't want ${made.length === 1 ? 'it' : 'them'}.`
               : '')
@@ -359,8 +415,8 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
             // The allowlist is set HERE, under Tools and network access — the
             // sentence used to send people to Google AI Studio, which is neither
             // where Cronsole writes it nor where they are standing.
-            ? `Gemini trigger "${name}" created${agentAllowlist.length === 0 ? ' with no network allowlist — its agent reaches nothing outside its own sandbox. Add domains under Tools and network access if the prompt needs them (a trigger asked to email a report will quietly write a file instead).' : '.'}`
-            : `Cronsole task "${name}" created. It runs on the backend scheduler — no Windows entry.`,
+            ? `Gemini trigger "${taskName}" created${agentAllowlist.length === 0 ? ' with no network allowlist — its agent reaches nothing outside its own sandbox. Add domains under Tools and network access if the prompt needs them (a trigger asked to email a report will quietly write a file instead).' : '.'}`
+            : `Cronsole task "${taskName}" created. It runs on the backend scheduler — no Windows entry.`,
         'success'
       );
       onClose();
@@ -399,7 +455,7 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
   // schedule to require because Cronsole does not set one.
   const canCreate = isClaude
     ? !!routineId.trim() && !!routineToken.trim() && !createMutation.isPending
-    : !!name.trim() && (chainedOnly || !!schedule.trim()) && targetValid && !createMutation.isPending;
+    : !!taskName.trim() && (chainedOnly || !!schedule.trim()) && targetValid && !createMutation.isPending;
 
   const platformButton = (p: CreatePlatform, label: string, Icon: typeof Zap, active: string) => (
     <button
@@ -411,6 +467,20 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
       <Icon size={15} /> {label}
     </button>
   );
+
+  // A starter replaces this form with the Apply modal rather than stacking on
+  // it. This component stays mounted underneath, so Back returns to the form
+  // with everything typed still there; applying or closing ends the gesture.
+  if (applyTarget) {
+    return (
+      <ApplyTemplateModal
+        template={applyTarget}
+        onClose={onClose}
+        onBack={() => setApplyTarget(null)}
+        initialPlatform={platform}
+      />
+    );
+  }
 
   return (
     <Modal
@@ -476,6 +546,34 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
               {platformButton('GEMINI_TRIGGERS', 'Gemini', Sparkles, 'bg-gemini/10 border-gemini/40 text-gemini-text')}
             </div>
           </div>
+
+          {starters.length > 0 && (
+            <div className="space-y-2">
+              <span className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">
+                Start from a template
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {starters.slice(0, STARTER_CAP).map(t => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setApplyTarget(t)}
+                    title={t.description}
+                    className="min-h-9 px-3 rounded-xl border border-border bg-background text-xs font-bold text-foreground hover:border-foreground/30 transition-colors"
+                  >
+                    {t.name}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => { onClose(); navigate('/templates'); }}
+                  className="min-h-9 px-3 rounded-xl text-xs font-bold text-subtle-foreground hover:text-foreground transition-colors"
+                >
+                  Browse all templates…
+                </button>
+              </div>
+            </div>
+          )}
 
           {/*
             The file path to the same outcome, offered where someone is already
@@ -573,8 +671,8 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
                 Name {isClaude ? <span className="text-subtle-foreground normal-case font-bold">(optional)</span> : <span className="text-danger-text">*</span>}
               </label>
               <input
-                value={name}
-                onChange={e => setName(e.target.value)}
+                value={taskName}
+                onChange={e => { setName(e.target.value); setNameTouched(e.target.value !== ''); }}
                 aria-label="Name"
                 placeholder={isWindows ? 'Nightly repo backup' : isClaude ? 'Defaults to the scheduled task id' : 'Ping n8n webhook'}
                 className={`w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none transition-colors ${focusAccent}`}
@@ -592,8 +690,13 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
                 <input
                   value={category}
                   onChange={e => setCategory(e.target.value)}
+                  list="create-category-options"
                   className={`w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none transition-colors ${focusAccent}`}
                 />
+                {/* Suggestions, not a picker — a new category is still just typed. */}
+                <datalist id="create-category-options">
+                  {categoryOptions.map(c => <option key={c} value={c} />)}
+                </datalist>
               </div>
             )}
           </div>
@@ -756,6 +859,20 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
                 onChange={setJob}
                 storedJobType={job.jobType}
               />
+
+              <div className="space-y-2">
+                <label htmlFor="create-native-description" className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">
+                  Description
+                </label>
+                <input
+                  id="create-native-description"
+                  value={description}
+                  maxLength={1024}
+                  onChange={e => setDescription(e.target.value)}
+                  placeholder="(optional) what this task does and why"
+                  className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary transition-colors"
+                />
+              </div>
 
               {/*
                 Where this will actually run — the one thing that makes a job

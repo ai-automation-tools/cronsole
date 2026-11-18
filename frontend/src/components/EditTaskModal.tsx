@@ -173,6 +173,15 @@ export const EditTaskModal = ({ task, executionHost, onClose }: Props) => {
 
   const [nativeJob, setNativeJob] = useState<NativeJobValues>(() => (runs.kind === 'native' ? runs.initial : EMPTY_NATIVE));
   const [nativeBase, setNativeBase] = useState<NativeJobValues>(() => (runs.kind === 'native' ? runs.initial : EMPTY_NATIVE));
+  // Saved with the job (`PATCH /:id/job`), as a Windows task's description is
+  // saved with its action — but kept out of NativeJobValues, because it is not
+  // part of the job the executor runs.
+  const storedDescription = (() => {
+    const d = (task.metadata as Record<string, unknown> | null | undefined)?.description;
+    return typeof d === 'string' ? d : '';
+  })();
+  const [nativeDesc, setNativeDesc] = useState(storedDescription);
+  const [nativeDescBase, setNativeDescBase] = useState(storedDescription);
 
   const [status, setStatus] = useState<Record<SectionKey, SectionStatus>>({
     labels: { state: 'idle' },
@@ -252,19 +261,30 @@ export const EditTaskModal = ({ task, executionHost, onClose }: Props) => {
      * problem, on a type that may have no headers at all.
      */
     const problem = nativeJobIncomplete(nativeJob) ?? undefined;
+    // Sent only when changed: the route keeps an omitted description.
+    const descDirty = nativeDesc.trim() !== nativeDescBase.trim();
     plans.push({
       key: 'runs',
       title: 'What it runs',
       icon: Terminal,
       // A null payload means a field cannot be read. That counts as dirty on
       // purpose: it must block Save rather than be quietly treated as unchanged.
-      dirty: payload === null || JSON.stringify(payload) !== JSON.stringify(basePayload),
+      dirty:
+        payload === null ||
+        JSON.stringify(payload) !== JSON.stringify(basePayload) ||
+        descDirty,
       problem,
       save: async () => {
         if (!payload) throw new Error(nativeJobUnreadable(nativeJob) ?? 'This job cannot be read.');
-        await api.patch(`/tasks/${task.id}/job`, { job: payload });
+        await api.patch(`/tasks/${task.id}/job`, {
+          job: payload,
+          ...(descDirty ? { description: nativeDesc.trim() } : {})
+        });
       },
-      settle: () => setNativeBase(nativeJob)
+      settle: () => {
+        setNativeBase(nativeJob);
+        setNativeDescBase(nativeDesc.trim());
+      }
     });
   }
 
@@ -470,14 +490,30 @@ export const EditTaskModal = ({ task, executionHost, onClose }: Props) => {
           {runs.kind === 'windows' ? (
             <WindowsActionFields value={winAction} onChange={setWinAction} disabled={saving} />
           ) : runs.kind === 'native' ? (
-            <NativeJobFields
-              value={nativeJob}
-              onChange={setNativeJob}
-              storedJobType={nativeBase.jobType}
-              executionHost={executionHost}
-              disabled={saving}
-              taskId={task.id}
-            />
+            <>
+              <NativeJobFields
+                value={nativeJob}
+                onChange={setNativeJob}
+                storedJobType={nativeBase.jobType}
+                executionHost={executionHost}
+                disabled={saving}
+                taskId={task.id}
+              />
+              <div className="space-y-2">
+                <label htmlFor="edit-native-description" className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">
+                  Description
+                </label>
+                <input
+                  id="edit-native-description"
+                  value={nativeDesc}
+                  maxLength={1024}
+                  disabled={saving}
+                  onChange={e => setNativeDesc(e.target.value)}
+                  placeholder="(optional) what this task does and why"
+                  className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary transition-colors disabled:opacity-50"
+                />
+              </div>
+            </>
           ) : (
             <Refusal reason={runs.reason} />
           )}

@@ -47,6 +47,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 106 | **A native job fails with *Access is denied* after an update** — it manages a service, writes to a protected folder, or runs `Dism` / `cleanmgr`, and it used to work | The backend no longer runs as administrator, so native jobs do not either. Move the job to a Windows task with *Run with highest privileges* | [→](#106-a-native-job-fails-with-access-is-denied-after-an-update) |
 | 107 | **The API answers 403 *Host "…" is not allowed*, or first-run asks for a setup code** | The hostname you used is not one the API knows (add it to `ALLOWED_HOSTS`); the setup code is in the backend log | [→](#107-the-api-answers-403-host-is-not-allowed-or-first-run-asks-for-a-setup-code) |
 | 109 | **The whole dashboard says *Internal server error* right after a migration**, and `/api/tasks` 500s while `/api/health` is fine — the migration applied cleanly and `check-migrations-applied` says OK | The `npm run dev` watcher **restarted on your source edit before `prisma generate` ran**, so the running backend holds the *old* client, which has no model for the new table. The DB and the generated client are both current; only the process is not. **Touch any file under `backend/src`** (or `cronsole restart`) after `prisma generate` | [→](#109-the-dashboard-500s-right-after-a-migration-that-applied-cleanly) |
+| 110 | **A page that frames Cronsole is refused, quoting an older `frame-ancestors` list**, while `curl` shows the new one | Vite's **304** for `index.html` carries none of `server.headers`, so a browser that had the page kept the header it first saw. Fixed: the policy is now set by a plugin middleware that runs before Vite's, so 304s carry it too. On an older checkout, clear the site's cache or hard-reload the framed page | [→](#110-a-framing-page-is-refused-with-an-old-frame-ancestors-list) |
 | 93 | **A restored backup succeeds and every platform connection is unreadable** — `pg_restore` exits 0, every row count matches, your tasks are all there, and every source is broken | **The credentials in the dump are ciphertext and the key is not in the dump.** `PlatformConnection.config` and `TaskSecret` are AES-256-GCM encrypted with `ENCRYPTION_KEY`, which lives in `.env`. A restore onto a stack with a different key genuinely succeeds and leaves every value permanently unreadable, discovered one failing sync at a time | [→](#93-a-restore-succeeds-and-every-platform-connection-is-unreadable) |
 | 92 | **A restore verification says the data does not match, and the restore was perfect** — the *restored* copy reports more rows than the original it came from | **The check is reading an estimate, not a count.** `pg_stat_user_tables.n_live_tup` is a planner input maintained by autovacuum: stale (often zero) on a database not analysed recently, accurate on a freshly-restored one. It can be wrong in **both** directions, so it can also report a match over a restore that dropped rows. Generate real `count(*)` queries | [→](#92-a-restored-database-reports-different-row-counts-and-the-restore-was-perfect) |
 | 91 | **A second clone of the repo is not a second install** — `docker compose up` from a fresh checkout adopts the first one's database, or fails with `port is already allocated`. Shifting the ports in a `docker-compose.override.yml` does not help | **The Compose project name is pinned in the file, not derived from the folder** (`name: taskhub`, deliberately — it is what stops a renamed checkout orphaning the Postgres volume). Every clone on the machine is therefore the *same* project. And a plain override **appends** to `ports:` rather than replacing it, so both bindings are attempted and the old one still collides. Use `docker compose -p <name>` **and** the `!override` tag on every port list | [→](#91-a-second-clone-of-the-repo-shares-the-first-ones-database-and-ports) |
@@ -6709,3 +6710,24 @@ Then reload. **Next time**, change `schema.prisma`, run `npx prisma migrate depl
 `migrate dev`) and `npx prisma generate` **before** editing the routes that use the new model.
 
 *First hit: 2026-11-13 (adding `TaskHidden`).*
+
+## 110. A framing page is refused with an old frame-ancestors list
+
+**Symptom.** After adding an origin to `VITE_FRAME_ANCESTORS` (`frontend/.env.local`), a page at
+that origin still cannot frame Cronsole. The browser console says framing `http://localhost:7373/`
+*"violates the following Content Security Policy directive: frame-ancestors 'self' …"* and quotes
+the **old** list. `curl -I http://localhost:7373/` shows the new one, so the dev server did pick it
+up.
+
+**Cause.** The header was set with `server.headers`, which Vite applies to a full response but
+**not to its 304** for `index.html`. The page bytes did not change, so a browser holding the page
+revalidated, got a bare 304, and reused the headers from its cached copy, old policy included. The
+first test of a new origin is exactly the moment the browser already has the page.
+
+**Fix.** Since 2026-11-17 `vite.config.ts` sets the policy in a plugin middleware
+(`frameAncestorsHeader`, `configureServer` + `configurePreviewServer`), which runs before Vite's
+own and so reaches 304s too. Check with
+`curl -s -D - -o /dev/null -H "If-None-Match: <etag>" http://localhost:7373/`: the 304 must carry
+`Content-Security-Policy`. On an older checkout, hard-reload or clear the site's cache.
+
+*First hit: 2026-11-17 (adding the Suite shell at `:9005`).*

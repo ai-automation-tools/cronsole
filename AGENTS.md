@@ -915,6 +915,12 @@ Non-negotiable rules. **Every one has a reason recorded in
   machine, so it is not offered to the LAN by default, and the Vite dev server follows the same
   rule. The container sets `0.0.0.0` because its published port is what is pinned to `127.0.0.1`.
   The boot line states which interface is in use.
+- **Framing is opt-in by origin, and embed mode talks only to those origins.** `VITE_FRAME_ANCESTORS`
+  (`utils/frameAncestors.ts`, one parser) is read by `vite.config.ts` for the dev and preview
+  servers' CSP `frame-ancestors`, and by `utils/embed.ts` as the only targets of `postMessage` and
+  the only senders it accepts a theme from (and only from `window.parent`). Unset, the header is
+  absent as before, but **an empty list never means "anyone" to the client**: nothing is posted.
+  `?embed=1` outside a frame does nothing. The proxy keeps `frame-ancestors 'none'`.
 - **`index.html` carries no inline script.** The proxy sends `script-src 'self'` because the
   session token lives in `localStorage`, so an inline script runs on `:7373` and is silently
   dropped on the proxied page. Boot scripts are files in `frontend/public/`

@@ -94,8 +94,12 @@ export function createApp(): Express {
   // body-parser skips a request another parser already consumed (it checks
   // `req._body`), so this widens the limit for exactly one route instead of
   // handing every endpoint in the API a 32 MB request budget.
-  app.use('/api/tools/restore', express.json({ limit: RESTORE_BODY_LIMIT }));
-  app.use('/api/templates/import', express.json({ limit: IMPORT_BODY_LIMIT }));
+  //
+  // `authenticateToken` goes first on both: without it, anyone who can reach the
+  // port gets a 32 MB / 8 MB JSON parse before being told to log in. The router
+  // mount below checks the token again; that is one extra read on two rare routes.
+  app.use('/api/tools/restore', authenticateToken, express.json({ limit: RESTORE_BODY_LIMIT }));
+  app.use('/api/templates/import', authenticateToken, express.json({ limit: IMPORT_BODY_LIMIT }));
   app.use(express.json());
 
   app.get('/api/health', (_req: Request, res: Response) => {

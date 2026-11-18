@@ -312,3 +312,19 @@ describe('first-run setup through a proxy needs the one-time code', () => {
     }
   });
 });
+
+describe('the large-body routes check the token before reading the body', () => {
+  // Restore takes a 32 MB body and template import 8 MB. Both used to be parsed
+  // before authenticateToken ran, so anyone who could reach the port got that
+  // parse for free. A malformed body is the tell: a parse error (400) means the
+  // body was read first, a 401 means the token was checked first.
+  for (const path of ['/api/tools/restore', '/api/templates/import']) {
+    it(`${path} refuses a request with no token before parsing it`, async () => {
+      const res = await request(app)
+        .post(path)
+        .set('Content-Type', 'application/json')
+        .send('{"not json');
+      expect(res.status).toBe(401);
+    });
+  }
+});

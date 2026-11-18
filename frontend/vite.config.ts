@@ -1,7 +1,9 @@
 import { copyFileSync, existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { defineConfig, type Plugin } from 'vite'
+import { fileURLToPath } from 'node:url'
+import { defineConfig, loadEnv, type Plugin, type PreviewServer, type ViteDevServer } from 'vite'
 import react from '@vitejs/plugin-react'
+import { parseFrameAncestors } from './src/utils/frameAncestors.ts'
 
 /**
  * Write `404.html` as a byte copy of `index.html`.
@@ -39,11 +41,30 @@ function spaFallback(): Plugin {
 }
 
 // https://vite.dev/config/
+/**
+ * Sends the frame-ancestors policy on every response, 304s included. `server.headers` is not
+ * applied to Vite's 304 for index.html, so a browser holding the page kept the policy it first
+ * saw and a changed VITE_FRAME_ANCESTORS was ignored until its cache was cleared. Middleware
+ * added directly in these hooks runs before Vite's own.
+ */
+function frameAncestorsHeader(policy: string | undefined): Plugin {
+  const use = (s: ViteDevServer | PreviewServer) => {
+    if (policy) s.middlewares.use((_req, res, next) => { res.setHeader('Content-Security-Policy', policy); next() })
+  }
+  return { name: 'cronsole-frame-ancestors', configureServer: use, configurePreviewServer: use }
+}
+
 const APP_VERSION = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version
 
-export default defineConfig(({ mode }) => ({
+export default defineConfig(({ mode }) => {
+  // Pages allowed to show Cronsole in a frame (a local Project Hub, the suite shell).
+  // Unset, no frame header is sent, as before; set, CSP frame-ancestors limits framing
+  // to them. The app reads the same list as the only origins it talks to (utils/embed.ts).
+  const ancestors = parseFrameAncestors(loadEnv(mode, fileURLToPath(new URL('.', import.meta.url)), 'VITE_').VITE_FRAME_ANCESTORS)
+  const framePolicy = ancestors.length ? `frame-ancestors 'self' ${ancestors.join(' ')}` : undefined
+  return {
   define: { __APP_VERSION__: JSON.stringify(APP_VERSION) },
-  plugins: [react(), ...(mode === 'demo' ? [spaFallback()] : [])],
+  plugins: [react(), frameAncestorsHeader(framePolicy), ...(mode === 'demo' ? [spaFallback()] : [])],
   server: {
     // Loopback only: the dev server is not offered to the LAN. The container image
     // passes --host itself (frontend/Dockerfile), which overrides this.
@@ -76,4 +97,5 @@ export default defineConfig(({ mode }) => ({
       '/socket.io': { target: 'http://127.0.0.1:3000', ws: true },
     },
   },
-}))
+}
+})

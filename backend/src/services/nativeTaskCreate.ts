@@ -55,6 +55,12 @@ export interface NativeTaskInput {
   /** Normalized by `buildNativeJob`, then checked by the executor's own `validateJob`. */
   job: unknown;
   /**
+   * Free text shown as the task's Description, stored as `metadata.description`
+   * — the key the Windows sync fills from Task Scheduler, so one reader serves
+   * both. A label like `name`: no platform owns it, and blank means none.
+   */
+  description?: string;
+  /**
    * Secret name → value, stored encrypted and never returned (ADR 0003).
    *
    * Accepted **only here**, and only because a create has nothing to preserve:
@@ -119,6 +125,7 @@ export async function createNativeTask(
     }
   }
 
+  const description = input.description?.trim();
   const task = await prisma.task.create({
     data: {
       userId,
@@ -129,7 +136,7 @@ export async function createNativeTask(
       schedule,
       nextRunTime,
       status: TaskStatus.ACTIVE,
-      metadata: { job: nativeJob } as unknown as Prisma.InputJsonValue
+      metadata: { job: nativeJob, ...(description ? { description } : {}) } as unknown as Prisma.InputJsonValue
     }
   });
 

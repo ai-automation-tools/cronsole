@@ -168,6 +168,8 @@ export function parseTaskBundle(input: unknown): NativeTaskInput {
     category: typeof task.category === 'string' && task.category.trim() ? task.category.trim() : undefined,
     schedule: onDemand ? null : schedule,
     onDemand,
-    job: task.job
+    job: task.job,
+    // A label, so a malformed one is dropped rather than refusing the file.
+    description: typeof task.description === 'string' ? task.description.slice(0, 1024) : undefined
   };
 }

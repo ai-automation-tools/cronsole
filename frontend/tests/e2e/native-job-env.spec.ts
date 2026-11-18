@@ -31,7 +31,8 @@ test('an env typed into the form reaches metadata.job.env', async ({ page }) => 
   await expect(dialog).toBeVisible();
 
   await dialog.getByRole('button', { name: 'Cronsole', exact: true }).click();
-  await dialog.getByRole('button', { name: 'Run a program' }).click();
+  // Exact: the starter-template row above holds "Run a Program / .exe".
+  await dialog.getByRole('button', { name: 'Run a program', exact: true }).click();
 
   await dialog.getByLabel(/^Name/).fill(CREATE_NAME);
   await dialog.getByLabel(/Command/).fill('node -e "1"');

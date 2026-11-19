@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "1.0",
+  "id": "mon-macos-filevault-status",
+  "name": "Log macOS FileVault Status",
+  "description": "Write whether FileVault disk encryption is on to a log file on a schedule, so a laptop whose encryption was switched off or never finished turning on leaves a dated record instead of being discovered after a loss.",
+  "runtime": "bash",
+  "os": "macos",
+  "category": "monitoring",
+  "tags": [
+    "monitoring",
+    "macos",
+    "security",
+    "filevault"
+  ],
+  "icon": "Lock",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 9 * * 1"
+  },
+  "commandTemplate": "/bin/bash -c \"fdesetup status >> {{logPath}} 2>&1\"",
+  "parameters": [
+    {
+      "key": "logPath",
+      "label": "Log file path",
+      "type": "path",
+      "default": "/usr/local/var/log/filevault-status.log",
+      "required": true,
+      "help": "Where to append the status line on each run. Each line reads FileVault is On or FileVault is Off, so compare neighbouring lines for a change."
+    }
+  ],
+  "compatibleTargets": [
+    "macos"
+  ]
+}

@@ -8,7 +8,7 @@
     "output": "source-data-flow.html",
     "repository": {
       "url": "https://github.com/ai-automation-tools/cronsole.git",
-      "revision": "507dad1084a16953b4167df3ba26666e0c41dadc"
+      "revision": "6ec18aa1d50dba7ecae944c97702349c2e515819"
     }
   },
   "stages": [
@@ -39,13 +39,13 @@
       "sources": [
         {
           "path": "agent/Cronsole.Agent/AgentService.cs",
-          "line": 255,
-          "end_line": 291
+          "line": 256,
+          "end_line": 292
         },
         {
           "path": "agent/Cronsole.Agent/AgentService.cs",
-          "line": 559,
-          "end_line": 583
+          "line": 560,
+          "end_line": 584
         }
       ]
     },
@@ -304,8 +304,8 @@
         },
         {
           "path": "backend/src/routes/tasks.ts",
-          "line": 1350,
-          "end_line": 1368
+          "line": 1361,
+          "end_line": 1379
         },
         {
           "path": "frontend/src/hooks/useLiveTaskUpdates.ts",

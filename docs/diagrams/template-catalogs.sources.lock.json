@@ -1,14 +1,14 @@
 {
-  "revision": "507dad1084a16953b4167df3ba26666e0c41dadc",
+  "revision": "6ec18aa1d50dba7ecae944c97702349c2e515819",
   "files": {
     ".github/workflows/publish-registry.yml": "db5d207cf67346400657e4a35edc779ba1cfd3a9",
     "backend/prisma/schema.prisma": "1bb06f5acab2721edaec191d452b5115637266a0",
-    "backend/src/catalog/bundled.ts": "562304edda17a19bf87cf7a91df5fe60258cb085",
+    "backend/src/catalog/bundled.ts": "a07cb48142968e6dce2c20f036269d20472466d1",
     "backend/src/catalog/catalogSync.ts": "401436f83cf237617dc5f6ad26c01fcdb2bdafb6",
     "backend/src/catalog/source.ts": "adddfc92eea5629e57dc55074b07febfb7b03475",
     "backend/src/routes/templates.ts": "9e5874b26a86cfee962a7cfed43eda4913cd4870",
-    "registry-site/index.html": "4b0c9b1dfb65a188b0d6a379cd94dafd3a10bf01",
-    "registry/index.json": "d45bcd95c1cff90f52ec0544c8606ba0a2ce2741",
+    "registry-site/index.html": "0b2eae22672560d4bfce7d73e2ec71625bdafd00",
+    "registry/index.json": "ae89cd37c34f695a0b0bca0df81ecafdb5a20f72",
     "scripts/check-external-catalogs.mjs": "f4e7414c5bb71c95bd844111957d98df682b8168"
   }
 }

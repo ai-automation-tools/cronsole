@@ -13,6 +13,7 @@ import { registerUiChannel } from './ws/uiChannel.js';
 import { serializeConfig } from './auth/connectionConfig.js';
 import { nativeScheduler } from './services/NativeScheduler.js';
 import { autoSync } from './services/AutoSync.js';
+import { runRetention } from './services/RunRetention.js';
 import { startCatalogRefresh } from './catalog/catalogSync.js';
 import { parseAllowedOrigins, warnOnPermissiveCors } from './config/origins.js';
 import { makeHostGate } from './config/hosts.js';
@@ -138,6 +139,7 @@ async function main() {
 
   await nativeScheduler.start();
   autoSync.start();
+  runRetention.start();
 
   server.listen(Number(PORT), BIND_HOST, () => {
     const reach = BIND_HOST === '127.0.0.1' ? 'this machine only' : 'reachable from the network';

@@ -2168,6 +2168,20 @@ no-shell execution held up; the gaps are in defaults and deployment.
 New correctness work lands here as it is found. Everything logged before 2026-08-16 is closed —
 see [Part II](#completed--p1-correctness--honesty).
 
+- [ ] **Stop reading an n8n "every N minutes" rule as clock-aligned `*/N`** *(logged 2026-11-19 by the upstream
+      check)*. n8n 2.45 (2026-10-20) changed Schedule Trigger "every N seconds" and "every N minutes" to
+      run a steady N apart, counted from when the workflow was published, instead of on clock boundaries;
+      `N8N_SCHEDULER_TRIGGER_NODE_MODE=legacy` keeps the old timing and is deprecated (source:
+      docs.n8n.io/release-notes). `readRule` converts `minutesInterval` N to `*/N * * * *` on the claim
+      that n8n's own cron is `*/N`, so on 2.45+ the stored schedule can be off by up to N minutes with
+      nothing on screen saying so. **What**: decide between refusing N > 1 with a reason (the §9 rule,
+      "unavailable rather than approximate", which loses the schedule on every older instance) and keeping
+      the cron but marking it approximate in `metadata.scheduleReason`; the instance version is not in
+      the public API, so a per-connection setting may be the only honest switch. **Where**:
+      `backend/src/services/n8nSchedule.ts` (`readRule`, the header comment), its tests, the n8n source
+      guide. **Done when**: a `minutesInterval: 15` fixture yields the chosen behaviour with a test
+      pinning it, and the guide states which n8n versions it is exact for.
+
 - [x] **Move the Dockerfiles off Node 20, which reached end of life 2026-04-30** *(logged 2026-10-08
       by the upstream check)*. `backend/Dockerfile` and `frontend/Dockerfile` both start
       `FROM node:20-alpine`, so the shipped backend runs on a runtime that no longer gets security

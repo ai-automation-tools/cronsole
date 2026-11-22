@@ -67,6 +67,10 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 - **Two roadmap duplicates** (2026-11-11). *ChatGPT stays quick-links-only* repeated the *Staying quick-links-only* decision. *Route-level code-splitting* is done except for the Help Center, which Next up already holds as F18.
 
+### Security
+
+- **`effect` pinned past a ReDoS advisory** (2026-11-22). `@prisma/config` 7.10.1 pins `effect` 3.20.0, which GHSA-7589-6fvf-x4pw (high, ReDoS in `Schema.TemplateLiteral`) covers, and no 7.x Prisma ships a fix. An `overrides` entry in `backend/package.json` lifts it to `^3.22.1` (3.22.5 in the lockfile), so the `npm audit --omit=dev --audit-level=high` step in CI passes again; it had failed on `main` and every open PR. Drop the override once Prisma depends on a patched `effect`.
+
 ## [0.11.0] — 2026-11-11
 
 App, agent and MCP server all move to 0.11.0 (`app/v0.11.0`, `agent/v0.11.0`, `mcp/v0.11.0`).

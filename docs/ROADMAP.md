@@ -1537,8 +1537,10 @@ components over 1,000 lines.
 
 **Medium**
 
-- [ ] **Run-history retention.** `ExecutionLog` rows go only with their task, so a per-minute job
-      grows the table without bound. A setting for how long to keep them, and a daily prune.
+- [x] **Run-history retention.** `ExecutionLog` rows go only with their task, so a per-minute job
+      grows the table without bound. A setting for how long to keep them, and a daily prune. — done 2026-11-20:
+      `services/RunRetention.ts` prunes at boot and daily, window from `EXECUTION_LOG_RETENTION_DAYS` (default 90, `0` = keep).
+      An env var, not a Settings control; a per-user setting in the UI is still open.
 - [ ] **Derive the encryption key and version the ciphertext** [S10]. The 32-character key is used
       raw. Accept 32 random bytes, add a version prefix, migrate with `npm run rotate-key`.
 - [ ] **Generate the database password** [issue 7]. It is `password` on a loopback-only port.

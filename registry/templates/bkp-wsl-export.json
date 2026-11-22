@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "id": "bkp-wsl-export",
+  "name": "Export a WSL Distribution to a Backup File",
+  "description": "Export a Windows Subsystem for Linux distribution to a tar file on a schedule, so a development environment that only exists inside WSL can be restored after a bad update or a lost disk. The export overwrites the file at the path you give.",
+  "runtime": "executable",
+  "os": "windows",
+  "category": "backup",
+  "tags": [
+    "backup",
+    "windows",
+    "wsl",
+    "linux"
+  ],
+  "icon": "Archive",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 2 * * 0"
+  },
+  "commandTemplate": "wsl.exe --export {{distroName}} \"{{backupFile}}\"",
+  "parameters": [
+    {
+      "key": "distroName",
+      "label": "Distribution name",
+      "type": "text",
+      "default": "Ubuntu",
+      "required": true,
+      "help": "The name shown by wsl --list, e.g. Ubuntu. The distribution is stopped briefly while it is exported."
+    },
+    {
+      "key": "backupFile",
+      "label": "Backup file path",
+      "type": "path",
+      "default": "D:\\backups\\wsl-ubuntu.tar",
+      "required": true,
+      "help": "Where to write the tar file. It is the size of the whole distribution, so choose a drive with room, and note that each run replaces the previous file."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

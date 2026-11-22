@@ -1899,6 +1899,76 @@ const extendedPack: RegistryTemplate[] = [
       { key: 'logPath', label: 'Log file path', type: 'path', default: 'C:\\logs\\last-boot.log', required: true, help: 'Where to append the last boot time on each run. One line per run, so compare neighbouring lines to spot a reboot.' }
     ],
     compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'mon-windows-cert-expiry',
+    name: 'Log Expiring Windows Certificates',
+    description: 'List the certificates in the local machine Personal store that expire within a number of days and append them to a log on a schedule, so a lapsing server, VPN or code-signing certificate is noticed before it breaks something.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'monitoring',
+    tags: ['monitoring', 'windows', 'certificates', 'expiry'],
+    icon: 'BadgeAlert',
+    trigger: sched('0 7 * * 1'),
+    commandTemplate: 'powershell.exe -NoProfile -Command "Get-ChildItem Cert:/LocalMachine/My | Where-Object { $_.NotAfter -lt (Get-Date).AddDays({{withinDays}}) } | Select-Object Subject, NotAfter | Out-File -Append \'{{logPath}}\'"',
+    parameters: [
+      { key: 'withinDays', label: 'Warn within (days)', type: 'number', default: '30', required: true, help: 'Certificates that expire within this many days, or have already expired, are written to the log.' },
+      { key: 'logPath', label: 'Log file path', type: 'path', default: 'C:\\logs\\cert-expiry.log', required: true, help: 'Where to append the list on each run. A run that finds nothing expiring writes nothing, so an empty log is good news.' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'bkp-wsl-export',
+    name: 'Export a WSL Distribution to a Backup File',
+    description: 'Export a Windows Subsystem for Linux distribution to a tar file on a schedule, so a development environment that only exists inside WSL can be restored after a bad update or a lost disk. The export overwrites the file at the path you give.',
+    runtime: 'executable',
+    os: 'windows',
+    category: 'backup',
+    tags: ['backup', 'windows', 'wsl', 'linux'],
+    icon: 'Archive',
+    trigger: sched('0 2 * * 0'),
+    commandTemplate: 'wsl.exe --export {{distroName}} "{{backupFile}}"',
+    parameters: [
+      { key: 'distroName', label: 'Distribution name', type: 'text', default: 'Ubuntu', required: true, help: 'The name shown by wsl --list, e.g. Ubuntu. The distribution is stopped briefly while it is exported.' },
+      { key: 'backupFile', label: 'Backup file path', type: 'path', default: 'D:\\backups\\wsl-ubuntu.tar', required: true, help: 'Where to write the tar file. It is the size of the whole distribution, so choose a drive with room, and note that each run replaces the previous file.' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'mon-defender-signature-age',
+    name: 'Log Defender Signature Age',
+    description: 'Append the date Microsoft Defender last updated its virus definitions, and whether real-time protection is on, to a log on a schedule. Stale definitions on a machine that is switched off over weekends or sits behind a proxy are otherwise invisible.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'monitoring',
+    tags: ['monitoring', 'windows', 'security', 'defender'],
+    icon: 'ShieldAlert',
+    trigger: sched('0 9 * * *'),
+    commandTemplate: 'powershell.exe -NoProfile -Command "Get-MpComputerStatus | Select-Object AntivirusSignatureLastUpdated, RealTimeProtectionEnabled | Out-File -Append \'{{logPath}}\'"',
+    parameters: [
+      { key: 'logPath', label: 'Log file path', type: 'path', default: 'C:\\logs\\defender-signatures.log', required: true, help: 'Where to append the signature date and protection state on each run. It reports on Microsoft Defender only and shows nothing useful where a third-party antivirus has replaced it.' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'mon-macos-filevault-status',
+    name: 'Log macOS FileVault Status',
+    description: 'Write whether FileVault disk encryption is on to a log file on a schedule, so a laptop whose encryption was switched off or never finished turning on leaves a dated record instead of being discovered after a loss.',
+    runtime: 'bash',
+    os: 'macos',
+    category: 'monitoring',
+    tags: ['monitoring', 'macos', 'security', 'filevault'],
+    icon: 'Lock',
+    trigger: sched('0 9 * * 1'),
+    commandTemplate: '/bin/bash -c "fdesetup status >> {{logPath}} 2>&1"',
+    parameters: [
+      { key: 'logPath', label: 'Log file path', type: 'path', default: '/usr/local/var/log/filevault-status.log', required: true, help: 'Where to append the status line on each run. Each line reads FileVault is On or FileVault is Off, so compare neighbouring lines for a change.' }
+    ],
+    compatibleTargets: ['macos']
   }
 ];
 

@@ -22,7 +22,7 @@ app runs.
 
 | Area | What's inside |
 |:---|:---|
-| [**🔌 MCP Servers**](mcp/README.md) | The Model Context Protocol servers configured in [`.mcp.json`](../../.mcp.json) — docs, GitHub, browser automation, search, and more. |
+| [**🔌 MCP Servers**](mcp/README.md) | The Model Context Protocol servers configured in [`.mcp.json`](../../.mcp.json.example) (the checked-in example) — docs, GitHub, browser automation, search, and more. |
 | [**⌨️ CLIs**](clis/README.md) | Command-line tools used to develop, run, and ship Cronsole. |
 | [**🤖 Subagents**](agents/README.md) | The project-scoped Claude Code subagents in [`.claude/agents/`](../../.claude/agents). |
 

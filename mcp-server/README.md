@@ -217,6 +217,6 @@ mcp-server/
 
 | Resource | Why |
 |:---|:---|
-| [**💬 MCP prompt library**](../prompts/mcp-server/README.md) | What to say to an assistant once this is connected, grouped by task — Windows jobs, headless agent runs, native HTTP and script jobs, Claude routines, audits, cleanup. |
+| [**💬 MCP prompt library**](../prompts/mcp-server/README.md) | What to say to an assistant once this is connected, grouped by task — Windows jobs, headless agent runs, native HTTP and script jobs, Claude Code scheduled tasks, audits, cleanup. |
 | [**🧩 MCP Server Guide**](../docs/user-guides/guides/MCP_Server_Guide.md) | Setup, token minting, host wiring, troubleshooting. |
 | [**✍️ Task authoring**](../backend/src/tools/connect-pack/references/task-authoring.md) | The invariants every create tool here is bound by. |

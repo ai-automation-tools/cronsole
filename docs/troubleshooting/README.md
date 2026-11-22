@@ -3177,7 +3177,7 @@ For the `any` errors specifically, use `frontend/src/utils/errorMessage.ts` in a
 in exactly the direction that lets six commits ship broken. It is the record-keeping failure
 of §11a pointed at CI: nothing fails loudly at the moment the mistake is made.
 
-*First hit: 2026-08-12, during the Claude routines work.*
+*First hit: 2026-08-12, during the Claude Code scheduled tasks work.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 
@@ -6731,3 +6731,9 @@ own and so reaches 304s too. Check with
 `Content-Security-Policy`. On an older checkout, hard-reload or clear the site's cache.
 
 *First hit: 2026-11-17 (adding the Suite shell at `:9005`).*
+
+---
+
+<p align="center">
+  <a href="../README.md">← Docs home</a>
+</p>

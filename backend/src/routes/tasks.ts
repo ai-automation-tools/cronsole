@@ -59,17 +59,20 @@ const platformSchema = z.enum(PlatformType, { message: 'Invalid platform' });
 import { isValidCron } from '../utils/cron.js';
 import { previewSchedule } from '../services/schedulePreview.js';
 
+/** How many recent runs each task carries on the list — one task card's run strip. */
+const RECENT_RUNS = 7;
+
 // List all tasks (with a flattened last-run summary for the dashboard)
 router.get('/', async (req: Request, res: Response) => {
   const userId = (req as AuthRequest).user!.id;
-  const [tasks, favorites, memberships] = await Promise.all([
+  const [tasks, favorites, memberships, hidden] = await Promise.all([
     prisma.task.findMany({
       where: { userId },
       orderBy: { updatedAt: 'desc' },
       include: {
         executions: {
           orderBy: { triggeredAt: 'desc' },
-          take: 1,
+          take: RECENT_RUNS,
           select: { status: true, triggeredAt: true, durationMs: true }
         }
       }
@@ -81,9 +84,11 @@ router.get('/', async (req: Request, res: Response) => {
     prisma.taskCollectionMember.findMany({
       where: { collection: { userId } },
       select: { taskId: true, collectionId: true }
-    })
+    }),
+    prisma.taskHidden.findMany({ where: { userId }, select: { taskId: true } })
   ]);
   const favoriteIds = new Set(favorites.map(f => f.taskId));
+  const hiddenIds = new Set(hidden.map(h => h.taskId));
   const collectionsByTask = new Map<string, string[]>();
   for (const m of memberships) {
     const list = collectionsByTask.get(m.taskId);
@@ -95,6 +100,11 @@ router.get('/', async (req: Request, res: Response) => {
     lastRunStatus: executions[0]?.status ?? null,
     lastRunAt: executions[0]?.triggeredAt ?? null,
     lastRunDurationMs: executions[0]?.durationMs ?? null,
+    // The card's run strip: up to RECENT_RUNS of Cronsole's own execution
+    // records, newest first. Runs Cronsole *performed* only (§9) — a platform
+    // firing on its own schedule writes nothing here, so a short list means
+    // "Cronsole recorded this many", never "it ran this many times".
+    recentRuns: executions.map(e => ({ status: e.status, triggeredAt: e.triggeredAt })),
     // Per-viewer, from the TaskFavorite join — never a column on Task, which in a
     // multi-tenant DB would make one user's star everyone's.
     isFavorite: favoriteIds.has(task.id),
@@ -108,7 +118,11 @@ router.get('/', async (req: Request, res: Response) => {
     // summarizeUntracked uses), and a second copy in the frontend is the shape
     // that let a renamed category silently stop syncing (#20a). The dashboard
     // gets the answer; it never gets the predicate.
-    isSystem: TaskService.isSystemTask(task.externalId, task.platform),
+    isSystem: TaskService.isSystemTask(task.externalId, task.platform, hiddenIds.has(task.id)),
+    // Which of the two ways in it took: true when *you* filed it under system
+    // tasks (and so can take it back out); an OS-owned task is `isSystem`
+    // without it, and there is nothing to undo.
+    hiddenByUser: hiddenIds.has(task.id),
     // Which source bar entry this task belongs to. Server-derived for the same
     // reason `isSystem` is: it reads `metadata.job.jobType`, and a second copy of
     // "what kind of native task is this" in the browser is the drift shape of
@@ -226,6 +240,43 @@ router.delete('/:id/favorite', async (req: Request, res: Response) => {
 
   await prisma.taskFavorite.deleteMany({ where: { userId, taskId } });
   res.json({ id: taskId, isFavorite: false });
+});
+
+// File a task under **system tasks** for the current user, or take it back out.
+// The same shape and the same rules as the favorite routes above: owner-checked
+// on the way in (a row may never point at another tenant's task), idempotent
+// both ways, and Cronsole-side only — nothing on the platform changes, so it
+// works with the agent offline. An OS-owned task is already a system task and
+// is refused, because "move it out" would then be a control that cannot work.
+router.post('/:id/hidden', async (req: Request, res: Response) => {
+  const taskId = req.params.id as string;
+  const userId = (req as AuthRequest).user!.id;
+
+  const owned = await prisma.task.findFirst({
+    where: { id: taskId, userId },
+    select: { id: true, externalId: true, platform: true }
+  });
+  if (!owned) {
+    throw new HttpError(404, 'Task not found');
+  }
+  if (TaskService.isSystemTask(owned.externalId, owned.platform)) {
+    throw new HttpError(400, 'This task is already a system task — the operating system owns it.');
+  }
+
+  await prisma.taskHidden.upsert({
+    where: { userId_taskId: { userId, taskId } },
+    update: {},
+    create: { userId, taskId }
+  });
+  res.json({ id: taskId, hiddenByUser: true });
+});
+
+router.delete('/:id/hidden', async (req: Request, res: Response) => {
+  const taskId = req.params.id as string;
+  const userId = (req as AuthRequest).user!.id;
+
+  await prisma.taskHidden.deleteMany({ where: { userId, taskId } });
+  res.json({ id: taskId, hiddenByUser: false });
 });
 
 const patchTaskStatusSchema = z.object({
@@ -841,6 +892,7 @@ const createNativeSchema = z.object({
   // Optional only for a task that runs after another; `createNativeTask` says so.
   schedule: z.string().trim().nullable().optional(),
   job: z.unknown(), // semantic validation stays in validateJob (shared with the executor)
+  description: z.string().trim().max(1024, 'description is too long').optional(),
   /**
    * Secret name → value, encrypted at rest and never returned (ADR 0003).
    *
@@ -858,13 +910,13 @@ const createNativeSchema = z.object({
 // docs/resources/Native_Tasks.md). Richer than the connector createTask path
 // because it takes a full job spec instead of a command string.
 router.post('/native', validateBody(createNativeSchema), async (req: Request, res: Response) => {
-  const { name, category, schedule, job, secrets } = req.body;
+  const { name, category, schedule, job, description, secrets } = req.body;
   const userId = (req as AuthRequest).user!.id;
 
   // Normalization, cron validation, the row, the capability evidence and the UI
   // notification all live in `createNativeTask`, shared with the import and
   // archive-restore paths — see the note there for why the split is at this line.
-  const created = await createNativeTask(userId, { name, category, schedule, job, secrets })
+  const created = await createNativeTask(userId, { name, category, schedule, job, description, secrets })
     .catch(rethrowNativeCreate);
   // `missingSecrets` is always present, empty when there is nothing to say —
   // same rule as `foldersCreated` on the generic create, and for the same
@@ -934,7 +986,13 @@ router.post('/import', async (req: Request, res: Response) => {
 });
 
 const patchNativeJobSchema = z.object({
-  job: z.unknown() // semantic validation stays in validateJob (shared with the executor)
+  job: z.unknown(), // semantic validation stays in validateJob (shared with the executor)
+  /**
+   * Unlike the job, **omitted keeps it**: the description is not part of the
+   * job, so a caller replacing the job (every MCP client written before this
+   * field existed) must not wipe it. An empty string clears it.
+   */
+  description: z.string().trim().max(1024, 'description is too long').optional()
 });
 
 /**
@@ -969,7 +1027,7 @@ const patchNativeJobSchema = z.object({
 router.patch('/:id/job', validateBody(patchNativeJobSchema), async (req: Request, res: Response) => {
   const id = req.params.id as string;
   const userId = (req as AuthRequest).user!.id;
-  const { job } = req.body;
+  const { job, description } = req.body as { job: unknown; description?: string };
 
   // Scope by userId so one user can't edit another's task (IDOR).
   const task = await prisma.task.findFirst({ where: { id, userId } });
@@ -999,8 +1057,12 @@ router.patch('/:id/job', validateBody(patchNativeJobSchema), async (req: Request
   // to the task rather than to the job, and dropping it would make this route
   // quietly destructive well outside what its name claims.
   const meta = task.metadata && typeof task.metadata === 'object' && !Array.isArray(task.metadata)
-    ? (task.metadata as Record<string, unknown>)
+    ? { ...(task.metadata as Record<string, unknown>) }
     : {};
+  if (description !== undefined) {
+    if (description) meta.description = description;
+    else delete meta.description;
+  }
 
   const updated = await prisma.task.update({
     where: { id },

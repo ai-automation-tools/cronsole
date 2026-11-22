@@ -594,18 +594,17 @@ Non-negotiable rules. **Every one has a reason recorded in
   never a `TaskFilters` field** (`utils/railFilter.ts`, local `useState` in `SourceRail`). Putting
   it in the URL would make two links that show the same tasks — branch expansion's rule, one
   control over. It is also not persisted: a narrowed rail is something you are doing right now, and
-  finding the sidebar still filtered tomorrow reads as a platform that has disappeared. The two
-  **scopes are exempt from it** — *All sources* and *Favorites* mean "stop narrowing", and a query
-  matching nothing must still leave a route back to everything. A node survives if it matches **or**
+  finding the sidebar still filtered tomorrow reads as a platform that has disappeared. It searches
+  sources and folders only; the **Scopes rows are exempt from it** — *All tasks* means "stop
+  narrowing", and a query matching nothing must still leave a route back to everything. A node survives if it matches **or**
   a descendant does, and the two cases keep different children: a node that matched keeps all of
   its (so you can drill in), a node on the path to a hit keeps only the hits. It reports what it
   **searched** beside what it found, `SyncOutcome.notes`' rule in the UI. Two things it may
   **never** narrow: **a reorder still reports the whole band** — `orderBy` drops every record the
   reported list does not name, so reporting the filtered rows destroys the rest (five pins, a query
-  matching two, one drag, three pins gone from a synced preference); and **a fold may not swallow a
-  hit** — the three band folds are persisted, so a query must open them the way it opens a branch,
-  or a shut band answers with a heading, a coverage note and nothing at all.
-- **No rail list draws unbounded, and none truncates silently.** Every band and every folder list
+  matching two, one drag, three pins gone from a synced preference). *(The second rule — a
+  persisted rail tab may not swallow a hit, `shownRailTab` — went with the tabs on 2026-11-13.)*
+- **No rail list draws unbounded, and none truncates silently.** Every collection, pin and folder list
   stops at `RAIL_ROW_CAP` (10) and states the remainder (*Show 5 more folders*). **The source list
   is exempt**: which sources appear is already the user's choice (`shownSources`), so capping it
   hid sources they had asked for — Gemini and n8n, sorted last, at the old cap of 4. One definition in
@@ -615,21 +614,33 @@ Non-negotiable rules. **Every one has a reason recorded in
   eight of its subfolders (`FilteredRail.liftedLists`). **A disclosure is never capped either** —
   the `\Microsoft\` group sorts last and exists to say what is held back, so a plain cap would hide
   it first on the machines with most to disclose, and behind a fold is most of the way to fenced.
-  *Show more* is one-way — the band's own fold already puts the whole thing away.
-- **A declared list is chips; an observed tree is rows.** Collections and Pinned are flat, named and
-  short, so they render as wrapping chips — but they stay **two bands with two headings and two
-  independent folds**, because a pin is not a collection and the shape may not blur what the type
-  split exists to state. A chip keeps everything its row carried: name, count, selected state, and
-  the unpin control. The source tree stays rows because it nests and its counts scan as a column.
-- **A rail row states its platform on the glyph, and only its identity** (`sourceAccentGlyph`, the
-  same `PLATFORM_ACCENT` table the Sources cards read). The tile that used to carry identity in its
-  *background* is gone, so the colour moved onto the icon; health stays a dot in its own gutter,
-  because reading *which source* and *how it is doing* off one colour is what the two-token split
-  exists to stop. **Health is not exception-only**: a platform with no connection already draws no
-  dot, so suppressing the healthy one makes *connected and fine* and *not connected* the same
-  absence — drawn, rejected, and pinned by a test.
-- **The rail's own controls leave the scroll.** The collapse toggle, *Explore sources*, *Manage
-  sources* and the help `?` live in a bar pinned to the bottom of the panel. They used to sit under
+  *Show more* is one-way — a list you opened is a list you went looking in.
+- **One Scopes list, then Sources on their own** (since 2026-11-13, replacing the same day's two
+  sliders). *All tasks · Favorites · Collections · Pinned* are four rows in one **Scopes**
+  section — all of them answer *which tasks* across sources, so they share a list. A scope row is
+  lit only while it is *actually selected*, so picking a source card unlights it. **Collections
+  and Pinned each open a gallery in the main area** (`ScopeGallery.tsx`, `?lens=collections|pinned`
+  — not a `TaskFilters` field and not in `FILTER_PARAM_KEYS`, so `setFilters` drops it and any
+  rail pick leaves the gallery); the rail lists neither, so it stays the tree. While a gallery is
+  open **no other row is lit** — the filters behind it do not describe the screen — and
+  Collections stays lit while one collection's tasks are shown, since collections have no rows of
+  their own. The galleries read the same `buildSourceTree` pass, so a card's count is the rail's
+  by construction. Sources are **never** folded into Scopes — the platform tree is what you
+  navigate by. A pin is still not a collection: **two galleries**, and only a collection's card
+  has rename. **An observed
+  tree is rows**: a source is a card, but its folders inside it stay rows, because they nest and
+  their counts scan as a column. The rail carries **no** task total, sync time or online summary:
+  the dashboard heading counts the tasks and `HealthStrip` is the one surface for sync state
+  ([#66](docs/troubleshooting/README.md#66-two-cronsole-surfaces-disagree-about-the-agent-in-the-same-second)).
+- **A source card states its platform on its tile, and health beside it in words** (`platformAccent`
+  tile + `sourceAccentGlyph`, the same `PLATFORM_ACCENT` table the Sources tab reads); health is a
+  dot *and* a label, never a tint on the identity colour, because reading *which source* and *how it
+  is doing* off one colour is what the two-token split exists to stop. **Health is not
+  exception-only**: a healthy source says *Online*, and one with no connection says *No health
+  reported* — suppressing either makes *connected and fine* and *not connected* the same absence.
+- **The rail's own controls leave the scroll.** The **collapse toggle sits beside the filter box in
+  a header pinned to the top** (since 2026-11-13 — at the bottom it was a 24px grey glyph nobody
+  found); *Explore sources*, *Manage sources* and the help `?` live in a bar pinned to the bottom. They used to sit under
   the tree and fold with it, which put the only route to a platform you have **not** added off
   screen on any real machine — and that route existing is what makes an opt-in default set safe
   rather than indistinguishable from a missing platform.
@@ -642,7 +653,7 @@ Non-negotiable rules. **Every one has a reason recorded in
   are per-user joins keyed on `Task` with a cascade — never columns. `TaskExclusion` is the opposite
   shape, keyed on `(platform, externalId)`, because it must outlive the row. **A pinned folder is
   therefore not a collection** — it is derived, so it is a `RailPin` preference (`utils/railPins.ts`)
-  shown in its **own** rail band (Pinned, beside Collections — one `Band` component draws both),
+  shown in its **own** gallery (the Pinned scope, beside Collections — `ScopeGallery.tsx`),
   storing no foreign key, reading its target node's count rather than re-deriving one, and
   surviving its target's disappearance at `0`.
 - **The rail reorders per band, and each band's order is written where that band's record already
@@ -652,7 +663,7 @@ Non-negotiable rules. **Every one has a reason recorded in
   and the disagreement would show only as a rail that reshuffles itself on reload. The rail reports
   the move and never the store: `onReorder(section, keys)` hands back **the whole band** in its new
   order, because a `(from, to)` pair applied to an empty `sourceOrder` would name two platforms and
-  leave every other row unordered beneath them. A row may not cross bands (three bands, three kinds
+  leave every other row unordered beneath them. A row may not cross sections (three sections, three kinds
   of record), sources stay alphabetical until dragged so a later-shipped platform lands at the
   bottom rather than reshuffling an arranged rail, and folders *inside* a source are never hand
   ordered — they come and go with the tasks. **Drag has a keyboard twin** (`Alt+↑/↓`, one step of
@@ -680,6 +691,14 @@ Non-negotiable rules. **Every one has a reason recorded in
   second half is empty reads as *"it stopped running"*.
 - **A count beside a control describes the population that control governs** —
   `applyTaskFiltersExcept`, with the hidden count derived, not counted separately.
+- **`isSystem` has two ways in, and both are the server's.** A Windows task under `\Microsoft\` (the
+  folder rule), or a task **you** filed there with *Move to system tasks* — a per-user `TaskHidden`
+  join, `TaskFavorite`'s shape, never a column. `TaskService.isSystemTask(externalId, platform,
+  hiddenByUser)` is the one verdict, and **every surface that applies the system lens passes the
+  third argument** (task list, task health, the idle report, calendar occurrences): a task hidden
+  on the dashboard and shown in the calendar would be two answers to one question. The list sends
+  `hiddenByUser` beside `isSystem` only so the modal can offer *Move out*; an OS-owned task is
+  refused (400) — there is nothing to move.
 - **A judgement has one definition and it is the server's** — `isSystem`, health tier, task source
   (`services/taskSource.ts`), creatability and **deletability** (`usePlatformCreatability` /
   `usePlatformDeletability` over one `verbSupport`, three answers incl. `unknown`). Re-deriving one
@@ -703,8 +722,17 @@ Non-negotiable rules. **Every one has a reason recorded in
   (`updated` / `unchanged` / `refused` / `failed` / `skipped`). The **halt** rule is separate and
   belongs only to agent-touching verbs; a per-task refusal must not halt.
 - **Friction scales with blast radius**: past 25 tasks the confirmation costs a typed count, and the
-  dialog states the scope in words. Row selection was removed from the dashboard — relocating a
-  control is not a safety measure.
+  dialog states the scope in words. Relocating a control is not a safety measure.
+- **Dashboard selection came back (2026-11-13) under the rules that removed it** (2026-08-12).
+  `SelectionBar` (grid and list only) runs the **same routes through the same runner** as Mass
+  Actions (`utils/bulkRun.ts`: chunked at 100, halts, per-item report), so a selection and a scope
+  cannot disagree about a run. It acts **only on what is on screen** — the selection is intersected
+  with `filteredTasks`, so a filter change never leaves an invisible task in the batch and *Select
+  all* means *all shown*. The console's four verbs go through `MassActionConfirm` with the
+  selection **named** (`describeSelection`) and the typed count past 25; per-user labels
+  (favorite, collection, system tasks — `POST /api/tools/tasks/favorite|hidden`) touch no platform
+  and run on the click with Undo. Every button states how many tasks it would change, never the
+  selection size. Selection is presentation state, never the URL.
 - **Restore plans before it writes**, from read-only agent verbs, so `dryRun` is a real preview. An
   offline agent is a `502`, never a blind restore. Restoring does not track.
 - **Bulk untrack is one transaction** (a row removed without its exclusion returns on next sync) and
@@ -717,7 +745,11 @@ Non-negotiable rules. **Every one has a reason recorded in
 - **`ExecutionLog` records runs Cronsole *performed*, not runs that *happened*.** A Windows task
   firing on its own schedule writes nothing, and a manual Windows `SUCCESS` means "the agent accepted
   the start". Windows outcomes live in `lastTaskResult`. `runKind` is derived at read time, only on
-  `/api/tools/history`.
+  `/api/tools/history`. The task card's **run strip** (`RunStrip`, from `GET /api/tasks`'
+  `recentRuns`, the last 7) is this population and says so: a slot with no record is an **empty
+  outline, never green**, a task with **no** record draws no strip at all, and its tooltip names
+  what is and is not recorded for that platform.
+  `lastTaskResult` is never folded in — two populations, one strip, would be §9's mixed summary.
 - **A platform's own run history is a *live read*, never a second writer of `ExecutionLog`.**
   `PlatformConnector.listPlatformRuns` / `getRunOutput` (both optional, both `unsupported` by
   absence, `GET /api/tasks/:id/platform-runs[/:runId/output]`) exist because the rule above leaves a
@@ -883,6 +915,12 @@ Non-negotiable rules. **Every one has a reason recorded in
   machine, so it is not offered to the LAN by default, and the Vite dev server follows the same
   rule. The container sets `0.0.0.0` because its published port is what is pinned to `127.0.0.1`.
   The boot line states which interface is in use.
+- **Framing is opt-in by origin, and embed mode talks only to those origins.** `VITE_FRAME_ANCESTORS`
+  (`utils/frameAncestors.ts`, one parser) is read by `vite.config.ts` for the dev and preview
+  servers' CSP `frame-ancestors`, and by `utils/embed.ts` as the only targets of `postMessage` and
+  the only senders it accepts a theme from (and only from `window.parent`). Unset, the header is
+  absent as before, but **an empty list never means "anyone" to the client**: nothing is posted.
+  `?embed=1` outside a frame does nothing. The proxy keeps `frame-ancestors 'none'`.
 - **`index.html` carries no inline script.** The proxy sends `script-src 'self'` because the
   session token lives in `localStorage`, so an inline script runs on `:7373` and is silently
   dropped on the proxied page. Boot scripts are files in `frontend/public/`

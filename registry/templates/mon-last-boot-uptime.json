@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "1.0",
+  "id": "mon-last-boot-uptime",
+  "name": "Log Last Boot Time",
+  "description": "Append the time the machine last started to a log on a schedule. A boot time that jumps between entries reveals an unexpected reboot or crash that nothing else recorded, which matters most on an unattended machine.",
+  "runtime": "powershell",
+  "os": "windows",
+  "category": "monitoring",
+  "tags": [
+    "monitoring",
+    "windows",
+    "uptime",
+    "reboot"
+  ],
+  "icon": "Clock",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 * * * *"
+  },
+  "commandTemplate": "powershell.exe -NoProfile -Command \"(Get-CimInstance Win32_OperatingSystem).LastBootUpTime | Out-File -Append '{{logPath}}'\"",
+  "parameters": [
+    {
+      "key": "logPath",
+      "label": "Log file path",
+      "type": "path",
+      "default": "C:\\logs\\last-boot.log",
+      "required": true,
+      "help": "Where to append the last boot time on each run. One line per run, so compare neighbouring lines to spot a reboot."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

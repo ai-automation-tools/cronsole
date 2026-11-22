@@ -396,15 +396,31 @@ export class TaskService {
   }
 
   /**
-   * Is this task owned by the OS rather than the user?
+   * Is this task a **system task** — owned by the OS, or filed there by hand?
+   *
+   * Two ways in: a Windows task under `\Microsoft\` (the folder rule), or a
+   * `TaskHidden` row the user made with "Move to system tasks" on any task.
+   * Every server surface that applies the system lens (the task list, task
+   * health, the idle report, calendar occurrences) passes `hiddenByUser`, so a
+   * hand-filed task is hidden everywhere the OS's are — never on one screen and
+   * shown on the next.
    *
    * One definition, on the server, deliberately: the dashboard needs the same
    * answer `summarizeUntracked` already uses, and re-deriving it in the browser
    * would be a second definition of a rule that decides what a user sees — the
    * shape of #20a. Callers get the verdict, never the predicate.
    */
-  static isSystemTask(externalId: string, platform: PlatformType): boolean {
-    return SYSTEM_CATEGORIES.has(this.extractCategory(externalId, platform));
+  static isSystemTask(externalId: string, platform: PlatformType, hiddenByUser = false): boolean {
+    return hiddenByUser || SYSTEM_CATEGORIES.has(this.extractCategory(externalId, platform));
+  }
+
+  /**
+   * The `hiddenByUser` argument for a row read with `HIDDEN_BY` — "did *this*
+   * user file the task under system tasks" (`TaskHidden`). Kept beside the
+   * verdict so every caller asks the same question the same way.
+   */
+  static hiddenFrom(row: { hiddenBy?: { id: string }[] }): boolean {
+    return (row.hiddenBy?.length ?? 0) > 0;
   }
 
   public static extractCategory(externalId: string, platform: PlatformType): string {

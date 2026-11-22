@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "id": "mon-windows-cert-expiry",
+  "name": "Log Expiring Windows Certificates",
+  "description": "List the certificates in the local machine Personal store that expire within a number of days and append them to a log on a schedule, so a lapsing server, VPN or code-signing certificate is noticed before it breaks something.",
+  "runtime": "powershell",
+  "os": "windows",
+  "category": "monitoring",
+  "tags": [
+    "monitoring",
+    "windows",
+    "certificates",
+    "expiry"
+  ],
+  "icon": "BadgeAlert",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 7 * * 1"
+  },
+  "commandTemplate": "powershell.exe -NoProfile -Command \"Get-ChildItem Cert:/LocalMachine/My | Where-Object { $_.NotAfter -lt (Get-Date).AddDays({{withinDays}}) } | Select-Object Subject, NotAfter | Out-File -Append '{{logPath}}'\"",
+  "parameters": [
+    {
+      "key": "withinDays",
+      "label": "Warn within (days)",
+      "type": "number",
+      "default": "30",
+      "required": true,
+      "help": "Certificates that expire within this many days, or have already expired, are written to the log."
+    },
+    {
+      "key": "logPath",
+      "label": "Log file path",
+      "type": "path",
+      "default": "C:\\logs\\cert-expiry.log",
+      "required": true,
+      "help": "Where to append the list on each run. A run that finds nothing expiring writes nothing, so an empty log is good news."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

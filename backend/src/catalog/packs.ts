@@ -133,6 +133,7 @@ export const bundledPacks: BundledPack[] = [
       'bkp-mysql-dump',
       'bkp-mongodump',
       'bkp-redis-bgsave',
+      'bkp-wsl-export',
       'cln-pip-cache-purge',
       'bkp-system-restore-point',
       'cln-old-files',
@@ -159,6 +160,12 @@ export const bundledPacks: BundledPack[] = [
       'mon-macos-time-machine-status',
       'mon-dns-resolution-check',
       'mon-listening-ports-snapshot',
+      'mon-local-admins-audit',
+      'mon-firewall-profile-status',
+      'mon-last-boot-uptime',
+      'mon-windows-cert-expiry',
+      'mon-defender-signature-age',
+      'mon-macos-filevault-status',
       'native-check-healthchecks-badge',
       'native-script-content-freshness',
       'native-script-domain-expiry',
@@ -290,7 +297,8 @@ export const bundledPacks: BundledPack[] = [
       'data-rsync-folder-sync',
       'sys-installed-software-inventory',
       'sys-windows-time-resync',
-      'sys-dism-health-check'
+      'sys-dism-health-check',
+      'sys-winget-upgrade-report'
     ]
   }
 ];

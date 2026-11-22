@@ -94,23 +94,6 @@ export interface Settings {
    */
   railPins: RailPin[];
   /**
-   * Is the Collections band folded shut?
-   *
-   * Separate from `railCollapsed` because they answer different questions —
-   * how wide the rail is, versus how much of your own stuff is on screen — and
-   * someone with fifteen collections and three platforms wants opposite answers
-   * to the two.
-   */
-  collectionsCollapsed: boolean;
-  /**
-   * Is the Pinned band folded shut? Separate from `collectionsCollapsed` for the
-   * same reason that one is separate from `railCollapsed` — two sections that
-   * fold independently need two flags, or each chevron misreports the other.
-   */
-  pinnedCollapsed: boolean;
-  /** Is the Sources tree folded shut? Independent of the two bands above it. */
-  sourcesCollapsed: boolean;
-  /**
    * Platform keys in the order the rail draws them, when the user has dragged
    * one. Empty means alphabetical, which is the order it always had.
    *
@@ -192,9 +175,6 @@ export const DEFAULT_SETTINGS: Settings = {
   savedViews: [],
   railCollapsed: false,
   railPins: [],
-  collectionsCollapsed: false,
-  pinnedCollapsed: false,
-  sourcesCollapsed: false,
   sourceOrder: [],
   shownSources: DEFAULT_SHOWN_SOURCES,
   quickLinks: DEFAULT_QUICK_LINKS,

@@ -15,22 +15,29 @@ import {
   X,
   Download,
   Trash2,
-  PanelLeft
+  PanelLeft,
+  CheckSquare,
+  Check
 } from 'lucide-react';
 import type { Task } from '../types';
 import { TaskCard } from '../components/TaskCard';
+import { SelectionBar } from '../components/SelectionBar';
 import { TaskSchedule } from '../components/TaskSchedule';
 import { TaskFavoriteStar } from '../components/TaskFavoriteStar';
 import { ManageCollectionsModal } from '../components/ManageCollectionsModal';
 import { TaskCollectionMenu } from '../components/TaskCollectionMenu';
-import { useCollections, useUpdateCollection } from '../hooks/useCollections';
+import { useCollections, useCreateCollection, useDeleteCollection, useUpdateCollection } from '../hooks/useCollections';
+import { useConfirm } from '../hooks/useConfirm';
+import { useToast } from '../hooks/useToast';
 import { TaskRowActions } from '../components/TaskRowActions';
 import { TaskFilterMenu } from '../components/TaskFilterMenu';
 import { HealthStrip } from '../components/HealthStrip';
 import { SyncMenu } from '../components/SyncMenu';
 import { SourceRail } from '../components/SourceRail';
 import type { RailNode, RailSection } from '../utils/sourceTree';
-import { collectionIdFromKey } from '../utils/sourceTree';
+import { collectionIdFromKey, buildSourceTree, railNodeTasks, railSectionOf } from '../utils/sourceTree';
+import { CollectionsGallery, PinnedGallery } from '../components/ScopeGallery';
+import type { RailLens } from '../components/SourceRail';
 import { pinForNode, pinFromNode, pinIdFromKey, pinKey } from '../utils/railPins';
 import { orderBy } from '../utils/railOrder';
 import { HelpButton } from '../components/HelpButton';
@@ -45,6 +52,9 @@ import {
   DEFAULT_FILTERS,
   effectiveFilters,
   needsHealthData,
+  nextRunOf,
+  sortByLastRun,
+  sortByNextRun,
   type FilterDimension,
   type TaskFilters
 } from '../utils/taskFilters';
@@ -66,9 +76,9 @@ import { useMinuteClock } from '../hooks/useMinuteClock';
 import { formatDateTime, formatTime } from '../utils/datetime';
 import { Link, useSearchParams } from 'react-router';
 import { TaskSearchBox } from '../components/TaskSearchBox';
+import { RailResizeHandle } from '../components/RailResizeHandle';
+import { readRailWidth, writeRailWidth } from '../utils/railWidth';
 
-// Loose shape for the untyped platform-metadata JSON blob on tasks.
-type TaskMeta = { nextRunTime?: string; nextRun?: string; schedule?: string } | null | undefined;
 
 /**
  * The task name as a button. List rows and board cards open on a click anywhere,
@@ -140,6 +150,10 @@ export const DashboardScreen = ({
   // filter exists to stop.
   const { settings: prefs, update } = useSettings();
   const railCollapsed = prefs.railCollapsed;
+  // Per-browser, not a synced preference — see `utils/railWidth.ts`.
+  const [railWidth, setRailWidth] = useState(readRailWidth);
+  // While dragging the width must track the pointer, not ease after it.
+  const [railResizing, setRailResizing] = useState(false);
 
   /**
    * Pin or unpin a folder from the rail.
@@ -246,7 +260,43 @@ export const DashboardScreen = ({
    */
   const applyRailPatch = (patch: Partial<TaskFilters>) => setFilters({ ...filters, ...patch });
 
+  /**
+   * The rail's **Collections** and **Pinned** scopes show a gallery here, in
+   * place of the task list. `?lens=collections|pinned` rather than a
+   * `TaskFilters` field: a gallery is not a slice of tasks, and `lens` is not in
+   * `FILTER_PARAM_KEYS`, so a bare URL plus the lens still opens on the user's
+   * default filters. Every filter write goes through `setFilters`, which
+   * rebuilds the query from the filters alone — so picking a card, a scope or a
+   * source leaves the gallery with no extra rule. Opening one pushes history, so
+   * Back returns to the list it was opened from.
+   */
+  const lensParam = searchParams.get('lens');
+  const lens: RailLens | null =
+    lensParam === 'collections' || lensParam === 'pinned' ? lensParam : null;
+  const showLens = (next: RailLens) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('lens', next);
+    setSearchParams(params);
+  };
+
   const [viewMode, setViewMode] = useState<DashboardView>(settings.defaultView);
+
+  // Selection mode — presentation state like the rail drawer, never the URL: a
+  // link reproduces which tasks you are looking at, not which you ticked.
+  const [selecting, setSelecting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(() => new Set());
+  const toggleSelected = useCallback((task: Task) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(task.id)) next.delete(task.id);
+      else next.add(task.id);
+      return next;
+    });
+  }, []);
+  const exitSelection = useCallback(() => {
+    setSelecting(false);
+    setSelectedIds(new Set());
+  }, []);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // The source rail as a drawer, below `md` only. Local state and not the URL:
@@ -271,6 +321,44 @@ export const DashboardScreen = ({
    * the same division as `togglePin` above.
    */
   const updateCollection = useUpdateCollection();
+  const deleteCollection = useDeleteCollection();
+  const createCollection = useCreateCollection();
+
+  // The gallery's "New collection" card. Resolves whether it worked, so the
+  // card keeps the typed name on a failure (a duplicate name, say).
+  const addCollection = async (name: string): Promise<boolean> => {
+    try {
+      await createCollection.mutateAsync({ name });
+      notify(`Collection “${name}” created — add tasks with the bookmark on any task card.`, 'success');
+      return true;
+    } catch (err) {
+      const e = err as Error & { response?: { data?: { error?: string } } };
+      notify(`Could not create “${name}”: ${e.response?.data?.error || e.message}`, 'error');
+      return false;
+    }
+  };
+  const confirmDialog = useConfirm();
+  const { toast: notify } = useToast();
+
+  // The gallery card's Delete. Same words as the manager's: say what survives.
+  const removeCollection = async (id: string, label: string, count: number) => {
+    const ok = await confirmDialog({
+      title: `Delete “${label}”?`,
+      message:
+        count > 0
+          ? `This removes the collection only. Its ${count} task${count === 1 ? '' : 's'} stay in Cronsole and keep running.`
+          : 'This removes the collection. It has no tasks in it.',
+      confirmText: 'Delete collection',
+      tone: 'danger'
+    });
+    if (!ok) return;
+    try {
+      await deleteCollection.mutateAsync(id);
+      notify(`Collection “${label}” deleted.`, 'success');
+    } catch {
+      notify(`Could not delete “${label}”.`, 'error');
+    }
+  };
   const reorderRail = useCallback(
     (section: RailSection, keys: string[]) => {
       if (section === 'pinned') {
@@ -406,10 +494,14 @@ export const DashboardScreen = ({
         e.preventDefault();
         searchInputRef.current?.focus();
       }
+      // Leaves selection — unless a dialog is open, whose own Escape this is.
+      if (e.key === 'Escape' && !typing && !document.querySelector('[role="dialog"],[role="alertdialog"]')) {
+        exitSelection();
+      }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+  }, [exitSelection]);
 
   // The system/personal split is the OUTERMOST lens: every count, chip, facet and
   // view below works from `tasks`, so hiding OS-owned tasks here hides them
@@ -513,6 +605,38 @@ export const DashboardScreen = ({
   );
 
   /**
+   * The collections and pins as the galleries draw them — the same
+   * `buildSourceTree` pass the rail runs, so a pin's count is its folder's and a
+   * collection's is its members', by construction. Connected-but-empty
+   * platforms are left out: no pin can point into a platform with no folders.
+   */
+  const galleryNodes = useMemo(() => {
+    const tree = buildSourceTree({
+      population: railPopulation,
+      filters,
+      collections: collections ?? [],
+      pins: prefs.railPins
+    });
+    return {
+      collections: tree.filter(n => railSectionOf(n.key) === 'collection'),
+      pinned: tree.filter(n => railSectionOf(n.key) === 'pinned')
+    };
+  }, [railPopulation, filters, collections, prefs.railPins]);
+
+  // The tasks behind a gallery card, by the same rules the rail counts them:
+  // a pin is its folder's tasks; a collection is its members under the system lens.
+  const galleryMembers = useCallback(
+    (node: RailNode): Task[] => {
+      const id = collectionIdFromKey(node.key);
+      if (!id) return railNodeTasks(railPopulation, node);
+      return railPopulation.filter(
+        t => t.collectionIds?.includes(id) && (filters.system !== 'personal' || t.isSystem !== true)
+      );
+    },
+    [railPopulation, filters.system]
+  );
+
+  /**
    * How many rows the **system lens** is holding back from *this list* — the
    * number on the "N system hidden" chip.
    *
@@ -571,13 +695,14 @@ export const DashboardScreen = ({
   // One pipeline, in one place. This used to be four hand-rolled `.filter()`
   // passes inline, which is fine at four and is exactly how the fifth ends up
   // applied to the list but not to the counts beside it.
+  // Soonest next run first — see `sortByNextRun`. Every layout reads this list,
+  // so the grid, list and kanban columns all share the order.
   const filteredTasks = useMemo(
-    () =>
-      applyTaskFilters(tasks ?? [], viewFilters, {
-        now,
-        timezone: settings.timezone,
-        tiers
-      }),
+    () => {
+      const shown = applyTaskFilters(tasks ?? [], viewFilters, { now, timezone: settings.timezone, tiers });
+      // Asking "what ran lately?" wants the newest run on top, not the next one.
+      return viewFilters.ran && viewFilters.ran !== 'any' ? sortByLastRun(shown) : sortByNextRun(shown, now);
+    },
     [tasks, viewFilters, now, settings.timezone, tiers]
   );
 
@@ -586,6 +711,18 @@ export const DashboardScreen = ({
   // disagree with the list it sits above. `statusGoverned` is `filteredTasks`
   // plus exactly the rows status removes, so this is 0 whenever status is 'any'.
   const hiddenByActiveFilter = statusGoverned.length - filteredTasks.length;
+
+  // A selection acts only on what is on screen: intersected with the filtered
+  // list, so a filter change can never leave an invisible task in the batch.
+  const canSelect = selecting && (viewMode === 'grid' || viewMode === 'list');
+  const selectedTasks = useMemo(
+    () => (canSelect ? filteredTasks.filter(t => selectedIds.has(t.id)) : []),
+    [canSelect, filteredTasks, selectedIds]
+  );
+  const categoryNames = useMemo(
+    () => [...new Set((tasks ?? []).map(t => t.category || 'Uncategorized'))].sort(),
+    [tasks]
+  );
 
   // ---- Saved views --------------------------------------------------------
 
@@ -656,9 +793,9 @@ export const DashboardScreen = ({
 
   const scheduledTasks = useMemo(() => {
     return [...filteredTasks].sort((a, b) => {
-      const aTime = (a.metadata as TaskMeta)?.nextRunTime || (a.metadata as TaskMeta)?.nextRun || a.updatedAt;
-      const bTime = (b.metadata as TaskMeta)?.nextRunTime || (b.metadata as TaskMeta)?.nextRun || b.updatedAt;
-      return new Date(aTime).getTime() - new Date(bTime).getTime();
+      const aTime = nextRunOf(a)?.getTime() ?? new Date(a.updatedAt).getTime();
+      const bTime = nextRunOf(b)?.getTime() ?? new Date(b.updatedAt).getTime();
+      return aTime - bTime;
     });
   }, [filteredTasks]);
 
@@ -738,30 +875,41 @@ export const DashboardScreen = ({
           scrolling box scrolls with it. The panel is a fixed-height flex column;
           `SourceRail` splits it into a scrolling region and that bar.
         */
-        className={`hidden md:flex flex-col shrink-0 self-start sticky top-0 h-[calc(100vh-3.5rem)] overflow-hidden border-r border-border bg-surface transition-[width] duration-200 ${
-          railCollapsed ? 'w-[4.5rem]' : 'w-72'
-        }`}
+        /*
+          The width is inline because it is the user's own (dragged, see
+          `RailResizeHandle`); `max-w-[50vw]` keeps a width picked on a wide
+          window from crowding the list off a narrow one. The panel itself does
+          not clip — the handle hangs half outside it so it never sits over the
+          rail's scrollbar — so the clipping moved to the wrapper inside.
+        */
+        className={`hidden md:flex flex-col shrink-0 self-start sticky top-0 h-[calc(100vh-3.5rem)] max-w-[50vw] border-r border-border bg-surface ${
+          railResizing ? '' : 'transition-[width] duration-200'
+        } ${railCollapsed ? 'w-[4.5rem]' : ''}`}
+        style={railCollapsed ? undefined : { width: railWidth }}
       >
+        {!railCollapsed && (
+          <RailResizeHandle
+            width={railWidth}
+            onResize={setRailWidth}
+            onCommit={writeRailWidth}
+            onDraggingChange={setRailResizing}
+          />
+        )}
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <SourceRail
           population={railPopulation}
           filters={filters}
           onSelect={applyRailPatch}
           collapsed={railCollapsed}
           onToggleCollapsed={() => update('railCollapsed', !railCollapsed)}
-          onManageCollections={renameId => setManagingCollections({ renameId })}
           pins={prefs.railPins}
           onTogglePin={togglePin}
-          collectionsCollapsed={prefs.collectionsCollapsed}
-          onToggleCollectionsCollapsed={() =>
-            update('collectionsCollapsed', !prefs.collectionsCollapsed)
-          }
-          pinnedCollapsed={prefs.pinnedCollapsed}
-          onTogglePinnedCollapsed={() => update('pinnedCollapsed', !prefs.pinnedCollapsed)}
-          sourcesCollapsed={prefs.sourcesCollapsed}
-          onToggleSourcesCollapsed={() => update('sourcesCollapsed', !prefs.sourcesCollapsed)}
+          lens={lens}
+          onShowLens={showLens}
           sourceOrder={prefs.sourceOrder}
           onReorder={reorderRail}
         />
+        </div>
       </aside>
 
       {railOpen && (
@@ -796,25 +944,17 @@ export const DashboardScreen = ({
                 applyRailPatch(patch);
                 setRailOpen(false);
               }}
-              // Closes the drawer with it: the manager is a modal, and leaving
-              // the drawer open behind it stacks two overlays on a phone.
-              onManageCollections={renameId => {
-                setRailOpen(false);
-                setManagingCollections({ renameId });
-              }}
               // Pinning is not navigation, so it does NOT close the drawer:
               // pinning two folders in a row is one errand, and a panel that
               // shut after each would make it three gestures per pin.
               pins={prefs.railPins}
               onTogglePin={togglePin}
-              collectionsCollapsed={prefs.collectionsCollapsed}
-              onToggleCollectionsCollapsed={() =>
-                update('collectionsCollapsed', !prefs.collectionsCollapsed)
-              }
-              pinnedCollapsed={prefs.pinnedCollapsed}
-              onTogglePinnedCollapsed={() => update('pinnedCollapsed', !prefs.pinnedCollapsed)}
-              sourcesCollapsed={prefs.sourcesCollapsed}
-              onToggleSourcesCollapsed={() => update('sourcesCollapsed', !prefs.sourcesCollapsed)}
+              lens={lens}
+              // Opening a gallery is navigation, so it closes the drawer.
+              onShowLens={next => {
+                showLens(next);
+                setRailOpen(false);
+              }}
               sourceOrder={prefs.sourceOrder}
               // Reordering is not navigation, so the drawer stays open — the
               // same rule as pinning, and arranging a rail is several drags.
@@ -847,7 +987,7 @@ export const DashboardScreen = ({
             >
               <PanelLeft size={18} />
             </button>
-            {scopeHeading}
+            {lens === 'pinned' ? 'Pinned' : lens === 'collections' ? 'Collections' : scopeHeading}
             <HelpButton topic="dashboard" size="md" />
           </h2>
           {/*
@@ -860,7 +1000,11 @@ export const DashboardScreen = ({
             longer see.
           */}
           <p className="text-muted-foreground" data-testid="task-count-line">
-            {scopeTrail ?? `Manage ${tasks?.length || 0} tasks across your ecosystem.`}
+            {lens === 'pinned'
+              ? `${galleryNodes.pinned.length} pinned folder${galleryNodes.pinned.length === 1 ? '' : 's'} — pick one to open its tasks.`
+              : lens === 'collections'
+                ? `${galleryNodes.collections.length} collection${galleryNodes.collections.length === 1 ? '' : 's'} — pick one to open its tasks.`
+                : scopeTrail ?? `Manage ${tasks?.length || 0} tasks across your ecosystem.`}
           </p>
           {/*
             What the selected source *is*, in one line.
@@ -876,7 +1020,7 @@ export const DashboardScreen = ({
             read. The `?` beside it opens the matching help topic, which is what
             keeps this a summary rather than the documentation.
           */}
-          {scopeDescription && (
+          {scopeDescription && !lens && (
             <p
               className="text-sm text-subtle-foreground mt-2 max-w-2xl flex items-start gap-1.5"
               data-testid="source-description"
@@ -975,7 +1119,25 @@ export const DashboardScreen = ({
       */}
       <HealthStrip />
 
-      {isEmpty ? (
+      {lens === 'pinned' ? (
+        <PinnedGallery
+          nodes={galleryNodes.pinned}
+          onSelect={applyRailPatch}
+          onTogglePin={togglePin}
+          onReorder={reorderRail}
+          membersOf={galleryMembers}
+        />
+      ) : lens === 'collections' ? (
+        <CollectionsGallery
+          nodes={galleryNodes.collections}
+          onSelect={applyRailPatch}
+          onReorder={reorderRail}
+          onManage={renameId => setManagingCollections({ renameId })}
+          onDelete={removeCollection}
+          onCreate={addCollection}
+          membersOf={galleryMembers}
+        />
+      ) : isEmpty ? (
         <div className="flex flex-col items-center justify-center h-[50vh] border-2 border-dashed border-border rounded-3xl p-10 text-center">
            <Activity size={48} className="text-subtle-foreground mb-4 animate-pulse" />
            <h3 className="text-xl font-bold text-foreground">Dashboard is empty</h3>
@@ -1126,6 +1288,18 @@ export const DashboardScreen = ({
             
             <div className="flex items-center gap-3 shrink-0">
 
+            {(viewMode === 'grid' || viewMode === 'list') && (
+              <button
+                type="button"
+                onClick={() => (selecting ? exitSelection() : setSelecting(true))}
+                aria-pressed={selecting}
+                title="Select tasks to act on several at once"
+                className={`shrink-0 px-3 py-2 rounded-xl text-xs font-bold border flex items-center gap-1.5 transition-colors ${selecting ? 'bg-primary text-primary-foreground border-primary' : 'bg-surface border-border text-muted-foreground hover:text-foreground'}`}
+              >
+                <CheckSquare size={13} /> {selecting ? 'Done' : 'Select'}
+              </button>
+            )}
+
             {/* View Mode Toggle */}
             <div className="flex bg-surface border border-border p-1 rounded-xl items-center shadow-md shrink-0">
               <button 
@@ -1162,17 +1336,9 @@ export const DashboardScreen = ({
             </div>
           </div>
 
-          {/* Bulk work lives on the Tools tab now, not here.
-
-              Selection was removed from the dashboard on 2026-08-12: a checkbox
-              per row plus a select-all is a second way to express "these tasks",
-              and it was the worse one — it cannot survive into a confirmation as
-              anything a person can check, and it capped out at what a single
-              request would accept. Mass actions is scope-based and batches.
-
-              The safe-path concern this raised does not apply: "Remove from
-              Cronsole" sits beside "Delete from Windows" in the **task modal**,
-              per task, which is where that pairing always actually lived. */}
+          {/* Selection (grid and list): `SelectionBar` carries why it came back
+              on 2026-11-13 and the rules it returned under. Scope-first bulk
+              work is still the Mass Actions console on the Tools tab. */}
           {/* Grid View */}
           {viewMode === 'grid' && (
             <div data-testid="task-list" className="skip-offscreen grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 pb-20">
@@ -1221,6 +1387,9 @@ export const DashboardScreen = ({
                     onToggleStatus={onToggleStatus}
                     onToggleFavorite={onToggleFavorite}
                     isTogglingStatus={statusTogglingId === task.id}
+                    selecting={canSelect}
+                    selected={canSelect && selectedIds.has(task.id)}
+                    onToggleSelected={toggleSelected}
                   />
                 ))
               )}
@@ -1234,6 +1403,11 @@ export const DashboardScreen = ({
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-border/80 text-[10px] uppercase font-black text-subtle-foreground tracking-wider bg-background/20">
+                      {canSelect && (
+                        <th className="py-4 pl-4 w-8">
+                          <span className="sr-only">Selected</span>
+                        </th>
+                      )}
                       <th className="py-4 px-4">Name</th>
                       <th className="py-4 px-4">Platform</th>
                       <th className="py-4 px-4">Category</th>
@@ -1245,17 +1419,31 @@ export const DashboardScreen = ({
                   <tbody className="divide-y divide-border/50 text-sm">
                     {filteredTasks.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="text-center py-12 text-subtle-foreground font-medium italic">
+                        <td colSpan={canSelect ? 7 : 6} className="text-center py-12 text-subtle-foreground font-medium italic">
                           No tasks match the active filters.
                         </td>
                       </tr>
                     ) : (
                       filteredTasks.map(task => (
-                        <tr 
-                          key={task.id} 
-                          className="hover:bg-surface/50 transition-colors group cursor-pointer"
-                          onClick={() => onTaskSelect(task)}
+                        <tr
+                          key={task.id}
+                          className={`transition-colors group cursor-pointer ${canSelect && selectedIds.has(task.id) ? 'bg-primary/10' : 'hover:bg-surface/50'}`}
+                          onClick={() => (canSelect ? toggleSelected(task) : onTaskSelect(task))}
                         >
+                          {canSelect && (
+                            <td className="py-4 pl-4">
+                              <button
+                                type="button"
+                                role="checkbox"
+                                aria-checked={selectedIds.has(task.id)}
+                                aria-label={`Select ${task.name}`}
+                                onClick={e => { e.stopPropagation(); toggleSelected(task); }}
+                                className={`flex h-5 w-5 items-center justify-center rounded-md border-2 ${selectedIds.has(task.id) ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background'}`}
+                              >
+                                {selectedIds.has(task.id) && <Check size={13} strokeWidth={3} />}
+                              </button>
+                            </td>
+                          )}
                           <td className="py-4 px-4 font-bold text-foreground group-hover:text-foreground transition-colors">
                             <div className="flex items-start gap-2">
                               <TaskFavoriteStar task={task} onToggle={onToggleFavorite} size={14} className="mt-0.5" />
@@ -1332,7 +1520,7 @@ export const DashboardScreen = ({
                   ) : (
                     filteredTasks.filter(t => t.status === 'ACTIVE').map(task => (
                       <div 
-                        key={task.id} 
+                        key={task.id}
                         onClick={() => onTaskSelect(task)}
                         className="bg-surface border border-border hover:border-primary/40 p-4 rounded-2xl cursor-pointer hover:-translate-y-0.5 active:translate-y-0 transition-all flex flex-col gap-2 shadow-lg"
                       >
@@ -1389,7 +1577,7 @@ export const DashboardScreen = ({
                   ) : (
                     filteredTasks.filter(t => t.status !== 'ACTIVE').map(task => (
                       <div 
-                        key={task.id} 
+                        key={task.id}
                         onClick={() => onTaskSelect(task)}
                         className="bg-surface border border-border hover:border-primary/40 p-4 rounded-2xl cursor-pointer hover:-translate-y-0.5 active:translate-y-0 transition-all flex flex-col gap-2 shadow-lg opacity-60 hover:opacity-100"
                       >
@@ -1443,7 +1631,7 @@ export const DashboardScreen = ({
                   <p className="text-sm text-subtle-foreground italic">No scheduled tasks found in this category.</p>
                 ) : (
                   scheduledTasks.map(task => {
-                    const nextRun = (task.metadata as TaskMeta)?.nextRunTime || (task.metadata as TaskMeta)?.nextRun || null;
+                    const nextRun = nextRunOf(task)?.toISOString() ?? null;
                     return (
                       <div key={task.id} className="relative group">
                         {/* Timeline node */}
@@ -1506,6 +1694,20 @@ export const DashboardScreen = ({
               tasks={filteredTasks}
               includeSystem={filters.system !== 'personal'}
               onTaskSelect={onTaskSelect}
+            />
+          )}
+
+          {/* Sticks to the bottom of the task column (not the window), so it
+              never covers the rail. */}
+          {canSelect && (
+            <SelectionBar
+              selected={selectedTasks}
+              shownCount={filteredTasks.length}
+              categories={categoryNames}
+              onSelectAll={() => setSelectedIds(new Set(filteredTasks.map(t => t.id)))}
+              onClear={() => setSelectedIds(new Set())}
+              onExit={exitSelection}
+              systemShown={viewFilters.system !== 'personal'}
             />
           )}
         </>

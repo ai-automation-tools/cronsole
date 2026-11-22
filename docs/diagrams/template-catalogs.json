@@ -9,7 +9,7 @@
     "repository": {
       "url": "https://github.com/ai-automation-tools/cronsole",
       "provider": "github",
-      "revision": "30bad861f38e6976f99b33b3d11cbfcdb51675b7"
+      "revision": "6ec18aa1d50dba7ecae944c97702349c2e515819"
     },
     "legend": {
       "entries": {
@@ -61,7 +61,7 @@
       "sources": [
         {
           "path": "backend/src/catalog/bundled.ts",
-          "line": 3261,
+          "line": 3329,
           "label": "bundledCatalog"
         }
       ]
@@ -237,7 +237,7 @@
       "sources": [
         {
           "path": "backend/prisma/schema.prisma",
-          "line": 423,
+          "line": 444,
           "label": "managed"
         }
       ]

@@ -1,19 +1,19 @@
 {
-  "revision": "8618203db83eed7425eb10d12d4ab3b3a77f6168",
+  "revision": "6ec18aa1d50dba7ecae944c97702349c2e515819",
   "files": {
-    "agent/Cronsole.Agent/AgentService.cs": "194525c742cf0589d8d03a8743647b8e9427de2b",
-    "backend/prisma/schema.prisma": "1feef7d34d32d0ed96eb7f1d21aaa778df91aaba",
+    "agent/Cronsole.Agent/AgentService.cs": "33e1dd07bae9175ad1a020e51242533649b8c020",
+    "backend/prisma/schema.prisma": "1bb06f5acab2721edaec191d452b5115637266a0",
     "backend/src/connectors/ClaudeConnector.ts": "426daafc860e0de29e67351b4cbe9194cd3f0c2e",
     "backend/src/connectors/GeminiTriggersConnector.ts": "b8b8af9ee4fb27f67631c0251827f7f3518ace78",
     "backend/src/connectors/GitHubActionsConnector.ts": "8dbffbf56c0b41bcc48db7a9e9ae964885a03251",
     "backend/src/connectors/N8nConnector.ts": "c1c0a6c9c9e37a4785dca7f01b07455cc5623c79",
-    "backend/src/connectors/WindowsAgentConnector.ts": "5810a040395231c8994f174495d048062141c437",
-    "backend/src/routes/tasks.ts": "200ad3a45794481c786d5678554ce5d0e10b4987",
+    "backend/src/connectors/WindowsAgentConnector.ts": "8d3c4058dc006ba9b901fba1171da99bd35a9485",
+    "backend/src/routes/tasks.ts": "89ae81ea3e3e318132847ec76a62ee2f23121c6c",
     "backend/src/services/AutoSync.ts": "675d3ea3aa415d16a232e5a0d8e36d978aacba9f",
-    "backend/src/services/NativeScheduler.ts": "99d84a92976ab94c598641b1b9e3d8d81eda2f3c",
-    "backend/src/services/NativeTaskExecutor.ts": "1f8cc7bf925bca3171d457c545b6b51c79513f7a",
-    "backend/src/services/TaskService.ts": "d72c9cc06bf65b6271549806be46a22dd8a16822",
+    "backend/src/services/NativeScheduler.ts": "caafab551f4ccb5522edec1c22cb958e24e740bb",
+    "backend/src/services/NativeTaskExecutor.ts": "e5ae3181f3648a66e047075e6198523ae5cea1c6",
+    "backend/src/services/TaskService.ts": "b9d0bbd9f7597a1ec3dc062264dfc9afc73c2927",
     "backend/src/services/syncConnection.ts": "7ab7198241cfda2fbe202867d53da0e366188a34",
-    "frontend/src/hooks/useLiveTaskUpdates.ts": "16a0f86556673eee90a9b61dffdd8a5bbdbbd6d1"
+    "frontend/src/hooks/useLiveTaskUpdates.ts": "7274d1ad9ee1f3212b2b68492821733efe99201a"
   }
 }

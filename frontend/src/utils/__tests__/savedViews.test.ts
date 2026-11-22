@@ -10,6 +10,7 @@ import {
   matchView,
   newViewId,
   openingFilters,
+  railNodeLink,
   viewFiltersFrom,
   type SavedView
 } from '../savedViews';
@@ -369,5 +370,50 @@ describe('collections and saved views', () => {
   it('round-trips a collection with no view', () => {
     const params = filtersToParams({ ...DEFAULT_FILTERS, collection: 'c1' }, []);
     expect(filtersFromParams(params, []).collection).toBe('c1');
+  });
+});
+
+describe('railNodeLink', () => {
+  const roundTrip = (patch: Partial<TaskFilters>) => {
+    const url = new URL(railNodeLink(patch, 'https://cronsole.test'));
+    expect(url.origin + url.pathname).toBe('https://cronsole.test/');
+    return filtersFromParams(url.searchParams, []);
+  };
+
+  it('opens the dashboard on the pinned folder', () => {
+    const back = roundTrip({ source: 'WINDOWS', category: 'AI-Lab', folderPath: 'AI-Lab/Nightly' });
+    expect(back.source).toBe('WINDOWS');
+    expect(back.category).toBe('AI-Lab');
+    expect(back.folderPath).toBe('AI-Lab/Nightly');
+  });
+
+  // A pin under \Microsoft\ selects the system lens; a link that dropped it would
+  // land on a folder the default lens hides and read as empty.
+  it('carries the system lens a \\Microsoft\\ folder needs', () => {
+    const back = roundTrip({ source: 'WINDOWS', category: '\\Microsoft\\Windows\\Defrag', system: 'include' });
+    expect(back.system).toBe('include');
+    expect(back.category).toBe('\\Microsoft\\Windows\\Defrag');
+  });
+
+  it('names the place, never a pin id or a collection', () => {
+    const url = railNodeLink({ source: 'WINDOWS', category: 'AI-Lab' }, 'https://cronsole.test');
+    expect(url).not.toContain('pin');
+    expect(url).not.toContain('collection');
+  });
+});
+
+describe('last-run window in the URL', () => {
+  it('round-trips and reads an unknown value as the default', () => {
+    const f = { ...DEFAULT_FILTERS, ran: '8h' as const };
+    expect(filtersFromParams(filtersToParams(f, []), []).ran).toBe('8h');
+    expect(filtersFromParams(new URLSearchParams('ran=3y'), []).ran).toBe('any');
+  });
+
+  it('gives a saved view from before the field the default', () => {
+    // Stored JSON from before the field: the key is simply absent.
+    const before: Partial<TaskFilters> = { ...DEFAULT_FILTERS };
+    delete before.ran;
+    const old = { id: 'u1', name: 'Old', filters: before } as unknown as SavedView;
+    expect(allViews([old]).find(v => v.id === 'u1')?.filters.ran).toBe('any');
   });
 });

@@ -1831,6 +1831,144 @@ const extendedPack: RegistryTemplate[] = [
       { key: 'message', label: 'Message', type: 'text', default: 'Scheduled reminder from Cronsole', required: true, help: 'The notification text. Avoid double quotes in it.' }
     ],
     compatibleTargets: ['windows', 'macos']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'sys-winget-upgrade-report',
+    name: 'Report Pending winget Upgrades',
+    description: 'List every installed application that has a newer version available through winget and append the list to a log on a schedule. It only reports and never installs anything, so you can review what is outdated before deciding to upgrade.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'system',
+    tags: ['system', 'windows', 'winget', 'updates'],
+    icon: 'PackageSearch',
+    trigger: sched('0 8 * * 1'),
+    commandTemplate: 'powershell.exe -NoProfile -Command "winget upgrade | Out-File -Append \'{{logPath}}\'"',
+    parameters: [
+      { key: 'logPath', label: 'Log file path', type: 'path', default: 'C:\\logs\\winget-upgrades.log', required: true, help: 'Where to append each weekly list of upgradable applications. The winget tool must be installed, which it is by default on current Windows 10 and 11.' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'mon-local-admins-audit',
+    name: 'Audit Local Administrators Group',
+    description: 'Record the current members of the local Administrators group to a log on a schedule. Comparing entries over time shows when an account was added to the group, which is a common sign of a mistake or a compromise.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'monitoring',
+    tags: ['monitoring', 'windows', 'security', 'audit'],
+    icon: 'UserCheck',
+    trigger: sched('0 6 * * *'),
+    commandTemplate: 'powershell.exe -NoProfile -Command "Get-LocalGroupMember -Group Administrators | Out-File -Append \'{{logPath}}\'"',
+    parameters: [
+      { key: 'logPath', label: 'Log file path', type: 'path', default: 'C:\\logs\\local-admins.log', required: true, help: 'Where to append the member list on each run. Reading the local group works for a standard scheduled task running as your own account.' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'mon-firewall-profile-status',
+    name: 'Log Windows Firewall Profile Status',
+    description: 'Append the on or off state of the Domain, Private and Public Windows Firewall profiles to a log on a schedule, so a firewall that was switched off by an installer, a script or a person leaves a dated record.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'monitoring',
+    tags: ['monitoring', 'windows', 'security', 'firewall'],
+    icon: 'ShieldCheck',
+    trigger: sched('0 */6 * * *'),
+    commandTemplate: 'powershell.exe -NoProfile -Command "Get-NetFirewallProfile | Select-Object Name, Enabled | Out-File -Append \'{{logPath}}\'"',
+    parameters: [
+      { key: 'logPath', label: 'Log file path', type: 'path', default: 'C:\\logs\\firewall-status.log', required: true, help: 'Where to append the profile states on each run.' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'mon-last-boot-uptime',
+    name: 'Log Last Boot Time',
+    description: 'Append the time the machine last started to a log on a schedule. A boot time that jumps between entries reveals an unexpected reboot or crash that nothing else recorded, which matters most on an unattended machine.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'monitoring',
+    tags: ['monitoring', 'windows', 'uptime', 'reboot'],
+    icon: 'Clock',
+    trigger: sched('0 * * * *'),
+    commandTemplate: 'powershell.exe -NoProfile -Command "(Get-CimInstance Win32_OperatingSystem).LastBootUpTime | Out-File -Append \'{{logPath}}\'"',
+    parameters: [
+      { key: 'logPath', label: 'Log file path', type: 'path', default: 'C:\\logs\\last-boot.log', required: true, help: 'Where to append the last boot time on each run. One line per run, so compare neighbouring lines to spot a reboot.' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'mon-windows-cert-expiry',
+    name: 'Log Expiring Windows Certificates',
+    description: 'List the certificates in the local machine Personal store that expire within a number of days and append them to a log on a schedule, so a lapsing server, VPN or code-signing certificate is noticed before it breaks something.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'monitoring',
+    tags: ['monitoring', 'windows', 'certificates', 'expiry'],
+    icon: 'BadgeAlert',
+    trigger: sched('0 7 * * 1'),
+    commandTemplate: 'powershell.exe -NoProfile -Command "Get-ChildItem Cert:/LocalMachine/My | Where-Object { $_.NotAfter -lt (Get-Date).AddDays({{withinDays}}) } | Select-Object Subject, NotAfter | Out-File -Append \'{{logPath}}\'"',
+    parameters: [
+      { key: 'withinDays', label: 'Warn within (days)', type: 'number', default: '30', required: true, help: 'Certificates that expire within this many days, or have already expired, are written to the log.' },
+      { key: 'logPath', label: 'Log file path', type: 'path', default: 'C:\\logs\\cert-expiry.log', required: true, help: 'Where to append the list on each run. A run that finds nothing expiring writes nothing, so an empty log is good news.' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'bkp-wsl-export',
+    name: 'Export a WSL Distribution to a Backup File',
+    description: 'Export a Windows Subsystem for Linux distribution to a tar file on a schedule, so a development environment that only exists inside WSL can be restored after a bad update or a lost disk. The export overwrites the file at the path you give.',
+    runtime: 'executable',
+    os: 'windows',
+    category: 'backup',
+    tags: ['backup', 'windows', 'wsl', 'linux'],
+    icon: 'Archive',
+    trigger: sched('0 2 * * 0'),
+    commandTemplate: 'wsl.exe --export {{distroName}} "{{backupFile}}"',
+    parameters: [
+      { key: 'distroName', label: 'Distribution name', type: 'text', default: 'Ubuntu', required: true, help: 'The name shown by wsl --list, e.g. Ubuntu. The distribution is stopped briefly while it is exported.' },
+      { key: 'backupFile', label: 'Backup file path', type: 'path', default: 'D:\\backups\\wsl-ubuntu.tar', required: true, help: 'Where to write the tar file. It is the size of the whole distribution, so choose a drive with room, and note that each run replaces the previous file.' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'mon-defender-signature-age',
+    name: 'Log Defender Signature Age',
+    description: 'Append the date Microsoft Defender last updated its virus definitions, and whether real-time protection is on, to a log on a schedule. Stale definitions on a machine that is switched off over weekends or sits behind a proxy are otherwise invisible.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'monitoring',
+    tags: ['monitoring', 'windows', 'security', 'defender'],
+    icon: 'ShieldAlert',
+    trigger: sched('0 9 * * *'),
+    commandTemplate: 'powershell.exe -NoProfile -Command "Get-MpComputerStatus | Select-Object AntivirusSignatureLastUpdated, RealTimeProtectionEnabled | Out-File -Append \'{{logPath}}\'"',
+    parameters: [
+      { key: 'logPath', label: 'Log file path', type: 'path', default: 'C:\\logs\\defender-signatures.log', required: true, help: 'Where to append the signature date and protection state on each run. It reports on Microsoft Defender only and shows nothing useful where a third-party antivirus has replaced it.' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'mon-macos-filevault-status',
+    name: 'Log macOS FileVault Status',
+    description: 'Write whether FileVault disk encryption is on to a log file on a schedule, so a laptop whose encryption was switched off or never finished turning on leaves a dated record instead of being discovered after a loss.',
+    runtime: 'bash',
+    os: 'macos',
+    category: 'monitoring',
+    tags: ['monitoring', 'macos', 'security', 'filevault'],
+    icon: 'Lock',
+    trigger: sched('0 9 * * 1'),
+    commandTemplate: '/bin/bash -c "fdesetup status >> {{logPath}} 2>&1"',
+    parameters: [
+      { key: 'logPath', label: 'Log file path', type: 'path', default: '/usr/local/var/log/filevault-status.log', required: true, help: 'Where to append the status line on each run. Each line reads FileVault is On or FileVault is Off, so compare neighbouring lines for a change.' }
+    ],
+    compatibleTargets: ['macos']
   }
 ];
 

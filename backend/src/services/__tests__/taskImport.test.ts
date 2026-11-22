@@ -54,6 +54,15 @@ describe('parseTaskBundle', () => {
     expect(parsed.onDemand).toBe(true);
   });
 
+  it('carries the description through, and writes no key when there is none', () => {
+    const meta = { job: { jobType: 'HTTP', url: 'https://example.com/hook' }, description: 'Pings the hook.' };
+    const bundle = buildNativeTaskBundle(task({ metadata: meta }));
+    expect(bundle.task.description).toBe('Pings the hook.');
+    expect(parseTaskBundle(bundle).description).toBe('Pings the hook.');
+
+    expect('description' in buildNativeTaskBundle(task()).task).toBe(false);
+  });
+
   it('unwraps the archive detail shape, so a caller can hand back what it was given', () => {
     // GET /api/tools/task-archives/:id nests the bundle beside the run history.
     const archiveDetail = {

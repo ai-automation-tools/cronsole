@@ -339,7 +339,9 @@ under that date.
       survives clicking a view and scopes every view count *(2026-08-12)*.
 - [x] **Mass Actions console on the Tools tab — now the only bulk surface** — action-first, plan
       before ask, typed confirmation at ≥25 tasks, chunked at 100 with halt propagation, per-task
-      five-outcome report. Dashboard row selection removed entirely *(2026-08-12)*.
+      five-outcome report. Dashboard row selection removed entirely *(2026-08-12)*. *Selection
+      came back on 2026-11-13 as the dashboard's selection bar, sharing this console's runner — see
+      **Dashboard multi-select**; the console stays the scope-first surface.*
 - [x] **One Edit button per task, instead of four** — `EditTaskModal`, fields extracted to
       `components/edit/`, prefill and gating in `utils/taskEditing.ts`; one gesture, still three
       routes, reporting per route *(2026-08-13,
@@ -436,6 +438,10 @@ under that date.
       Tunnel profile plus Access instructions and `TRUST_PROXY`; and the `VITE_DEV_TOKEN` leak found
       while verifying it, gated on `import.meta.env.DEV` and guarded by `check-bundle-secrets.mjs`
       *([#55](troubleshooting/README.md#55-the-dashboard-is-already-signed-in-on-a-browser-that-never-logged-in))*.
+- [x] **Suite embed contract v1** *(2026-11-17)*: `?embed=1` in a frame hides the brand and the
+      theme switch, posts `ready` / `route` and takes `theme`, only with the origins in
+      `VITE_FRAME_ANCESTORS`, which the dev and preview servers also send as CSP `frame-ancestors`.
+      Promptbook and Project Hub follow the same contract; the shell that hosts all three is next.
 - [x] **Automation health score** *(2026-07-28)* and **the Schedule tester**, the cheapest slice of
       the dry-run lab *(2026-07-31)* — two of the ★ product bets.
 
@@ -1067,6 +1073,41 @@ verification pass — is still open above, narrowed to the half that needs a tok
       snapshot, so membership stays declared and pinning stays the derived alternative. Chips copy
       `/?collection=<id>` (id, so a rename keeps links) and open the manager in rename mode
       *(2026-11-12)*.
+- [x] **The sidebar redesign** — chosen from three mockups (A command list · B overview + tabs ·
+      C dock + panel; B won, then trimmed): **a scope slider (All sources · Favorites) and a list
+      slider (Collections · Pinned**, `utils/railTabs.ts`, `Settings.railTab` replacing the three fold
+      flags; both lists as two-per-row tiles), **Sources on their own below**, never in a slider;
+      everything ~25% shorter. B's overview card was dropped — the
+      dashboard heading already counts the tasks. Folders stay rows inside source cards; "a fold may not swallow a hit"
+      became `shownRailTab`. Kept: filter, reorder + keyboard twin, caps, collapse-to-icons
+      *(2026-11-13)*. *The two sliders were replaced the same day — see **Scopes as one list**
+      below; `railTabs.ts`, `Settings.railTab` and `shownRailTab` are gone.*
+- [x] **Last ran filter** — `TaskFilters.ran` (1h/8h/24h/7d, `?ran=`), over `lastRunOf`: the newer
+      of the platform's `metadata.lastRunTime` and Cronsole's own `lastRunAt`; sorts newest run
+      first while set. Task cards' *Last run* reads the same helper *(2026-11-13)*.
+- [x] **Dashboard multi-select** — `SelectionBar` over the Mass Actions runner (`utils/bulkRun.ts`),
+      bulk favorite / system-task routes, collection add; reverses the 2026-08-12 removal under its
+      own rules (acts only on shown tasks, names the selection, typed count past 25) *(2026-11-13)*.
+- [x] **Move any task to system tasks** — a per-user `TaskHidden` join (TaskFavorite's shape) and
+      a third argument to `TaskService.isSystemTask`, passed by every surface that applies the
+      system lens (task list, task health, idle report, calendar occurrences). Modal button; an
+      OS-owned task is refused. Also: the list sorts by next run *(2026-11-13)*.
+- [x] **Scopes as one list; Collections and Pinned in the main area; new task cards** — the two
+      sliders were replaced the same day by one **Scopes** list (*All tasks · Favorites ·
+      Collections · Pinned*); `railTabs.ts` and `Settings.railTab` deleted. Collections and Pinned
+      open galleries in the main area (`ScopeGallery.tsx`, `?lens=collections|pinned`, outside
+      `FILTER_PARAM_KEYS`). Task cards
+      became breadcrumb · name · schedule · next run + status · footer (clone, power, labelled Run)
+      *(2026-11-13)*.
+- [x] **Pinned chips copy a link; the sidebar resizes** — a pin's link names the folder
+      (`railNodeLink`, through `filtersToParams`), never the pin, and a pin gets no rename because it
+      shows the real folder's name. The rail's right edge drags (208–560px, `max-w-[50vw]`), with a
+      keyboard twin; the width is per browser (`cronsole.railWidth`) because it is a fact about the
+      screen, not an account preference *(2026-11-13)*.
+- [x] **The create form fills itself in** — starter templates for the selected platform as chips
+      (opening the existing Apply modal, platform preselected), a name derived from the command,
+      URL or check target until one is typed (`utils/suggestTaskName.ts`), and the category field
+      suggesting the platform's existing categories (`<datalist>`). Frontend only *(2026-11-17)*.
 - [x] **A schedule can be picked, not only typed** — one `ScheduleBuilder` on all four cron
       surfaces (Edit task, New task, Apply template, Schedule tester): five shapes, a clock
       control and weekday toggles, with the cron it compiles to on screen and the Cron tab beside
@@ -1484,8 +1525,9 @@ components over 1,000 lines.
 
 **High**
 
-- [ ] **Keep the app mounted when the session expires** [F5]. Login replaces the whole tree, so an
-      open form loses what was typed. Draw login over the mounted app and resume after sign-in.
+- [x] **Keep the app mounted when the session expires** [F5]. Login replaces the whole tree, so an
+      open form loses what was typed. Draw login over the mounted app and resume after sign-in. — done 2026-11-13: `AuthGate` keeps the app mounted and
+      portals the login over it (`#root` goes `inert`); a different account signing in reloads the page.
 - [ ] **Replace the fixed owner id `cli_user_placeholder`** [S1, C8]. Give a new install a generated
       id and neutral placeholder name and email; migrate an existing install's rows in one step.
 - [ ] **Docker images that run the built app as a non-root user** [C5, S17]. `npm ci`, `USER node`,
@@ -1501,8 +1543,9 @@ components over 1,000 lines.
       raw. Accept 32 random bytes, add a version prefix, migrate with `npm run rotate-key`.
 - [ ] **Generate the database password** [issue 7]. It is `password` on a loopback-only port.
       New installs only; an existing volume keeps its password.
-- [ ] **Agent: ignore `workingDirectory` on create, or sign it** [A7]. It is honoured and unsigned.
-      Signing it is a wire change (protocol 3); ignoring it is not.
+- [x] **Agent: ignore `workingDirectory` on create, or sign it** [A7]. It is honoured and unsigned.
+      Signing it is a wire change (protocol 3); ignoring it is not. — done 2026-11-16: `ReadAction` no longer reads it, so create ignores it
+      (update still takes it as a signed top-level field); `TaskCreate_Event_IgnoresUnsignedWorkingDirectory` pins it. No wire change.
 - [ ] `small` **Agent: no handler may throw unhandled** [A8]. Two async-void handlers can end the
       process until the self-heal restarts it.
 - [ ] `small` **Agent refuses a non-loopback `http://` server URL without an explicit override**
@@ -1519,7 +1562,9 @@ components over 1,000 lines.
 **Low: dashboard**
 
 - [ ] `small` **The mobile source drawer uses `Modal`** [F20]. It has no focus trap or restore.
-- [ ] `small` **Rail pin controls are visible on touch** [F19].
+- [ ] `small` **Rail pin controls are visible on touch** [F19]. Unpinning is solved — the Pinned
+      gallery's cards carry a labelled **Unpin** button (2026-11-13). What remains is *adding* a
+      pin: the rail folder row's `+` is still hover-revealed until pinned.
 - [ ] `small` **A Help button in the top bar** [F17], and **load the Help Center on demand** [F18].
 - [ ] `small` **An unknown path or a deleted task says so** [F23], and each route sets a page title.
 - [ ] `small` **Top-bar sections are links** [F25], and sign out sits behind a menu.
@@ -2133,6 +2178,20 @@ no-shell execution held up; the gaps are in defaults and deployment.
 New correctness work lands here as it is found. Everything logged before 2026-08-16 is closed —
 see [Part II](#completed--p1-correctness--honesty).
 
+- [ ] **Stop reading an n8n "every N minutes" rule as clock-aligned `*/N`** *(logged 2026-11-19 by the upstream
+      check)*. n8n 2.45 (2026-10-20) changed Schedule Trigger "every N seconds" and "every N minutes" to
+      run a steady N apart, counted from when the workflow was published, instead of on clock boundaries;
+      `N8N_SCHEDULER_TRIGGER_NODE_MODE=legacy` keeps the old timing and is deprecated (source:
+      docs.n8n.io/release-notes). `readRule` converts `minutesInterval` N to `*/N * * * *` on the claim
+      that n8n's own cron is `*/N`, so on 2.45+ the stored schedule can be off by up to N minutes with
+      nothing on screen saying so. **What**: decide between refusing N > 1 with a reason (the §9 rule,
+      "unavailable rather than approximate", which loses the schedule on every older instance) and keeping
+      the cron but marking it approximate in `metadata.scheduleReason`; the instance version is not in
+      the public API, so a per-connection setting may be the only honest switch. **Where**:
+      `backend/src/services/n8nSchedule.ts` (`readRule`, the header comment), its tests, the n8n source
+      guide. **Done when**: a `minutesInterval: 15` fixture yields the chosen behaviour with a test
+      pinning it, and the guide states which n8n versions it is exact for.
+
 - [x] **Move the Dockerfiles off Node 20, which reached end of life 2026-04-30** *(logged 2026-10-08
       by the upstream check)*. `backend/Dockerfile` and `frontend/Dockerfile` both start
       `FROM node:20-alpine`, so the shipped backend runs on a runtime that no longer gets security
@@ -2265,8 +2324,7 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
       the bottom** holding collapse, both source routes and the help `?`. Health stays four-state —
       exception-only was drawn and rejected, since an unconnected platform already draws no dot.
       See CHANGELOG 2026-09-09 and §9.
-- [ ] **Scoping.** Views filtered to the source they make sense for (*System* is Windows-only and
-      reads `0` everywhere else); source-scoped header actions, so **Sync** and **Import** state
+- [ ] **Scoping.** Views filtered to the source they make sense for; source-scoped header actions, so **Sync** and **Import** state
       which platform they mean; per-source empty states, so a connected platform with nothing
       imported says how to import from it.
 
@@ -2889,6 +2947,52 @@ Shipped P3 work is in [Part II](#completed--p3-expansion).
         password while travelling is only fixable at the keyboard; and the 24h JWT lives in
         `localStorage` on a phone that can be lost, with no refresh flow. Both are acceptable behind
         Tailscale or Access, and are the first things to revisit if the gate is ever relaxed.
+
+---
+
+<a id="modern-web-2026-11-16"></a>
+
+### 🧹 Modern web platform (modern-web-guidance scan 2026-11-16)
+
+Verified hits from `modern-web-guidance legacy-scan`, false positives dropped. Out of scope here:
+`registry-site/source-data-flow.html`, which is generated by archify (fix it upstream, not in the
+output), and the backend's copy-then-sort and the frontend's `Promise.withResolvers` hit, which
+their TypeScript `lib` targets (ES2022, ES2023) don't type yet.
+
+- [ ] **Enter in an inline rename field does not commit mid-IME-composition**. The collection
+      rename (`ManageCollectionsModal.tsx`), the task-card category edit (`TaskCard.tsx`) and the
+      "Name this view" field (`ViewBar.tsx`) act on `e.key === 'Enter'` in `onKeyDown`, so a
+      Japanese, Chinese or Korean user who presses Enter to pick a candidate saves half a word.
+      Done: each handler returns early on `e.nativeEvent.isComposing` (or `keyCode === 229`) —
+      proof: `npx -y modern-web-guidance@latest legacy-scan . --guide ime-safe-enter-submit` reports 0.
+- [ ] **The theme switch keeps `<meta name="color-scheme">` in sync** in the dashboard
+      (`frontend/index.html`, `frontend/public/theme-boot.js`, `frontend/src/hooks/useTheme.ts`) and on the
+      homepage (`registry-site/index.html`, `applyTheme`). Both set CSS `color-scheme` per theme
+      class but neither page has the meta, so the canvas and native UI run on the browser default
+      until the stylesheet applies. Done: the meta exists and the boot script and toggle set it to
+      the resolved scheme (`light dark` for "system") — proof:
+      `npx -y modern-web-guidance@latest legacy-scan frontend --guide dark-mode-toggle` and
+      `... legacy-scan registry-site/index.html --guide dark-mode-toggle` both report 0.
+- [ ] **Startup errors that wrap a caught error keep it as `cause`**. `JWT_EXPIRES_IN` validation
+      (`backend/src/auth/auth.ts`) and the generated-secrets write (`backend/src/config/secrets.ts`)
+      flatten the original into the message and lose its stack. Done: same message, plus
+      `{ cause: err }` — proof: `npx -y modern-web-guidance@latest legacy-scan backend/src/auth/auth.ts --guide js`
+      and the same for `backend/src/config/secrets.ts` report 0.
+- [ ] **Homepage modal closes with `replaceChildren()`** instead of `innerHTML = ""`
+      (`registry-site/index.html`, `closeModal`) — proof:
+      `npx -y modern-web-guidance@latest legacy-scan registry-site/index.html --guide js` reports 0.
+- [ ] **Frontend sorts without copying first**: `toSorted()` replaces `[...x].sort()` in
+      `RestoreTool.tsx` (2), `DashboardScreen.tsx`, `TemplatesScreen.tsx` and
+      `utils/taskFilters.ts` (2) — proof: `npx -y modern-web-guidance@latest legacy-scan frontend/src --guide js`
+      reports only the `ConfirmProvider.tsx` `Promise.withResolvers` hit, which stays.
+- [ ] `small` **Card hover borders declare the standard `mask`** next to `-webkit-mask` on
+      `.spot::before`, `.tcard::before` and `.ccard::before` (`registry-site/index.html`), so the
+      ring doesn't depend on the prefixed alias — proof:
+      `npx -y modern-web-guidance@latest legacy-scan registry-site/index.html --guide complex-shapes` reports 0.
+- [ ] `small` **Homepage scrollbars use standard `scrollbar-width`/`scrollbar-color`** with
+      `::-webkit-scrollbar` only inside an `@supports not (scrollbar-color: auto)` fallback
+      (`registry-site/index.html`) — proof:
+      `npx -y modern-web-guidance@latest legacy-scan registry-site/index.html --guide customize-scrollbar-color-and-thickness` reports 0.
 
 ---
 

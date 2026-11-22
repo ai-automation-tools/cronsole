@@ -150,6 +150,7 @@ import {
   type BulkCategoryTask
 } from '../services/bulkCategory.js';
 import { planBulkUntrack, summarizeBulkUntrack } from '../services/bulkUntrack.js';
+import { planBulkLabel, summarizeBulkLabel } from '../services/bulkLabel.js';
 import { buildPlatformMatrix, recordCapability } from '../services/platformCapabilities.js';
 import { AUTO_SYNC_INTERVALS_MIN } from '../services/AutoSync.js';
 import { TaskService } from '../services/TaskService.js';
@@ -1778,6 +1779,8 @@ router.get('/task-health', async (req: Request, res: Response) => {
       // Needed for the system/personal verdict — the scorer asks
       // TaskService.isSystemTask, which reads the native path.
       externalId: true,
+      // The other half of that verdict: did this user file it under system tasks.
+      hiddenBy: { where: { userId }, select: { id: true } },
       status: true,
       schedule: true,
       nextRunTime: true,
@@ -1796,7 +1799,9 @@ router.get('/task-health', async (req: Request, res: Response) => {
   // was added to the scorer's input and left out of the select above — and the
   // missing field only surfaced as a 500 against real data. A cast on a query
   // result is a promise the query cannot keep.
-  const results = rankByHealth(tasks.map(task => scoreTask(task, now)));
+  const results = rankByHealth(
+    tasks.map(task => scoreTask({ ...task, hiddenByUser: TaskService.hiddenFrom(task) }, now))
+  );
 
   // The population the caller asked about. `counts` is taken **here** — after
   // the system lens, before the tier filter — for the same reason
@@ -1910,7 +1915,14 @@ router.get('/occurrences', async (req: Request, res: Response) => {
 
   const tasks = await prisma.task.findMany({
     where: { userId, status: { not: TaskStatus.DELETED } },
-    select: { id: true, externalId: true, platform: true, schedule: true, metadata: true }
+    select: {
+      id: true,
+      externalId: true,
+      platform: true,
+      schedule: true,
+      metadata: true,
+      hiddenBy: { where: { userId }, select: { id: true } }
+    }
   });
 
   // The system lens is applied HERE, before the expansion, so hiding those tasks
@@ -1918,7 +1930,7 @@ router.get('/occurrences', async (req: Request, res: Response) => {
   // browser gets the verdict on each task and never re-derives the rule (#20a).
   const governed = includeSystem
     ? tasks
-    : tasks.filter(t => !TaskService.isSystemTask(t.externalId, t.platform));
+    : tasks.filter(t => !TaskService.isSystemTask(t.externalId, t.platform, TaskService.hiddenFrom(t)));
 
   const report = expandOccurrences(governed, from, to, maxPerTask);
 
@@ -2058,7 +2070,8 @@ router.get('/analytics', async (req: Request, res: Response) => {
         status: true,
         schedule: true,
         updatedAt: true,
-        metadata: true
+        metadata: true,
+        hiddenBy: { where: { userId }, select: { id: true } }
       }
     }),
 
@@ -2098,6 +2111,7 @@ router.get('/analytics', async (req: Request, res: Response) => {
   const lastRunByTask = new Map(lastNativeRuns.map(g => [g.taskId, g._max.triggeredAt]));
   const idleInput: IdleInputTask[] = tasks.map(task => ({
     ...task,
+    hiddenByUser: TaskService.hiddenFrom(task),
     lastExecutionAt: lastRunByTask.get(task.id) ?? null
   }));
 
@@ -2452,6 +2466,85 @@ router.post('/tasks/untrack', validateBody(bulkUntrackSchema), async (req: Reque
     detail:
       'These tasks are no longer tracked by Cronsole. They still exist on their platform and will ' +
       'keep running on their own schedules. Re-import their category to track them again.'
+  });
+});
+
+const bulkLabelSchema = z.object({
+  taskIds: z.array(z.string().min(1)).min(1, 'Select at least one task.'),
+  on: z.boolean()
+});
+
+/**
+ * Favorite / unfavorite many tasks, or file them under system tasks and back —
+ * the dashboard selection bar's label verbs. Per-user joins, no platform call,
+ * one transaction each: the same rules as the single-task routes on `tasks.ts`
+ * (owner-scoped, idempotent, an OS-owned task refused for *hide*), reported per
+ * task under the five-outcome contract.
+ */
+router.post('/tasks/favorite', validateBody(bulkLabelSchema), async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+  const { taskIds, on } = req.body as z.infer<typeof bulkLabelSchema>;
+
+  const ids = bulkIds(taskIds);
+  const found = await prisma.task.findMany({
+    where: { id: { in: ids }, userId },
+    select: { id: true, name: true, platform: true, favorites: { where: { userId }, select: { id: true } } }
+  });
+  const notFound = bulkNotFound(ids, found);
+  const labelled = new Set(found.filter(t => t.favorites.length > 0).map(t => t.id));
+  const plan = planBulkLabel(found, on, labelled);
+
+  if (plan.ids.length > 0) {
+    await (on
+      ? prisma.taskFavorite.createMany({ data: plan.ids.map(taskId => ({ userId, taskId })), skipDuplicates: true })
+      : prisma.taskFavorite.deleteMany({ where: { userId, taskId: { in: plan.ids } } }));
+    notifyTasksChanged(userId);
+  }
+
+  res.json({
+    ...plan.report,
+    requested: ids.length,
+    notFound,
+    summary: summarizeBulkLabel(plan.report, on ? 'favorited' : 'unfavorited')
+  });
+});
+
+router.post('/tasks/hidden', validateBody(bulkLabelSchema), async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+  const { taskIds, on } = req.body as z.infer<typeof bulkLabelSchema>;
+
+  const ids = bulkIds(taskIds);
+  const found = await prisma.task.findMany({
+    where: { id: { in: ids }, userId },
+    select: { id: true, name: true, platform: true, externalId: true, hiddenBy: { where: { userId }, select: { id: true } } }
+  });
+  const notFound = bulkNotFound(ids, found);
+  const byId = new Map(found.map(t => [t.id, t]));
+  const plan = planBulkLabel(
+    found,
+    on,
+    new Set(found.filter(t => TaskService.hiddenFrom(t)).map(t => t.id)),
+    // The single route's 400, as one `refused` item: the OS owns it already.
+    t => {
+      const row = byId.get(t.id)!;
+      return TaskService.isSystemTask(row.externalId, row.platform)
+        ? 'Already a system task — the operating system owns it.'
+        : undefined;
+    }
+  );
+
+  if (plan.ids.length > 0) {
+    await (on
+      ? prisma.taskHidden.createMany({ data: plan.ids.map(taskId => ({ userId, taskId })), skipDuplicates: true })
+      : prisma.taskHidden.deleteMany({ where: { userId, taskId: { in: plan.ids } } }));
+    notifyTasksChanged(userId);
+  }
+
+  res.json({
+    ...plan.report,
+    requested: ids.length,
+    notFound,
+    summary: summarizeBulkLabel(plan.report, on ? 'moved to system tasks' : 'moved out of system tasks')
   });
 });
 

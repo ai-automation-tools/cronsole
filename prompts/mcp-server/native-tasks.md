@@ -145,7 +145,8 @@ same schedule.
 > `update_native_job` **replaces** the job, it does not merge. HTTP jobs and script jobs share
 > no fields, so switching type discards everything from the old one — a URL doesn't survive a
 > change to a script job, it just stops being read. Ask the assistant to tell you what a type
-> switch throws away *before* it makes it.
+> switch throws away *before* it makes it. The task's description is the exception: it is not
+> part of the job, so it survives unless the assistant sends a new one.
 
 ## 🔑 Secrets a native job needs
 

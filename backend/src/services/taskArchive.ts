@@ -26,6 +26,8 @@ export interface NativeTaskBundle {
     category: string;
     schedule: string | null;
     job: unknown;
+    /** Absent when the task has none. Added in 1.0 without a bump: older readers ignore it. */
+    description?: string;
   };
 }
 
@@ -62,7 +64,10 @@ export function buildNativeTaskBundle(task: Task, now: Date = new Date()): Nativ
       platform: task.platform,
       category: task.category,
       schedule: task.schedule,
-      job: meta.job ?? null
+      job: meta.job ?? null,
+      ...(typeof meta.description === 'string' && meta.description.trim()
+        ? { description: meta.description }
+        : {})
     }
   };
 }

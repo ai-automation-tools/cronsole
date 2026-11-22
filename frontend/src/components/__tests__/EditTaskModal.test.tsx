@@ -378,6 +378,19 @@ describe('editing a Cronsole-native job', () => {
     );
   });
 
+  it('saves a description edit with the unchanged job', async () => {
+    renderModal(nativeTask);
+    fireEvent.change(screen.getByLabelText('Description'), { target: { value: ' Pings the API. ' } });
+    fireEvent.click(saveButton());
+
+    await waitFor(() =>
+      expect(api.patch).toHaveBeenCalledWith('/tasks/native-1/job', {
+        job: { jobType: 'HTTP', url: 'https://example.com/health', method: 'GET' },
+        description: 'Pings the API.'
+      })
+    );
+  });
+
   it('accepts headers as "Name: value" lines, not only JSON', async () => {
     renderModal(nativeTask);
     fireEvent.change(screen.getByLabelText('Headers'), {

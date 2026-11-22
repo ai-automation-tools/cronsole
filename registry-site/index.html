@@ -405,6 +405,8 @@
     @media (max-width: 620px) {
       .nav-inner { flex-wrap: wrap; height: auto; padding-top: 10px; padding-bottom: 10px; row-gap: 10px; }
       .nav-search { order: 10; flex-basis: 100%; margin: 0; }
+      /* 16px stops iOS zooming into the field on focus (site checks: usable on a phone). */
+      .nav-search input { font-size: 16px; }
       .nav-links.open { top: auto; }
     }
 

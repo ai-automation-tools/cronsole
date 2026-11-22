@@ -1,6 +1,6 @@
 {
   "registryVersion": "1.0",
-  "updatedAt": "2026-11-12T22:02:12.881Z",
+  "updatedAt": "2026-11-19T22:01:29.551Z",
   "templates": [
     {
       "id": "tpl_daily_database_backup",
@@ -1916,6 +1916,82 @@
       "sha256": "4319e325ccb8ddc7015719bce3a6be88d5ddd4c67a2e79172969fcdc1cc7d53e"
     },
     {
+      "id": "mon-windows-cert-expiry",
+      "name": "Log Expiring Windows Certificates",
+      "description": "List the certificates in the local machine Personal store that expire within a number of days and append them to a log on a schedule, so a lapsing server, VPN or code-signing certificate is noticed before it breaks something.",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "certificates",
+        "expiry"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/mon-windows-cert-expiry.json",
+      "sha256": "2039adf7c435e73cfdf6f25a96f64d3f9739d77654a8f4d0fd4e2bd381b2c76c"
+    },
+    {
+      "id": "bkp-wsl-export",
+      "name": "Export a WSL Distribution to a Backup File",
+      "description": "Export a Windows Subsystem for Linux distribution to a tar file on a schedule, so a development environment that only exists inside WSL can be restored after a bad update or a lost disk. The export overwrites the file at the path you give.",
+      "category": "backup",
+      "tags": [
+        "backup",
+        "windows",
+        "wsl",
+        "linux"
+      ],
+      "runtime": "executable",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/bkp-wsl-export.json",
+      "sha256": "b7b39adb4426547dfbd1911df72dd9dde71ad5bd9d7182e5e8c9a86c518e8b49"
+    },
+    {
+      "id": "mon-defender-signature-age",
+      "name": "Log Defender Signature Age",
+      "description": "Append the date Microsoft Defender last updated its virus definitions, and whether real-time protection is on, to a log on a schedule. Stale definitions on a machine that is switched off over weekends or sits behind a proxy are otherwise invisible.",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "security",
+        "defender"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/mon-defender-signature-age.json",
+      "sha256": "ccc72c1f626cf67c102b5b3d62820d381e998027c1a3065de17519063d69e0d0"
+    },
+    {
+      "id": "mon-macos-filevault-status",
+      "name": "Log macOS FileVault Status",
+      "description": "Write whether FileVault disk encryption is on to a log file on a schedule, so a laptop whose encryption was switched off or never finished turning on leaves a dated record instead of being discovered after a loss.",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "macos",
+        "security",
+        "filevault"
+      ],
+      "runtime": "bash",
+      "os": "macos",
+      "compatibleTargets": [
+        "macos"
+      ],
+      "path": "templates/mon-macos-filevault-status.json",
+      "sha256": "81b4bfbd796e0cc30d5b95f07476ef5f521bd10429b3d18152da07f8fda59ab2"
+    },
+    {
       "id": "native-run-program",
       "name": "Run a Program (Cronsole)",
       "description": "Run any executable with arguments on the machine hosting Cronsole — no agent, no Task Scheduler entry. Cronsole schedules and runs it itself.",
@@ -2736,6 +2812,7 @@
         "bkp-mysql-dump",
         "bkp-mongodump",
         "bkp-redis-bgsave",
+        "bkp-wsl-export",
         "cln-pip-cache-purge",
         "bkp-system-restore-point",
         "cln-old-files",
@@ -2746,7 +2823,7 @@
         "sys-postgres-vacuum"
       ],
       "path": "packs/backup-cleanup.json",
-      "sha256": "22a0ddb848494d943864d944c81a075509c1773e609761051452b76d82b2445b"
+      "sha256": "17727ad1af863a40104b17c7117fba1400e374333b6405b05c1b57801be314b7"
     },
     {
       "id": "monitoring",
@@ -2766,6 +2843,9 @@
         "mon-local-admins-audit",
         "mon-firewall-profile-status",
         "mon-last-boot-uptime",
+        "mon-windows-cert-expiry",
+        "mon-defender-signature-age",
+        "mon-macos-filevault-status",
         "native-check-healthchecks-badge",
         "native-script-content-freshness",
         "native-script-domain-expiry",
@@ -2774,7 +2854,7 @@
         "tpl_starter_webhook_macos"
       ],
       "path": "packs/monitoring.json",
-      "sha256": "014f812d1eda51719348b9d79d371fd79d86f3f76fcd7e0d3bbae0c36b9acc90"
+      "sha256": "0821a8a9b6640066878cf8602886ddb7d9e3884e8182e1736dfb9ef6da6c376c"
     },
     {
       "id": "cronsole-native",

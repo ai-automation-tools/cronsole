@@ -139,6 +139,12 @@ docs/local/
 /.claude/skills/cronsole/
 /.claude/skills/source-doctor/
 
+# Project skills installed from ai-automation-tools/agent-skills (skills/projects/cronsole/) by
+# its install-skills.ps1 -Project cronsole. That repo is their source, so each machine installs
+# its own copy; never commit one here.
+/.claude/skills/cronsole-windows-jobs/
+/.claude/skills/cronsole-claude-routines/
+
 # --- Local scratch / tooling artifacts ---
 temp/
 .playwright-mcp/

@@ -26,6 +26,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Changed
 
+- Source scout 2026-11-24: queued Devin Automations (read-only observer); watching Grok Automations (added), Hermes (re-checked, still no `--json`); quick links unchanged (all URLs answer; Cursor and Claude sit behind a login wall).
 - **Restore and template import check the token before reading the body** (2026-11-17). Both routes take a large JSON body (32 MB and 8 MB) and used to parse it before `authenticateToken` ran, so a caller with no token still got the parse. The token is now checked first; a test in `auth.integration.test.ts` holds it.
 - **The Windows agent ignores a working directory on task create** (2026-11-16). The create command's signature never covered it, yet the agent honoured one riding in the action. Create now registers the task with no working directory; edit sets it, and that field is signed. No wire change.
 - **Diagrams re-read against the code** (2026-11-14). The source data flow now cites the current lines of the Windows agent, connector, task list, sync route, native scheduler and executor, and live-update hook, and notes that a failed native run is pushed to the open tab as `run:failed`; the template-catalog diagram's `managed` citation moved with the schema. Both rebuilt with `--pin-head`.

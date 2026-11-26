@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "1.0",
+  "id": "mon-startup-items-snapshot",
+  "name": "Log Windows Startup Programs",
+  "description": "Append the list of programs Windows starts at logon, with the command and registry or folder location each comes from, to a log on a schedule. Diffing two snapshots shows a program that quietly added itself to startup.",
+  "runtime": "powershell",
+  "os": "windows",
+  "category": "monitoring",
+  "tags": [
+    "monitoring",
+    "windows",
+    "security",
+    "startup"
+  ],
+  "icon": "ListChecks",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 6 * * 1"
+  },
+  "commandTemplate": "powershell.exe -NoProfile -Command \"Get-CimInstance Win32_StartupCommand | Select-Object Name, Command, Location | Out-File -Append '{{logPath}}'\"",
+  "parameters": [
+    {
+      "key": "logPath",
+      "label": "Log file path",
+      "type": "path",
+      "default": "C:\\logs\\startup-items.log",
+      "required": true,
+      "help": "Where to append the snapshot on each run. Each run adds the whole list again, so compare the latest block with the one before it to spot a new entry."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

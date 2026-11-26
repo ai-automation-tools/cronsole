@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "id": "mon-macos-disk-free",
+  "name": "Log macOS Disk Free Space",
+  "description": "Append the size, used space and free space of a volume to a log file on a schedule, so a Mac that is slowly filling up leaves a trend you can read before updates and backups start failing for lack of room.",
+  "runtime": "bash",
+  "os": "macos",
+  "category": "monitoring",
+  "tags": [
+    "monitoring",
+    "macos",
+    "disk",
+    "report"
+  ],
+  "icon": "HardDrive",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 8 * * *"
+  },
+  "commandTemplate": "/bin/bash -c \"df -h {{volumePath}} >> {{logPath}} 2>&1\"",
+  "parameters": [
+    {
+      "key": "volumePath",
+      "label": "Volume path",
+      "type": "path",
+      "default": "/",
+      "required": true,
+      "help": "The mount point to report on, for example / for the startup disk or /Volumes/Backup for an external drive."
+    },
+    {
+      "key": "logPath",
+      "label": "Log file path",
+      "type": "path",
+      "default": "/usr/local/var/log/disk-free.log",
+      "required": true,
+      "help": "Where to append the usage line on each run. Each entry repeats the column headings, so the file stays readable on its own."
+    }
+  ],
+  "compatibleTargets": [
+    "macos"
+  ]
+}

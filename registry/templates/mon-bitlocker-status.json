@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "1.0",
+  "id": "mon-bitlocker-status",
+  "name": "Log BitLocker Volume Status",
+  "description": "Append the protection state and encryption percentage of every BitLocker volume to a log on a schedule, so a drive whose encryption was suspended or never finished leaves a dated record instead of being discovered after a loss.",
+  "runtime": "powershell",
+  "os": "windows",
+  "category": "monitoring",
+  "tags": [
+    "monitoring",
+    "windows",
+    "security",
+    "bitlocker"
+  ],
+  "icon": "Lock",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 8 * * 1"
+  },
+  "commandTemplate": "powershell.exe -NoProfile -Command \"Get-BitLockerVolume | Select-Object MountPoint, ProtectionStatus, VolumeStatus, EncryptionPercentage | Out-File -Append '{{logPath}}'\"",
+  "parameters": [
+    {
+      "key": "logPath",
+      "label": "Log file path",
+      "type": "path",
+      "default": "C:\\logs\\bitlocker-status.log",
+      "required": true,
+      "help": "Where to append the volume states on each run. Reading BitLocker needs administrator rights, so the Windows task must run elevated or the log stays empty and the task reports an error."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

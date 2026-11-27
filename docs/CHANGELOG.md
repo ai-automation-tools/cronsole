@@ -27,6 +27,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Changed
 
+- Roadmap refresh 2026-11-27: queued **`get_task_history` as an MCP App** under P2. MCP Apps is the protocol's official UI extension, rendered by Claude, ChatGPT, VS Code and Goose, and its `ext-apps` 2.x package (2.0.4 on 2026-10-27) is built on the TypeScript SDK v2 the MCP server moved to on 2026-10-30, so a run-history view no longer needs a second SDK line.
 - **`api-architect` is no longer copied into this repo** (2026-11-27). It's a generic API design skill, and the same file also sat in `enclave` and the lab's agent hub. The one copy now lives at user scope like `code-reviewer` and the rest of the generic set (org skills audit R4). `AGENTS.md` and `CLAUDE.md` say so.
 - Source scout 2026-11-24: queued Devin Automations (read-only observer); watching Grok Automations (added), Hermes (re-checked, still no `--json`); quick links unchanged (all URLs answer; Cursor and Claude sit behind a login wall).
 - **Restore and template import check the token before reading the body** (2026-11-17). Both routes take a large JSON body (32 MB and 8 MB) and used to parse it before `authenticateToken` ran, so a caller with no token still got the parse. The token is now checked first; a test in `auth.integration.test.ts` holds it.

@@ -27,6 +27,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Changed
 
+- **`api-architect` is no longer copied into this repo** (2026-11-27). It's a generic API design skill, and the same file also sat in `enclave` and the lab's agent hub. The one copy now lives at user scope like `code-reviewer` and the rest of the generic set (org skills audit R4). `AGENTS.md` and `CLAUDE.md` say so.
 - Source scout 2026-11-24: queued Devin Automations (read-only observer); watching Grok Automations (added), Hermes (re-checked, still no `--json`); quick links unchanged (all URLs answer; Cursor and Claude sit behind a login wall).
 - **Restore and template import check the token before reading the body** (2026-11-17). Both routes take a large JSON body (32 MB and 8 MB) and used to parse it before `authenticateToken` ran, so a caller with no token still got the parse. The token is now checked first; a test in `auth.integration.test.ts` holds it.
 - **The Windows agent ignores a working directory on task create** (2026-11-16). The create command's signature never covered it, yet the agent honoured one riding in the action. Create now registers the task with no working directory; edit sets it, and that field is signed. No wire change.

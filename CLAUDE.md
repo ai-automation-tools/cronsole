@@ -13,7 +13,7 @@ is specific to Claude Code. Section numbers match the ones `AGENTS.md` and the d
   non-trivial.
 
 Both live in [`.claude/commands/`](.claude/commands/), alongside the three in-repo subagents in
-`.claude/agents/` and the `api-architect` and `release-engineering` skills in `.claude/skills/`.
+`.claude/agents/` and the `release-engineering` skill in `.claude/skills/` (`api-architect` is at user scope).
 
 ### 8a. Project-local `.claude/`
 

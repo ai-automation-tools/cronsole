@@ -122,10 +122,10 @@ skill**.
 `web-performance-optimization` · `senior-devops` · `release-engineering` (installers, signing,
 versioning, go-public) · `claude-api` / `agent-tool-builder` (MCP work) · `github-readme` ·
 `update-docs`.
-Six are in this repo: `cronsole`, `source-doctor` and the two job skills below (tracked in `skills/`, linked into
-`.claude/skills/`), and `release-engineering` and `api-architect` (in `.claude/skills/`). The rest moved to
-**user scope** (`~/.claude/skills/`, `~/.claude/commands/`) on 2026-08-23 and are available in every
-repo — don't re-add copies here.
+Five are in this repo: `cronsole`, `source-doctor` and the two job skills below (tracked in `skills/`, linked into
+`.claude/skills/`), and `release-engineering` (in `.claude/skills/`). The rest live at
+**user scope** (`~/.claude/skills/`, `~/.claude/commands/`; moved 2026-08-23, `api-architect` 2026-11-27) and are
+available in every repo — don't re-add copies here.
 `cronsole-windows-jobs` and `cronsole-claude-routines` are tracked in `skills/` too (moved from
 `agent-skills` on 2026-11-27; this repo is their source). They cover **designing the jobs Cronsole
 schedules**, which is not what the `cronsole` skill covers and not a place to move any of its content

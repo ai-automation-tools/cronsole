@@ -99,6 +99,22 @@ jobs:
             echo "::endgroup::"
           done
 
+  skill-scripts:
+    name: Skill helper scripts (${{ matrix.os }})
+    # The helpers skills/cronsole-windows-jobs ships (job wrapper, registrar, hidden launcher),
+    # run against fixture jobs in a temp dir. Windows also checks the registrar and the .vbs
+    # launcher, and registers then removes one real task under \SkillTests\.
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Run skill script tests
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/test-skill-scripts.ps1
+
   backend:
     name: Backend tests and build
     runs-on: ubuntu-latest

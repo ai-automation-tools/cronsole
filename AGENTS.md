@@ -122,16 +122,14 @@ skill**.
 `web-performance-optimization` · `senior-devops` · `release-engineering` (installers, signing,
 versioning, go-public) · `claude-api` / `agent-tool-builder` (MCP work) · `github-readme` ·
 `update-docs`.
-Only four are in this repo: `cronsole` and `source-doctor` (tracked in `skills/`, linked into
+Six are in this repo: `cronsole`, `source-doctor` and the two job skills below (tracked in `skills/`, linked into
 `.claude/skills/`), and `release-engineering` and `api-architect` (in `.claude/skills/`). The rest moved to
 **user scope** (`~/.claude/skills/`, `~/.claude/commands/`) on 2026-08-23 and are available in every
 repo — don't re-add copies here.
-Two more are an **overlay installed from outside** and may or may not be present on a given clone:
-`cronsole-windows-jobs` and `cronsole-claude-routines`, in
-[`ai-automation-tools/agent-skills` › `skills/projects/cronsole/`](https://github.com/ai-automation-tools/agent-skills/tree/main/skills/projects/cronsole).
-They cover **designing the jobs Cronsole schedules** — which is not what the `cronsole` skill covers,
-and not a place to move any of its content to. Don't vendor copies into `skills/`; that repo is
-canonical and a second copy would drift silently.
+`cronsole-windows-jobs` and `cronsole-claude-routines` are tracked in `skills/` too (moved from
+`agent-skills` on 2026-11-27; this repo is their source). They cover **designing the jobs Cronsole
+schedules**, which is not what the `cronsole` skill covers and not a place to move any of its content
+to. `scripts/test-skill-scripts.ps1` tests the helper scripts `cronsole-windows-jobs` ships.
 **Commands** (Claude Code): `/doctor` and `/sync-surfaces` — see [`CLAUDE.md`](CLAUDE.md). Without
 Claude Code, their steps are plain markdown in `.claude/commands/`.
 

@@ -1,4 +1,4 @@
-# Tracking Claude routines in Cronsole
+# Tracking Claude Code scheduled tasks in Cronsole
 
 > What the `CLAUDE_CODE` source can and cannot do, why the answer changes between installs, and what
 > each reading on screen actually means.

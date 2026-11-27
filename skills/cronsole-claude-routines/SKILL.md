@@ -1,7 +1,7 @@
 ---
 name: cronsole-claude-routines
 description: >-
-  Design, create and track a Claude Code cloud routine (now called a scheduled task) — a scheduled agent run on Anthropic's
+  Design, create and track a Claude Code scheduled task (formerly a cloud routine) — a scheduled agent run on Anthropic's
   infrastructure that opens a pull request — and connect it to Cronsole's CLAUDE_CODE source. Use
   whenever the user wants a recurring cloud agent, a scheduled Claude routine, a weekly drift check,
   or a docs/catalog refresh that runs by itself; whenever they want to list, pause, edit, retire or
@@ -10,7 +10,7 @@ description: >-
   agent job belongs in the cloud or on a local machine before building it.
 ---
 
-# Claude Code routines — scheduled agents in the cloud
+# Claude Code scheduled tasks — agents on a schedule in the cloud
 
 > [!NOTE]
 > Anthropic renamed routines to **scheduled tasks**, and Cronsole's UI and docs now say so. This skill

@@ -2,8 +2,8 @@
 
 > Agent instructions for **Cronsole** — a single pane of glass for scheduled tasks across Windows
 > Task Scheduler, Cronsole-native jobs, and Claude Code scheduled tasks. This file is canonical for every
-> coding agent (Codex, opencode, Antigravity, Claude Code); [`CLAUDE.md`](CLAUDE.md) imports it and
-> adds only what is specific to Claude Code (slash commands, the project-local `.claude/`).
+> coding agent (Codex, opencode, Antigravity, Claude Code); what is specific to Claude Code (slash
+> commands, the project-local `.claude/`) is under [*Claude Code only*](#claude-code-only) at the end.
 > Overrides any parent-workspace or user-scope `AGENTS.md` / `CLAUDE.md` where they conflict.
 
 **Repo:** [`github.com/ai-automation-tools/cronsole`](https://github.com/ai-automation-tools/cronsole) ·
@@ -31,7 +31,7 @@ optional P3 item ([Remote Access Guide](docs/user-guides/guides/Remote_Access_Gu
 > **The section numbers below are deliberately non-contiguous.** Docs, the skill, the troubleshooting
 > log and `/sync-surfaces` cite **§8a**, **§9**, **§10** and **§11a** by number, so those numbers were
 > kept when this file was condensed. Gaps are the removed sections, not a mistake. **§8a** (the
-> project-local `.claude/`) is Claude-only and lives in [`CLAUDE.md`](CLAUDE.md).
+> project-local `.claude/`) is Claude-only and lives under [*Claude Code only*](#claude-code-only) at the end.
 
 ---
 
@@ -130,7 +130,7 @@ available in every repo — don't re-add copies here.
 `agent-skills` on 2026-11-27; this repo is their source). They cover **designing the jobs Cronsole
 schedules**, which is not what the `cronsole` skill covers and not a place to move any of its content
 to. `scripts/test-skill-scripts.ps1` tests the helper scripts `cronsole-windows-jobs` ships.
-**Commands** (Claude Code): `/doctor` and `/sync-surfaces` — see [`CLAUDE.md`](CLAUDE.md). Without
+**Commands** (Claude Code): `/doctor` and `/sync-surfaces` — see [*Claude Code only*](#claude-code-only). Without
 Claude Code, their steps are plain markdown in `.claude/commands/`.
 
 **Subagents:** `native-agent-engineer` (anything under `agent/`, incl. the coming launchd agent) ·
@@ -1082,3 +1082,26 @@ Tracked in **Open decisions** in [`docs/ROADMAP.md`](docs/ROADMAP.md) — keep t
 *Condensed 2026-08-17 from a 601-line original, preserved verbatim at
 [`docs/DESIGN_NOTES.md`](docs/DESIGN_NOTES.md). No rule was dropped; the reasoning behind each moved
 there. When a rule changes, update it here — updating the long form is optional.*
+
+## Claude Code only
+
+### 8. Commands
+
+- **`/doctor`**: stale processes, agent connectivity, `CRONSOLE_TOKEN`. Run it before debugging your
+  own code.
+- **`/sync-surfaces`**: the §11a drift check, mechanized. Run it before committing anything
+  non-trivial.
+
+Both live in [`.claude/commands/`](.claude/commands/), alongside the three in-repo subagents in
+`.claude/agents/` and the `release-engineering` skill in `.claude/skills/` (`api-architect` is at user scope).
+
+#### 8a. Project-local `.claude/`
+
+Only `agents/`, `commands/`, and `skills/` are tracked — `.gitignore` denies `/.claude/*` and
+re-includes those three, so per-machine noise (`settings.local.json`, `temp/`, IDE state) can never be
+committed by accident. `.claude/skills/cronsole` is a per-machine **junction** to the tracked
+[`skills/cronsole/`](skills/README.md), created by `scripts/setup-skill-links.ps1` (run once per fresh
+clone). **Always edit `skills/cronsole/`, never through the link**, and give each linked skill a
+`/.claude/skills/<name>/` line in `.gitignore` or git follows the junction and commits the content
+twice. **A dangling junction is not an error, it is an absence** — Claude Code loads no skill and says
+nothing.

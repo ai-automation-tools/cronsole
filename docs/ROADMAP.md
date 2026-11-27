@@ -2445,6 +2445,20 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
       automatic backups (backend writes, not the elevated agent) · snapshot diff ("what changed
       since your last backup"). Rule for the tab: everything on it must be genuinely cross-cutting,
       or it is a junk drawer.
+- [ ] **`get_task_history` as an MCP App** *(roadmap refresh 2026-11-27)*. **What:** the tool also
+      declares an MCP Apps view (`_meta.ui.resourceUri` pointing at a `ui://cronsole/run-history`
+      resource served as `text/html;profile=mcp-app`, registered with `registerAppTool` /
+      `registerAppResource` from `@modelcontextprotocol/ext-apps` 2.x, which is built on the
+      TypeScript SDK v2 this server moved to on 2026-10-30), so a host that renders MCP Apps (Claude,
+      ChatGPT, VS Code, Goose) shows a task's runs as a table: status, when it ran, how long it took.
+      A host without MCP Apps gets today's text and `structuredContent`, unchanged. The view only draws
+      the result it is handed: it calls no tool and holds no logic, so the "owns no logic" rule and
+      `READ_ONLY_TOOLS` stay as they are. One new dependency in `mcp-server/package.json`.
+      **Done when:** an `mcp-server` vitest lists the `ui://` resource with the MCP App MIME type,
+      `tools/list` carries the tool's `_meta.ui.resourceUri`, and the text result is the same as
+      before; the MCP Server Guide and both tool tables say which hosts show the view.
+      (source: <https://blog.modelcontextprotocol.io/posts/2026-01-26-mcp-apps/>, 2026-01-26;
+      <https://www.npmjs.com/package/@modelcontextprotocol/ext-apps>, 2026-10-27)
 
 ---
 

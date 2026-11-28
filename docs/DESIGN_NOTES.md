@@ -1,13 +1,13 @@
 # Cronsole — Design Notes (long form)
 
-> **This is the reasoning archive, not the instruction file.** [`CLAUDE.md`](../CLAUDE.md) at the repo
+> **This is the reasoning archive, not the instruction file.** [`AGENTS.md`](../AGENTS.md) at the repo
 > root is the short, operational version an agent reads every session; this file is the full-length
 > original it was condensed from on **2026-08-17**, kept verbatim because most of its length is
 > *why* — the arguments, the failures that produced each rule, and the wrong turns that are worth
 > not repeating.
 >
-> **When they disagree, `CLAUDE.md` and the docs win.** A rule that changes must be updated in
-> `CLAUDE.md`; updating it here as well is optional. Read this when you need the rationale behind an
+> **When they disagree, `AGENTS.md` and the docs win.** A rule that changes must be updated in
+> `AGENTS.md`; updating it here as well is optional. Read this when you need the rationale behind an
 > invariant — before arguing with one, and before removing one.
 >
 > Sections below are the pre-condensation text as of 2026-08-17.

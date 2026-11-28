@@ -1388,5 +1388,34 @@ namespace Cronsole.Agent.Tests
             // a backend that refuses the old value.
             AgentService.ProtocolVersion.Should().Be(2);
         }
+
+        [Fact]
+        public async Task Safe_swallows_and_logs_an_exception_thrown_after_an_await()
+        {
+            // Without the wrapper an `async response =>` handler is async void, and a
+            // throw after the first await has no caller: it ends the process (A8).
+            var original = Console.Out;
+            var captured = new System.IO.StringWriter();
+            Console.SetOut(captured);
+            try
+            {
+                var handler = AgentService.Safe("task:boom", async _ =>
+                {
+                    await Task.Yield();
+                    throw new InvalidOperationException("kaboom");
+                });
+
+                handler(Mock.Of<ISocketResponse>());
+
+                for (var i = 0; i < 100 && !captured.ToString().Contains("kaboom"); i++)
+                    await Task.Delay(20);
+
+                captured.ToString().Should().Contain("task:boom").And.Contain("kaboom");
+            }
+            finally
+            {
+                Console.SetOut(original);
+            }
+        }
     }
 }

@@ -232,20 +232,49 @@ namespace Cronsole.Agent
             };
         }
 
+        /// <summary>
+        /// Wraps an event handler so nothing it throws can escape. The socket takes an
+        /// <c>Action</c>, so an <c>async</c> lambda is <c>async void</c>: an exception
+        /// after the first await (or in a catch block that emits) has no caller to
+        /// land on and ends the process until the self-heal restarts it.
+        /// </summary>
+        public static Action<ISocketResponse> Safe(string eventName, Func<ISocketResponse, Task> handler)
+        {
+            return async response =>
+            {
+                try
+                {
+                    await handler(response);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Unhandled error in {eventName} handler: {ex.Message}");
+                }
+            };
+        }
+
         private void SetupSocketEvents()
         {
             _socket.OnConnected += async () =>
             {
                 Console.WriteLine("Connected to Cronsole server!");
 
-                // Announce ourselves
-                await _socket.EmitAsync("agent:hello", new[] { new {
-                    machineName = Environment.MachineName,
-                    agentVersion = AgentVersion,
-                    protocolVersion = ProtocolVersion,
-                    osVersion = Environment.OSVersion.ToString(),
-                    elevated = IsElevated
-                }});
+                // Announce ourselves. async void: a throw here (the socket dropped
+                // between connect and emit) would end the process, so it is caught.
+                try
+                {
+                    await _socket.EmitAsync("agent:hello", new[] { new {
+                        machineName = Environment.MachineName,
+                        agentVersion = AgentVersion,
+                        protocolVersion = ProtocolVersion,
+                        osVersion = Environment.OSVersion.ToString(),
+                        elevated = IsElevated
+                    }});
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"agent:hello failed: {ex.Message}");
+                }
             };
 
             _socket.OnDisconnected += () =>
@@ -254,7 +283,7 @@ namespace Cronsole.Agent
             };
 
             // Event: task:list (Server requested a full sync)
-            _socket.On("task:list", async response =>
+            _socket.On("task:list", Safe("task:list", async response =>
             {
                 Console.WriteLine("Server requested task:list. Syncing...");
                 try
@@ -296,12 +325,12 @@ namespace Cronsole.Agent
                 {
                     Console.WriteLine($"Error during sync: {ex.Message}");
                 }
-            });
+            }));
 
             // Event: task:folders (Server requested the real Task Scheduler folder
             // list so the UI can offer actual folders instead of assuming \Cronsole.
             // Read-only, so no per-command signature, mirroring task:list.)
-            _socket.On("task:folders", async _ =>
+            _socket.On("task:folders", Safe("task:folders", async _ =>
             {
                 try
                 {
@@ -339,7 +368,7 @@ namespace Cronsole.Agent
                     }
                     catch { /* socket gone — server's timeout covers it */ }
                 }
-            });
+            }));
 
             // Event: task:history (Server requested WHY a task's runs went the way
             // they did. Read-only, so no per-command signature, mirroring task:list
@@ -349,7 +378,7 @@ namespace Cronsole.Agent
             // its exit code. Everything else on the dashboard publishes a real
             // outcome; Windows publishes an integer, and the detail lives in an
             // event log the task object knows nothing about.
-            _socket.On("task:history", async response =>
+            _socket.On("task:history", Safe("task:history", async response =>
             {
                 var taskPath = "";
                 try
@@ -407,11 +436,11 @@ namespace Cronsole.Agent
                     }
                     catch { /* socket gone — server's timeout covers it */ }
                 }
-            });
+            }));
 
             // Event: task:export (Server requested a task's native XML — read-only,
             // so no per-command signature, mirroring task:list).
-            _socket.On("task:export", async response =>
+            _socket.On("task:export", Safe("task:export", async response =>
             {
                 var taskPath = "";
                 try
@@ -442,13 +471,13 @@ namespace Cronsole.Agent
                     }
                     catch { /* socket gone — server's timeout covers it */ }
                 }
-            });
+            }));
 
             // Event: task:import (Server commanded us to register a task from its
             // native XML — the restore half of task:export). Unlike task:export this
             // one WRITES, so it is signed like every other write verb, and the XML
             // itself is inside the signature (by hash) because the XML *is* the task.
-            _socket.On("task:import", async response =>
+            _socket.On("task:import", Safe("task:import", async response =>
             {
                 var taskPath = "";
                 try
@@ -500,10 +529,10 @@ namespace Cronsole.Agent
                     }
                     catch { /* socket gone — server's 15s timeout covers it */ }
                 }
-            });
+            }));
 
             // Event: task:set_status (Server commanded us to enable/disable a task)
-            _socket.On("task:set_status", async response =>
+            _socket.On("task:set_status", Safe("task:set_status", async response =>
             {
                 var taskPath = "";
                 var enabled = false;
@@ -555,10 +584,10 @@ namespace Cronsole.Agent
                     }
                     catch { /* socket gone */ }
                 }
-            });
+            }));
 
             // Event: task:run (Server commanded us to run a task)
-            _socket.On("task:run", async response =>
+            _socket.On("task:run", Safe("task:run", async response =>
             {
                 // Parse inside the try: this is an async-void handler, so an
                 // exception on a malformed frame would otherwise tear down the process.
@@ -608,10 +637,10 @@ namespace Cronsole.Agent
                     Console.WriteLine($"Error running task: {ex.Message}");
                     await EmitRunFailedAsync(taskPath, DescribeRunFailure(ex));
                 }
-            });
+            }));
 
             // Event: task:delete (Server commanded us to remove a task)
-            _socket.On("task:delete", async response =>
+            _socket.On("task:delete", Safe("task:delete", async response =>
             {
                 // Parse inside the try — same async-void malformed-frame guard as task:run.
                 var taskPath = "";
@@ -666,10 +695,10 @@ namespace Cronsole.Agent
                     }
                     catch { /* socket gone — server's 15s timeout covers it */ }
                 }
-            });
+            }));
 
             // Event: task:create (Server commanded us to create a new task)
-            _socket.On("task:create", async response =>
+            _socket.On("task:create", Safe("task:create", async response =>
             {
                 // Hoisted out of the try so the failure path can echo the REAL name.
                 // The server matches task:created on payload.name; emitting "unknown"
@@ -790,10 +819,10 @@ namespace Cronsole.Agent
                         message = ex.Message
                     }});
                 }
-            });
+            }));
 
             // Event: task:update_schedule (Server commanded us to change a task's trigger)
-            _socket.On("task:update_schedule", async response =>
+            _socket.On("task:update_schedule", Safe("task:update_schedule", async response =>
             {
                 // Parse inside the try — async-void malformed-frame guard as elsewhere.
                 var taskPath = "";
@@ -858,10 +887,10 @@ namespace Cronsole.Agent
                     }
                     catch { /* socket gone — server's 15s timeout covers it */ }
                 }
-            });
+            }));
 
             // Event: task:update (Server commanded us to change a task's action + settings)
-            _socket.On("task:update", async response =>
+            _socket.On("task:update", Safe("task:update", async response =>
             {
                 // Parse inside the try — async-void malformed-frame guard as elsewhere.
                 var taskPath = "";
@@ -936,7 +965,7 @@ namespace Cronsole.Agent
                     }
                     catch { /* socket gone — server's 15s timeout covers it */ }
                 }
-            });
+            }));
         }
     }
 }

@@ -1,6 +1,6 @@
 {
   "registryVersion": "1.0",
-  "updatedAt": "2026-11-19T22:01:29.551Z",
+  "updatedAt": "2026-11-26T22:01:29.741Z",
   "templates": [
     {
       "id": "tpl_daily_database_backup",
@@ -1992,6 +1992,82 @@
       "sha256": "81b4bfbd796e0cc30d5b95f07476ef5f521bd10429b3d18152da07f8fda59ab2"
     },
     {
+      "id": "mon-bitlocker-status",
+      "name": "Log BitLocker Volume Status",
+      "description": "Append the protection state and encryption percentage of every BitLocker volume to a log on a schedule, so a drive whose encryption was suspended or never finished leaves a dated record instead of being discovered after a loss.",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "security",
+        "bitlocker"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/mon-bitlocker-status.json",
+      "sha256": "f80f6b0111a270597740161a6a598e153d2375f1db57e3b7f8af45c969356bdb"
+    },
+    {
+      "id": "mon-startup-items-snapshot",
+      "name": "Log Windows Startup Programs",
+      "description": "Append the list of programs Windows starts at logon, with the command and registry or folder location each comes from, to a log on a schedule. Diffing two snapshots shows a program that quietly added itself to startup.",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "security",
+        "startup"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/mon-startup-items-snapshot.json",
+      "sha256": "7d7e26927cc183a8414b1a45b8e2442eaec8bdd89fef1b634bba6943c4f8bdc7"
+    },
+    {
+      "id": "mon-hosts-file-hash",
+      "name": "Log Windows Hosts File Hash",
+      "description": "Append the SHA-256 hash of the Windows hosts file to a log on a schedule. The file silently redirects hostnames, so a hash that changes between entries reveals an edit by malware or an installer that nothing else recorded.",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "security",
+        "integrity"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/mon-hosts-file-hash.json",
+      "sha256": "0710b965049b71c4c489e95ac42da86ead56c5e59fb99c987c1718c2500b2d35"
+    },
+    {
+      "id": "mon-macos-disk-free",
+      "name": "Log macOS Disk Free Space",
+      "description": "Append the size, used space and free space of a volume to a log file on a schedule, so a Mac that is slowly filling up leaves a trend you can read before updates and backups start failing for lack of room.",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "macos",
+        "disk",
+        "report"
+      ],
+      "runtime": "bash",
+      "os": "macos",
+      "compatibleTargets": [
+        "macos"
+      ],
+      "path": "templates/mon-macos-disk-free.json",
+      "sha256": "8bc4214c2b342455ae38cac7bbabc489b03ea46de3d3b7aecd1e89da9e3297dd"
+    },
+    {
       "id": "native-run-program",
       "name": "Run a Program (Cronsole)",
       "description": "Run any executable with arguments on the machine hosting Cronsole — no agent, no Task Scheduler entry. Cronsole schedules and runs it itself.",
@@ -2846,6 +2922,10 @@
         "mon-windows-cert-expiry",
         "mon-defender-signature-age",
         "mon-macos-filevault-status",
+        "mon-bitlocker-status",
+        "mon-startup-items-snapshot",
+        "mon-hosts-file-hash",
+        "mon-macos-disk-free",
         "native-check-healthchecks-badge",
         "native-script-content-freshness",
         "native-script-domain-expiry",
@@ -2854,7 +2934,7 @@
         "tpl_starter_webhook_macos"
       ],
       "path": "packs/monitoring.json",
-      "sha256": "0821a8a9b6640066878cf8602886ddb7d9e3884e8182e1736dfb9ef6da6c376c"
+      "sha256": "d5e060c017163c794e0574cb216783d2c58670cb6e6bfa0f46ebb2317f8867b4"
     },
     {
       "id": "cronsole-native",

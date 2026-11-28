@@ -600,6 +600,150 @@
     },
     {
       "schemaVersion": "1.0",
+      "id": "mon-bitlocker-status",
+      "name": "Log BitLocker Volume Status",
+      "description": "Append the protection state and encryption percentage of every BitLocker volume to a log on a schedule, so a drive whose encryption was suspended or never finished leaves a dated record instead of being discovered after a loss.",
+      "runtime": "powershell",
+      "os": "windows",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "security",
+        "bitlocker"
+      ],
+      "icon": "Lock",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 8 * * 1"
+      },
+      "commandTemplate": "powershell.exe -NoProfile -Command \"Get-BitLockerVolume | Select-Object MountPoint, ProtectionStatus, VolumeStatus, EncryptionPercentage | Out-File -Append '{{logPath}}'\"",
+      "parameters": [
+        {
+          "key": "logPath",
+          "label": "Log file path",
+          "type": "path",
+          "default": "C:\\logs\\bitlocker-status.log",
+          "required": true,
+          "help": "Where to append the volume states on each run. Reading BitLocker needs administrator rights, so the Windows task must run elevated or the log stays empty and the task reports an error."
+        }
+      ],
+      "compatibleTargets": [
+        "windows"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "mon-startup-items-snapshot",
+      "name": "Log Windows Startup Programs",
+      "description": "Append the list of programs Windows starts at logon, with the command and registry or folder location each comes from, to a log on a schedule. Diffing two snapshots shows a program that quietly added itself to startup.",
+      "runtime": "powershell",
+      "os": "windows",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "security",
+        "startup"
+      ],
+      "icon": "ListChecks",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 6 * * 1"
+      },
+      "commandTemplate": "powershell.exe -NoProfile -Command \"Get-CimInstance Win32_StartupCommand | Select-Object Name, Command, Location | Out-File -Append '{{logPath}}'\"",
+      "parameters": [
+        {
+          "key": "logPath",
+          "label": "Log file path",
+          "type": "path",
+          "default": "C:\\logs\\startup-items.log",
+          "required": true,
+          "help": "Where to append the snapshot on each run. Each run adds the whole list again, so compare the latest block with the one before it to spot a new entry."
+        }
+      ],
+      "compatibleTargets": [
+        "windows"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "mon-hosts-file-hash",
+      "name": "Log Windows Hosts File Hash",
+      "description": "Append the SHA-256 hash of the Windows hosts file to a log on a schedule. The file silently redirects hostnames, so a hash that changes between entries reveals an edit by malware or an installer that nothing else recorded.",
+      "runtime": "powershell",
+      "os": "windows",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "security",
+        "integrity"
+      ],
+      "icon": "ShieldCheck",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 7 * * *"
+      },
+      "commandTemplate": "powershell.exe -NoProfile -Command \"Get-FileHash C:/Windows/System32/drivers/etc/hosts -Algorithm SHA256 | Select-Object Hash, Path | Out-File -Append '{{logPath}}'\"",
+      "parameters": [
+        {
+          "key": "logPath",
+          "label": "Log file path",
+          "type": "path",
+          "default": "C:\\logs\\hosts-hash.log",
+          "required": true,
+          "help": "Where to append the hash on each run. The hash alone does not say what changed, so keep a copy of the file you trust to compare against when it differs."
+        }
+      ],
+      "compatibleTargets": [
+        "windows"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "mon-macos-disk-free",
+      "name": "Log macOS Disk Free Space",
+      "description": "Append the size, used space and free space of a volume to a log file on a schedule, so a Mac that is slowly filling up leaves a trend you can read before updates and backups start failing for lack of room.",
+      "runtime": "bash",
+      "os": "macos",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "macos",
+        "disk",
+        "report"
+      ],
+      "icon": "HardDrive",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 8 * * *"
+      },
+      "commandTemplate": "/bin/bash -c \"df -h {{volumePath}} >> {{logPath}} 2>&1\"",
+      "parameters": [
+        {
+          "key": "volumePath",
+          "label": "Volume path",
+          "type": "path",
+          "default": "/",
+          "required": true,
+          "help": "The mount point to report on, for example / for the startup disk or /Volumes/Backup for an external drive."
+        },
+        {
+          "key": "logPath",
+          "label": "Log file path",
+          "type": "path",
+          "default": "/usr/local/var/log/disk-free.log",
+          "required": true,
+          "help": "Where to append the usage line on each run. Each entry repeats the column headings, so the file stays readable on its own."
+        }
+      ],
+      "compatibleTargets": [
+        "macos"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
       "id": "native-check-healthchecks-badge",
       "name": "Healthchecks.io Status Check (Cronsole)",
       "description": "Read a Healthchecks.io status badge and fail the run unless every check behind it is up — a second, independent reader for a cron fleet that runs somewhere else, so a silent outage shows up in Cronsole instead of waiting on an alert email.",

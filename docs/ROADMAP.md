@@ -1548,8 +1548,8 @@ components over 1,000 lines.
 - [x] **Agent: ignore `workingDirectory` on create, or sign it** [A7]. It is honoured and unsigned.
       Signing it is a wire change (protocol 3); ignoring it is not. — done 2026-11-16: `ReadAction` no longer reads it, so create ignores it
       (update still takes it as a signed top-level field); `TaskCreate_Event_IgnoresUnsignedWorkingDirectory` pins it. No wire change.
-- [ ] `small` **Agent: no handler may throw unhandled** [A8]. Two async-void handlers can end the
-      process until the self-heal restarts it.
+- [x] `small` **Agent: no handler may throw unhandled** [A8]. Two async-void handlers can end the
+      process until the self-heal restarts it. — done 2026-11-27: `AgentService.Safe` wraps all 11 `_socket.On` handlers and the `OnConnected` hello in a catch-and-log; `Safe_swallows_and_logs_an_exception_thrown_after_an_await` pins it. No wire change; needs an agent republish.
 - [ ] `small` **Agent refuses a non-loopback `http://` server URL without an explicit override**
       [S21], and the MCP server warns for the same in `CRONSOLE_API_URL` [B7].
 - [ ] `small` **Boot does not wait on the registry fetch** [S15]. Add a timeout and stop awaiting it

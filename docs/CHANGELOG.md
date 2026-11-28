@@ -63,6 +63,8 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Fixed
 
+- **The Windows agent no longer ends when a socket handler fails** (2026-11-27). Every handler the agent registers, and the one that announces it on connect, now catches what it throws, logs it and carries on. Before, an error after a handler's first wait (a connection that dropped mid-reply) could stop the agent until the 5-minute self-heal restarted it. Republish the agent to pick it up.
+
 - **The front door's search box no longer zooms on a phone** (2026-11-22). Below 620px, `registry-site/index.html` sets the header's *Search templates* field to 16px; at 13px iOS zoomed into it on focus, and the org's live site check (*usable on a phone*, ai-automation-tools.github.io#74) failed on it.
 - **An expired session no longer wipes what you were typing** (2026-11-13). When your sign-in runs out while the app is open, the login box now appears over the page instead of replacing it; sign in again and you are back where you were, with an open form still filled in. If a *different* account signs in, the page reloads so it cannot show the first account's data.
 - **Native tasks showed no next run, and never counted as *Due today*** (2026-11-13). The dashboard read a task's next run only from platform metadata, which some sources never fill, and ignored the `nextRunTime` value Cronsole stores for every task. It now reads that first.

@@ -23,32 +23,14 @@ model, invariants, and hard-won traps **before** it starts editing.
 |:---|:---|
 | [**🗓️ cronsole/**](cronsole/SKILL.md) | The whole system: architecture, the agent protocol, the template registry, testing layers, and the traps. Routes to canonical docs rather than duplicating them. |
 | [**🩺 source-doctor/**](source-doctor/SKILL.md) | A full test-and-fix session across every connected source, using the live `cronsole` MCP tools — classifies a "failed" task against known false signals before proposing a fix. |
+| [**🪟 cronsole-windows-jobs/**](cronsole-windows-jobs/SKILL.md) | The four archetypes a Windows Task Scheduler job turns out to be — an unattended agent CLI run, a wrapped maintenance script, a service watchdog, a plain command — plus a runnable wrapper and registrar, and how to verify a job actually works rather than merely reports that it did. |
+| [**☁️ cronsole-claude-routines/**](cronsole-claude-routines/SKILL.md) | Claude scheduled tasks (formerly routines) in the cloud: the four task types, the prompt contract an unattended prompt needs, and Cronsole's dual-mode `CLAUDE_CODE` connector. |
 
-## 🌍 More Cronsole skills, in the skills repo
-
-Two further skills live outside this repo, in the org's skill library —
-**[`agent-skills` › `skills/projects/cronsole/`](https://github.com/ai-automation-tools/agent-skills/tree/main/skills/projects/cronsole)**.
-They are an **overlay**, not a replacement: nothing here is duplicated there, and nothing there
-replaces a skill in this folder.
-
-| Skill | What it gives an agent |
-|:---|:---|
-| [**🪟 cronsole-windows-jobs**](https://github.com/ai-automation-tools/agent-skills/tree/main/skills/projects/cronsole/cronsole-windows-jobs) | The four archetypes a Windows Task Scheduler job turns out to be — an unattended agent CLI run, a wrapped maintenance script, a service watchdog, a plain command — plus a runnable wrapper and registrar, and how to verify a job actually works rather than merely reports that it did. |
-| [**☁️ cronsole-claude-routines**](https://github.com/ai-automation-tools/agent-skills/tree/main/skills/projects/cronsole/cronsole-claude-routines) | Claude scheduled tasks (formerly routines) in the cloud: the four task types, the prompt contract an unattended prompt needs, and Cronsole's dual-mode `CLAUDE_CODE` connector. |
-
-**The split is deliberate.** The skills *here* teach an agent to work on **Cronsole's codebase**;
-those teach it to **design the jobs Cronsole schedules**. Different audience, different lifecycle —
-and the `cronsole` skill already covers the mechanics of *creating* a task once you know what you
-want, which is why they start one step earlier, at which shape the job should be.
-
-**To install them**, clone the skills repo and run its installer against this clone:
-
-```powershell
-pwsh scripts/install-skills.ps1 -Project cronsole -Destination <path-to-cronsole>/.claude/skills
-```
-
-They land flat as `.claude/skills/<name>/`, so give each one a `/.claude/skills/<name>/` line in
-this repo's `.gitignore` — same rule as the junctions below, and for the same reason.
+**The split is deliberate.** `cronsole` and `source-doctor` teach an agent to work on **Cronsole's
+codebase**; `cronsole-windows-jobs` and `cronsole-claude-routines` teach it to **design the jobs
+Cronsole schedules**, and start one step earlier, at which shape the job should be. The `cronsole`
+skill already covers the mechanics of *creating* a task once you know what you want. The two job
+skills moved here from `agent-skills` on 2026-11-27; this folder is now their source.
 
 ## ⚙️ Installing it — run one script
 

@@ -2445,6 +2445,20 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
       automatic backups (backend writes, not the elevated agent) · snapshot diff ("what changed
       since your last backup"). Rule for the tab: everything on it must be genuinely cross-cutting,
       or it is a junk drawer.
+- [ ] **`get_task_history` as an MCP App** *(roadmap refresh 2026-11-27)*. **What:** the tool also
+      declares an MCP Apps view (`_meta.ui.resourceUri` pointing at a `ui://cronsole/run-history`
+      resource served as `text/html;profile=mcp-app`, registered with `registerAppTool` /
+      `registerAppResource` from `@modelcontextprotocol/ext-apps` 2.x, which is built on the
+      TypeScript SDK v2 this server moved to on 2026-10-30), so a host that renders MCP Apps (Claude,
+      ChatGPT, VS Code, Goose) shows a task's runs as a table: status, when it ran, how long it took.
+      A host without MCP Apps gets today's text and `structuredContent`, unchanged. The view only draws
+      the result it is handed: it calls no tool and holds no logic, so the "owns no logic" rule and
+      `READ_ONLY_TOOLS` stay as they are. One new dependency in `mcp-server/package.json`.
+      **Done when:** an `mcp-server` vitest lists the `ui://` resource with the MCP App MIME type,
+      `tools/list` carries the tool's `_meta.ui.resourceUri`, and the text result is the same as
+      before; the MCP Server Guide and both tool tables say which hosts show the view.
+      (source: <https://blog.modelcontextprotocol.io/posts/2026-01-26-mcp-apps/>, 2026-01-26;
+      <https://www.npmjs.com/package/@modelcontextprotocol/ext-apps>, 2026-10-27)
 
 ---
 
@@ -2808,6 +2822,32 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
       and a paused-until-needed maintenance agent fired by *Run now*.
       Source: <https://developers.openai.com/api/docs/guides/agents-api/sessions/automations>.
 
+- [ ] 🔒 Needs owner — **Devin Automations — read-only observer** *(found by the Source Scout
+      2026-11-24)*. **What:** Devin (Cognition) runs recurring agent sessions from *Automations*, which
+      replaced its Schedules feature in 2026. **Why it is a door:** the v3 API lists them —
+      `GET /v3/organizations/{org_id}/automations` (plus get, create, `PATCH`, `DELETE`), bearer token
+      from a service user (`cog_…`) or personal access token, and the release notes say **reads need
+      `ViewOrgAutomations` and writes `ManageOrgAutomations`**, so a read-only key is documented. The
+      response carries `enabled`, `next_run_at` and `last_invocation` (`fired_at`, `status`:
+      `succeeded` | `failed` | `skipped`), so it **reports an outcome** (the latest one only; no
+      list-invocations call was found). **Not cron:** a `schedule:recurring` trigger is an iCalendar
+      `RRULE` evaluated in UTC, so a rule with no 5-field form (`INTERVAL`, `BYSETPOS`, multiple
+      `BYDAY` with a time) is `null` **with its reason**, never a guessed cron. No pause or run-now
+      endpoint was found (`enabled` on `PATCH` is likely the pause, unread), so ship as an observer.
+      **Rank:** outside any traffic ranking (a developer product); queued because it is a documented,
+      read-scoped list API on a coding agent, which is rarer than it should be. **Size:** about
+      Vercel-sized plus an RRULE reader. **Open questions:** (1) Automations must be enabled per
+      organization, so what does a disabled org return? (2) the older `/schedules` list still serves
+      unmigrated orgs (deprecated 2026-09-10) — read both, or only Automations? (3) is `enabled` on
+      `PATCH` a real pause, which would make it a controller? **Done when:** an automation made in
+      Devin appears with its cron (or its refusal reason), enabled state and last outcome, `access` is
+      declared, and the guide in `docs/user-guides/sources/` is written (**🎯 Best for**, **🧰
+      Capabilities at a glance**, **🚫 When to use something else**). *Best-for first draft:* a
+      weekday-morning dependency-bump session (the create page's own example is
+      `FREQ=WEEKLY;BYDAY=MO;BYHOUR=9;BYMINUTE=0`), a weekly flaky-test triage, and a nightly lint-fix
+      pass. Sources: <https://docs.devin.ai/api-reference/v3/automations/organizations-automations.md>,
+      <https://docs.devin.ai/api-reference/release-notes>.
+
 <a id="-watching--ai-tools-that-schedule-work-but-have-no-door-yet"></a>
 
 #### 👀 Watching — AI tools that schedule work but have no door yet
@@ -2819,8 +2859,17 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
   `pause`, `resume`, `run`, `runs`, `status`. **2026-11-10: a timezone is now documented** (a
   profile `timezone:` default, or `--timezone <IANA>` per job), which answers the old zone
   question. A third-party guide lists an API-server `GET /api/jobs` (list, pause, resume, run) but
-  the official page read does not, so it is unconfirmed. Checked 2026-11-10,
-  <https://hermes-agent.nousresearch.com/docs/user-guide/features/cron>.
+  the official page read does not, so it is unconfirmed. 2026-11-24: still no `--json` on `list` /
+  `runs` / `status` on either the cron guide or the cron-internals page; the only HTTP endpoints
+  named are writes (`POST /api/cron/jobs`, `POST /api/jobs`, `…/cancel`). Checked 2026-11-24,
+  <https://hermes-agent.nousresearch.com/docs/user-guide/features/cron>,
+  <https://hermes-agent.nousresearch.com/docs/developer-guide/cron-internals>.
+- **Grok Automations** (xAI; not in the top four of StatCounter's October 2026 pageview share, no
+  global figure found this run) — schedules: recurring Tasks /
+  Automations in the Grok app, per press coverage. Missing: any documented list API; the
+  `docs.x.ai` index (Inference, Collections, Management APIs) names none, and the Grok Bot
+  "skills, routines and automations" page was not opened. Checked 2026-11-24,
+  <https://docs.x.ai/llms.txt>, <https://docs.x.ai/grok-bot/skills-routines-and-automations.md>.
 - **Kimi** (rank not in the top four of Business Today's June 2026 visit ranking; no global figure
   found) — schedules: daily, weekly, monthly or one-time prompts, cloud or in the Kimi Work desktop
   app. Missing: any API or CLI; the help page mentions neither. Checked 2026-11-10 (unchanged),

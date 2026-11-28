@@ -17,7 +17,7 @@ versions are covered in [**⬇️ Installation**](../../install/README.md).
 
 | Tool | Used for |
 |:---|:---|
-| [**Claude Code**](https://claude.com/claude-code) | The AI development agent — runs skills, subagents, and MCP servers per [`CLAUDE.md`](../../../CLAUDE.md). |
+| [**Claude Code**](https://claude.com/claude-code) | The AI development agent — runs skills, subagents, and MCP servers per [`CLAUDE.md`](../../../AGENTS.md). |
 | [**Codex CLI**](https://developers.openai.com/codex) | OpenAI coding agent CLI. Cronsole templates use `codex --ask-for-approval never exec` for unattended scheduled runs with explicit sandboxing and captured output. |
 | [**docker / docker compose**](https://docs.docker.com/) | Bring up the dev stack (`docker compose --profile docker up --build`): Postgres + backend + frontend. Without the profile you get Postgres and Redis only — backend and frontend are opt-in. |
 | [**npm**](https://docs.npmjs.com/cli) | Install deps and run scripts for the frontend and backend (`npm install`, `npm run dev`, `npm start`). |

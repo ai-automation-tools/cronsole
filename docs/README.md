@@ -81,7 +81,7 @@ New to Cronsole? Follow this path in order:
 | [**📝 CHANGELOG.md**](CHANGELOG.md) | Notable changes to the repository. |
 | [**🔧 scripts/**](../scripts/README.md) | Operational scripts — including the logon auto-start launcher. |
 | [**📋 CONTRIBUTING.md**](../CONTRIBUTING.md) | Local setup, validation commands, and PR expectations. |
-| [**🤖 AGENTS.md**](../AGENTS.md) | Project conventions and instructions for every coding agent. [`CLAUDE.md`](../CLAUDE.md) imports it and adds the Claude Code commands. |
+| [**🤖 AGENTS.md**](../AGENTS.md) | Project conventions and instructions for every coding agent. [`CLAUDE.md`](../AGENTS.md) imports it and adds the Claude Code commands. |
 
 <p align="right">(<a href="#docs-top">back to top</a>)</p>
 
